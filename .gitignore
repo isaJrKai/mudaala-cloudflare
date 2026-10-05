@@ -1,0 +1,87 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+local-*
+.claude
+.z-ai-config
+*.log
+dev.log
+dev.out.log
+test
+!src/app/api/settings/postgres/test/
+!src/app/api/settings/postgres/test/**
+prompt
+
+# local runtime data — holds real data, never push
+/db/
+
+server.log
+# Skills directory
+/skills/
+# Deployment guide + its generators hold LIVE SECRETS — never commit
+/download/
+/scripts/generate-deployment-guide.js
+/scripts/guide-lib.js
+/scripts/postprocess-guide.py
+/tool-results/
+
+# IM gateway uploads (local only)
+/upload/
+
+# Task 5 local tooling
+/.pgtool/
+/.t4stage/
+/.t5stage/
+# Runtime photo uploads are data, not source: they live on disk (and later
+# in the bucket), never in git. Seed fixtures under public/uploads/seed/ stay
+# tracked — they are the removable placeholder set.
+public/uploads/*
+!public/uploads/seed/
+!public/uploads/seed/**
+
+# Local tooling and staging sandboxes - the operators' own workbenches, never
+# part of the app: .pgtool holds the local Postgres tooling (and its data
+# directory), .t4stage was a staging scratch space for an old task. Both stay
+# on disk, both stay out of git.
+.pgtool/
+.t4stage/

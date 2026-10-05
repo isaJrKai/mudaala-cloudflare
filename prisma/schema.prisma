@@ -1,0 +1,268 @@
+// Commerce OS - data model
+// The database is the single source of truth for listings, ownership and status.
+// PostgreSQL is the runtime store.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Render is a long-running IPv4 backend. Use Supabase Session Pooler (5432)
+  // for Prisma runtime connections. Transaction mode (6543) is intended for
+  // short-lived/serverless workloads.
+  url       = env("DIRECT_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String           @id @default(cuid())
+  phone        String           @unique // normalized E.164: +2567XXXXXXXX (Uganda)
+  name         String
+  country      String           @default("UG") // UG (Uganda is the launch market)
+  passwordHash String
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  lastHomeVisitAt DateTime? // marker for the Home dashboard's "new matches since last visit" stat
+
+  // PLACEHOLDER RULE - seed marker. Rows the seed script created are
+  // development fixtures, not real shops; scripts/remove-seed-data.ts
+  // deletes everything flagged true in one step before launch.
+  isSeed Boolean @default(false)
+
+  // Task 4 - legal acceptance: when the user confirmed "18+ and accept the
+  // Terms and Privacy Policy" and WHICH version they saw. NULL for accounts
+  // created before versioned terms existed.
+  termsAcceptedAt DateTime?
+  termsVersion    String?
+
+  sessions       Session[]
+  listings       Listing[]
+  savedSearches  SavedSearch[]
+  notifications  Notification[]
+  profile        BusinessProfile?
+  passwordResets PasswordReset[]
+  followingShops ShopFollow[] @relation("Follower")
+  shopFollowers ShopFollow[] @relation("ShopOwner")
+}
+
+model Session {
+  id        String   @id // opaque random token
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model BusinessProfile {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName String
+  photoUrl     String? // shop photo shown on listings and the About-the-seller card
+  // PLACEHOLDER RULE - see User.isSeed: seed shops and their photos are
+  // removable-in-one-step development fixtures.
+  isSeed       Boolean @default(false)
+  category     String?
+  description  String?
+  county       String?
+  area         String?
+  phone        String
+  whatsapp     String?
+  hours        String?
+  // Verification is NOT offered in V1. This flag stays false and no verified
+  // badge is rendered anywhere until a real verification process exists.
+  verified     Boolean @default(false)
+  // Public shop identity code (e.g. "MD-4821"). Auto-assigned once, then
+  // NEVER changed - buyers and printed QR posters rely on its stability.
+  shopCode     String? @unique
+  // Self-reported mobile-money merchant identity (MTN MoMo Pay / Airtel
+  // merchant code). Mudaala never touches the money: the pay sheet just
+  // hands the buyer the code and the dial string, and the telco's own
+  // confirmation screen is the name check. Nullable - most sellers start
+  // as plain wallet numbers. momoNetwork is required whenever a code is set.
+  momoMerchantCode String?
+  momoNetwork      String?
+  // The name the code brings: what the telco's confirmation screen shows
+  // when someone pays this code. Sellers type it at registration time and
+  // it can legitimately differ from the shop name (a person's name, an
+  // older trading name), so the buyer compares SCREEN to SHEET, not screen
+  // to shop name. Self-reported like the code, optional even with a code.
+  momoMerchantName String?
+  // Optional shop spot. The seller taps "Add my shop location" while standing
+  // AT the shop; the API rounds to 3 decimals (~100 m) BEFORE storing, so a
+  // precise home/private position can never exist server-side. Buyers only
+  // ever receive this blurred pair - enough to order "nearest" results.
+  lat          Float?
+  lng          Float?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Listing {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type             String // OFFER | REQUEST
+  title            String
+  description      String
+  category         String
+  price            Float? // in the listing's currency, null = "ask seller" / not disclosed
+  compareAtPrice   Float? // optional "was" price - shown struck-through as a discount when higher than price
+  currency         String    @default("UGX") // UGX
+  priceNegotiable  Boolean   @default(false)
+  unit             String? // per kg, per bag, ... (null when price is null)
+  quantity         Float?
+  county           String // district/region name (validated against the listing's country)
+  country          String    @default("UG") // UG
+  area             String?
+  contactPhone     String // normalized E.164
+  contactWhatsapp  String?
+  photos           String    @default("[]") // JSON array of image URLs (SQLite has no array type)
+  // PLACEHOLDER RULE - seed listings (and their /uploads/seed/ photos) are
+  // development fixtures; flagged so scripts/remove-seed-data.ts can wipe
+  // them in one step, and so sitemaps/OG never ship them as real content.
+  isSeed           Boolean   @default(false)
+  status           String    @default("ACTIVE") // ACTIVE | FULFILLED | EXPIRED | ARCHIVED | HIDDEN (moderation takedown; owner cannot self-restore)
+  viewCount        Int       @default(0)
+  publishedAt      DateTime  @default(now())
+  refreshedAt      DateTime  @default(now()) // drives freshness ordering
+  expiresAt        DateTime // refreshedAt + LISTING_ACTIVE_DAYS
+  expiringNotifiedAt DateTime? // dedup for "expiring soon" notifications
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([status, refreshedAt])
+  @@index([type, status])
+  @@index([category, status])
+  @@index([county, status])
+  @@index([userId, status])
+  @@index([expiresAt])
+}
+
+model SavedSearch {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  queryJson      String // serialized ListingQuery (shared schema with browse filters)
+  lastMatchCount Int      @default(0)
+  lastCheckedAt  DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // NEW_MATCH | LISTING_EXPIRED | LISTING_EXPIRING
+  title     String
+  body      String
+  listingId String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+}
+
+model AppSetting {
+  key       String   @id
+  value     String // JSON-encoded
+  updatedAt DateTime @updatedAt
+}
+
+// One SMS password-reset code. The 6-digit code itself is NEVER stored -
+// only its sha256 hash. A code lives 10 minutes, dies after 5 wrong
+// submissions (attempts, killed by setting usedAt), and is consumed by a
+// successful reset (usedAt). Only the newest unused code per user is valid:
+// requesting a new code retires the old one.
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String // sha256 hex of the 6-digit code
+  expiresAt DateTime // createdAt + 10 minutes
+  attempts  Int       @default(0) // wrong submissions so far
+  usedAt    DateTime? // consumed (success) or killed (5 wrong tries)
+  createdAt DateTime  @default(now())
+
+  @@index([userId, usedAt, expiresAt])
+}
+
+// A buyer's flag on an ad or a shop. Guests can report (identified by IP);
+// signed-in reporters are identified by user id. One OPEN report per
+// reporter per target - duplicates are answered with a friendly 409.
+// status: OPEN (awaiting review) | ACTIONED (admin acted on it) | DISMISSED
+model Report {
+  id          String   @id @default(cuid())
+  reporterId  String? // signed-in reporter; null = guest
+  reporterIp  String? // guest identifier for dedupe + daily cap (never rendered anywhere)
+  targetType  String // LISTING | SHOP
+  targetId    String
+  reason      String // SCAM | STOLEN_GOODS | PROHIBITED_ITEM | WRONG_INFO | OTHER
+  details     String? // optional free text, max 500 chars
+  status      String   @default("OPEN") // OPEN | ACTIONED | DISMISSED
+  createdAt   DateTime @default(now())
+
+  @@index([targetType, targetId, status])
+  @@index([status, createdAt])
+  @@index([reporterId, status])
+  @@index([reporterIp, status])
+}
+
+// Every moderation action leaves a row: who did it, what, on what. The
+// auto-hide (3 distinct reporters) logs with a null actorId - the system
+// itself acted. Admin hides, restores and dismisses log the admin's id.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String? // admin user id; null = automated (auto-hide)
+  action     String // HIDE_LISTING | RESTORE_LISTING | DISMISS_REPORT | AUTO_HIDE_LISTING
+  targetType String // LISTING | SHOP | REPORT
+  targetId   String
+  createdAt  DateTime @default(now())
+
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+}
+
+// Daily median asking price per category+unit, recorded by the cron sweep
+// from ACTIVE listings (only combos with sampleSize >= 5 - thinner samples
+// would trade honesty for a fuller chart). currency is part of the key on
+// purpose: a median across two currencies would be a fabricated number,
+// and the whole product refuses those.
+model PriceSnapshot {
+  id          String   @id @default(cuid())
+  date        String // "YYYY-MM-DD" (day the median was computed)
+  category    String
+  unit        String
+  currency    String // UGX
+  medianPrice Float
+  sampleSize  Int
+  createdAt   DateTime @default(now())
+
+  @@unique([date, category, unit, currency]) // upsert target - sweeps are idempotent
+  @@index([date])
+  @@index([category, unit, currency])
+}
+
+
+// A buyer follows a shop to keep that seller in their personal market.
+// The relationship is unique: one buyer can follow a shop once.
+model ShopFollow {
+  id         String   @id @default(cuid())
+  followerId String
+  shopOwnerId String
+  follower   User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  shopOwner  User     @relation("ShopOwner", fields: [shopOwnerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([followerId, shopOwnerId])
+  @@index([followerId, createdAt])
+  @@index([shopOwnerId, createdAt])
+}
