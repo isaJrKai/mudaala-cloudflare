@@ -1,0 +1,36 @@
+name: Live health smoke (read-only)
+
+on:
+  push:
+    branches: [verify/live-health-smoke]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check live app and database connection (read-only)
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 --retry-connrefused "$APP_URL/api/health")"
+          printf '%s' "$body" | node -e '
+            let raw = "";
+            process.stdin.on("data", chunk => raw += chunk);
+            process.stdin.on("end", () => {
+              const health = JSON.parse(raw);
+              console.log(JSON.stringify({
+                app: health.app,
+                database: health.database,
+                ok: health.ok,
+                time: health.time
+              }));
+              if (health.ok !== true || health.app !== "up" || health.database !== "up") {
+                process.exit(1);
+              }
+            });
+          '
