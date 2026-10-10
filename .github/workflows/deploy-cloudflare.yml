@@ -49,4 +49,8 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: 7d45a3db16c2ce332bf146d34eb01687
-          command: deploy --config wrangler.jsonc
+          # Let Wrangler follow the Vite plugin's generated deploy config at
+          # .wrangler/deploy/config.json. Passing --config here bypasses that
+          # generated config and makes Wrangler bundle vinext's raw entry,
+          # which cannot resolve the virtual modules created during Vite build.
+          command: deploy
