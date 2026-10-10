@@ -62,7 +62,8 @@ export async function POST(request: Request) {
 
     // Magic bytes, not the filename, decide acceptance.
     const head = new Uint8Array(await file.slice(0, 12).arrayBuffer())
-    if (!sniffImage(head)) {
+    const detectedType = sniffImage(head)
+    if (!detectedType) {
       throw new ApiError(400, 'That file is not a JPEG, PNG or WebP image')
     }
 
@@ -76,7 +77,8 @@ export async function POST(request: Request) {
       // Workers image primitives in production, retaining sharp only for the
       // Node.js development/test runtime.
       if (typeof createImageBitmap === 'function' && typeof OffscreenCanvas !== 'undefined') {
-        const bitmap = await createImageBitmap(new Blob([input], { type: file.type || 'application/octet-stream' }))
+        const mimeType = detectedType === 'jpg' ? 'image/jpeg' : `image/${detectedType}`
+        const bitmap = await createImageBitmap(new Blob([input], { type: mimeType }))
         try {
           const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height))
           const width = Math.max(1, Math.round(bitmap.width * scale))
