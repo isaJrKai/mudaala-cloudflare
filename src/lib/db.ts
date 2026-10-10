@@ -1,30 +1,57 @@
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
-}
-
-// Cloudflare currently has DATABASE_URL configured, while older Render
-// deployments used DIRECT_URL. Prefer DIRECT_URL when present, but fall back
-// to DATABASE_URL so the Worker can initialize Prisma with its configured
-// Supabase connection string. Normalize only the known project-ref typo.
 function runtimeDatabaseUrl() {
-  const value = process.env.DIRECT_URL || process.env.DATABASE_URL
-  if (!value) return undefined
-  return value.replace(
-    'postgres.xuzdkfqahshokenlgcvjh',
-    'postgres.xuzdkfqahshokenlgvjh',
-  )
+  try {
+    const { env } = getCloudflareContext()
+    const hyperdrive = env.HYPERDRIVE as { connectionString?: string } | undefined
+    if (hyperdrive?.connectionString) return hyperdrive.connectionString
+  } catch {
+    // Fall back to the normal environment for local Node.js/dev execution.
+  }
+
+  const value = process.env.DATABASE_URL
+  if (!value) return value
+
+  // Keep compatibility with existing Supabase pooler configuration outside
+  // Cloudflare Hyperdrive.
+  try {
+    const url = new URL(value)
+    if (url.port === '6543' && url.hostname.endsWith('.pooler.supabase.com')) {
+      url.port = '5432'
+      url.searchParams.delete('pgbouncer')
+      return url.toString()
+    }
+  } catch {
+    // Let Prisma report a malformed DATABASE_URL below.
+  }
+
+  return value
 }
 
-const verboseQueries =
-  process.env.PRISMA_LOG_QUERIES === '1' || process.env.PRISMA_LOG_QUERIES === 'true'
+function getPrisma(): PrismaClient {
+  const connectionString = runtimeDatabaseUrl()
+  if (!connectionString) {
+    throw new Error('DATABASE_URL or Cloudflare HYPERDRIVE is required to initialize Prisma')
+  }
 
-export const db =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    datasourceUrl: runtimeDatabaseUrl(),
-    log: verboseQueries ? ['query'] : ['error'],
+  // Hyperdrive owns the underlying connection pool. Create a short-lived
+  // Prisma client for each access instead of retaining a Worker-global pool.
+  const adapter = new PrismaPg({ connectionString, maxUses: 1 })
+  return new PrismaClient({
+    adapter,
+    log:
+      process.env.PRISMA_LOG_QUERIES === '1' || process.env.PRISMA_LOG_QUERIES === 'true'
+        ? ['query']
+        : ['error'],
   })
+}
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+export const db = new Proxy({} as PrismaClient, {
+  get(_target, property) {
+    const client = getPrisma()
+    const value = client[property as keyof PrismaClient]
+    return typeof value === 'function' ? value.bind(client) : value
+  },
+})
