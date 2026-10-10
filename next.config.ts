@@ -2,17 +2,10 @@ import type { NextConfig } from "next";
 
 // Security headers (Task 4). frame-ancestors is env-tunable because the
 // sandbox/preview legitimately embeds the app in a cross-origin iframe.
-// Production should set FRAME_ANCESTORS='none' (or a specific parent origin)
-// in .env. X-Frame-Options mirrors the self/none cases; it is omitted when
-// frame-ancestors names custom origins, since XFO cannot express a list.
 const frameAncestors = process.env.FRAME_ANCESTORS ?? "'self'"
 const xFrameOptions =
   frameAncestors.trim() === "'none'" ? "DENY" : frameAncestors.trim() === "'self'" ? "SAMEORIGIN" : undefined
 
-// 'unsafe-eval' is dev-only: Next.js dev tooling (HMR / react-refresh)
-// eval-compiles in development, while production output is precompiled and
-// must not carry it. Next config is evaluated by the Next.js CLI with NODE_ENV
-// "development" under next dev and "production" under next build.
 const scriptSrc = ["'self'", "'unsafe-inline'"]
 if (process.env.NODE_ENV !== "production") scriptSrc.push("'unsafe-eval'")
 
@@ -39,24 +32,25 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
-  // Cloudflare's Vite plugin emits the Worker bundle. Next's standalone
-  // output is for a separate Node server and conflicts with vinext's Worker
-  // build finalization.
+  output: "standalone",
+  serverExternalPackages: [
+    "@prisma/client",
+    ".prisma/client",
+    "pg",
+    "pg-cloudflare",
+  ],
+  outputFileTracingIncludes: {
+    "**/*": [
+      "./node_modules/pg-cloudflare/dist/**",
+      "./node_modules/pg-cloudflare/esm/**",
+    ],
+  },
   devIndicators: false,
-  typescript: {
-    ignoreBuildErrors: false,
-  },
+  typescript: { ignoreBuildErrors: false },
   reactStrictMode: false,
-  experimental: {
-    authInterrupts: true,
-  },
+  experimental: { authInterrupts: true },
   async headers() {
-    return [
-      {
-        source: "/:path*",
-        headers: securityHeaders,
-      },
-    ];
+    return [{ source: "/:path*", headers: securityHeaders }];
   },
 };
 
