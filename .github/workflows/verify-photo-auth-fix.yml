@@ -2,7 +2,9 @@ name: Verify photo and auth fixes
 
 on:
   push:
-    branches: [fix/photo-upload-password-visibility]
+    branches:
+      - fix/photo-upload-password-visibility
+      - fix/photo-upload-password-visibility-reconciled
     paths:
       - "src/app/api/upload/route.ts"
       - "src/lib/storage.ts"
