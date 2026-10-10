@@ -11,11 +11,8 @@ const xFrameOptions =
 
 // 'unsafe-eval' is dev-only: Next.js dev tooling (HMR / react-refresh)
 // eval-compiles in development, while production output is precompiled and
-// must not carry it. next.config.ts is evaluated by the Next.js CLI with
-// NODE_ENV "development" under next dev and "production" under next build,
-// so the check below resolves correctly per mode. 'unsafe-inline' stays for
-// now: Next.js injects inline bootstrap scripts, and a nonce-based CSP is
-// the future hardening step.
+// must not carry it. Next config is evaluated by the Next.js CLI with NODE_ENV
+// "development" under next dev and "production" under next build.
 const scriptSrc = ["'self'", "'unsafe-inline'"]
 if (process.env.NODE_ENV !== "production") scriptSrc.push("'unsafe-eval'")
 
@@ -42,20 +39,17 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
-  output: "standalone",
-  // Hide the dev-tools indicator so it never covers the mobile bottom nav.
+  // Cloudflare's Vite plugin emits the Worker bundle. Next's standalone
+  // output is for a separate Node server and conflicts with vinext's Worker
+  // build finalization.
   devIndicators: false,
-  // Type errors fail the build: never ship unchecked types.
   typescript: {
     ignoreBuildErrors: false,
   },
   reactStrictMode: false,
-  // Enables forbidden()/unauthorized() from next/navigation, so the /admin
-  // moderation desk returns a real HTTP 403 for non-admins.
   experimental: {
     authInterrupts: true,
   },
-  // Task 4: security headers on every response.
   async headers() {
     return [
       {
