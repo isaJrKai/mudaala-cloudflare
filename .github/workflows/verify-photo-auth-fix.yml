@@ -1,6 +1,13 @@
 name: Verify photo and auth fixes
 
 on:
+  push:
+    branches: [fix/photo-upload-password-visibility]
+    paths:
+      - "src/app/api/upload/route.ts"
+      - "src/lib/storage.ts"
+      - "src/components/commerce/auth-dialog.tsx"
+      - ".github/workflows/verify-photo-auth-fix.yml"
   pull_request:
     branches: [main]
     paths:
