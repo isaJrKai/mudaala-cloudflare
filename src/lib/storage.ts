@@ -66,7 +66,7 @@ export interface S3Env {
   key: string
   secret: string
   publicUrl?: string // where saved objects are publicly served, e.g. https://cdn.example
-  region?: string // R2/Supabase use "auto" when absent
+  region?: string // Must match the Supabase project's configured region
 }
 
 function hmac(key: Buffer | string, data: string): Buffer {
@@ -138,7 +138,7 @@ export class S3Storage implements PhotoStorage {
     // Let the AWS SDK own SigV4 signing. Supabase's S3 gateway is AWS-S3
     // compatible, and the SDK handles canonical URI/header rules reliably.
     this.client = new S3Client({
-      region: env.region ?? 'us-east-1',
+      region: env.region ?? 'eu-west-2',
       endpoint: env.endpoint,
       forcePathStyle: true,
       credentials: {
@@ -218,7 +218,7 @@ export function readStorageEnv(env: Record<string, string | undefined> = process
     key,
     secret,
     publicUrl: env.STORAGE_PUBLIC_URL?.trim() || undefined,
-    region: env.STORAGE_REGION?.trim() || 'us-east-1',
+    region: env.STORAGE_REGION?.trim() || 'eu-west-2',
   }
 }
 
