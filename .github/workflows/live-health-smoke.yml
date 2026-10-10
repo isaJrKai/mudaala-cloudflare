@@ -1,4 +1,5 @@
 name: Live health smoke (read-only)
+# Re-run against the restored version #38 after the failed v43 smoke test.
 
 on:
   push:
