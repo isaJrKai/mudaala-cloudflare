@@ -2,9 +2,9 @@
 // requireUser: uploads are a seller action, buyers never need this.
 // Trust is decided by magic bytes, never by the filename a client claims -
 // "evil.png" that is really text (or worse) is rejected before it is decoded.
-// Every accepted image is then re-encoded through sharp: EXIF-rotated,
-// fitted inside 1200×1200, and written as WebP - a market photo lands
-// small enough for a data bundle, and no payload survives as-is.
+// Accepted JPEG, PNG and WebP uploads are validated by magic bytes before
+// being stored. Cloudflare Workers does not run sharp's native binaries, so
+// this route preserves the supported original format instead of re-encoding.
 // Storage sits behind an interface (src/lib/storage.ts): development writes
 // to the local disk (public/uploads, served statically by Next), production
 // writes to any S3-compatible bucket (Cloudflare R2, Supabase Storage) using
