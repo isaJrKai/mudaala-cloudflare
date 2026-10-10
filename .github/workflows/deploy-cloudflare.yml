@@ -29,11 +29,6 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      # Prisma's Rust query engine cannot run in the Cloudflare Workers runtime.
-      # Pin the driver adapter and OpenNext tooling explicitly for the recovery build.
-      - name: Install Cloudflare and PostgreSQL adapter tooling
-        run: npm install --no-save --no-package-lock --include=dev @aws-sdk/client-s3 @opennextjs/cloudflare@1.20.8 @prisma/adapter-pg@6.19.3 pg@8.16.3
-
       - name: Validate schema and generate Prisma client (no database access)
         run: |
           npx prisma validate
@@ -43,7 +38,7 @@ jobs:
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
       - name: Build OpenNext Worker without production database credentials
-        run: npx --yes @opennextjs/cloudflare@1.20.8 build
+        run: npx @opennextjs/cloudflare build
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
@@ -51,12 +46,93 @@ jobs:
           SETTINGS_ENCRYPTION_KEY: build-only-placeholder-key-32chars
           ADMIN_PHONES: "+256700000000"
 
-      # Pull requests are build-only. Production deploys occur only after a
-      # successful build on main, or an explicitly requested dispatch on main.
+      # Capture the active version only after the build succeeds. If deployment
+      # or the read-only health check fails, traffic is routed back to this version.
+      - name: Capture currently active Worker version
+        id: capture_previous
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT_ID: 7d45a3db16c2ce332bf146d34eb01687
+        run: |
+          set -euo pipefail
+          response="$(curl --fail --silent --show-error --retry 3 \
+            "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/workers/scripts/mudaala-cloudflare/deployments" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}")"
+          previous_version="$(printf '%s' "$response" | jq -er '.result.deployments[0].versions | max_by(.percentage) | .version_id')"
+          echo "previous_version=$previous_version" >> "$GITHUB_OUTPUT"
+          echo "Captured pre-deploy Worker version: $previous_version"
+
       - name: Deploy to Cloudflare Workers
+        id: deploy
         if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: 7d45a3db16c2ce332bf146d34eb01687
           command: deploy
+
+      - name: Smoke test live app and database connection (read-only)
+        if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 --retry-connrefused "$APP_URL/api/health")"
+          printf '%s' "$body" | node -e '
+            let raw = "";
+            process.stdin.on("data", chunk => raw += chunk);
+            process.stdin.on("end", () => {
+              const health = JSON.parse(raw);
+              console.log(JSON.stringify({
+                app: health.app,
+                database: health.database,
+                ok: health.ok,
+                time: health.time
+              }));
+              if (health.ok !== true || health.app !== "up" || health.database !== "up") {
+                process.exit(1);
+              }
+            });
+          '
+
+      - name: Roll back to the previous Worker version if deployment or health smoke fails
+        id: rollback
+        if: ${{ failure() && steps.capture_previous.outputs.previous_version != '' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT_ID: 7d45a3db16c2ce332bf146d34eb01687
+          PREVIOUS_VERSION: ${{ steps.capture_previous.outputs.previous_version }}
+        run: |
+          set -euo pipefail
+          payload="$(jq -n --arg version "$PREVIOUS_VERSION" '{strategy:"percentage",versions:[{version_id:$version,percentage:100}],annotations:{"workers/message":"Automatic rollback after failed deployment or health smoke check"}}')"
+          response="$(curl --fail --silent --show-error --request POST \
+            "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/workers/scripts/mudaala-cloudflare/deployments" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "$payload")"
+          printf '%s' "$response" | jq -c '{success,errors,result}'
+
+      - name: Verify rollback health (read-only)
+        if: ${{ always() && steps.rollback.outcome == 'success' }}
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 --retry-connrefused "$APP_URL/api/health")"
+          printf '%s' "$body" | node -e '
+            let raw = "";
+            process.stdin.on("data", chunk => raw += chunk);
+            process.stdin.on("end", () => {
+              const health = JSON.parse(raw);
+              console.log(JSON.stringify({
+                app: health.app,
+                database: health.database,
+                ok: health.ok,
+                time: health.time
+              }));
+              if (health.ok !== true || health.app !== "up" || health.database !== "up") {
+                process.exit(1);
+              }
+            });
+          '
