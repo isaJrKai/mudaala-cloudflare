@@ -12,6 +12,7 @@ on:
       - "src/lib/storage.ts"
       - "src/components/commerce/auth-dialog.tsx"
       - ".github/workflows/verify-photo-auth-fix.yml"
+      - ".github/workflows/deploy-cloudflare.yml"
   pull_request:
     branches: [main]
     paths:
@@ -39,6 +40,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Validate GitHub Actions workflow syntax
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 .github/workflows/deploy-cloudflare.yml .github/workflows/verify-photo-auth-fix.yml
 
       - name: Install locked dependencies
         run: npm ci
