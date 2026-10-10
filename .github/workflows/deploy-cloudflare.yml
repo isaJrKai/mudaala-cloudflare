@@ -29,11 +29,6 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      # Prisma's Rust query engine cannot run in the Cloudflare Workers runtime.
-      # Pin the driver adapter and OpenNext tooling explicitly for the recovery build.
-      - name: Install Cloudflare and PostgreSQL adapter tooling
-        run: npm install --no-save --no-package-lock --include=dev @aws-sdk/client-s3 @opennextjs/cloudflare@1.20.8 @prisma/adapter-pg@6.19.3 pg@8.16.3
-
       - name: Validate schema and generate Prisma client (no database access)
         run: |
           npx prisma validate
@@ -43,7 +38,7 @@ jobs:
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
       - name: Build OpenNext Worker without production database credentials
-        run: npx --yes @opennextjs/cloudflare@1.20.8 build
+        run: npx @opennextjs/cloudflare build
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
