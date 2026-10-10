@@ -22,7 +22,7 @@ import { randomBytes } from 'node:crypto'
 export interface PhotoStorage {
   /** Human-readable provider name for logs and health reporting. */
   readonly name: string
-  /** Persist one re-encoded photo; resolves with its PUBLIC url. */
+  /** Persist one validated photo; resolves with its PUBLIC url. */
   save(data: Buffer, extension: string): Promise<string>
   /** Delete one stored photo by its public URL. A URL this provider does not
    *  own resolves quietly; an already-deleted object too - deletion is
@@ -66,7 +66,7 @@ export interface S3Env {
   key: string
   secret: string
   publicUrl?: string // where saved objects are publicly served, e.g. https://cdn.example
-  region?: string // R2/Supabase use "auto" when absent
+  region?: string // Must match the Supabase project's configured region
 }
 
 function hmac(key: Buffer | string, data: string): Buffer {
@@ -138,7 +138,7 @@ export class S3Storage implements PhotoStorage {
     // Let the AWS SDK own SigV4 signing. Supabase's S3 gateway is AWS-S3
     // compatible, and the SDK handles canonical URI/header rules reliably.
     this.client = new S3Client({
-      region: env.region ?? 'auto',
+      region: env.region ?? 'eu-west-2',
       endpoint: env.endpoint,
       forcePathStyle: true,
       credentials: {
@@ -165,7 +165,8 @@ export class S3Storage implements PhotoStorage {
   }
   async save(data: Buffer, extension: string): Promise<string> {
     const key = `photos/${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}.${extension}`
-    await this.put(key, data)
+    const contentType = extension === 'jpg' ? 'image/jpeg' : extension === 'png' ? 'image/png' : 'image/webp'
+    await this.put(key, data, contentType)
     return this.publicUrlFor(key)
   }
 
@@ -217,7 +218,7 @@ export function readStorageEnv(env: Record<string, string | undefined> = process
     key,
     secret,
     publicUrl: env.STORAGE_PUBLIC_URL?.trim() || undefined,
-    region: env.STORAGE_REGION?.trim() || undefined,
+    region: env.STORAGE_REGION?.trim() || 'eu-west-2',
   }
 }
 
