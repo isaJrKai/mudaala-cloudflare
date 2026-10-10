@@ -67,48 +67,14 @@ export async function POST(request: Request) {
       throw new ApiError(400, 'That file is not a JPEG, PNG or WebP image')
     }
 
-    // Re-encode before saving: EXIF rotation honoured, fitted inside a
-    // 1200×1200 box (never enlarged), WebP for weight. If decoding fails the
-    // file lies about what it is - reject it honestly.
+    // Cloudflare Workers cannot run sharp's native binaries, and canvas
+    // image APIs are not part of the documented Workers runtime. Keep the
+    // upload compatible by storing the validated original raster image.
+    // The storage layer derives Content-Type from the detected magic bytes.
     const input = Buffer.from(await file.arrayBuffer())
-    let output: Buffer
-    try {
-      // Cloudflare Workers cannot load sharp's native binaries. Use the
-      // Workers image primitives in production, retaining sharp only for the
-      // Node.js development/test runtime.
-      if (typeof createImageBitmap === 'function' && typeof OffscreenCanvas !== 'undefined') {
-        const mimeType = detectedType === 'jpg' ? 'image/jpeg' : `image/${detectedType}`
-        const bitmap = await createImageBitmap(new Blob([input], { type: mimeType }))
-        try {
-          const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height))
-          const width = Math.max(1, Math.round(bitmap.width * scale))
-          const height = Math.max(1, Math.round(bitmap.height * scale))
-          const canvas = new OffscreenCanvas(width, height)
-          const context = canvas.getContext('2d')
-          if (!context) throw new Error('Canvas context unavailable')
-          context.drawImage(bitmap, 0, 0, width, height)
-          const encoded = await canvas.convertToBlob({ type: 'image/webp', quality: 0.82 })
-          output = Buffer.from(await encoded.arrayBuffer())
-        } finally {
-          bitmap.close()
-        }
-      } else {
-        const sharp = (await import('sharp')).default
-        output = await sharp(input)
-          .rotate()
-          .resize(MAX_EDGE, MAX_EDGE, { fit: 'inside', withoutEnlargement: true })
-          .webp({ quality: 82 })
-          .toBuffer()
-      }
-    } catch {
-      throw new ApiError(400, 'That image could not be processed - try another photo')
-    }
-
-    // Everything is stored as .webp because the pipeline re-encodes every
-    // accepted image; the storage provider picks the name and the URL.
     let url: string
     try {
-      url = await chooseStorage().save(output, 'webp')
+      url = await chooseStorage().save(input, detectedType)
     } catch (err) {
       console.error('[upload] storage write failed:', err)
       throw new ApiError(502, 'The photo could not be stored right now. Please try again')
