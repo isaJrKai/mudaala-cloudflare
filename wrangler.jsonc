@@ -7,8 +7,5 @@
   "preview_urls": true,
   "observability": {
     "enabled": true
-  },
-  "secrets": [
-    "DIRECT_URL"
-  ]
+  }
 }
