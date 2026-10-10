@@ -22,7 +22,7 @@ import { randomBytes } from 'node:crypto'
 export interface PhotoStorage {
   /** Human-readable provider name for logs and health reporting. */
   readonly name: string
-  /** Persist one re-encoded photo; resolves with its PUBLIC url. */
+  /** Persist one validated photo; resolves with its PUBLIC url. */
   save(data: Buffer, extension: string): Promise<string>
   /** Delete one stored photo by its public URL. A URL this provider does not
    *  own resolves quietly; an already-deleted object too - deletion is
@@ -165,7 +165,8 @@ export class S3Storage implements PhotoStorage {
   }
   async save(data: Buffer, extension: string): Promise<string> {
     const key = `photos/${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}.${extension}`
-    await this.put(key, data)
+    const contentType = extension === 'jpg' ? 'image/jpeg' : extension === 'png' ? 'image/png' : 'image/webp'
+    await this.put(key, data, contentType)
     return this.publicUrlFor(key)
   }
 
