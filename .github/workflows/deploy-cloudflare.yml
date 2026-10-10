@@ -1,0 +1,52 @@
+name: Deploy Mudaala to Cloudflare Workers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "prisma/**"
+      - "public/**"
+      - "vite.config.ts"
+      - "wrangler.jsonc"
+      - "next.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-cloudflare.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mudaala-cloudflare-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Cloudflare Vite build tooling
+        run: npm install --no-save --no-package-lock --include=dev @aws-sdk/client-s3 vite vinext wrangler @cloudflare/vite-plugin @vitejs/plugin-rsc
+      - name: Generate Prisma client without database migrations
+        run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mudaala
+      - name: Build Worker bundle
+        run: npx vite build --configLoader runner
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 7d45a3db16c2ce332bf146d34eb01687
+          command: deploy --config wrangler.jsonc
