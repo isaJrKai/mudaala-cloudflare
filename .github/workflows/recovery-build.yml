@@ -1,0 +1,46 @@
+name: Recovery build check
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install Cloudflare and PostgreSQL adapter tooling
+        run: npm install --no-save --no-package-lock --include=dev @aws-sdk/client-s3 @opennextjs/cloudflare@1.20.8 @prisma/adapter-pg@6.19.3 pg@8.16.3
+
+      - name: Validate schema and generate Prisma client (no database access)
+        run: |
+          npx prisma validate
+          npx prisma generate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
+      - name: Build OpenNext Worker without production database credentials
+        run: npx --yes @opennextjs/cloudflare@1.20.8 build
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          CRON_SECRET: build-only-placeholder
+          SETTINGS_ENCRYPTION_KEY: build-only-placeholder-key-32chars
+          ADMIN_PHONES: "+256700000000"
