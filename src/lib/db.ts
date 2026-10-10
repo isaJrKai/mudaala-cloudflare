@@ -4,12 +4,13 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// Render currently has the Supabase project ref in the stored URL with one
-// extra "c". The canonical project ref supplied for Mudaala is the one below.
-// Normalize only that known typo; the password and host remain untouched.
+// Cloudflare currently has DATABASE_URL configured, while older Render
+// deployments used DIRECT_URL. Prefer DIRECT_URL when present, but fall back
+// to DATABASE_URL so the Worker can initialize Prisma with its configured
+// Supabase connection string. Normalize only the known project-ref typo.
 function runtimeDatabaseUrl() {
-  const value = process.env.DIRECT_URL
-  if (!value) return value
+  const value = process.env.DIRECT_URL || process.env.DATABASE_URL
+  if (!value) return undefined
   return value.replace(
     'postgres.xuzdkfqahshokenlgcvjh',
     'postgres.xuzdkfqahshokenlgvjh',
