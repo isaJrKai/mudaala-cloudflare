@@ -138,7 +138,7 @@ export class S3Storage implements PhotoStorage {
     // Let the AWS SDK own SigV4 signing. Supabase's S3 gateway is AWS-S3
     // compatible, and the SDK handles canonical URI/header rules reliably.
     this.client = new S3Client({
-      region: env.region ?? 'auto',
+      region: env.region ?? 'us-east-1',
       endpoint: env.endpoint,
       forcePathStyle: true,
       credentials: {
@@ -217,7 +217,7 @@ export function readStorageEnv(env: Record<string, string | undefined> = process
     key,
     secret,
     publicUrl: env.STORAGE_PUBLIC_URL?.trim() || undefined,
-    region: env.STORAGE_REGION?.trim() || undefined,
+    region: env.STORAGE_REGION?.trim() || 'us-east-1',
   }
 }
 
