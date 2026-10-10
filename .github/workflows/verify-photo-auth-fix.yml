@@ -43,9 +43,6 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Install OpenNext and PostgreSQL adapter tooling
-        run: npm install --no-save --no-package-lock --include=dev @aws-sdk/client-s3 @opennextjs/cloudflare@1.20.8 @prisma/adapter-pg@6.19.3 pg@8.16.3
-
       - name: Validate schema and generate Prisma client
         run: |
           npx prisma validate
@@ -58,7 +55,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Build Cloudflare Worker bundle without production credentials or migrations
-        run: npx --yes @opennextjs/cloudflare@1.20.8 build
+        run: npx @opennextjs/cloudflare build
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
