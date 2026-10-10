@@ -3,10 +3,8 @@
 // PostgreSQL is the runtime store.
 
 generator client {
-  provider      = "prisma-client-js"
-  // Cloudflare production logs show the Worker runtime needs this OpenSSL target.
-  // Keep native for local development/build tooling and generate both clients.
-  binaryTargets = ["native", "debian-openssl-1.1.x"]
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -74,6 +72,8 @@ model BusinessProfile {
   county       String?
   area         String?
   phone        String
+  additionalPhone String? // optional second public contact number
+  email        String? // optional public shop contact email; may be a personal email
   whatsapp     String?
   hours        String?
   // Verification is NOT offered in V1. This flag stays false and no verified
