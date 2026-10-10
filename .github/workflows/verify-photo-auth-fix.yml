@@ -6,6 +6,7 @@ on:
       - fix/photo-upload-password-visibility
       - fix/photo-upload-password-visibility-reconciled
     paths:
+      - "wrangler.jsonc"
       - "src/app/api/upload/route.ts"
       - "src/lib/storage.ts"
       - "src/components/commerce/auth-dialog.tsx"
@@ -13,6 +14,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - "wrangler.jsonc"
       - "src/app/api/upload/route.ts"
       - "src/lib/storage.ts"
       - "src/components/commerce/auth-dialog.tsx"
