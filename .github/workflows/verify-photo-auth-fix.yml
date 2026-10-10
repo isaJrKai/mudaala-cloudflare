@@ -45,6 +45,6 @@ jobs:
       - name: Type-check project
         run: npx tsc --noEmit
       - name: Build Cloudflare Worker bundle (without npm prebuild/migrations)
-        run: npx vite build
+        run: npx vite build --configLoader runner
       - name: Lint changed files
         run: npx eslint src/app/api/upload/route.ts src/lib/storage.ts src/components/commerce/auth-dialog.tsx
