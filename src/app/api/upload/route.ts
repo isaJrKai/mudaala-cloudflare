@@ -14,7 +14,6 @@ import { ApiError, route, jsonOk, requireUser } from '@/lib/api'
 import { hit, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
 import { chooseStorage } from '@/lib/storage'
-import sharp from 'sharp'
 
 const MAX_BYTES = 8 * 1024 * 1024 // 8MB pre-compression - phones shoot big
 const MAX_EDGE = 1200 // the largest edge a stored photo may have
@@ -73,11 +72,32 @@ export async function POST(request: Request) {
     const input = Buffer.from(await file.arrayBuffer())
     let output: Buffer
     try {
-      output = await sharp(input)
-        .rotate()
-        .resize(MAX_EDGE, MAX_EDGE, { fit: 'inside', withoutEnlargement: true })
-        .webp({ quality: 82 })
-        .toBuffer()
+      // Cloudflare Workers cannot load sharp's native binaries. Use the
+      // Workers image primitives in production, retaining sharp only for the
+      // Node.js development/test runtime.
+      if (typeof createImageBitmap === 'function' && typeof OffscreenCanvas !== 'undefined') {
+        const bitmap = await createImageBitmap(new Blob([input], { type: file.type || 'application/octet-stream' }))
+        try {
+          const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height))
+          const width = Math.max(1, Math.round(bitmap.width * scale))
+          const height = Math.max(1, Math.round(bitmap.height * scale))
+          const canvas = new OffscreenCanvas(width, height)
+          const context = canvas.getContext('2d')
+          if (!context) throw new Error('Canvas context unavailable')
+          context.drawImage(bitmap, 0, 0, width, height)
+          const encoded = await canvas.convertToBlob({ type: 'image/webp', quality: 0.82 })
+          output = Buffer.from(await encoded.arrayBuffer())
+        } finally {
+          bitmap.close()
+        }
+      } else {
+        const sharp = (await import('sharp')).default
+        output = await sharp(input)
+          .rotate()
+          .resize(MAX_EDGE, MAX_EDGE, { fit: 'inside', withoutEnlargement: true })
+          .webp({ quality: 82 })
+          .toBuffer()
+      }
     } catch {
       throw new ApiError(400, 'That image could not be processed - try another photo')
     }
