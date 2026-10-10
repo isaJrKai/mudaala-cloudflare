@@ -44,5 +44,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mudaala
       - name: Type-check project
         run: npx tsc --noEmit
+      - name: Build Cloudflare Worker bundle (without npm prebuild/migrations)
+        run: npx vite build
       - name: Lint changed files
         run: npx eslint src/app/api/upload/route.ts src/lib/storage.ts src/components/commerce/auth-dialog.tsx
