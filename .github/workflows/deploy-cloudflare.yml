@@ -1,18 +1,8 @@
 name: Deploy Mudaala to Cloudflare Workers
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "src/**"
-      - "prisma/**"
-      - "public/**"
-      - "vite.config.ts"
-      - "wrangler.jsonc"
-      - "next.config.ts"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/deploy-cloudflare.yml"
+  # Temporarily manual-only during production recovery.
+  # Do not restore push-based deploys until the Cloudflare database adapter is fixed.
   workflow_dispatch:
 
 permissions:
