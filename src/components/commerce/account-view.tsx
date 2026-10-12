@@ -416,6 +416,11 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
     try {
       await apiPut('/api/profile', parsed.data)
       await queryClient.invalidateQueries({ queryKey: ['profile'] })
+      // The public shop page is cached separately from the seller's profile.
+      // Invalidate it after saving so a newly uploaded cover photo is fetched
+      // again when the owner opens their public shop in the same session.
+      await queryClient.invalidateQueries({ queryKey: ['shop', user.id] })
+      await queryClient.invalidateQueries({ queryKey: ['featured-shop'] })
       toast({ title: 'Shop saved', description: 'Your listings now show this name and information.' })
     } catch (err) {
       const withFields = err as Error & { fields?: Record<string, string> }
