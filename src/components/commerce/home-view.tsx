@@ -161,7 +161,19 @@ function SignedInHome() {
       <div className="py-10 text-center text-sm text-muted-foreground">{copy.home.loadError}</div>
     )
   }
-  if (!data) return null
+  if (!data) {
+    return (
+      <div className="space-y-4" aria-busy="true" aria-label="Loading your dashboard">
+        <Skeleton className="h-8 w-64" />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-lg" />
+          ))}
+        </div>
+        <Skeleton className="h-40 rounded-lg" />
+      </div>
+    )
+  }
 
   const stats = [
     {
@@ -341,6 +353,25 @@ function BestOffers({ location }: { location: HomeData['location'] }) {
     placeholderData: (prev) => prev,
   })
 
+  // A seller's chosen district is a useful first view, but it must never hide
+  // the wider market. If that district has no offers, transparently fall back
+  // to current offers from every district (preserving the selected category).
+  // This is read-only and uses the same public listings endpoint; no records
+  // or account data are changed.
+  const marketParams = new URLSearchParams({ type: 'OFFER', page: '1', pageSize: '8' })
+  if (category !== 'any') marketParams.set('category', category)
+  const marketOffersQuery = useQuery({
+    queryKey: ['home-market-offers', marketParams.toString()],
+    queryFn: () => apiGet<ListingsPage>(`/api/listings?${marketParams.toString()}`),
+    enabled: offersQuery.isSuccess && offersQuery.data.items.length === 0 && Boolean(chosen.county),
+    staleTime: 30_000,
+  })
+  const displayedOffers = (offersQuery.data?.items.length ?? 0) > 0
+    ? offersQuery.data
+    : marketOffersQuery.data
+  const showingWiderMarket = (offersQuery.data?.items.length ?? 0) === 0 &&
+    Boolean(chosen.county) && (marketOffersQuery.data?.items.length ?? 0) > 0
+
   const locationLabel = chosen.county
     ? chosen.isDefault && location.area
       ? `${location.area}, ${location.county}`
@@ -387,13 +418,18 @@ function BestOffers({ location }: { location: HomeData['location'] }) {
         )}
       </div>
 
-      {offersQuery.isLoading ? (
-        <div className="space-y-2">
+      {offersQuery.isLoading || (
+        offersQuery.isSuccess &&
+        offersQuery.data.items.length === 0 &&
+        Boolean(chosen.county) &&
+        marketOffersQuery.isLoading
+      ) ? (
+        <div className="space-y-2" aria-label="Loading offers" aria-busy="true">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-20 rounded-lg" />
           ))}
         </div>
-      ) : (offersQuery.data?.items.length ?? 0) === 0 ? (
+      ) : (displayedOffers?.items.length ?? 0) === 0 ? (
         <div className="rounded-lg border bg-card px-4 py-10 text-center">
           <p className="text-sm font-medium">{copy.home.noOffersTitle}</p>
           <p className="mt-1 text-xs text-muted-foreground">{copy.home.noOffersIn(chosen.county)}</p>
@@ -403,8 +439,13 @@ function BestOffers({ location }: { location: HomeData['location'] }) {
         </div>
       ) : (
         <div className="space-y-2">
-          {offersQuery.data!.items.map((listing) => (
-            <OfferRow key={listing.id} listing={listing} refSpot={refSpot} onOpen={(id) => navigate({ name: 'listing', id })} />
+          {showingWiderMarket ? (
+            <p className="text-xs text-muted-foreground" role="status">
+              No offers in {chosen.county}; showing offers from the wider market.
+            </p>
+          ) : null}
+          {displayedOffers!.items.map((listing) => (
+            <OfferRow key={listing.id} listing={listing} refSpot={showingWiderMarket ? null : refSpot} onOpen={(id) => navigate({ name: 'listing', id })} />
           ))}
         </div>
       )}
