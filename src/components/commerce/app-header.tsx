@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Settings, LogOut, User, Leaf, BadgeCheck } from 'lucide-react'
+import { Settings, LogOut, User, BadgeCheck } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { useSession, useSignOut } from '@/hooks/use-session'
 import { Button } from '@/components/ui/button'
@@ -77,7 +77,19 @@ export function AppHeader() {
           {/* The wordmark is the signboard: lowercase serif in the brand
               green, the way the market paints a good shop name - with one
               leaf for the goods that come out of the ground. No icon chip. */}
-          <Leaf className="size-[18px] fill-[#F6C94C]/25 text-[#F6C94C]" aria-hidden />
+          <svg aria-hidden="true" viewBox="0 0 48 48" className="size-[21px] shrink-0" fill="none">
+            <defs>
+              <linearGradient id="mudaala-leaf-green" x1="9" y1="38" x2="39" y2="7" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#1B5E20" />
+                <stop offset=".52" stopColor="#2E7D32" />
+                <stop offset="1" stopColor="#81C784" />
+              </linearGradient>
+            </defs>
+            <path d="M8 39C8.5 28 12 17 23 10 30 5.5 37 5 42 5c0 13-2.7 23.4-10.4 30.2C25.8 40.2 16.8 40.5 8 39Z" fill="url(#mudaala-leaf-green)" />
+            <path d="M7 42C14 31 23 22 37 11" stroke="#A5D6A7" strokeWidth="1.7" strokeLinecap="round" />
+            <path d="M17 30c-.5-4-2.1-6.7-4.5-8.9M23 23c3.3.2 6.2 1.5 8.4 3.8M28.5 17.5c2.7.2 5 .9 6.8 2.3" stroke="#C8E6C9" strokeWidth="1.1" strokeLinecap="round" opacity=".95" />
+            <path d="M9 38.5c9.5 1.2 18.5-1 24.2-7.8" stroke="#174D23" strokeWidth=".8" strokeLinecap="round" opacity=".65" />
+          </svg>
           <span className="font-display text-[19px] font-bold lowercase leading-none tracking-tight text-primary">
             mudaala
           </span>
