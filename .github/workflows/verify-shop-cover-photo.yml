@@ -1,4 +1,4 @@
-name: Verify shop cover photo changes
+name: Verify shop and listing visibility changes
 
 on:
   pull_request:
@@ -12,6 +12,10 @@ on:
       - "src/components/commerce/account-view.tsx"
       - "src/components/commerce/photo-picker.tsx"
       - "src/components/commerce/shop-view.tsx"
+      - "src/components/commerce/home-view.tsx"
+      - "src/components/commerce/listings-browse.tsx"
+      - "src/lib/listings.ts"
+      - "src/lib/store.ts"
       - ".github/workflows/verify-shop-cover-photo.yml"
   push:
     branches: [feat/separate-shop-cover-photo]
@@ -24,6 +28,10 @@ on:
       - "src/components/commerce/account-view.tsx"
       - "src/components/commerce/photo-picker.tsx"
       - "src/components/commerce/shop-view.tsx"
+      - "src/components/commerce/home-view.tsx"
+      - "src/components/commerce/listings-browse.tsx"
+      - "src/lib/listings.ts"
+      - "src/lib/store.ts"
       - ".github/workflows/verify-shop-cover-photo.yml"
 
 permissions:
@@ -57,8 +65,8 @@ jobs:
       - name: Type-check
         run: npx tsc --noEmit
 
-      - name: Lint changed shop-photo files
-        run: npx eslint src/lib/validation.ts src/lib/client.ts src/lib/shop.ts src/components/commerce/account-view.tsx src/components/commerce/photo-picker.tsx src/components/commerce/shop-view.tsx
+      - name: Lint shop-photo and listing-visibility files
+        run: npx eslint src/lib/validation.ts src/lib/client.ts src/lib/shop.ts src/lib/listings.ts src/lib/store.ts src/components/commerce/account-view.tsx src/components/commerce/photo-picker.tsx src/components/commerce/shop-view.tsx src/components/commerce/home-view.tsx src/components/commerce/listings-browse.tsx
 
       - name: Build Cloudflare Worker bundle without production credentials or migrations
         run: npx @opennextjs/cloudflare build
