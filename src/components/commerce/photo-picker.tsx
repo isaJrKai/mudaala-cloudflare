@@ -76,7 +76,12 @@ export function PhotoPicker({ value, onChange, max = 4, single = false, cover = 
         type="file"
         accept="image/jpeg,image/png,image/webp"
         className="sr-only"
-        onChange={(e) => upload(e.target.files)}
+        onChange={(e) => {
+          upload(e.target.files)
+          // Allow the same gallery photo to be selected again after a failed
+          // upload or after replacing the current image.
+          e.currentTarget.value = ''
+        }}
       />
 
       {single && cover ? (
