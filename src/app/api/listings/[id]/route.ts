@@ -28,7 +28,9 @@ export async function GET(_request: NextRequest, { params }: Params) {
               },
             },
           },
-        },)
+        },
+      },
+    })
     if (!listing) throw new ApiError(404, 'This listing does not exist or has been removed')
 
     // Moderation: a HIDDEN listing is invisible to everyone except its owner
