@@ -14,7 +14,42 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const { id } = await params
     await expireOverdueListings()
 
-    const listing = await db.listing.findUnique({ where: { id }, include: { user: { include: { profile: true } } } })
+    const listing = await db.listing.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            createdAt: true,
+            profile: {
+              select: {
+                id: true,
+                userId: true,
+                businessName: true,
+                photoUrl: true,
+                coverPhotoUrl: true,
+                category: true,
+                description: true,
+                county: true,
+                area: true,
+                phone: true,
+                whatsapp: true,
+                hours: true,
+                verified: true,
+                shopCode: true,
+                momoMerchantCode: true,
+                momoNetwork: true,
+                momoMerchantName: true,
+                lat: true,
+                lng: true,
+              },
+            },
+          },
+        },
+      },
+    })
     if (!listing) throw new ApiError(404, 'This listing does not exist or has been removed')
 
     // Moderation: a HIDDEN listing is invisible to everyone except its owner
@@ -29,8 +64,10 @@ export async function GET(_request: NextRequest, { params }: Params) {
     // Fire-and-forget view counter; failures never break the response.
     db.listing.update({ where: { id }, data: { viewCount: { increment: 1 } } }).catch(() => undefined)
 
-    const { passwordHash: _passwordHash, ...owner } = listing.user
-    return jsonOk({ listing: { ...serializeListing(listing), user: owner } })
+    // Return only the public seller identity fields needed by the listing page.
+    // Do not spread the full User or BusinessProfile rows into a public response:
+    // that would expose internal flags, legal-acceptance metadata, and private contact fields.
+    return jsonOk({ listing: { ...serializeListing(listing), user: listing.user } })
   })
 }
 
