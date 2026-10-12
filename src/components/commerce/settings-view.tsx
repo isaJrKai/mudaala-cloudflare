@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Bell, ExternalLink, FileText, Globe2, LockKeyhole, Search, ShieldCheck, Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +18,7 @@ export function SettingsView() {
   const { navigate, setAuthOpen } = useAppStore()
   const { user, isLoading } = useSession()
   const { toast } = useToast()
+  const queryClient = useQueryClient()
   const [step, setStep] = useState<'request' | 'code'>('request')
   const [code, setCode] = useState('')
   const [password, setPassword] = useState('')
@@ -47,6 +49,7 @@ export function SettingsView() {
       toast({ title: 'Password updated', description: result.message })
       // Password reset revokes all sessions. Clear this browser's token too.
       clearSessionToken()
+      queryClient.clear()
       setStep('request'); setCode(''); setPassword(''); setConfirmPassword('')
       setAuthOpen(true)
     } catch (err) {
