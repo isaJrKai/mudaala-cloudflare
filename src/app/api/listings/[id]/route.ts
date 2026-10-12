@@ -21,35 +21,14 @@ export async function GET(_request: NextRequest, { params }: Params) {
           select: {
             id: true,
             name: true,
-            phone: true,
-            createdAt: true,
             profile: {
               select: {
-                id: true,
-                userId: true,
                 businessName: true,
                 photoUrl: true,
-                coverPhotoUrl: true,
-                category: true,
-                description: true,
-                county: true,
-                area: true,
-                phone: true,
-                whatsapp: true,
-                hours: true,
-                verified: true,
-                shopCode: true,
-                momoMerchantCode: true,
-                momoNetwork: true,
-                momoMerchantName: true,
-                lat: true,
-                lng: true,
               },
             },
           },
-        },
-      },
-    })
+        },)
     if (!listing) throw new ApiError(404, 'This listing does not exist or has been removed')
 
     // Moderation: a HIDDEN listing is invisible to everyone except its owner
