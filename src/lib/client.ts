@@ -102,6 +102,7 @@ export interface BusinessProfileT {
   userId: string
   businessName: string
   photoUrl: string | null
+  coverPhotoUrl?: string | null
   category: string | null
   description: string | null
   county: string | null
@@ -209,6 +210,7 @@ interface ShopInfo {
   id: string
   name: string
   photoUrl: string | null
+  coverPhotoUrl?: string | null
   description: string | null
   hours: string | null
   area: string | null

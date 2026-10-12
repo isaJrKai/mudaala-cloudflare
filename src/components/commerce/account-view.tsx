@@ -35,6 +35,7 @@ import { ErrorState } from './listings-browse'
 interface ProfileFormState {
   businessName: string
   photoUrl: string
+  coverPhotoUrl: string
   category: string
   description: string
   county: string
@@ -275,6 +276,7 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
   const [form, setForm] = useState<ProfileFormState>({
     businessName: '',
     photoUrl: '',
+    coverPhotoUrl: '',
     category: 'none',
     description: '',
     county: 'none',
@@ -301,6 +303,7 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
       setForm({
         businessName: p?.businessName ?? user.name,
         photoUrl: p?.photoUrl ?? '',
+        coverPhotoUrl: p?.coverPhotoUrl ?? '',
         category: p?.category ?? 'none',
         description: p?.description ?? '',
         county: p?.county ?? 'none',
@@ -388,6 +391,7 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
     const payload = {
       businessName: form.businessName,
       photoUrl: form.photoUrl.trim() === '' ? null : form.photoUrl.trim(),
+      coverPhotoUrl: form.coverPhotoUrl.trim() === '' ? null : form.coverPhotoUrl.trim(),
       category: !form.category || form.category === 'none' ? null : form.category,
       description: form.description.trim() === '' ? null : form.description.trim(),
       county: !form.county || form.county === 'none' ? null : form.county,
@@ -476,8 +480,17 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
           nearby see the shop first. Stored blurred to ~100 m; removable. */}
       <ShopLocationBlock profile={data?.profile ?? null} />
 
-      <div className="rounded-lg border bg-secondary/30 p-3.5">
-        <PhotoPicker value={form.photoUrl ? [form.photoUrl] : []} onChange={(photos) => set('photoUrl', photos[0] ?? '')} max={1} single />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border bg-secondary/30 p-3.5">
+          <p className="mb-2 text-sm font-medium">Shop profile photo</p>
+          <PhotoPicker value={form.photoUrl ? [form.photoUrl] : []} onChange={(photos) => set('photoUrl', photos[0] ?? '')} max={1} single />
+          <p className="mt-2 text-xs text-muted-foreground">Your logo or shop sign. Shown beside your shop name and on listings.</p>
+        </div>
+        <div className="rounded-lg border bg-secondary/30 p-3.5">
+          <p className="mb-2 text-sm font-medium">Shop cover photo</p>
+          <PhotoPicker value={form.coverPhotoUrl ? [form.coverPhotoUrl] : []} onChange={(photos) => set('coverPhotoUrl', photos[0] ?? '')} max={1} single cover />
+          <p className="mt-2 text-xs text-muted-foreground">A wide photo of your shop, stall or products. Optional; your existing photo stays visible until you add one.</p>
+        </div>
       </div>
 
       <div className="space-y-1.5">
