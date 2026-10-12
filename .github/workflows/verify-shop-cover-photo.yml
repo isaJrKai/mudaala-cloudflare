@@ -1,4 +1,4 @@
-name: Verify shop and listing visibility changes
+name: Verify shop, listing, and public response changes
 
 on:
   pull_request:
@@ -15,6 +15,7 @@ on:
       - "src/components/commerce/home-view.tsx"
       - "src/components/commerce/listings-browse.tsx"
       - "src/lib/listings.ts"
+      - "src/app/api/listings/[id]/route.ts"
       - "src/lib/store.ts"
       - ".github/workflows/verify-shop-cover-photo.yml"
   push:
@@ -31,6 +32,7 @@ on:
       - "src/components/commerce/home-view.tsx"
       - "src/components/commerce/listings-browse.tsx"
       - "src/lib/listings.ts"
+      - "src/app/api/listings/[id]/route.ts"
       - "src/lib/store.ts"
       - ".github/workflows/verify-shop-cover-photo.yml"
 
