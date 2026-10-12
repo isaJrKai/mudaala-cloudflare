@@ -21,10 +21,15 @@ export async function GET(_request: NextRequest, { params }: Params) {
           select: {
             id: true,
             name: true,
+            createdAt: true,
             profile: {
               select: {
                 businessName: true,
                 photoUrl: true,
+                area: true,
+                county: true,
+                description: true,
+                hours: true,
               },
             },
           },
