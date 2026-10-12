@@ -11,6 +11,7 @@ import type { ListingWithShop } from '@/lib/listings'
 import { countryDef, categoryLabel } from '@/lib/constants'
 import { normalizeShopCode } from '@/lib/format'
 import { phoneCandidates } from '@/lib/validation'
+import { isAdminUser } from '@/lib/admin'
 
 export interface ShopChecklist {
   photo: boolean
@@ -38,6 +39,7 @@ interface ShopPageData {
   shop: {
     id: string
     name: string
+    isAdmin: boolean
     photoUrl: string | null
     coverPhotoUrl: string | null
     description: string | null
@@ -170,6 +172,8 @@ export async function getShopPage(userId: string): Promise<ShopPageData | null> 
   return {
     shop: {
       id: user.id,
+      // The admin mark is derived only from the server-side ADMIN_PHONES allowlist.
+      isAdmin: isAdminUser(user),
       // The shop name the seller chose - the account name is the fallback.
       name: profile?.businessName?.trim() || user.name,
       photoUrl: profile?.photoUrl ?? null,

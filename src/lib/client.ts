@@ -185,6 +185,8 @@ export interface SessionUser {
   phone: string
   country: string
   createdAt: string
+  /** Server-derived from the admin phone allowlist; never user-editable. */
+  isAdmin: boolean
 }
 
 export interface ListingsPage {
@@ -209,6 +211,8 @@ export interface ShopChecklistT {
 interface ShopInfo {
   id: string
   name: string
+  /** Server-derived admin badge; not the shop's self-reported verification flag. */
+  isAdmin: boolean
   photoUrl: string | null
   coverPhotoUrl?: string | null
   description: string | null

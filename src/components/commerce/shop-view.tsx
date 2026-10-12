@@ -177,12 +177,17 @@ export function ShopView({ id }: { id: string }) {
         )}
         <div className="p-4 sm:p-5">
           <div className={shop.photoUrl ? 'pl-[4.5rem] sm:pl-[5.5rem]' : undefined}>
-            <h1 className="font-display text-[1.65rem] font-semibold leading-tight tracking-tight text-primary sm:text-3xl">
-              {shop.name}
+            <h1 className="flex flex-wrap items-center gap-2 font-display text-[1.65rem] font-semibold leading-tight tracking-tight text-primary sm:text-3xl">
+              <span>{shop.name}</span>
+              {shop.isAdmin ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-600/25 bg-emerald-50 px-2 py-0.5 font-sans text-xs font-semibold text-emerald-700" title="Verified Mudaala administrator">
+                  <BadgeCheck className="size-4" aria-hidden /> Admin
+                </span>
+              ) : null}
             </h1>
             {/* The painter's stroke under a market signboard - drawn once on
                 open, then it just sits there, the way a good sign does. */}
-            <svg viewBox="0 0 150 8" className="mt-1.5 h-2 w-32 text-primary/60 sm:w-48" aria-hidden="true">
+            <svg viewBox="0 0 150 8" className="mt-1.5 h-2 w-32 text-mango sm:w-48" aria-hidden="true">
               <path
                 d="M2 6 C 30 2.2, 58 1.4, 82 3.4 S 130 6.4, 148 3"
                 pathLength={1}
