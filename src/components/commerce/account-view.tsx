@@ -95,7 +95,14 @@ export function AccountView() {
           {user.name.charAt(0).toUpperCase()}
         </span>
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-semibold">{user.name}</h1>
+          <h1 className="flex flex-wrap items-center gap-2 text-lg font-semibold">
+            <span className="truncate">{user.name}</span>
+            {user.isAdmin ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-600/25 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700" title="Verified Mudaala administrator">
+                <BadgeCheck className="size-3.5" aria-hidden /> Admin
+              </span>
+            ) : null}
+          </h1>
           <p className="text-sm text-muted-foreground">{formatPhonePretty(user.phone)}</p>
         </div>
       </div>
