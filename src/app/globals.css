@@ -69,7 +69,7 @@
   --secondary-foreground: oklch(0.32 0.012 95);
   --muted: oklch(0.952 0.006 85);
   --muted-foreground: oklch(0.51 0.014 90);
-  --accent: #FFF2C7;                           /* pale mango-yellow tint */
+  --accent: #FFE7A0;                           /* visible mango-yellow accent */
   --accent-foreground: #0F3D2E;
   /* Warm brick red - earthy, not alarm-neon. Darker than the shadcn stock
      value, so white badge text on it clears WCAG AA properly. */
