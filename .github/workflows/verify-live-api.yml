@@ -23,6 +23,7 @@ jobs:
       - name: Verify public APIs, authorization boundaries, and image delivery
         env:
           APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+          EXPECTED_ADMIN_SHOP_ID: cmutyz91b00006v2jtr5l1qiy
         run: |
           node <<'NODE'
           const base = process.env.APP_URL.replace(/\/$/, '');
@@ -77,6 +78,12 @@ jobs:
               throw new Error('Public shop response is missing the server-derived isAdmin boolean');
             }
 
+            // This is the account whose missing admin badge is being investigated.
+            const adminShop = await json('/api/shops/' + encodeURIComponent(process.env.EXPECTED_ADMIN_SHOP_ID));
+            if (!adminShop.shop || adminShop.shop.isAdmin !== true) {
+              throw new Error('The expected administrator shop is not receiving isAdmin=true from the live API');
+            }
+
             const imageUrls = [...new Set([
               detail.photos[0],
               shopBody.shop.photoUrl,
@@ -99,7 +106,7 @@ jobs:
               protectedRoutes: '401 as expected',
               publicListingDetail: 'pass',
               privateOwnerFields: 'not exposed',
-              publicShopAdminFlag: 'boolean present',
+              publicShopAdminFlag: 'boolean present',\n              targetAdminBadge: 'isAdmin=true',
               publicImages: imagesVerified + ' verified',
             }, null, 2));
           })().catch(error => {
