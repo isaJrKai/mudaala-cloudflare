@@ -13,6 +13,7 @@ on:
       - "src/components/commerce/photo-picker.tsx"
       - "src/components/commerce/auth-dialog.tsx"
       - ".github/workflows/verify-photo-auth-fix.yml"
+      - ".github/workflows/verify-live-api.yml"
       - ".github/workflows/deploy-cloudflare.yml"
   pull_request:
     branches: [main]
@@ -43,7 +44,7 @@ jobs:
           cache: npm
 
       - name: Validate GitHub Actions workflow syntax
-        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 .github/workflows/deploy-cloudflare.yml .github/workflows/verify-photo-auth-fix.yml
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 .github/workflows/deploy-cloudflare.yml .github/workflows/verify-photo-auth-fix.yml .github/workflows/verify-live-api.yml
 
       - name: Install locked dependencies
         run: npm ci
