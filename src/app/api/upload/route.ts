@@ -100,16 +100,12 @@ function stripImageMetadata(input: Uint8Array, type: 'jpg' | 'png' | 'webp'): Ui
     }
     offset = end
   }
-  return concatBytes([
+  const output = concatBytes([
     new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]),
     ...parts,
-  ]).map((value, index, all) => {
-    if (index === 4) all[4] = (all.length - 8) & 0xff
-    if (index === 5) all[5] = ((all.length - 8) >>> 8) & 0xff
-    if (index === 6) all[6] = ((all.length - 8) >>> 16) & 0xff
-    if (index === 7) all[7] = ((all.length - 8) >>> 24) & 0xff
-    return value
-  })
+  ])
+  new DataView(output.buffer, output.byteOffset, output.byteLength).setUint32(4, output.length - 8, true)
+  return output
 }
 
 function concatBytes(parts: Uint8Array[]): Uint8Array {
