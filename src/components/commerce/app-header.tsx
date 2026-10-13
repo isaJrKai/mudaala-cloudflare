@@ -73,7 +73,7 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-40 border-b-[3px] border-b-[#F6C94C] bg-card pt-[env(safe-area-inset-top)]">
       <div className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-4">
-        <button type="button" onClick={() => navigate({ name: 'home' })} className="flex items-center gap-1.5" aria-label="Mudaala home">
+        <button type="button" onClick={() => navigate({ name: 'home' })} className="flex items-center gap-1.5 lg:hidden" aria-label="Mudaala home">
           {/* The wordmark is the signboard: lowercase serif in the brand
               green, the way the market paints a good shop name - with one
               leaf for the goods that come out of the ground. No icon chip. */}
