@@ -28,11 +28,13 @@ export function SettingsView() {
 
   if (isLoading) return <ListingListSkeleton count={3} />
   if (!user) return <EmptyState title="Sign in to manage settings" description="Your account settings are available after you sign in." action={<Button onClick={() => setAuthOpen(true)}>Sign in</Button>} />
+  // Capture the authenticated user after the guard so async callbacks retain the non-null type.
+  const signedInUser = user
 
   async function requestCode() {
     setBusy(true); setError('')
     try {
-      const result = await apiPost<{ ok: boolean; message: string }>('/api/auth/forgot-password', { phone: user.phone })
+      const result = await apiPost<{ ok: boolean; message: string }>('/api/auth/forgot-password', { phone: signedInUser.phone })
       setStep('code')
       toast({ title: 'Check your phone', description: result.message })
     } catch (err) {
