@@ -127,7 +127,7 @@ jobs:
         run: |
           node <<'NODE'
           const { chromium } = require('/tmp/mudaala-browser-test/node_modules/playwright');
-          const base = process.env.APP_URL.replace(/\\/$/, '');
+          const base = process.env.APP_URL.replace(/\/$/, '');
 
           (async () => {
             const browser = await chromium.launch({ headless: true });
