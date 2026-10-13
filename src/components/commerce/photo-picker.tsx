@@ -117,7 +117,7 @@ export function PhotoPicker({ value, onChange, max = 4, single = false, cover = 
       ) : single ? (
         <div className="flex items-center gap-3">
           {value[0] ? (
-            <div className="relative">
+            <div className="relative shrink-0">
               <img
                 src={value[0]}
                 alt="Shop photo"
@@ -133,19 +133,29 @@ export function PhotoPicker({ value, onChange, max = 4, single = false, cover = 
               </button>
             </div>
           ) : (
-            <label
-              htmlFor={cameraId}
-              className={cn(
-                'flex size-16 items-center justify-center rounded-full border border-dashed bg-secondary/40 text-muted-foreground transition-colors hover:bg-accent',
-                busy && 'pointer-events-none opacity-60',
-              )}
-              aria-label="Take a shop photo"
-            >
-              {busy ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <Camera className="size-5" aria-hidden />}
-            </label>
+            <div className="flex size-16 shrink-0 items-center justify-center rounded-full border border-dashed bg-secondary/40 text-muted-foreground">
+              {busy ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <ImagePlus className="size-5" aria-hidden />}
+            </div>
           )}
-          <div className="text-sm text-muted-foreground">
-            {value[0] ? 'Looking good. Buyers see this next to your name.' : 'A real photo of your shop builds trust.'}
+          <div className="min-w-0 space-y-2">
+            <p className="text-sm text-muted-foreground">
+              {value[0] ? 'Looking good. Buyers see this next to your name.' : 'Add a real photo of your shop to build trust.'}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <label
+                htmlFor={cameraId}
+                className={cn('inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium hover:bg-accent', busy && 'pointer-events-none opacity-60')}
+              >
+                <Camera className="size-4" aria-hidden /> Take photo
+              </label>
+              <label
+                htmlFor={galleryId}
+                className={cn('inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium hover:bg-accent', busy && 'pointer-events-none opacity-60')}
+              >
+                <ImagePlus className="size-4" aria-hidden /> {value[0] ? 'Change photo' : 'Choose from gallery'}
+              </label>
+            </div>
+            <p className="text-xs text-muted-foreground">JPG, PNG or WebP; up to 8 MB.</p>
           </div>
         </div>
       ) : (
