@@ -115,3 +115,62 @@ jobs:
             process.exit(1);
           });
           NODE
+
+      - name: Install Playwright Chromium for real-browser verification
+        run: |
+          npm install --prefix /tmp/mudaala-browser-test playwright@1.56.1
+          /tmp/mudaala-browser-test/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Verify photo elements render in a real browser
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          node <<'NODE'
+          const { chromium } = require('/tmp/mudaala-browser-test/node_modules/playwright');
+          const base = process.env.APP_URL.replace(/\\/$/, '');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            try {
+              const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
+              const failedRequests = [];
+              page.on('requestfailed', request => {
+                if (request.url().includes('/storage/v1/object/public/')) {
+                  failedRequests.push({ host: new URL(request.url()).host, failure: request.failure()?.errorText ?? 'request failed' });
+                }
+              });
+
+              await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 60000 });
+              await page.waitForFunction(
+                () => [...document.images].some(img => img.src.includes('/storage/v1/object/public/')),
+                null,
+                { timeout: 20000 },
+              );
+              await page.locator('img[src*="/storage/v1/object/public/"]').evaluateAll(images => {
+                for (const img of images) img.loading = 'eager';
+              });
+              await page.waitForFunction(
+                () => {
+                  const images = [...document.images].filter(img => img.src.includes('/storage/v1/object/public/'));
+                  return images.length > 0 && images.every(img => img.complete);
+                },
+                null,
+                { timeout: 30000 },
+              );
+
+              const images = await page.locator('img[src*="/storage/v1/object/public/"]').evaluateAll(elements =>
+                elements.map(img => ({ complete: img.complete, naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight })),
+              );
+              const broken = images.filter(img => img.naturalWidth === 0 || img.naturalHeight === 0);
+              if (failedRequests.length || broken.length) {
+                throw new Error('Browser photo rendering failed: ' + JSON.stringify({ images, failedRequests }));
+              }
+              console.log(JSON.stringify({ browser: 'pass', renderedStoragePhotos: images.length, images }, null, 2));
+            } finally {
+              await browser.close();
+            }
+          })().catch(error => {
+            console.error(error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          });
+          NODE
