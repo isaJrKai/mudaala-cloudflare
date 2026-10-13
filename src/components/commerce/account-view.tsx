@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BadgeCheck, Check, CheckCircle2, Circle, Info, Link2, User, Settings, LogOut, Store, MapPin, Download, Trash2 } from 'lucide-react'
+import { BadgeCheck, Check, CheckCircle2, Circle, Info, Link2, User, Settings, LogOut, Store, MapPin, Download, Trash2, LayoutDashboard } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -117,6 +117,11 @@ export function AccountView() {
         <Button variant="outline" className="gap-1.5" onClick={() => navigate({ name: 'settings' })}>
           <Settings className="size-4" aria-hidden /> Settings
         </Button>
+        {user.isAdmin ? (
+          <Button variant="outline" className="gap-1.5" onClick={() => { window.location.href = '/admin' }}>
+            <LayoutDashboard className="size-4" aria-hidden /> Admin dashboard
+          </Button>
+        ) : null}
         <Button
           variant="ghost"
           className="gap-1.5 text-muted-foreground"
