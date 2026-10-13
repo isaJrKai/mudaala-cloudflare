@@ -24,6 +24,7 @@ on:
       - "src/lib/storage.ts"
       - "src/components/commerce/auth-dialog.tsx"
       - ".github/workflows/verify-photo-auth-fix.yml"
+      - ".github/workflows/verify-live-api.yml"
   workflow_dispatch:
 
 permissions:
