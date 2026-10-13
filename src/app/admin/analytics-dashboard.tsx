@@ -29,7 +29,7 @@ type Metrics = {
 }
 
 const cards: { key: keyof Metrics; label: string; note: string; icon: typeof Users }[] = [
-  { key: 'registeredAccounts', label: 'Registered accounts', note: 'Genuine accounts, excluding development fixtures', icon: Users },
+  { key: 'registeredAccounts', label: 'Registered accounts', note: 'Excludes flagged development fixtures; audit test accounts before external reporting', icon: Users },
   { key: 'signupsToday', label: 'Joined today', note: 'Since 00:00 UTC', icon: UserRoundPlus },
   { key: 'signupsLast7Days', label: 'Joined in 7 days', note: 'Rolling seven-day window', icon: UserRoundPlus },
   { key: 'signupsLast30Days', label: 'Joined in 30 days', note: 'Rolling thirty-day window', icon: UserRoundPlus },
