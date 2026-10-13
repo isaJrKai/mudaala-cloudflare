@@ -358,8 +358,9 @@ async function main() {
     })
     ok('renamed non-image rejected by magic bytes → 400', fakePng.status === 400)
 
-    // Every stored photo is re-encoded to WebP, max edge 1200: upload a big
-    // 4000×3000 PNG and check what ACTUALLY got written on disk.
+    // The Worker-compatible API preserves the validated raster format and
+    // strips metadata without native image binaries. The browser PhotoPicker
+    // resizes/transcodes ordinary gallery images before they reach this route.
     const BIG_PNG = await sharp({
       create: { width: 4000, height: 3000, channels: 3, background: { r: 120, g: 160, b: 90 } },
     }).png().toBuffer()
@@ -369,18 +370,17 @@ async function main() {
       body: (() => { const f = new FormData(); f.append('file', new Blob([new Uint8Array(BIG_PNG)], { type: 'image/png' }), 'big.png'); return f })(),
     })
     const bigJson = await bigUpload.json().catch(() => null)
-    ok('oversized photo upload → 201 with .webp url', bigUpload.status === 201 && typeof bigJson?.url === 'string' && bigJson.url.startsWith('/uploads/') && bigJson.url.endsWith('.webp'))
+    ok('large PNG upload → 201 with .png url', bigUpload.status === 201 && typeof bigJson?.url === 'string' && bigJson.url.startsWith('/uploads/') && bigJson.url.endsWith('.png'))
     const storedPath = path.join(process.cwd(), 'public', bigJson?.url ?? '')
     const storedMeta = await sharp(storedPath).metadata()
     ok(
-      'stored photo is WebP inside the 1200px box',
-      storedMeta.format === 'webp' && Math.max(storedMeta.width ?? 0, storedMeta.height ?? 0) <= 1200,
+      'stored photo keeps raster dimensions after metadata stripping',
+      storedMeta.format === 'png' && storedMeta.width === 4000 && storedMeta.height === 3000,
     )
     const storedBytes = await fs.promises.readFile(storedPath)
-    const pngBytesOnDisk = await sharp(storedPath).png().toBuffer()
     ok(
-      're-encoding actually shrank the market photo (WebP < same image as PNG)',
-      storedBytes.byteLength < pngBytesOnDisk.byteLength,
+      'metadata-free PNG bytes remain intact',
+      storedBytes.equals(BIG_PNG),
     )
 
     // Photos flow through create (with sanitization), detail, browse.
@@ -1918,7 +1918,7 @@ async function main() {
         ? hdrs.get('x-frame-options') === null && (hdrs.get('content-security-policy') ?? '').includes(fa)
         : hdrs.get('x-frame-options') === wantXfo)
 
-    // ---- 15j. Photos: EXIF/GPS stripped, capped at 1200px, WebP ----
+    // ---- 15j. Photos: EXIF/GPS metadata stripped without native image binaries ----
     const exifJpeg = await sharp({
       create: { width: 2400, height: 1600, channels: 3, background: { r: 40, g: 90, b: 60 } },
     })
@@ -1937,17 +1937,17 @@ async function main() {
       })(),
     })
     const exifJson = (await exifUpload.json().catch(() => null)) as { url?: string } | null
-    ok('15.33 EXIF-tagged JPEG uploads → 201 with a .webp url', exifUpload.status === 201 && typeof exifJson?.url === 'string' && exifJson.url.endsWith('.webp'))
+    ok('15.33 EXIF-tagged JPEG uploads → 201 with .jpg url', exifUpload.status === 201 && typeof exifJson?.url === 'string' && exifJson.url.endsWith('.jpg'))
     const storedExifPath = path.join(process.cwd(), 'public', exifJson?.url ?? '')
     const storedExif = await sharp(storedExifPath).metadata()
     ok(
-      '15.34 stored photo is inside the 1200px box and WebP',
-      Math.max(storedExif.width ?? 0, storedExif.height ?? 0) <= 1200 && storedExif.format === 'webp',
+      '15.34 metadata stripping preserves the JPEG image dimensions',
+      storedExif.width === 2400 && storedExif.height === 1600 && storedExif.format === 'jpeg',
     )
     const storedExifBytes = await fs.promises.readFile(storedExifPath)
     ok(
-      '15.35 EXIF/GPS is gone - no Artist tag, no EXIF block survives',
-      storedExif.exif === undefined && !storedExifBytes.includes(Buffer.from('mudaala-exif-test')),
+      '15.35 EXIF/GPS is gone - no Artist tag, EXIF block or GPS segment survives',
+      storedExif.exif === undefined && !storedExifBytes.includes(Buffer.from('mudaala-exif-test')) && !storedExifBytes.includes(Buffer.from('GPSLatitude')),
     )
 
     // ---- 15k. Cross-user ownership matrix (routes with an id) ----
