@@ -49,6 +49,8 @@ jobs:
 
             await json('/api/my/listings', 401);
             await json('/api/settings/postgres', 401);
+            // Aggregate analytics are private too: no session must never see counts.
+            await json('/api/admin/analytics', 401);
 
             const search = await json('/api/listings?page=1&pageSize=10');
             if (!Array.isArray(search.items)) throw new Error('Public listing search response is missing items[]');
