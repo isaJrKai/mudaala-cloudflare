@@ -185,11 +185,31 @@ export class S3Storage implements PhotoStorage {
   }
   /** Resolve the public media base separately from the S3 API endpoint. */
   private publicBase(): string {
-    if (this.env.publicUrl?.trim()) return this.env.publicUrl.trim().replace(/\/$/, '')
     const endpoint = new URL(this.env.endpoint)
-    if (endpoint.hostname.endsWith('.supabase.co') && /\/storage\/v1\/s3\/?$/.test(endpoint.pathname)) {
-      return endpoint.origin + '/storage/v1/object/public/' + this.env.bucket
+    const configured = this.env.publicUrl?.trim()
+
+    if (endpoint.hostname.endsWith('.supabase.co')) {
+      const correctPublicBase = endpoint.origin + '/storage/v1/object/public/' + this.env.bucket
+      if (configured) {
+        const publicUrl = new URL(configured)
+        // If a Supabase URL was configured using the S3 API path, normalize it
+        // to the public-object route. Preserve a valid public URL or custom CDN.
+        if (publicUrl.hostname === endpoint.hostname && /\/storage\/v1\/s3(?:\/|$)/.test(publicUrl.pathname)) {
+          return correctPublicBase
+        }
+        if (publicUrl.hostname === endpoint.hostname && /\/storage\/v1\/object\/public\//.test(publicUrl.pathname)) {
+          return publicUrl.toString().replace(/\/$/, '')
+        }
+        if (publicUrl.hostname !== endpoint.hostname) return configured.replace(/\/$/, '')
+        if (publicUrl.pathname === '/' || publicUrl.pathname.endsWith('/' + this.env.bucket)) {
+          return correctPublicBase
+        }
+        return configured.replace(/\/$/, '')
+      }
+      if (/\/storage\/v1\/s3\/?$/.test(endpoint.pathname)) return correctPublicBase
     }
+
+    if (configured) return configured.replace(/\/$/, '')
     return this.env.endpoint.replace(/\/$/, '') + '/' + this.env.bucket
   }
 
