@@ -106,7 +106,8 @@ jobs:
               protectedRoutes: '401 as expected',
               publicListingDetail: 'pass',
               privateOwnerFields: 'not exposed',
-              publicShopAdminFlag: 'boolean present',\n              targetAdminBadge: 'isAdmin=true',
+              publicShopAdminFlag: 'boolean present',
+              targetAdminBadge: 'isAdmin=true',
               publicImages: imagesVerified + ' verified',
             }, null, 2));
           })().catch(error => {
