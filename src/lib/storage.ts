@@ -205,7 +205,8 @@ export class S3Storage implements PhotoStorage {
   /** The public URL an object is served from (media host + key). */
   publicUrlFor(objectKey: string): string {
     return this.publicBase() + '/' + objectKey
-  }}
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Provider choice - pure function so the suite can pin it
