@@ -21,9 +21,6 @@ async function preparePhoto(file: File): Promise<File> {
   if (!file.type.startsWith('image/')) {
     throw new Error('Choose an image from your gallery.')
   }
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-    throw new Error('This photo format is not supported yet. Choose a JPG, PNG or WebP image.')
-  }
   if (typeof createImageBitmap !== 'function') {
     throw new Error('This browser cannot prepare photos. Please try an updated browser.')
   }
