@@ -91,6 +91,8 @@ jobs:
           ADMIN_PHONES: "+256712000001"
           NEXT_PUBLIC_APP_URL: http://localhost:3000
           APP_ORIGIN: http://localhost:3000
+          ALLOW_BEARER_AUTH: "1"
+          CSRF_TRUSTED_HOSTS: preview-sandbox.preview-platform.example
 
       - name: Run API behavior, account-isolation, moderation, and photo tests
         run: npx tsx scripts/test-api.ts
@@ -102,3 +104,5 @@ jobs:
           ADMIN_PHONES: "+256712000001"
           NEXT_PUBLIC_APP_URL: http://localhost:3000
           APP_ORIGIN: http://localhost:3000
+          ALLOW_BEARER_AUTH: "1"
+          CSRF_TRUSTED_HOSTS: preview-sandbox.preview-platform.example
