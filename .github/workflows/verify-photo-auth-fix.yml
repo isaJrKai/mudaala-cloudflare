@@ -12,6 +12,7 @@ on:
       - "src/lib/storage.ts"
       - "src/components/commerce/photo-picker.tsx"
       - "src/components/commerce/auth-dialog.tsx"
+      - "src/hooks/use-session.ts"
       - ".github/workflows/verify-photo-auth-fix.yml"
       - ".github/workflows/verify-live-api.yml"
       - ".github/workflows/deploy-cloudflare.yml"
@@ -71,4 +72,4 @@ jobs:
           ADMIN_PHONES: "+256700000000"
 
       - name: Lint changed files
-        run: npx eslint next.config.ts src/app/api/upload/route.ts src/lib/storage.ts src/components/commerce/auth-dialog.tsx src/components/commerce/photo-picker.tsx
+        run: npx eslint next.config.ts src/app/api/upload/route.ts src/lib/storage.ts src/components/commerce/auth-dialog.tsx src/components/commerce/photo-picker.tsx src/hooks/use-session.ts
