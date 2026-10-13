@@ -47,7 +47,7 @@ export function SettingsView() {
     if (password !== confirmPassword) { setError('The passwords do not match.'); return }
     setBusy(true)
     try {
-      const result = await apiPost<{ ok: boolean; message: string }>('/api/auth/reset-password', { phone: user.phone, code: code.trim(), newPassword: password })
+      const result = await apiPost<{ ok: boolean; message: string }>('/api/auth/reset-password', { phone: signedInUser.phone, code: code.trim(), newPassword: password })
       toast({ title: 'Password updated', description: result.message })
       // Password reset revokes all sessions. Clear this browser's token too.
       clearSessionToken()
