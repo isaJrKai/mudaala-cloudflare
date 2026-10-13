@@ -2176,6 +2176,7 @@ async function main() {
       STORAGE_KEY: 'test-key',
       STORAGE_SECRET: 'test-secret',
       STORAGE_PUBLIC_URL: 'https://cdn.mudaala.example',
+      STORAGE_REGION: 'auto', // Cloudflare R2 uses the SigV4 region "auto".
     }
     const cloud = chooseStorage(s3Env)
     ok('16.3 full STORAGE_* env → s3-compatible provider', cloud.name === 's3-compatible')
