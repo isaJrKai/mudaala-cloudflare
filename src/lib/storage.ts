@@ -183,23 +183,29 @@ export class S3Storage implements PhotoStorage {
       throw new Error('S3 delete failed')
     }
   }
+  /** Resolve the public media base separately from the S3 API endpoint. */
+  private publicBase(): string {
+    if (this.env.publicUrl?.trim()) return this.env.publicUrl.trim().replace(/\/$/, '')
+    const endpoint = new URL(this.env.endpoint)
+    if (endpoint.hostname.endsWith('.supabase.co') && /\/storage\/v1\/s3\/?$/.test(endpoint.pathname)) {
+      return endpoint.origin + '/storage/v1/object/public/' + this.env.bucket
+    }
+    return this.env.endpoint.replace(/\/$/, '') + '/' + this.env.bucket
+  }
+
   /** The object key behind a public URL, or null when the URL is not ours. */
   objectKeyFor(url: string): string | null {
-    const bases = [this.env.publicUrl, `${this.env.endpoint.replace(/\/$/, '')}/${this.env.bucket}`]
-      .filter(Boolean)
-      .map((b) => (b as string).replace(/\/$/, ''))
+    const bases = [this.publicBase(), this.env.endpoint.replace(/\/$/, '') + '/' + this.env.bucket]
     for (const base of bases) {
-      if (url.startsWith(`${base}/`)) return url.slice(base.length + 1)
+      if (url.startsWith(base + '/')) return url.slice(base.length + 1)
     }
     return null
   }
 
   /** The public URL an object is served from (media host + key). */
   publicUrlFor(objectKey: string): string {
-    const base = (this.env.publicUrl ?? `${this.env.endpoint.replace(/\/$/, '')}/${this.env.bucket}`).replace(/\/$/, '')
-    return `${base}/${objectKey}`
-  }
-}
+    return this.publicBase() + '/' + objectKey
+  }}
 
 // ---------------------------------------------------------------------------
 // Provider choice - pure function so the suite can pin it
