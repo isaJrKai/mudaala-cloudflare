@@ -1,0 +1,116 @@
+name: Verify live API, privacy boundaries, and photos
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy Mudaala to Cloudflare Workers"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify public APIs, authorization boundaries, and image delivery
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+          EXPECTED_ADMIN_SHOP_ID: cmutyz91b00006v2jtr5l1qiy
+        run: |
+          node <<'NODE'
+          const base = process.env.APP_URL.replace(/\/$/, '');
+          async function json(path, expectedStatus = 200) {
+            const response = await fetch(base + path, { headers: { accept: 'application/json' } });
+            const text = await response.text();
+            let body;
+            try { body = JSON.parse(text); } catch { throw new Error(path + ' did not return JSON (HTTP ' + response.status + ')'); }
+            if (response.status !== expectedStatus) {
+              throw new Error(path + ' expected HTTP ' + expectedStatus + ', got ' + response.status + ': ' + JSON.stringify(body).slice(0, 250));
+            }
+            return body;
+          }
+
+          (async () => {
+            const health = await json('/api/health');
+            if (health.ok !== true || health.app !== 'up' || health.database !== 'up') {
+              throw new Error('Live health check did not report app and database up');
+            }
+
+            const me = await json('/api/auth/me');
+            if (me.user !== null) throw new Error('Anonymous /api/auth/me unexpectedly returned a user');
+
+            await json('/api/my/listings', 401);
+            await json('/api/settings/postgres', 401);
+
+            const search = await json('/api/listings?page=1&pageSize=10');
+            if (!Array.isArray(search.items)) throw new Error('Public listing search response is missing items[]');
+            const listing = search.items.find(item => Array.isArray(item.photos) && item.photos.length > 0);
+            if (!listing) throw new Error('No active listing with photos is available for live media verification');
+
+            const detailBody = await json('/api/listings/' + encodeURIComponent(listing.id));
+            const detail = detailBody.listing;
+            if (!detail || !Array.isArray(detail.photos)) throw new Error('Public listing detail response is malformed');
+            if (detail.status !== 'ACTIVE') throw new Error('Public search returned a listing that is not ACTIVE');
+
+            const owner = detail.user || {};
+            for (const field of ['phone', 'email', 'password', 'passwordHash', 'isAdmin', 'legalAcceptedAt', 'role']) {
+              if (Object.prototype.hasOwnProperty.call(owner, field)) {
+                throw new Error('Public listing detail leaked private owner field: ' + field);
+              }
+            }
+            const profile = owner.profile || {};
+            for (const field of ['phone', 'whatsapp', 'userId', 'verified']) {
+              if (Object.prototype.hasOwnProperty.call(profile, field)) {
+                throw new Error('Public listing detail leaked private profile field: ' + field);
+              }
+            }
+
+            const shopBody = await json('/api/shops/' + encodeURIComponent(detail.userId));
+            if (!shopBody.shop || typeof shopBody.shop.isAdmin !== 'boolean') {
+              throw new Error('Public shop response is missing the server-derived isAdmin boolean');
+            }
+
+            // This is the account whose missing admin badge is being investigated.
+            const adminShop = await json('/api/shops/' + encodeURIComponent(process.env.EXPECTED_ADMIN_SHOP_ID));
+            if (!adminShop.shop || adminShop.shop.isAdmin !== true) {
+              throw new Error('The expected administrator shop is not receiving isAdmin=true from the live API');
+            }
+
+            const imageUrls = [...new Set([
+              detail.photos[0],
+              shopBody.shop.photoUrl,
+            ].filter(Boolean))].slice(0, 2);
+            let imagesVerified = 0;
+            for (const rawUrl of imageUrls) {
+              const url = new URL(rawUrl, base);
+              if (url.protocol !== 'https:') throw new Error('Photo URL is not HTTPS');
+              const response = await fetch(url, { method: 'GET' });
+              const contentType = response.headers.get('content-type') || '';
+              if (!response.ok || !contentType.toLowerCase().startsWith('image/')) {
+                throw new Error('Photo delivery failed: HTTP ' + response.status + ', content-type=' + contentType + ', host=' + url.host);
+              }
+              imagesVerified++;
+            }
+
+            console.log(JSON.stringify({
+              health: 'pass',
+              anonymousAuth: 'pass',
+              protectedRoutes: '401 as expected',
+              publicListingDetail: 'pass',
+              privateOwnerFields: 'not exposed',
+              publicShopAdminFlag: 'boolean present',\n              targetAdminBadge: 'isAdmin=true',
+              publicImages: imagesVerified + ' verified',
+            }, null, 2));
+          })().catch(error => {
+            console.error(error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          });
+          NODE
