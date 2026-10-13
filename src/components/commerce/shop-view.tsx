@@ -27,6 +27,7 @@ import { ErrorState } from './listings-browse'
 import { EmptyState } from './empty-state'
 import { PlaceholderTile } from './placeholder-tile'
 import { copy } from '@/lib/copy'
+import { categoryLabel } from '@/lib/constants'
 
 export function ShopView({ id }: { id: string }) {
   const { navigate } = useAppStore()
@@ -185,6 +186,11 @@ export function ShopView({ id }: { id: string }) {
                 </span>
               ) : null}
             </h1>
+            {shop.category ? (
+              <span className="mt-2 inline-flex rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
+                {categoryLabel(shop.category)}
+              </span>
+            ) : null}
             {/* The painter's stroke under a market signboard - drawn once on
                 open, then it just sits there, the way a good sign does. */}
             <svg viewBox="0 0 150 8" className="mt-1.5 h-2 w-32 text-mango sm:w-48" aria-hidden="true">
