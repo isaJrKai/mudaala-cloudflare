@@ -74,7 +74,7 @@ export function PhotoPicker({ value, onChange, max = 4, single = false, cover = 
       <input
         id={galleryId}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/*"
         className="sr-only"
         onChange={(e) => {
           upload(e.target.files)
