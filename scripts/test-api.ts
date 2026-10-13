@@ -966,6 +966,34 @@ async function main() {
     admin.token = adminLogin.json?.sessionToken
     ok('admin phone signs in (precondition)', adminLogin.status === 200)
 
+    const anonymousAnalytics = await call('GET', '/api/admin/analytics')
+    ok('admin analytics denies anonymous access → 401', anonymousAnalytics.status === 401)
+
+    const sellerAnalytics = await call('GET', '/api/admin/analytics', undefined, alice)
+    ok('admin analytics denies ordinary signed-in account → 403', sellerAnalytics.status === 403)
+
+    const adminAnalytics = await call('GET', '/api/admin/analytics', undefined, admin)
+    const expectedMetricKeys = [
+      'registeredAccounts', 'signupsToday', 'signupsLast7Days', 'signupsLast30Days',
+      'shopsCreated', 'activeListings', 'listingViews', 'shopFollows',
+      'accountsWithValidSessions', 'openReports',
+    ].sort()
+    const actualMetricKeys = Object.keys(adminAnalytics.json?.metrics ?? {}).sort()
+    ok(
+      'admin analytics returns only the defined aggregate metrics',
+      adminAnalytics.status === 200 &&
+        JSON.stringify(actualMetricKeys) === JSON.stringify(expectedMetricKeys) &&
+        expectedMetricKeys.every((key) => typeof adminAnalytics.json.metrics[key] === 'number'),
+    )
+    ok(
+      'admin analytics response contains no user-level identity or activity rows',
+      adminAnalytics.status === 200 &&
+        adminAnalytics.json?.privacy === 'aggregate-only' &&
+        !JSON.stringify(adminAnalytics.json).includes(alicePhone) &&
+        !('users' in (adminAnalytics.json ?? {})) &&
+        !('accounts' in (adminAnalytics.json ?? {})),
+    )
+
     const saved = await call(
       'PUT',
       '/api/settings/postgres',
@@ -2148,6 +2176,7 @@ async function main() {
       STORAGE_KEY: 'test-key',
       STORAGE_SECRET: 'test-secret',
       STORAGE_PUBLIC_URL: 'https://cdn.mudaala.example',
+      STORAGE_REGION: 'auto', // Cloudflare R2 uses the SigV4 region "auto".
     }
     const cloud = chooseStorage(s3Env)
     ok('16.3 full STORAGE_* env → s3-compatible provider', cloud.name === 's3-compatible')
