@@ -12,6 +12,20 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mudaala
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mudaala"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -41,3 +55,50 @@ jobs:
           CRON_SECRET: build-only-placeholder
           SETTINGS_ENCRYPTION_KEY: build-only-placeholder-key-32chars
           ADMIN_PHONES: "+256700000000"
+
+      # All behavioural/security tests below use this disposable CI database.
+      # Nothing in this job connects to or mutates the production Supabase DB.
+      - name: Create schema in disposable PostgreSQL
+        run: npm run db:push
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
+      - name: Seed development fixtures into disposable PostgreSQL
+        run: npx tsx scripts/seed.ts
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
+      - name: Start local app for API tests
+        run: |
+          npm run dev > /tmp/mudaala-dev.log 2>&1 &
+          echo $! > /tmp/mudaala-dev.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3000/api/health > /tmp/mudaala-health.json; then
+              cat /tmp/mudaala-health.json
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/mudaala-dev.log
+          exit 1
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          CRON_SECRET: ci-only-cron-secret
+          SETTINGS_ENCRYPTION_KEY: ci-only-settings-encryption-key-32chars
+          ADMIN_PHONES: "+256712000001"
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          APP_ORIGIN: http://localhost:3000
+
+      - name: Run API behavior, account-isolation, moderation, and photo tests
+        run: npx tsx scripts/test-api.ts
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          CRON_SECRET: ci-only-cron-secret
+          SETTINGS_ENCRYPTION_KEY: ci-only-settings-encryption-key-32chars
+          ADMIN_PHONES: "+256712000001"
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          APP_ORIGIN: http://localhost:3000
