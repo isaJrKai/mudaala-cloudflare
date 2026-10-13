@@ -14,6 +14,49 @@ import { useToast } from '@/hooks/use-toast'
 import { apiFetch } from '@/lib/client'
 import { cn } from '@/lib/utils'
 
+// Normalize photos in the browser before upload. This works on mobile browsers
+// without native image libraries in Cloudflare Workers, strips EXIF/GPS metadata,
+// and keeps downloads manageable for customers on slow connections.
+async function preparePhoto(file: File): Promise<File> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Choose an image from your gallery.')
+  }
+  if (typeof createImageBitmap !== 'function') {
+    throw new Error('This browser cannot prepare photos. Please try an updated browser.')
+  }
+
+  let bitmap: ImageBitmap
+  try {
+    bitmap = await createImageBitmap(file)
+  } catch {
+    throw new Error('This photo could not be opened. Choose a JPG, PNG or WebP image.')
+  }
+
+  try {
+    const scale = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale))
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale))
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('Could not prepare this photo. Please try again.')
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((result) => {
+        if (result) resolve(result)
+        else reject(new Error('Could not prepare this photo. Please try again.'))
+      }, 'image/webp', 0.86)
+    })
+    if (blob.type !== 'image/webp') {
+      throw new Error('This browser cannot prepare photos. Please try an updated browser.')
+    }
+    const stem = file.name.replace(/\\.[^.]+$/, '') || 'photo'
+    return new File([blob], `${stem}.webp`, { type: 'image/webp', lastModified: Date.now() })
+  } finally {
+    bitmap.close()
+  }
+}
+
 interface PhotoPickerProps {
   value: string[]
   onChange: (photos: string[]) => void
@@ -39,14 +82,15 @@ export function PhotoPicker({ value, onChange, max = 4, single = false, cover = 
     if (!file) return
     setBusy(true)
     try {
+      const prepared = await preparePhoto(file)
       const body = new FormData()
-      body.append('file', file)
+      body.append('file', prepared)
       const res = await apiFetch<{ url: string }>('/api/upload', { method: 'POST', body })
       onChange(single ? [res.url] : [...value, res.url].slice(0, max))
     } catch (err) {
       toast({
         title: 'Photo could not be uploaded',
-        description: err instanceof Error ? err.message : 'Try a smaller JPG or PNG photo.',
+        description: err instanceof Error ? err.message : 'Choose a JPG, PNG or WebP photo under 8 MB.',
         variant: 'destructive',
       })
     } finally {
@@ -74,7 +118,7 @@ export function PhotoPicker({ value, onChange, max = 4, single = false, cover = 
       <input
         id={galleryId}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/*"
         className="sr-only"
         onChange={(e) => {
           upload(e.target.files)

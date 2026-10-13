@@ -33,6 +33,92 @@ function sniffImage(b: Uint8Array): 'jpg' | 'png' | 'webp' | null {
   return null
 }
 
+// Strip embedded metadata without decoding/re-encoding the image. This keeps
+// the upload route compatible with Workers while preventing EXIF GPS and common
+// text/XMP metadata from becoming public alongside the photo.
+function stripImageMetadata(input: Uint8Array, type: 'jpg' | 'png' | 'webp'): Uint8Array {
+  if (type === 'jpg') {
+    if (input.length < 4 || input[0] !== 0xff || input[1] !== 0xd8) return input
+    const parts: Uint8Array[] = [input.slice(0, 2)]
+    let offset = 2
+    while (offset < input.length && input[offset] === 0xff) {
+      const start = offset
+      while (offset < input.length && input[offset] === 0xff) offset++
+      if (offset >= input.length) break
+      const marker = input[offset++]
+      if (marker === 0xda) { parts.push(input.slice(start)); break }
+      if (marker === 0xd9 || marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+        parts.push(input.slice(start, offset))
+        continue
+      }
+      if (offset + 2 > input.length) { parts.push(input.slice(start)); break }
+      const length = (input[offset] << 8) | input[offset + 1]
+      const end = offset + length
+      if (length < 2 || end > input.length) { parts.push(input.slice(start)); break }
+      // APP1 (EXIF/XMP), APP13 (Photoshop/IPTC) and COM can contain location
+      // or identifying metadata. The compressed image data remains untouched.
+      if (marker !== 0xe1 && marker !== 0xed && marker !== 0xfe) parts.push(input.slice(start, end))
+      offset = end
+    }
+    return concatBytes(parts)
+  }
+
+  if (type === 'png') {
+    const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+    if (input.length < 8 || !signature.every((v, i) => input[i] === v)) return input
+    const parts: Uint8Array[] = [input.slice(0, 8)]
+    let offset = 8
+    while (offset + 12 <= input.length) {
+      const length = (input[offset] * 0x1000000) + (input[offset + 1] << 16) + (input[offset + 2] << 8) + input[offset + 3]
+      const end = offset + 12 + length
+      if (end > input.length) { parts.push(input.slice(offset)); break }
+      const typeName = String.fromCharCode(...input.slice(offset + 4, offset + 8))
+      if (!['eXIf', 'tEXt', 'zTXt', 'iTXt', 'tIME'].includes(typeName)) parts.push(input.slice(offset, end))
+      offset = end
+      if (typeName === 'IEND') {
+        if (offset < input.length) parts.push(input.slice(offset))
+        break
+      }
+    }
+    return concatBytes(parts)
+  }
+
+  if (input.length < 12 || String.fromCharCode(...input.slice(0, 4)) !== 'RIFF' || String.fromCharCode(...input.slice(8, 12)) !== 'WEBP') return input
+  const parts: Uint8Array[] = []
+  let offset = 12
+  while (offset + 8 <= input.length) {
+    const name = String.fromCharCode(...input.slice(offset, offset + 4))
+    const size = input[offset + 4] | (input[offset + 5] << 8) | (input[offset + 6] << 16) | (input[offset + 7] << 24)
+    const end = offset + 8 + size + (size % 2)
+    if (size < 0 || end > input.length) { parts.push(input.slice(offset)); break }
+    if (name !== 'EXIF' && name !== 'XMP ') {
+      const chunk = input.slice(offset, end)
+      // VP8X feature flags: clear EXIF and XMP presence bits when those chunks
+      // are removed, preserving a valid extended WebP container.
+      if (name === 'VP8X' && size >= 1) chunk[8] = chunk[8] & ~0x0c
+      parts.push(chunk)
+    }
+    offset = end
+  }
+  const output = concatBytes([
+    new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]),
+    ...parts,
+  ])
+  new DataView(output.buffer, output.byteOffset, output.byteLength).setUint32(4, output.length - 8, true)
+  return output
+}
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+  const total = parts.reduce((sum, part) => sum + part.length, 0)
+  const output = new Uint8Array(total)
+  let offset = 0
+  for (const part of parts) {
+    output.set(part, offset)
+    offset += part.length
+  }
+  return output
+}
+
 export async function POST(request: Request) {
   return route(async () => {
     const user = await requireUser('Sign in to upload photos')
@@ -70,7 +156,8 @@ export async function POST(request: Request) {
     // image APIs are not part of the documented Workers runtime. Keep the
     // upload compatible by storing the validated original raster image.
     // The storage layer derives Content-Type from the detected magic bytes.
-    const input = Buffer.from(await file.arrayBuffer())
+    const original = new Uint8Array(await file.arrayBuffer())
+    const input = Buffer.from(stripImageMetadata(original, detectedType))
     let url: string
     try {
       url = await chooseStorage().save(input, detectedType)
