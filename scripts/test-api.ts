@@ -198,6 +198,34 @@ async function main() {
 
     const anonMe = await call('GET', '/api/auth/me')
     ok('GET /me without session → user null', anonMe.json?.user === null)
+
+    console.log('\n== 1a. Personalized category memory + account isolation ==')
+    const anonymousPreferences = await call('GET', '/api/category-preferences')
+    ok('category preferences require sign-in', anonymousPreferences.status === 401)
+
+    const firstInterest = await call('POST', '/api/category-preferences', { category: 'electronics' }, alice)
+    ok('first category selection is stored under the signed-in account', firstInterest.status === 200 && firstInterest.json?.interest?.category === 'electronics' && firstInterest.json?.interest?.score === 3)
+    const repeatedInterest = await call('POST', '/api/category-preferences', { category: 'electronics' }, alice)
+    ok('repeated category selection increases preference score', repeatedInterest.status === 200 && repeatedInterest.json?.interest?.score === 6)
+
+    const invalidInterest = await call('POST', '/api/category-preferences', { category: 'made-up-category' }, alice)
+    ok('unknown category cannot be stored', invalidInterest.status === 400)
+
+    const categoryBob: Jar = { cookie: '' }
+    await register(categoryBob, uniquePhone(), 'Category Isolation Tester', 'password456')
+    const bobBefore = await call('GET', '/api/category-preferences', undefined, categoryBob)
+    ok('a second account starts with no inherited category interests', bobBefore.status === 200 && Array.isArray(bobBefore.json?.interests) && bobBefore.json.interests.length === 0)
+    const bobInterest = await call('POST', '/api/category-preferences', { category: 'hardware-building' }, categoryBob)
+    ok('second account can store its own category interest', bobInterest.status === 200 && bobInterest.json?.interest?.category === 'hardware-building')
+
+    const alicePreferences = await call('GET', '/api/category-preferences', undefined, alice)
+    ok('account A only sees its own category interests', alicePreferences.status === 200 && alicePreferences.json.interests.length === 1 && alicePreferences.json.interests[0].category === 'electronics')
+    const bobPreferences = await call('GET', '/api/category-preferences', undefined, categoryBob)
+    ok('account B only sees its own category interests', bobPreferences.status === 200 && bobPreferences.json.interests.length === 1 && bobPreferences.json.interests[0].category === 'hardware-building')
+
+    const resetPreferences = await call('DELETE', '/api/category-preferences', undefined, alice)
+    const afterReset = await call('GET', '/api/category-preferences', undefined, alice)
+    ok('reset clears only the current account category memory', resetPreferences.status === 200 && afterReset.status === 200 && afterReset.json.interests.length === 0)
   }
 
   console.log('\n== 1b. Ugandan phone formats + Bearer transport ==')
