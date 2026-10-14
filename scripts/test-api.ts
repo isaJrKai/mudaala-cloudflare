@@ -22,6 +22,7 @@ import sharp from 'sharp'
 import path from 'node:path'
 import * as fs from 'node:fs'
 import { execSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { SUPPORT_EMAIL, TERMS_VERSION } from '../src/lib/constants'
 import { route } from '../src/lib/api'
 // Pure-function units under test (no next/* imports - safe outside a request).
@@ -33,6 +34,7 @@ import { pickMovers, MOVER_MIN_SAMPLE, MOVER_MIN_PCT, MOVER_LIMIT } from '../src
 import { addToBasket, setLineQty, restoreLine, markShopDone, isShopDone, readBasket, basketCount } from '../src/lib/basket'
 import { createMemoryRateLimiter, createRedisRateLimiter, createDurableObjectRateLimiter, RateLimitUnavailableError } from '../src/lib/rate-limit'
 import { businessProfileSchema, MOMO_NETWORKS } from '../src/lib/validation'
+import { hashResetCode, resetCodeMatches } from '../src/lib/sms'
 
 const BASE = 'http://localhost:3000'
 const db = new PrismaClient()
@@ -2016,6 +2018,17 @@ async function main() {
     )
     const prodBadBearer = validateEnv({ NODE_ENV: 'production', DATABASE_URL: 'x', NEXT_PUBLIC_APP_URL: 'https://m', CRON_SECRET: 's', SETTINGS_ENCRYPTION_KEY: 'k', ADMIN_PHONES: '+256712000001', ALLOW_BEARER_AUTH: '1' })
     ok('15.9 env validation: bearer enabled in production is at least a loud warning', prodBadBearer.ok && prodBadBearer.warnings.length === 1)
+
+    // ---- 15a+. Reset-code hashes must resist database-only brute force ----
+    const sampleResetCode = '042817'
+    const sampleResetHash = hashResetCode(sampleResetCode)
+    const plainSha256 = createHash('sha256').update(sampleResetCode, 'utf8').digest('hex')
+    ok('15.9a new reset-code hashes are versioned HMAC, not plain SHA-256',
+      sampleResetHash.startsWith('hmac-sha256-v1:') && sampleResetHash !== plainSha256)
+    ok('15.9b keyed reset-code hash accepts the correct code and rejects a wrong code',
+      resetCodeMatches(sampleResetCode, sampleResetHash) && !resetCodeMatches('999999', sampleResetHash))
+    ok('15.9c in-flight legacy reset hashes remain compatible until their 10-minute expiry',
+      resetCodeMatches(sampleResetCode, plainSha256))
 
     // ---- 15b. Legal pages exist, render their markdown, and are linked ----
     for (const [slug, phrase] of [['privacy', 'Privacy Policy'], ['terms', 'Terms of Service'], ['safety', 'Safety Guide']] as const) {
