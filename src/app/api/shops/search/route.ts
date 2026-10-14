@@ -35,34 +35,23 @@ export async function GET(request: NextRequest) {
     // OR-ing individual words avoids requiring the exact spacing/punctuation
     // the customer typed. A second, bounded recent window catches Unicode
     // styling that PostgreSQL's raw text contains() cannot see.
-    const [matchedCandidates, recentCandidates] = await Promise.all([
-      db.user.findMany({
-        where: {
-          OR: tokens.flatMap((token) => [
-            { name: { contains: token, mode: 'insensitive' as const } },
-            { profile: { is: { businessName: { contains: token, mode: 'insensitive' as const } } } },
-          ]),
-        },
-        select,
-        orderBy: { updatedAt: 'desc' },
-        take: 300,
-      }),
-      db.user.findMany({
-        select,
-        orderBy: { updatedAt: 'desc' },
-        take: 500,
-      }),
-    ])
-
-    const byId = new Map<string, (typeof matchedCandidates)[number]>()
-    for (const row of matchedCandidates) byId.set(row.id, row)
-    for (const row of recentCandidates) byId.set(row.id, row)
+    const matchedCandidates = await db.user.findMany({
+      where: {
+        OR: tokens.flatMap((token) => [
+          { name: { contains: token, mode: 'insensitive' as const } },
+          { profile: { is: { businessName: { contains: token, mode: 'insensitive' as const } } } },
+        ]),
+      },
+      select,
+      orderBy: { updatedAt: 'desc' },
+      take: 300,
+    })
 
     const matches = (name: string) => {
       const normalized = normalizeSearchText(name)
       return normalized.includes(needle) || tokens.every((token) => normalized.includes(token))
     }
-    const shops = [...byId.values()]
+    const toShops = (rows: typeof matchedCandidates) => rows
       .map((row) => {
         const businessName = row.profile?.businessName?.trim() || ''
         return {
@@ -77,6 +66,21 @@ export async function GET(request: NextRequest) {
       })
       .filter((shop) => matches(shop.name) || matches(shop.accountName))
       .map(({ accountName: _accountName, ...shop }) => shop)
+
+    let shops = toShops(matchedCandidates)
+    // Only pay for the bounded Unicode fallback when ordinary DB candidates
+    // fail to produce a normalized match. This keeps normal keystroke searches
+    // from reading hundreds of unrelated profiles.
+    if (shops.length === 0) {
+      const recentCandidates = await db.user.findMany({
+        select,
+        orderBy: { updatedAt: 'desc' },
+        take: 500,
+      })
+      shops = toShops(recentCandidates)
+    }
+
+    shops = shops
       .sort((a, b) => {
         const score = (name: string) => {
           const normalized = normalizeSearchText(name)
