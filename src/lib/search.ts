@@ -61,6 +61,15 @@ export function getSearchTermGroups(query: string): SearchTermGroup[] {
   const normalized = normalizeSearchText(query)
   if (!normalized) return [{ terms: [query.trim()], categories: [] }]
 
+  // "Essentials" on its own is deliberately broad. Let buyers discover a few
+  // everyday aisles instead of guessing one category for them.
+  if (['essential', 'essentials', 'essential items', 'daily essentials', 'everyday essentials'].includes(normalized)) {
+    return [{
+      terms: ['essential', 'essentials', 'essential items', 'daily essentials', 'everyday essentials'],
+      categories: ['home-kitchen', 'beauty-personal-care', 'food-groceries', 'textiles-clothing'],
+    }]
+  }
+
   const tokens = normalized.split(' ').filter((token) => !['a', 'an', 'and', 'for', 'in', 'of', 'on', 'the', 'to', 'with', 'near'].includes(token))
   if (!tokens.length) return [{ terms: [normalized], categories: [] }]
 
