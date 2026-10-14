@@ -16,12 +16,12 @@ interface SearchConcept {
 export function normalizeSearchText(value: string): string {
   return value
     .normalize('NFKD')
-    .replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase()
     .replace(/[’']/g, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
-    .replace(/\\s+/g, ' ')
+    .replace(/\s+/g, ' ')
 }
 
 // Start with everyday language customers actually use. These are search-time
