@@ -13,7 +13,8 @@ import { apiGet, apiPost } from '@/lib/client'
 import type { ListingsPage, ShopLookupResponse, ShopNameSearchResponse, ListingDetail as ListingDetailT, Listing, ListingShopOwner as ListingShopOwnerT, ShopPage as ShopPageT } from '@/lib/client'
 import { normalizeShopName, normalizeShopCode, telLink } from '@/lib/format'
 import { haversineMeters, formatDistance } from '@/lib/geo'
-import { CATEGORIES, COUNTIES, UNITS } from '@/lib/constants'
+import { CATEGORIES, COUNTIES, UNITS, categoryLabel } from '@/lib/constants'
+import { getSearchTermGroups } from '@/lib/search'
 import { useAppStore, filtersToQuery, DEFAULT_FILTERS } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { unlove, useLovedIds } from '@/lib/loved'
@@ -120,6 +121,11 @@ export function ListingsBrowse() {
     )
   }
 
+  const inferredSearchCategories = useMemo(
+    () => [...new Set(getSearchTermGroups(filters.q).flatMap((group) => group.categories))],
+    [filters.q],
+  )
+
   const query = filtersToQuery(filters)
   // A code-shaped query ("dk 2623", "MD-2623") is a till-number punch, not a
   // text search - canonicalize it and look the shop up directly. Anything
@@ -220,6 +226,12 @@ export function ListingsBrowse() {
           ) : null}
         </Button>
       </div>
+
+      {filters.q.trim() && inferredSearchCategories.length > 0 ? (
+        <p className="text-xs text-muted-foreground" role="status" aria-live="polite">
+          Also matching {inferredSearchCategories.map(categoryLabel).join(', ')} products
+        </p>
+      ) : null}
 
       {/* Category pills - the aisle signs of the market, one tap under the
           search bar. Same filter machinery as the FilterDialog dropdown
