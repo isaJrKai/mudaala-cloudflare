@@ -45,7 +45,7 @@ jobs:
               .replace(/\s+/g, ' ');
           }
 
-          const productPattern = /\b(?:oil )?perfumes?|fragrances?|colognes?|colones?|body sprays?|aftershaves?|scents?|oudh?\b/;
+          const productPattern = /\b(?:oil )?perfumes?\b|\bfragrances?\b|\bcolognes?\b|\bcolones?\b|\bbody sprays?\b|\baftershaves?\b|\bscents?\b|\boudh?\b/;
 
           function isRelevant(item) {
             const text = normalize([
