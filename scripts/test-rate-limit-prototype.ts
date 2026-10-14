@@ -13,11 +13,11 @@ async function main() {
   assert.equal(health.status, 200, 'prototype Worker starts')
 
   const concurrentKey = 'concurrent-' + crypto.randomUUID()
-  const burst = await Promise.all(Array.from({ length: 25 }, () =>
+  const burst = await Promise.all(Array.from({ length: 250 }, () =>
     request('/consume?key=' + encodeURIComponent(concurrentKey) + '&max=5&windowMs=60000'),
   ))
-  assert.equal(burst.filter((r) => r.status === 200 && r.body?.ok === true).length, 5, 'exactly the configured five concurrent attempts pass')
-  assert.equal(burst.filter((r) => r.status === 200 && r.body?.ok === false).length, 20, 'all excess concurrent attempts are rejected')
+  assert.equal(burst.filter((r) => r.status === 200 && r.body?.ok === true).length, 5, 'exactly the configured five attempts pass from a 250-request concurrent burst')
+  assert.equal(burst.filter((r) => r.status === 200 && r.body?.ok === false).length, 245, 'all 245 excess concurrent attempts are rejected')
   assert.ok(burst.filter((r) => r.body?.ok === false).every((r) => r.body.retryAfterSeconds >= 1), 'rejections include a positive retry delay')
 
   const isolationKey = 'isolation-' + crypto.randomUUID()
