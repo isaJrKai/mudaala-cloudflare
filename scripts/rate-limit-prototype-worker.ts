@@ -28,6 +28,9 @@ function json(value: unknown, status = 200): Response {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
+    // The harness is intentionally local-only. Even if someone accidentally
+    // deploys this config, public hosts cannot consume or clear rate budgets.
+    if (url.hostname !== '127.0.0.1' && url.hostname !== 'localhost') return new Response('Not found', { status: 404 })
     if (url.pathname === '/health') return new Response('ok')
     if (url.pathname !== '/consume' && url.pathname !== '/clear') return new Response('Not found', { status: 404 })
 
