@@ -42,6 +42,7 @@ interface ShopPageData {
     isAdmin: boolean
     photoUrl: string | null
     coverPhotoUrl: string | null
+    websiteUrl: string | null
     category: string | null
     description: string | null
     hours: string | null
@@ -179,6 +180,7 @@ export async function getShopPage(userId: string): Promise<ShopPageData | null> 
       name: profile?.businessName?.trim() || user.name,
       photoUrl: profile?.photoUrl ?? null,
       coverPhotoUrl: profile?.coverPhotoUrl ?? null,
+      websiteUrl: profile?.websiteUrl ?? null,
       category: profile?.category ?? null,
       description: profile?.description ?? null,
       hours: profile?.hours ?? null,
