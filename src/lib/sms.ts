@@ -16,7 +16,7 @@
 // Adding a provider (Twilio, MTN Uganda, …) means adding one class here and
 // one branch in chooseSmsProvider() - call sites do not change.
 
-import { createHash, randomInt, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomInt, timingSafeEqual } from 'node:crypto'
 
 export interface SmsProvider {
   readonly name: string
@@ -83,22 +83,53 @@ export function chooseSmsProvider(): SmsProvider {
   return new ConsoleProvider()
 }
 
-// ---- Reset codes: generation, hashing and comparison ----
-// A 6-digit code is small, so its security comes from the server-side 5-wrong-
-// tries kill switch and the 10-minute expiry - NOT from the hash. sha256 is
-// enough to keep a database leak from handing over live codes.
+// ---- Reset codes: generation, keyed hashing and comparison ----
+// Six digits provide only one million possibilities. A plain SHA-256 digest
+// is therefore cheap to brute-force after a database-only leak. New records
+// use a versioned HMAC keyed from a dedicated pepper (preferred) or the
+// required settings-encryption secret with domain separation. The latter
+// avoids introducing a new mandatory production secret while ensuring the
+// digest is not recoverable from the database alone.
+const RESET_HASH_PREFIX = 'hmac-sha256-v1:'
+
+function resetCodeHmacKey(): Buffer {
+  const secret = process.env.RESET_CODE_PEPPER ?? process.env.SETTINGS_ENCRYPTION_KEY ?? process.env.SETTINGS_ENC_KEY
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('A reset-code pepper or settings encryption key is required in production')
+    }
+    return createHmac('sha256', 'mudaala-development-only-reset-code-key')
+      .update('mudaala:password-reset-code:hmac-key:v1')
+      .digest()
+  }
+  return createHmac('sha256', secret)
+    .update('mudaala:password-reset-code:hmac-key:v1')
+    .digest()
+}
 
 export function generateResetCode(): string {
   return String(randomInt(0, 1_000_000)).padStart(6, '0')
 }
 
 export function hashResetCode(code: string): string {
-  return createHash('sha256').update(code, 'utf8').digest('hex')
+  const digest = createHmac('sha256', resetCodeHmacKey()).update(code, 'utf8').digest('hex')
+  return RESET_HASH_PREFIX + digest
 }
 
 export function resetCodeMatches(code: string, codeHash: string): boolean {
-  const candidate = Buffer.from(hashResetCode(code), 'hex')
-  const expected = Buffer.from(codeHash, 'hex')
-  if (candidate.length !== expected.length) return false
-  return timingSafeEqual(candidate, expected)
+  // Existing codes created before this version use plain SHA-256 and expire
+  // within ten minutes. Keep them usable during that short transition; all
+  // newly issued codes use HMAC. The reset endpoint separately enforces expiry
+  // and the five-attempt ceiling before this comparison can be reached.
+  const expectedHex = codeHash.startsWith(RESET_HASH_PREFIX)
+    ? codeHash.slice(RESET_HASH_PREFIX.length)
+    : codeHash
+  if (!/^[a-f0-9]{64}$/.test(expectedHex)) return false
+
+  const candidateHex = codeHash.startsWith(RESET_HASH_PREFIX)
+    ? createHmac('sha256', resetCodeHmacKey()).update(code, 'utf8').digest('hex')
+    : createHash('sha256').update(code, 'utf8').digest('hex')
+  const candidate = Buffer.from(candidateHex, 'hex')
+  const expected = Buffer.from(expectedHex, 'hex')
+  return candidate.length === expected.length && timingSafeEqual(candidate, expected)
 }
