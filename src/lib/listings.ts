@@ -9,6 +9,7 @@ import { LISTING_ACTIVE_DAYS, REFRESH_COOLDOWN_HOURS, EXPIRING_SOON_DAYS } from 
 import { haversineMeters } from '@/lib/geo'
 import type { Listing, Prisma } from '@prisma/client'
 import type { ListingQuery } from '@/lib/validation'
+import { getSearchTermGroups, searchTextMatchesGroup, scoreListingSearch } from '@/lib/search'
 
 function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000)
@@ -130,6 +131,25 @@ export function serializeListing<T extends { photos: string }>(listing: T): Seri
   return { ...rest, photos: parsePhotos(photos) }
 }
 
+function searchWhereGroups(query: string): Prisma.ListingWhereInput[] {
+  return getSearchTermGroups(query).map((group) => {
+    const alternatives: Prisma.ListingWhereInput[] = []
+    for (const term of group.terms) {
+      alternatives.push(
+        { title: { contains: term, mode: 'insensitive' } },
+        { description: { contains: term, mode: 'insensitive' } },
+        { category: { contains: term, mode: 'insensitive' } },
+        { area: { contains: term, mode: 'insensitive' } },
+        { county: { contains: term, mode: 'insensitive' } },
+      )
+    }
+    for (const category of group.categories) {
+      alternatives.push({ category: { equals: category, mode: 'insensitive' } })
+    }
+    return { OR: alternatives }
+  })
+}
+
 export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: SearchOptions): Promise<{
   items: Serialized<ListingWithShop>[]
   total: number
@@ -143,16 +163,10 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
   const where: Prisma.ListingWhereInput = { status: { in: includeStatuses } }
 
   if (query.q) {
-    // Postgres-friendly case-insensitive match across the fields a buyer
-    // scans (Prisma's `mode: 'insensitive'` compiles to ILIKE). The old
-    // precomputed search column is gone - the database does the searching.
-    where.OR = [
-      { title: { contains: query.q, mode: 'insensitive' } },
-      { description: { contains: query.q, mode: 'insensitive' } },
-      { category: { contains: query.q, mode: 'insensitive' } },
-      { area: { contains: query.q, mode: 'insensitive' } },
-      { county: { contains: query.q, mode: 'insensitive' } },
-    ]
+    // Every meaningful word must match, but each word may use customer-language
+    // synonyms or an inferred category. This lets "perfume" find listings filed
+    // under beauty-personal-care even when the title never says "perfume".
+    where.AND = searchWhereGroups(query.q)
   }
   if (query.type) where.type = query.type
   if (query.category) where.category = query.category
@@ -193,8 +207,19 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
       index,
       band: Math.floor((now - row.refreshedAt.getTime()) / BAND_MS),
       hasPhoto: parsePhotos(row.photos).length > 0,
+      relevance: query.q ? scoreListingSearch({
+        title: row.title,
+        description: row.description,
+        category: row.category,
+        area: row.area,
+        county: row.county,
+      }, query.q) : 0,
     }))
-    ranked.sort((a, b) => a.band - b.band || (a.hasPhoto === b.hasPhoto ? a.index - b.index : a.hasPhoto ? -1 : 1))
+    ranked.sort((a, b) =>
+      (query.q ? b.relevance - a.relevance : 0) ||
+      a.band - b.band ||
+      (a.hasPhoto === b.hasPhoto ? a.index - b.index : a.hasPhoto ? -1 : 1),
+    )
     const pageRows = ranked.slice((page - 1) * pageSize, page * pageSize).map((entry) => entry.row)
     return {
       items: pageRows.map(serializeListing),
@@ -266,8 +291,8 @@ function listingMatchesQuery(listing: Listing, query: ListingQuery): boolean {
   if (query.county && listing.county !== query.county) return false
   if (query.unit && listing.unit !== query.unit) return false
   if (query.q) {
-    const haystack = `${listing.title} ${listing.description} ${listing.category} ${listing.area ?? ''} ${listing.county}`.toLowerCase()
-    if (!haystack.includes(query.q.toLowerCase())) return false
+    const values = [listing.title, listing.description, listing.category, listing.area, listing.county]
+    if (!getSearchTermGroups(query.q).every((group) => searchTextMatchesGroup(group, values, listing.category))) return false
   }
   if (query.minPrice !== undefined && (listing.price === null || listing.price < query.minPrice)) return false
   if (query.maxPrice !== undefined && (listing.price === null || listing.price > query.maxPrice)) return false
@@ -314,15 +339,7 @@ function whereFromQuery(query: ListingQuery): Prisma.ListingWhereInput {
   if (query.category) where.category = query.category
   if (query.county) where.county = query.county
   if (query.unit) where.unit = query.unit
-  if (query.q) {
-    where.OR = [
-      { title: { contains: query.q, mode: 'insensitive' } },
-      { description: { contains: query.q, mode: 'insensitive' } },
-      { category: { contains: query.q, mode: 'insensitive' } },
-      { area: { contains: query.q, mode: 'insensitive' } },
-      { county: { contains: query.q, mode: 'insensitive' } },
-    ]
-  }
+  if (query.q) where.AND = searchWhereGroups(query.q)
   if (query.minPrice !== undefined || query.maxPrice !== undefined) {
     where.price = {
       ...(query.minPrice !== undefined ? { gte: query.minPrice } : {}),
