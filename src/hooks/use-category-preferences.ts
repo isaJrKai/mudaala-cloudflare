@@ -27,7 +27,9 @@ function effectiveScore(interest: Interest | undefined): number {
   if (!interest) return 0
   const ageDays = Math.max(0, (Date.now() - new Date(interest.lastSelectedAt).getTime()) / 86_400_000)
   // Half-life of 30 days: interests adapt instead of becoming permanent.
-  return interest.score * Math.pow(0.5, ageDays / 30)
+  const decayed = interest.score * Math.pow(0.5, ageDays / 30)
+  // A single accidental tap should not reorder the market; require repeated intent.
+  return decayed >= 6 ? decayed : 0
 }
 
 export function useCategoryPreferences() {
