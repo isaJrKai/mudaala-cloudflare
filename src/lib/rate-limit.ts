@@ -20,7 +20,7 @@
 // accounts from one machine). The IP is whatever lib/client-ip decided -
 // call sites never see the header plumbing.
 
-import { createHash, randomBytes } from 'node:crypto'
+import { createHmac, randomBytes } from 'node:crypto'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 
 export interface RateVerdict {
@@ -173,7 +173,20 @@ export class RateLimitUnavailableError extends Error {
  */
 export function createDurableObjectRateLimiter(namespace: DurableRateLimitNamespace): RateLimiterStore {
   function keyAndStub(key: string): { keyHash: string; stub: DurableRateLimitStub } {
-    const keyHash = createHash('sha256').update(key, 'utf8').digest('hex')
+    // Phone numbers and IP addresses are enumerable. Use a keyed digest so a
+    // storage-only leak does not let an attacker reverse the limiter keys by
+    // hashing a dictionary of likely identifiers. Domain separation keeps
+    // these digests distinct from reset-code and settings-encryption uses.
+    const secret = process.env.RATE_LIMIT_KEY_PEPPER
+      ?? process.env.SETTINGS_ENCRYPTION_KEY
+      ?? process.env.SETTINGS_ENC_KEY
+    if (!secret && (process.env.NODE_ENV === 'production' || process.env.RATE_LIMIT_REQUIRE_SHARED === '1')) {
+      throw new Error('Rate-limit key pepper is unavailable')
+    }
+    const keyHash = createHmac('sha256', secret || 'mudaala-development-only-rate-limit-key')
+      .update('mudaala:rate-limit-key:v1\\0', 'utf8')
+      .update(key, 'utf8')
+      .digest('hex')
     const shard = Number.parseInt(keyHash.slice(0, 4), 16) % 256
     const id = namespace.idFromName('rate-limit-shard:' + shard)
     return { keyHash, stub: namespace.get(id) }
