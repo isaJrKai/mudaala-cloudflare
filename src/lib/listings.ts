@@ -191,6 +191,71 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
   const orderBy: Prisma.ListingOrderByWithRelationInput =
     effectiveSort === 'price_asc' ? { price: { sort: 'asc', nulls: 'last' } } : effectiveSort === 'price_desc' ? { price: { sort: 'desc', nulls: 'last' } } : { refreshedAt: 'desc' }
 
+  // Unicode compatibility characters (for example, mathematical-bold letters)
+  // normalize correctly in JavaScript but may not match PostgreSQL LIKE/ILIKE.
+  // If the indexed text query finds nothing, do one bounded recent-listing
+  // fallback and apply the same normalized matcher used by saved searches.
+  // This never scans the whole table and never changes seller-authored text.
+  if (searchText && await db.listing.count({ where }) === 0) {
+    const fallbackWhere = { ...where }
+    delete fallbackWhere.AND
+    const CANDIDATE_SCAN_CAP = 500
+    const candidates = await db.listing.findMany({
+      where: fallbackWhere,
+      orderBy: [orderBy],
+      take: CANDIDATE_SCAN_CAP,
+      include: SHOP_OWNER_INCLUDE,
+    })
+    const groups = getSearchTermGroups(query.q ?? '')
+    const matches = candidates.filter((row) =>
+      groups.every((group) => searchTextMatchesGroup(
+        group,
+        [row.title, row.description, row.category, row.area, row.county],
+        row.category,
+      )),
+    )
+    const ranked = matches.map((row, index) => ({
+      row,
+      index,
+      relevance: scoreListingSearch({
+        title: row.title,
+        description: row.description,
+        category: row.category,
+        area: row.area,
+        county: row.county,
+      }, searchText),
+    }))
+    if (effectiveSort === 'nearest' && query.lat !== undefined && query.lng !== undefined) {
+      const buyer = { lat: query.lat, lng: query.lng }
+      ranked.sort((a, b) => {
+        const aSpot = a.row.user.profile
+        const bSpot = b.row.user.profile
+        const aDistance = aSpot?.lat != null && aSpot.lng != null
+          ? haversineMeters(buyer, { lat: aSpot.lat, lng: aSpot.lng }) : null
+        const bDistance = bSpot?.lat != null && bSpot.lng != null
+          ? haversineMeters(buyer, { lat: bSpot.lat, lng: bSpot.lng }) : null
+        if (aDistance === null && bDistance === null) return b.row.refreshedAt.getTime() - a.row.refreshedAt.getTime()
+        if (aDistance === null) return 1
+        if (bDistance === null) return -1
+        return aDistance - bDistance
+      })
+    } else if (effectiveSort !== 'price_asc' && effectiveSort !== 'price_desc') {
+      ranked.sort((a, b) =>
+        b.relevance - a.relevance ||
+        b.row.refreshedAt.getTime() - a.row.refreshedAt.getTime() ||
+        a.index - b.index,
+      )
+    }
+    const pageRows = ranked.slice((page - 1) * pageSize, page * pageSize).map((entry) => entry.row)
+    return {
+      items: pageRows.map(serializeListing),
+      total: matches.length,
+      page,
+      pageSize,
+      pageCount: Math.max(1, Math.ceil(matches.length / pageSize)),
+    }
+  }
+
   // "Photos sell": within the same recency band (ads refreshed on the same
   // day), ads WITH a photo rank slightly higher than ads without. Recency
   // stays the primary order - a 2-day-old ad never jumps a 5-hour-old one;
