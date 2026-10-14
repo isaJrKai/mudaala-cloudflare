@@ -5,6 +5,7 @@ import { hashPassword, createSession, setSessionCookie, toPublicUser } from '@/l
 import { hit, REGISTER_WINDOW_MS, REGISTER_IP_MAX } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
 import { TERMS_VERSION } from '@/lib/constants'
+import { bearerAuthEnabled } from '@/lib/env-flags'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
@@ -69,7 +70,8 @@ export async function POST(request: Request) {
     const session = await createSession(user.id)
     await setSessionCookie(session.token, session.expiresAt)
 
-    // sessionToken powers the Bearer channel where cookies are blocked.
-    return jsonOk({ user: toPublicUser(user), sessionToken: session.token }, 201)
+    // Only issue a browser-persistent Bearer credential in explicitly enabled
+    // compatibility deployments. Production defaults to the httpOnly cookie.
+    return jsonOk({ user: toPublicUser(user), ...(bearerAuthEnabled() ? { sessionToken: session.token } : {}) }, 201)
   })
 }

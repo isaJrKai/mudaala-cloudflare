@@ -24,7 +24,7 @@ import * as fs from 'node:fs'
 import { execSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { SUPPORT_EMAIL, TERMS_VERSION } from '../src/lib/constants'
-import { route } from '../src/lib/api'
+import { route, jsonOk } from '../src/lib/api'
 // Pure-function units under test (no next/* imports - safe outside a request).
 import { bearerAuthEnabled } from '../src/lib/env-flags'
 import { validateEnv } from '../src/lib/env'
@@ -2447,6 +2447,24 @@ async function main() {
       const unavailableResponse = await route(async () => { throw new RateLimitUnavailableError() })
       ok('15.60 API wrapper maps shared-limiter outage to controlled 503',
         unavailableResponse.status === 503)
+      const originalAllowBearer = process.env.ALLOW_BEARER_AUTH
+      const originalLegacyBearer = process.env.AUTH_BEARER_FALLBACK
+      try {
+        delete process.env.ALLOW_BEARER_AUTH
+        delete process.env.AUTH_BEARER_FALLBACK
+        const cookieOnlyResponse = await route(async () => jsonOk({ ok: true }))
+        ok('15.61 API responses advertise cookie-only mode when Bearer auth is disabled',
+          cookieOnlyResponse.headers.get('x-mudaala-bearer-auth') === 'disabled')
+        process.env.ALLOW_BEARER_AUTH = 'true'
+        const bearerResponse = await route(async () => jsonOk({ ok: true }))
+        ok('15.62 API responses advertise Bearer mode only when explicitly enabled',
+          bearerResponse.headers.get('x-mudaala-bearer-auth') === 'enabled')
+      } finally {
+        if (originalAllowBearer === undefined) delete process.env.ALLOW_BEARER_AUTH
+        else process.env.ALLOW_BEARER_AUTH = originalAllowBearer
+        if (originalLegacyBearer === undefined) delete process.env.AUTH_BEARER_FALLBACK
+        else process.env.AUTH_BEARER_FALLBACK = originalLegacyBearer
+      }
     }
   }
 

@@ -3,9 +3,9 @@
 import type { ListingType, ListingStatus } from './constants'
 
 // ---- Session token (Bearer channel) ----
-// The preview can run inside a cross-origin iframe where browsers drop
-// SameSite cookies. The session token ALSO lives in localStorage and is sent
-// as Authorization: Bearer on every request, so sign-in survives anywhere.
+// The Bearer channel is a legacy, explicit opt-in for preview environments
+// where cookie behavior requires it. Production should remain cookie-only; the
+// server response capability header clears any old localStorage token.
 const SESSION_TOKEN_KEY = 'mudaala_session_token'
 
 export function storeSessionToken(token: string): void {
@@ -42,6 +42,7 @@ export async function apiFetch<T>(input: string, init?: RequestInit): Promise<T>
   if (token) headers.set('Authorization', `Bearer ${token}`)
 
   const res = await fetch(input, { ...init, headers })
+  if (res.headers.get('x-mudaala-bearer-auth') === 'disabled') clearSessionToken()
 
   let body: unknown = null
   try {

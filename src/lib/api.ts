@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { ZodError, type ZodType } from 'zod'
 import { fieldErrors } from './validation'
 import { getSessionUser } from './auth'
+import { bearerAuthEnabled } from './env-flags'
 import type { User } from '@prisma/client'
 
 export class ApiError extends Error {
@@ -58,6 +59,12 @@ export function route(handler: () => Promise<NextResponse>): Promise<NextRespons
     // Unexpected: log context server-side, never expose internals to the client.
     console.error('[api] unexpected error:', err)
     return jsonError(500, 'Something went wrong. Please try again in a moment.')
+  }).then((response) => {
+    // Tell the browser whether this deployment supports the legacy Bearer
+    // compatibility channel. Cookie-only production responses must not leave
+    // reusable credentials in localStorage from older app versions.
+    response.headers.set('x-mudaala-bearer-auth', bearerAuthEnabled() ? 'enabled' : 'disabled')
+    return response
   })
 }
 

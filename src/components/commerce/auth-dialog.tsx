@@ -105,7 +105,7 @@ function SignInForm({ onDone, onForgot }: { onDone: () => void; onForgot: () => 
 
     setBusy(true)
     try {
-      const res = await apiPost<{ user: SessionUser; sessionToken: string }>('/api/auth/login', parsed.data)
+      const res = await apiPost<{ user: SessionUser; sessionToken?: string }>('/api/auth/login', parsed.data)
       if (res.sessionToken) storeSessionToken(res.sessionToken)
       await queryClient.invalidateQueries()
       toast({ title: `Signed in as ${res.user.name}` })
