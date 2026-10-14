@@ -2135,12 +2135,9 @@ async function main() {
     ok('15.27 non-browser clients (no Origin header) still work', noOrigin.status === 200)
 
     // ---- 15h+. CSRF behind the preview edge. The sandbox preview's gateway
-    // rewrites Host to an internal address and sends no x-forwarded-host, so
-    // a genuine login from the preview arrives with an Origin the app cannot
-    // match against the Host it sees. CSRF_TRUSTED_HOSTS lists the hosts this
-    // deployment really answers as; matching Origins pass, everything else
-    // stays blocked. (x-forwarded-host here plays the rewritten internal
-    // Host the edge produces.)
+    // rewrites Host to an internal address. CSRF_TRUSTED_HOSTS explicitly
+    // allows the public preview origin; X-Forwarded-Host is included in the
+    // test but is not trusted as a substitute for the actual request origin.
     const edgeJar: Jar = { cookie: '' }
     await register(edgeJar, uniquePhone(), 'Preview Edge', 'quiet-harbor-31')
     const edgeLogin = await call(
@@ -2156,8 +2153,17 @@ async function main() {
     )
     const lookalikeOrigin = await call('POST', '/api/auth/logout', undefined, { cookie: '' }, {
       origin: 'https://space-z.ai.evil.example',
+      'x-forwarded-host': 'space-z.ai.evil.example',
     })
-    ok('15.27b a lookalike origin outside the trust suffix stays blocked', lookalikeOrigin.status === 403)
+    ok('15.27b a lookalike origin plus spoofed X-Forwarded-Host stays blocked', lookalikeOrigin.status === 403)
+
+    const opaqueOrigin = await call('POST', '/api/auth/logout', undefined, { cookie: '' }, { origin: 'null' })
+    ok('15.27c an opaque Origin: null is rejected, not treated as absent', opaqueOrigin.status === 403)
+
+    const fetchMetadataOnly = await call('POST', '/api/auth/logout', undefined, { cookie: '' }, {
+      'sec-fetch-site': 'cross-site',
+    })
+    ok('15.27d Sec-Fetch-Site cross-site is blocked when Origin is absent', fetchMetadataOnly.status === 403)
 
     // ---- 15i. Security headers on every response ----
     const homeRes = await fetch(`${BASE}/`)
