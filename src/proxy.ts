@@ -21,52 +21,73 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
-function hostOf(originHeader: string | null): string | null {
-  if (!originHeader) return null
+function parseOrigin(rawOrigin: string): URL | null {
   try {
-    return new URL(originHeader).host
+    const origin = new URL(rawOrigin)
+    if ((origin.protocol !== 'https:' && origin.protocol !== 'http:') || !origin.host) return null
+    return origin
   } catch {
     return null
   }
 }
 
-// Deployment hosts the Origin check accepts beyond the Host actually seen on
-// the request. Needed because the sandbox preview's edge rewrites Host to an
-// internal address and sends no x-forwarded-host, so a genuinely
-// same-deployment login arrives looking foreign (the seller's browser really
-// is talking to https://preview-…, the app just never sees that name).
-// Entries are comma-separated; an entry starting with a dot matches the
-// whole suffix (cookie-Domain semantics: ".space-z.ai" trusts that suffix
-// and its subdomains). Leaving this unset changes nothing for deployments
-// whose proxy preserves Host - the foreign-Origin block stays exactly as
-// strict as before.
+// Exact public hosts the Origin check accepts beyond request.nextUrl.origin.
+// Needed only when a trusted preview edge rewrites the request Host. Entries
+// are comma-separated exact hosts, including ports when non-default. Wildcard
+// suffixes are intentionally unsupported: preview platforms can be multi-tenant,
+// so trusting every subdomain of a shared platform would weaken CSRF protection.
 function trustedHostEntries(): string[] {
   return (process.env.CSRF_TRUSTED_HOSTS ?? '')
     .split(',')
     .map((entry) => entry.trim().toLowerCase())
-    .filter(Boolean)
+    .filter((entry) => Boolean(entry) && !entry.startsWith('.'))
 }
 
-function originOwnsDeployment(originHost: string, seenHost: string | null): boolean {
-  if (seenHost && originHost === seenHost.toLowerCase()) return true
-  return trustedHostEntries().some((entry) =>
-    entry.startsWith('.') ? originHost.endsWith(entry) || originHost === entry.slice(1) : originHost === entry,
-  )
+function originOwnsDeployment(origin: URL, requestOrigin: string): boolean {
+  // Exact origin match includes scheme and port, not just host. Never trust
+  // X-Forwarded-Host here: unless an edge explicitly overwrites it, a client
+  // can supply that header and make a foreign Origin appear same-host.
+  if (origin.origin.toLowerCase() === requestOrigin.toLowerCase()) return true
+
+  // The preview gateway legitimately rewrites the request Host. Its public
+  // origin is allowed only through the explicit host allowlist and HTTPS.
+  if (origin.protocol !== 'https:') return false
+  return trustedHostEntries().includes(origin.host.toLowerCase())
 }
 
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (pathname.startsWith('/api/') && !SAFE_METHODS.has(request.method)) {
-    const originHost = hostOf(request.headers.get('origin'))
-    if (originHost) {
-      const seenHost = request.headers.get('x-forwarded-host') ?? request.headers.get('host')
-      if (!originOwnsDeployment(originHost, seenHost)) {
+    const rawOrigin = request.headers.get('origin')
+    const fetchSite = request.headers.get('sec-fetch-site')?.toLowerCase()
+
+    if (rawOrigin !== null) {
+      // A present but opaque/malformed Origin (including "null") is not the
+      // same as a non-browser request with no Origin header.
+      const origin = parseOrigin(rawOrigin)
+      if (!origin || !originOwnsDeployment(origin, request.nextUrl.origin)) {
         return NextResponse.json(
           { error: 'This request was blocked for your protection. It did not come from Mudaala' },
           { status: 403 },
         )
       }
+      // Fetch Metadata is a second signal. A cross-site request is allowed
+      // only when its public origin is explicitly trusted for the preview edge.
+      if (fetchSite === 'cross-site' && !trustedHostEntries().includes(origin.host.toLowerCase())) {
+        return NextResponse.json(
+          { error: 'This request was blocked for your protection. It did not come from Mudaala' },
+          { status: 403 },
+        )
+      }
+    } else if (fetchSite === 'cross-site') {
+      // A browser says the request is cross-site but supplies no Origin to
+      // validate. Reject it; server-to-server clients without Fetch Metadata
+      // continue to work.
+      return NextResponse.json(
+        { error: 'This request was blocked for your protection. It did not come from Mudaala' },
+        { status: 403 },
+      )
     }
   }
 
