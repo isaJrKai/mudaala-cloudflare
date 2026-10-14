@@ -57,8 +57,68 @@ function includesPhrase(haystack: string, phrase: string): boolean {
   return (' ' + haystack + ' ').includes(' ' + normalizeSearchText(phrase) + ' ')
 }
 
+export interface ParsedSearchIntent {
+  text: string
+  minPrice?: number
+  maxPrice?: number
+}
+
+/**
+ * Extract simple price constraints from natural-language searches without
+ * guessing at bare numbers. "perfume under UGX 50k" becomes product intent
+ * "perfume" plus maxPrice=50000; "between 20k and 40k" becomes a range.
+ */
+export function parseSearchIntent(query: string): ParsedSearchIntent {
+  let text = query
+  let minPrice: number | undefined
+  let maxPrice: number | undefined
+  const amount = '(?:(?:UGX|USh|Shs?)\\s*)?([0-9][0-9,]*(?:\\.[0-9]+)?)\\s*(k|m)?(?:\\s*(?:UGX|USh|Shs?))?'
+  const parseAmount = (raw: string, unit?: string) => {
+    const value = Number(raw.replace(/,/g, ''))
+    if (!Number.isFinite(value) || value < 0) return undefined
+    return Math.round(value * (unit?.toLowerCase() === 'm' ? 1_000_000 : unit?.toLowerCase() === 'k' ? 1_000 : 1))
+  }
+
+  const range = new RegExp('\\\\bbetween\\\\s+' + amount + '\\\\s+and\\\\s+' + amount + '\\\\b', 'i').exec(text)
+  if (range) {
+    const first = parseAmount(range[1]!, range[2])
+    const second = parseAmount(range[3]!, range[4])
+    if (first !== undefined && second !== undefined) {
+      minPrice = Math.min(first, second)
+      maxPrice = Math.max(first, second)
+      text = text.replace(range[0], ' ')
+    }
+  }
+
+  if (minPrice === undefined && maxPrice === undefined) {
+    const upper = new RegExp('\\\\b(?:under|below|less than|up to|at most|max(?:imum)?)\\\\s*' + amount, 'i').exec(text)
+    if (upper) {
+      const value = parseAmount(upper[1]!, upper[2])
+      if (value !== undefined) {
+        maxPrice = value
+        text = text.replace(upper[0], ' ')
+      }
+    }
+    const lower = new RegExp('\\\\b(?:over|above|more than|at least|min(?:imum)?)\\\\s*' + amount, 'i').exec(text)
+    if (lower) {
+      const value = parseAmount(lower[1]!, lower[2])
+      if (value !== undefined) {
+        minPrice = value
+        text = text.replace(lower[0], ' ')
+      }
+    }
+  }
+
+  text = text
+    .replace(/\\b(?:price|prices|cost|costs|ugx|ush|shs?|shillings?)\\b/gi, ' ')
+    .replace(/\\s+/g, ' ')
+    .trim()
+
+  return { text, ...(minPrice !== undefined ? { minPrice } : {}), ...(maxPrice !== undefined ? { maxPrice } : {}) }
+}
+
 export function getSearchTermGroups(query: string): SearchTermGroup[] {
-  const normalized = normalizeSearchText(query)
+  const normalized = normalizeSearchText(parseSearchIntent(query).text)
   if (!normalized) return [{ terms: [query.trim()], categories: [] }]
 
   // "Essentials" on its own is deliberately broad. Let buyers discover a few
@@ -114,12 +174,13 @@ export function scoreListingSearch(input: {
   area?: string | null
   county?: string | null
 }, query: string): number {
-  const normalizedQuery = normalizeSearchText(query)
+  const parsed = parseSearchIntent(query)
+  const normalizedQuery = normalizeSearchText(parsed.text)
   const title = normalizeSearchText(input.title)
   const description = normalizeSearchText(input.description ?? '')
   const category = normalizeSearchText(input.category ?? '')
   const location = normalizeSearchText([input.area, input.county].filter(Boolean).join(' '))
-  let score = title === normalizedQuery ? 1000 : title.startsWith(normalizedQuery) ? 600 : title.includes(normalizedQuery) ? 400 : 0
+  let score = !normalizedQuery ? 0 : title === normalizedQuery ? 1000 : title.startsWith(normalizedQuery) ? 600 : title.includes(normalizedQuery) ? 400 : 0
   for (const group of getSearchTermGroups(query)) {
     if (group.terms.some((term) => title.includes(normalizeSearchText(term)))) score += 40
     else if (group.categories.some((key) => key === input.category) || group.terms.some((term) => category.includes(normalizeSearchText(term)))) score += 24
