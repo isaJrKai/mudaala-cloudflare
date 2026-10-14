@@ -37,9 +37,8 @@ export class RateLimitShard extends DurableObject {
     if (!Number.isSafeInteger(windowMs) || windowMs < 1 || windowMs > MAX_WINDOW_MS) throw new Error('Invalid rate-limit window')
     if (!Number.isSafeInteger(now) || now < 0) throw new Error('Invalid rate-limit timestamp')
 
-    // Bound storage even if a key has gone quiet. The daily alarm also cleans
-    // shards that receive no further traffic.
-    this.ctx.storage.sql.exec('DELETE FROM rate_limit_hits WHERE occurred_at <= ?', now - MAX_WINDOW_MS)
+    // Prune this key's expired events on the hot path. A daily alarm handles
+    // global cleanup, avoiding a table-wide expiry scan on every request.
     this.ctx.storage.sql.exec(
       'DELETE FROM rate_limit_hits WHERE key_hash = ? AND occurred_at <= ?',
       keyHash,
