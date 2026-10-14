@@ -23,6 +23,7 @@ import path from 'node:path'
 import * as fs from 'node:fs'
 import { execSync } from 'node:child_process'
 import { SUPPORT_EMAIL, TERMS_VERSION } from '../src/lib/constants'
+import { route } from '../src/lib/api'
 // Pure-function units under test (no next/* imports - safe outside a request).
 import { bearerAuthEnabled } from '../src/lib/env-flags'
 import { validateEnv } from '../src/lib/env'
@@ -2424,6 +2425,9 @@ async function main() {
         failedClosed = error instanceof RateLimitUnavailableError
       }
       ok('15.59 shared limiter failure is surfaced for fail-closed handling', failedClosed)
+      const unavailableResponse = await route(async () => { throw new RateLimitUnavailableError() })
+      ok('15.60 API wrapper maps shared-limiter outage to controlled 503',
+        unavailableResponse.status === 503)
     }
   }
 
