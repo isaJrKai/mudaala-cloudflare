@@ -174,7 +174,7 @@ export async function getShopPage(userId: string): Promise<ShopPageData | null> 
   return {
     shop: {
       id: user.id,
-      // The admin mark is derived only from the server-side ADMIN_PHONES allowlist.
+      // The admin mark is derived only from the server-side ADMIN_USER_IDS allowlist.
       isAdmin: isAdminUser(user),
       // The shop name the seller chose - the account name is the fallback.
       name: profile?.businessName?.trim() || user.name,
