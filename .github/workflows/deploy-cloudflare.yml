@@ -3,6 +3,12 @@ name: Deploy Mudaala to Cloudflare Workers
 on:
   push:
     branches: [main]
+    # Test/workflow/documentation-only commits must not redeploy the Worker.
+    # If a commit also changes application/configuration code, deployment runs.
+    paths-ignore:
+      - '.github/workflows/**'
+      - 'scripts/test-api.ts'
+      - '**/*.md'
   workflow_dispatch:
 
 permissions:
