@@ -184,7 +184,7 @@ export function createDurableObjectRateLimiter(namespace: DurableRateLimitNamesp
       throw new Error('Rate-limit key pepper is unavailable')
     }
     const keyHash = createHmac('sha256', secret || 'mudaala-development-only-rate-limit-key')
-      .update('mudaala:rate-limit-key:v1\\0', 'utf8')
+      .update('mudaala:rate-limit-key:v1\0', 'utf8')
       .update(key, 'utf8')
       .digest('hex')
     const shard = Number.parseInt(keyHash.slice(0, 4), 16) % 256
