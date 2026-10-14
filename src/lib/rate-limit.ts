@@ -6,15 +6,15 @@
 //                               on sign-in; a mistyping person is never locked
 //                               out of their shop by their own traffic)
 //
-// Two implementations:
-//   - MemoryRateLimiter: a sliding window of attempt timestamps per key, held
-//     in process memory. The default - right-sized for a single-instance
-//     deployment, zero moving parts.
-//   - RedisRateLimiter: the same sliding window on a Redis ZSET, chosen
-//     automatically when REDIS_URL is set - so a horizontally scaled deploy
-//     shares one set of buckets instead of one per process. Any Redis error
-//     falls back to the in-memory window for that call: the limiter degrades,
-//     it never blocks sign-ins by being down.
+// Three implementations with deliberately different trust levels:
+//   - MemoryRateLimiter: local development and unit tests only. Per-isolate
+//     memory is NOT a global security boundary.
+//   - RedisRateLimiter: legacy/test adapter. Its multi-command ZSET operation
+//     is not atomic, and its fallback is local memory; do not use it as the
+//     production authority until those semantics are redesigned.
+//   - DurableObjectRateLimiter: production authority, backed by a bounded set
+//     of SQLite-backed Durable Objects. If the production binding is missing
+//     or unavailable, rate-limited routes fail closed with HTTP 503.
 //
 // Limits are per phone (brute-forcing ONE account) and per IP (flooding many
 // accounts from one machine). The IP is whatever lib/client-ip decided -
@@ -254,8 +254,8 @@ export function chooseRateLimiter(
 ): RateLimiterStore {
   const url = env.REDIS_URL?.trim()
   if (!url) return createMemoryRateLimiter()
-  // Redis is chosen once per process; if dialing it fails the store itself
-  // degrades to the in-memory window per call (never blocks the request).
+  // Compatibility helper for development and tests. Production runtime uses
+  // the Durable Object binding and never selects this fallback path.
   const connect = deps.createRedisClient ?? createRedisClient
   let store: RateLimiterStore | null = null
   return {
