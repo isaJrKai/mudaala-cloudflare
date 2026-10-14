@@ -191,6 +191,13 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
   const orderBy: Prisma.ListingOrderByWithRelationInput =
     effectiveSort === 'price_asc' ? { price: { sort: 'asc', nulls: 'last' } } : effectiveSort === 'price_desc' ? { price: { sort: 'desc', nulls: 'last' } } : { refreshedAt: 'desc' }
 
+  // Keep a copy of the non-text filters for a bounded Unicode-normalized
+  // fallback. PostgreSQL's raw contains filter cannot find mathematical
+  // alphanumeric letters (for example 𝐩𝐞𝐫𝐟𝐮𝐦𝐞), even though the shared
+  // normalizer correctly converts them to ordinary ASCII.
+  const textFallbackWhere: Prisma.ListingWhereInput = { ...where }
+  delete textFallbackWhere.AND
+
   // "Photos sell": within the same recency band (ads refreshed on the same
   // day), ads WITH a photo rank slightly higher than ads without. Recency
   // stays the primary order - a 2-day-old ad never jumps a 5-hour-old one;
@@ -202,7 +209,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     const PHOTO_BOOST_SCAN_CAP = 500
     const BAND_MS = 24 * 60 * 60 * 1000
     const now = Date.now()
-    const [all, total] = await Promise.all([
+    const [all, total, fallbackCandidates] = await Promise.all([
       db.listing.findMany({
         where,
         orderBy: [orderBy],
@@ -210,8 +217,37 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
         include: SHOP_OWNER_INCLUDE,
       }),
       db.listing.count({ where }),
+      searchText
+        ? db.listing.findMany({
+            where: textFallbackWhere,
+            orderBy: [orderBy],
+            take: PHOTO_BOOST_SCAN_CAP,
+            include: SHOP_OWNER_INCLUDE,
+          })
+        : Promise.resolve([] as ListingWithShop[]),
     ])
-    const ranked = all.map((row, index) => ({
+
+    // Match normalized seller text in a capped recent window, then merge it
+    // with database matches. Never scan the whole listings table. Count the
+    // overlap in SQL so total remains correct even when the fallback finds
+    // rows that also matched the ordinary database filter.
+    const groups = searchText ? getSearchTermGroups(query.q ?? '') : []
+    const normalizedFallback = fallbackCandidates.filter((row) =>
+      groups.length > 0 && groups.every((group) => searchTextMatchesGroup(
+        group,
+        [row.title, row.description, row.category, row.area, row.county],
+        row.category,
+      )),
+    )
+    const allIds = new Set(all.map((row) => row.id))
+    const extraFallback = normalizedFallback.filter((row) => !allIds.has(row.id))
+    const overlapCount = extraFallback.length
+      ? await db.listing.count({ where: { AND: [where, { id: { in: extraFallback.map((row) => row.id) } }] } })
+      : 0
+    const combined = [...all, ...extraFallback]
+    const adjustedTotal = total + extraFallback.length - overlapCount
+
+    const ranked = combined.map((row, index) => ({
       row,
       index,
       band: Math.floor((now - row.refreshedAt.getTime()) / BAND_MS),
@@ -232,10 +268,10 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     const pageRows = ranked.slice((page - 1) * pageSize, page * pageSize).map((entry) => entry.row)
     return {
       items: pageRows.map(serializeListing),
-      total,
+      total: adjustedTotal,
       page,
       pageSize,
-      pageCount: Math.max(1, Math.ceil(total / pageSize)),
+      pageCount: Math.max(1, Math.ceil(adjustedTotal / pageSize)),
     }
   }
 
