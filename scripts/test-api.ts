@@ -359,7 +359,7 @@ async function main() {
     const naturalLanguageSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('find a perfume'))
     ok('shopping verbs and filler words do not block a product search', naturalLanguageSearch.status === 200 && naturalLanguageSearch.json.items.some((l: any) => l.id === fragranceListingId))
 
-    const cheapSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('cheap perfume') + '&pageSize=100')
+    const cheapSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('cheap perfume') + '&pageSize=50')
     const cheapMatches = (cheapSearch.json?.items ?? []).filter((l: any) => [fragranceListingId, luxuryCologneListingId].includes(l.id))
     ok('cheap product intent sorts lower-priced matching products first',
       cheapSearch.status === 200 && cheapMatches.length === 2 && cheapMatches[0].id === fragranceListingId && cheapMatches[1].id === luxuryCologneListingId)
