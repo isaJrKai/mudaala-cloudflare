@@ -40,7 +40,7 @@ export async function DELETE(request: Request) {
     // Collect every photo URL the account owns before the rows disappear.
     const [listings, profile] = await Promise.all([
       db.listing.findMany({ where: { userId: user.id }, select: { photos: true } }),
-      db.businessProfile.findUnique({ where: { userId: user.id }, select: { photoUrl: true } }),
+      db.businessProfile.findUnique({ where: { userId: user.id }, select: { photoUrl: true, coverPhotoUrl: true } }),
     ])
     const photoUrls = new Set<string>()
     for (const listing of listings) {
@@ -50,6 +50,9 @@ export async function DELETE(request: Request) {
     }
     if (profile?.photoUrl && !profile.photoUrl.includes('/uploads/seed/')) {
       photoUrls.add(profile.photoUrl)
+    }
+    if (profile?.coverPhotoUrl && !profile.coverPhotoUrl.includes('/uploads/seed/')) {
+      photoUrls.add(profile.coverPhotoUrl)
     }
 
     // Anonymise BEFORE the cascade: these rows outlive the account on purpose.
