@@ -1,0 +1,91 @@
+import { DurableObject } from 'cloudflare:workers'
+
+export interface RateLimitVerdict {
+  ok: boolean
+  retryAfterSeconds: number
+}
+
+const MAX_WINDOW_MS = 24 * 60 * 60 * 1000
+const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Prototype shared rate-limit shard.
+ *
+ * Multiple logical keys share a bounded number of SQLite-backed Durable
+ * Objects. Each method performs its read/modify/write sequence synchronously
+ * through SQLite, with no network await between checking and inserting.
+ * Callers must pass a one-way hash of their logical key, never a phone,
+ * address, OTP, or session token.
+ */
+export class RateLimitShard extends DurableObject {
+  constructor(ctx: DurableObjectState, env: unknown) {
+    super(ctx, env)
+    this.ctx.storage.sql.exec(
+      'CREATE TABLE IF NOT EXISTS rate_limit_hits (key_hash TEXT NOT NULL, occurred_at INTEGER NOT NULL)',
+    )
+    this.ctx.storage.sql.exec(
+      'CREATE INDEX IF NOT EXISTS rate_limit_hits_key_time ON rate_limit_hits (key_hash, occurred_at)',
+    )
+    this.ctx.storage.sql.exec(
+      'CREATE INDEX IF NOT EXISTS rate_limit_hits_time ON rate_limit_hits (occurred_at)',
+    )
+  }
+
+  async hit(keyHash: string, max: number, windowMs: number, now = Date.now()): Promise<RateLimitVerdict> {
+    if (!/^[a-f0-9]{64}$/.test(keyHash)) throw new Error('Invalid rate-limit key digest')
+    if (!Number.isSafeInteger(max) || max < 1 || max > 100_000) throw new Error('Invalid rate-limit maximum')
+    if (!Number.isSafeInteger(windowMs) || windowMs < 1 || windowMs > MAX_WINDOW_MS) throw new Error('Invalid rate-limit window')
+    if (!Number.isSafeInteger(now) || now < 0) throw new Error('Invalid rate-limit timestamp')
+
+    // Bound storage even if a key has gone quiet. The daily alarm also cleans
+    // shards that receive no further traffic.
+    this.ctx.storage.sql.exec('DELETE FROM rate_limit_hits WHERE occurred_at <= ?', now - MAX_WINDOW_MS)
+    this.ctx.storage.sql.exec(
+      'DELETE FROM rate_limit_hits WHERE key_hash = ? AND occurred_at <= ?',
+      keyHash,
+      now - windowMs,
+    )
+
+    const row = this.ctx.storage.sql
+      .exec<{ count: number; oldest: number | null }>(
+        'SELECT COUNT(*) AS count, MIN(occurred_at) AS oldest FROM rate_limit_hits WHERE key_hash = ?',
+        keyHash,
+      )
+      .one()
+
+    if (row.count >= max) {
+      const oldest = row.oldest ?? now
+      return {
+        ok: false,
+        retryAfterSeconds: Math.max(1, Math.ceil((windowMs - (now - oldest)) / 1000)),
+      }
+    }
+
+    this.ctx.storage.sql.exec(
+      'INSERT INTO rate_limit_hits (key_hash, occurred_at) VALUES (?, ?)',
+      keyHash,
+      now,
+    )
+    await this.ensureCleanupAlarm()
+    return { ok: true, retryAfterSeconds: 0 }
+  }
+
+  async clear(keyHash: string): Promise<void> {
+    if (!/^[a-f0-9]{64}$/.test(keyHash)) throw new Error('Invalid rate-limit key digest')
+    this.ctx.storage.sql.exec('DELETE FROM rate_limit_hits WHERE key_hash = ?', keyHash)
+    await this.ensureCleanupAlarm()
+  }
+
+  async alarm(): Promise<void> {
+    this.ctx.storage.sql.exec(
+      'DELETE FROM rate_limit_hits WHERE occurred_at <= ?',
+      Date.now() - MAX_WINDOW_MS,
+    )
+    await this.ctx.storage.setAlarm(Date.now() + CLEANUP_INTERVAL_MS)
+  }
+
+  private async ensureCleanupAlarm(): Promise<void> {
+    const alarm = await this.ctx.storage.getAlarm()
+    if (alarm === null) await this.ctx.storage.setAlarm(Date.now() + CLEANUP_INTERVAL_MS)
+  }
+}
