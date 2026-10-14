@@ -46,6 +46,7 @@ model User {
   passwordResets PasswordReset[]
   followingShops ShopFollow[] @relation("Follower")
   shopFollowers ShopFollow[] @relation("ShopOwner")
+  categoryInterests CategoryInterest[]
 }
 
 model Session {
@@ -270,4 +271,21 @@ model ShopFollow {
   @@unique([followerId, shopOwnerId])
   @@index([followerId, createdAt])
   @@index([shopOwnerId, createdAt])
+}
+
+
+// A buyer's explicit category interest. Scores are per account, never shared
+// across users. The API owns updates and applies bounded score increments.
+model CategoryInterest {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category       String
+  score          Int      @default(0)
+  lastSelectedAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, category])
+  @@index([userId, score])
 }
