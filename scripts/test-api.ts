@@ -451,6 +451,65 @@ async function main() {
     ok('pagination: page 1 returns pageSize items', paged.json.items.length <= 2)
     ok('pagination: page 2 differs from page 1', paged.json.items[0]?.id !== paged2.json.items[0]?.id)
 
+    // Reproduce the browse ranking-window boundary using disposable fixtures.
+    // All 501 rows are fresher than the existing fixtures, so the 501st row
+    // must be reachable after the 500-row in-memory ranking window.
+    const paginationPrefix = `Pagination Cap ${RUN_TAG}`
+    const paginationNow = new Date()
+    const paginationRefreshBase = new Date(Date.now() + 30 * 60 * 1000)
+    await db.listing.createMany({
+      data: Array.from({ length: 501 }, (_, index) => ({
+        userId: alice.user!.id,
+        type: 'OFFER',
+        title: `${paginationPrefix} ${String(index).padStart(3, '0')}`,
+        description: 'Disposable fixture for deep browse pagination regression coverage.',
+        category: 'other',
+        price: 100 + index,
+        currency: 'UGX',
+        priceNegotiable: false,
+        unit: 'piece',
+        quantity: 1,
+        county: 'Kampala',
+        country: 'UG',
+        area: 'Pagination Test',
+        contactPhone: alicePhone,
+        contactWhatsapp: null,
+        photos: '[]',
+        status: 'ACTIVE',
+        publishedAt: paginationNow,
+        refreshedAt: new Date(paginationRefreshBase.getTime() - index * 1000),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      })),
+    })
+    try {
+      const deepBrowse = await call('GET', '/api/listings?page=11&pageSize=50')
+      ok(
+        'deep browse pagination reaches rows beyond the 500-row ranking cap',
+        deepBrowse.status === 200 &&
+          deepBrowse.json.total > 500 &&
+          deepBrowse.json.pageCount > 10 &&
+          deepBrowse.json.items.some((item: any) => item.title.startsWith(paginationPrefix)),
+      )
+
+      const boundaryPage = await call('GET', '/api/listings?page=17&pageSize=30')
+      const nextBoundaryPage = await call('GET', '/api/listings?page=18&pageSize=30')
+      const boundaryIds = new Set((boundaryPage.json?.items ?? []).map((item: any) => item.id))
+      ok(
+        'pagination fills a page that straddles the 500-row cap',
+        boundaryPage.status === 200 && boundaryPage.json.items.length === 30,
+      )
+      ok(
+        'pagination has no duplicate IDs across the scan-cap boundary',
+        boundaryPage.status === 200 &&
+          nextBoundaryPage.status === 200 &&
+          !(nextBoundaryPage.json.items ?? []).some((item: any) => boundaryIds.has(item.id)),
+      )
+    } finally {
+      await db.listing.deleteMany({
+        where: { userId: alice.user!.id, title: { startsWith: paginationPrefix } },
+      })
+    }
+
     const badParams = await call('GET', '/api/listings?page=abc')
     ok('invalid query params → 400', badParams.status === 400)
   }
