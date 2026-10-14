@@ -10,7 +10,7 @@
 
 import { useMemo, useState, useSyncExternalStore } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, BadgeCheck, Check, Clock, Copy, Eye, Leaf, MapPin, Pencil, Phone, Printer, QrCode, Share2, Store, X } from 'lucide-react'
+import { ArrowLeft, BadgeCheck, Check, Clock, Copy, ExternalLink, Eye, Leaf, MapPin, Pencil, Phone, Printer, QrCode, Share2, Store, X } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/commerce/brand-icons'
 import QRCode from 'react-qr-code'
 import { Button } from '@/components/ui/button'
@@ -282,6 +282,13 @@ export function ShopView({ id }: { id: string }) {
                 <Phone className="size-4" aria-hidden /> {copy.common.call}
               </a>
             </Button>
+            {shop.websiteUrl ? (
+              <Button asChild variant="outline" className="press h-11 flex-1 text-[15px]">
+                <a href={shop.websiteUrl} target="_blank" rel="noopener noreferrer" aria-label={`Visit ${shop.name}'s website`}>
+                  <ExternalLink className="size-4" aria-hidden /> Visit website
+                </a>
+              </Button>
+            ) : null}
             {whatsappNumber ? (
               <Button
                 asChild
