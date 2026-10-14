@@ -127,7 +127,7 @@ export function ListingsBrowse() {
     [searchIntent.text],
   )
   const priceIntentHint = searchIntent.minPrice !== undefined && searchIntent.maxPrice !== undefined
-    ? `Price range: UGX ${searchIntent.minPrice.toLocaleString('en-UG')}–${searchIntent.maxPrice.toLocaleString('en-UG')}`
+    ? `Price range: UGX ${searchIntent.minPrice.toLocaleString('en-UG')} - ${searchIntent.maxPrice.toLocaleString('en-UG')}`
     : searchIntent.maxPrice !== undefined
       ? `Up to UGX ${searchIntent.maxPrice.toLocaleString('en-UG')}`
       : searchIntent.minPrice !== undefined
