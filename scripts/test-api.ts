@@ -313,6 +313,16 @@ async function main() {
     fragranceListingId = fragrance.json?.listing?.id ?? ''
     ok('create fragrance fixture under category without the word perfume (201)', fragrance.status === 201 && Boolean(fragranceListingId))
 
+    const phoneOnly = await call('POST', '/api/listings', {
+      ...validListing,
+      title: 'Android smartphone',
+      description: 'Unlocked mobile phone in good condition.',
+      category: 'electronics',
+      price: 320000,
+    }, fragranceOwner)
+    const phoneOnlyId: string = phoneOnly.json?.listing?.id ?? ''
+    ok('create phone-only fixture for multi-intent precision (201)', phoneOnly.status === 201 && Boolean(phoneOnlyId))
+
     const mismatch = await call('POST', '/api/listings', { ...validListing, county: 'Nairobi' }, alice)
     ok('location outside Uganda → 400 (country/location match enforced)', mismatch.status === 400)
 
@@ -330,6 +340,9 @@ async function main() {
 
     const compoundSearch = await call('GET', '/api/listings?q=' + encodeURIComponent("men's perfume"))
     ok('multi-word search understands gender wording plus a product synonym', compoundSearch.status === 200 && compoundSearch.json.items.some((l: any) => l.id === fragranceListingId))
+
+    const multiIntentSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('phone charger'))
+    ok('multi-product queries do not return a category-only false match', multiIntentSearch.status === 200 && !multiIntentSearch.json.items.some((l: any) => l.id === phoneOnlyId))
 
     const wrongQ = await call('GET', '/api/listings?q=' + encodeURIComponent('zebra-unicorn-nothing'))
     ok('non-matching search returns empty, not everything', wrongQ.json.total === 0)
