@@ -101,7 +101,25 @@ Do not mark Priority 1 complete until:
 - All changes pass CI and a reviewed migration/rollback rehearsal.
 - Live verification uses an authorized disposable identity and leaves customer data untouched.
 
-## 6. Open decisions
+## 6. Rate-limit backend evaluation (evidence gathered 2026-10-14)
+
+The production requirement is an authoritative per-phone/per-IP budget for sensitive flows, not merely a fast approximate edge signal.
+
+| Candidate | Strength | Limitation for Mudaala | Decision |
+|---|---|---|---|
+| Cloudflare Workers Rate Limiting binding | Native, low latency, route/key-specific, easy to add as a coarse edge layer. | Cloudflare documents it as per-location, permissive, and eventually consistent; it supports only 10- or 60-second periods. It is not an exact global 15-minute/hour sliding-window counter. | Useful as supplementary coarse protection; not the source of truth for OTP/reset lockouts. |
+| Durable Objects | Stateful coordination with serialized per-object execution and persistent storage; supports exact conditional updates. Natural fit for per-key atomic budgets. | Requires adding a Worker binding/class, a safe integration path from OpenNext server code, bounded storage/expiry cleanup, and load tests. A single global object would be a bottleneck; object/key cardinality and abuse costs must be controlled. | Strong candidate for authoritative shared limiter, subject to a small prototype and deployed-runtime test. |
+| External Redis | Familiar shared store; atomic Lua/script can implement the current sliding window. | No REDIS_URL is configured today; adds a paid/operated dependency, connection and timeout behavior, and a code change to make the current multi-command sequence atomic. | Viable fallback if DO integration or measured throughput/cost is worse. Do not simply add the URL to current code. |
+| PostgreSQL atomic upsert | Existing managed database and one-statement atomic fixed-window counter avoid a new provider. | Adds writes to the database on each limited request and can couple abuse defense to database capacity/outages; fixed-window semantics need explicit analysis. | Benchmark as a low-operational-complexity alternative, not the default without load evidence. |
+
+Cloudflare references:
+- Workers Rate Limiting binding (locality and eventual-consistency limitations): https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/
+- Durable Objects rules and coordination patterns: https://developers.cloudflare.com/durable-objects/best-practices/rules-of-durable-objects/
+
+### Prototype requirements
+Before choosing, implement a minimal disposable prototype with the same consume(key, limit, window) contract and test it with concurrent bursts, expiry, cold starts, storage cleanup, simulated dependency failure, and multiple distinct keys. Record p50/p95 latency and approximate cost. Do not send production authentication traffic through a prototype. The chosen implementation must expose provider health without logging raw phone numbers, OTPs, or tokens.
+
+## 7. Open decisions
 - Which shared limiter backend best meets Worker runtime, atomicity, cost, and operational requirements?
 - What privileges should unverified accounts have during rollout, including legacy accounts?
 - What is the authoritative admin bootstrap/recovery mechanism and who may approve changes?
