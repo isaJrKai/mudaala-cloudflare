@@ -62,13 +62,15 @@ export function useCategoryPreferences() {
     return () => { active = false }
   }, [userId, isLoading])
 
+  const activeInterests = loadedFor === (userId ?? 'guest') ? interests : []
+
   const orderedCategories = useMemo(() => {
-    const scores = new Map(interests.map((interest) => [interest.category, effectiveScore(interest)]))
+    const scores = new Map(activeInterests.map((interest) => [interest.category, effectiveScore(interest)]))
     return [...CATEGORIES].sort((a, b) => {
       const difference = (scores.get(b.key) ?? 0) - (scores.get(a.key) ?? 0)
       return Math.abs(difference) < 0.01 ? CATEGORIES.findIndex((item) => item.key === a.key) - CATEGORIES.findIndex((item) => item.key === b.key) : difference
     })
-  }, [interests])
+  }, [activeInterests])
 
   const recordCategorySelection = useCallback(async (category: string) => {
     const selectedAt = new Date().toISOString()
@@ -114,6 +116,6 @@ export function useCategoryPreferences() {
     orderedCategories,
     recordCategorySelection,
     resetCategoryPreferences,
-    hasCategoryPreferences: interests.some((interest) => interest.score > 0) && loadedFor !== null,
+    hasCategoryPreferences: activeInterests.some((interest) => interest.score > 0),
   }
 }
