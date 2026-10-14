@@ -453,7 +453,23 @@ function ShopNameSearchResults({ query, onOpenShop }: { query: string; onOpenSho
     retry: false,
     queryFn: () => apiGet<ShopNameSearchResponse>(`/api/shops/search?q=${encodeURIComponent(q)}`),
   })
-  if (q.length < 2 || search.isLoading || search.isError || !search.data?.shops.length) return null
+  if (q.length < 2) return null
+
+  if (search.isError) {
+    return (
+      <p role="status" className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        Shop-name search is temporarily unavailable; product results are still shown.
+        <button type="button" className="font-semibold text-primary underline underline-offset-2" onClick={() => void search.refetch()}>
+          Try again
+        </button>
+      </p>
+    )
+  }
+
+  if (search.isLoading || !search.data) return null
+  if (search.data.shops.length === 0) {
+    return <p className="text-xs text-muted-foreground" role="status">No shop names matched “{q}”. Product matches, if any, appear below.</p>
+  }
 
   return (
     <section className="space-y-2" aria-label="Shops matching your search">
