@@ -165,6 +165,7 @@ const validListing = {
 async function main() {
   let createdListingId = ''
   let fragranceListingId = ''
+  let unicodeFragranceListingId = ''
   let phoneOnlyListingId = ''
   let luxuryCologneListingId = ''
   console.log('\n== 1. Authentication ==')
@@ -315,6 +316,17 @@ async function main() {
     fragranceListingId = fragrance.json?.listing?.id ?? ''
     ok('create fragrance fixture under category without the word perfume (201)', fragrance.status === 201 && Boolean(fragranceListingId))
 
+    const unicodeFragrance = await call('POST', '/api/listings', {
+      ...validListing,
+      title: '𝐋𝐨𝐧𝐠 𝐥𝐚𝐬𝐭𝐢𝐧𝐠 𝐨𝐢𝐥 𝐩𝐞𝐫𝐟𝐮𝐦𝐞𝐬',
+      description: '𝐎𝐢𝐥 𝐩𝐞𝐫𝐟𝐮𝐦𝐞𝐬 𝐚𝐭 𝐚𝐟𝐟𝐨𝐫𝐝𝐚𝐛𝐥𝐞 𝐩𝐫𝐢𝐜𝐞𝐬.',
+      category: 'other',
+      price: null,
+      priceNegotiable: true,
+    }, fragranceOwner)
+    unicodeFragranceListingId = unicodeFragrance.json?.listing?.id ?? ''
+    ok('create Unicode-styled fragrance fixture in Other category (201)', unicodeFragrance.status === 201 && Boolean(unicodeFragranceListingId))
+
     const luxuryCologne = await call('POST', '/api/listings', {
       ...validListing,
       title: 'Luxury cologne',
@@ -351,6 +363,8 @@ async function main() {
 
     const perfumeSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('perfume'))
     ok('search "perfume" finds a fragrance listing filed under Beauty & Personal Care', perfumeSearch.status === 200 && perfumeSearch.json.items.some((l: any) => l.id === fragranceListingId))
+    ok('search "perfume" also finds Unicode-styled seller text in Other category',
+      perfumeSearch.status === 200 && perfumeSearch.json.items.some((l: any) => l.id === unicodeFragranceListingId))
 
     const compoundSearch = await call('GET', '/api/listings?q=' + encodeURIComponent("men's perfume"))
     ok('multi-word search understands gender wording plus a product synonym', compoundSearch.status === 200 && compoundSearch.json.items.some((l: any) => l.id === fragranceListingId))
@@ -365,6 +379,8 @@ async function main() {
     const cheapMatches = (cheapSearch.json?.items ?? []).filter((l: any) => [fragranceListingId, luxuryCologneListingId].includes(l.id))
     ok('cheap product intent sorts lower-priced matching products first',
       cheapSearch.status === 200 && cheapMatches.length === 2 && cheapMatches[0].id === fragranceListingId && cheapMatches[1].id === luxuryCologneListingId)
+    ok('price-intent search also includes Unicode-styled product titles',
+      cheapSearch.status === 200 && cheapSearch.json.items.some((l: any) => l.id === unicodeFragranceListingId))
 
     const explicitNewestSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('cheap perfume') + '&sort=newest&pageSize=50')
     const newestMatches = (explicitNewestSearch.json?.items ?? []).filter((l: any) => [fragranceListingId, luxuryCologneListingId].includes(l.id))
@@ -496,6 +512,14 @@ async function main() {
       hours: null,
     }, alice)
     ok('profile PUT with shop photo (200)', profilePut.status === 200 && profilePut.json?.profile?.photoUrl === (photoUrl ?? null))
+
+    // Shop-name search is a separate public endpoint. It must find a shop when
+    // the buyer types the right words with different punctuation/spacing.
+    const shopSearch = await call('GET', `/api/shops/search?q=${encodeURIComponent(`Alice Test-Shop ${RUN_TAG}`)}`)
+    ok(
+      'public shop search matches business name across punctuation',
+      shopSearch.status === 200 && shopSearch.json?.shops?.some((shop: any) => shop.id === alice.user!.id && shop.name === `Alice Test Shop ${RUN_TAG}`),
+    )
 
     const badPhotoProfile = await call('PUT', '/api/profile', {
       businessName: `Alice Test Shop ${RUN_TAG}`,
