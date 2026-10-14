@@ -58,7 +58,7 @@ function includesPhrase(haystack: string, phrase: string): boolean {
 
 export function getSearchTermGroups(query: string): SearchTermGroup[] {
   const normalized = normalizeSearchText(query)
-  if (!normalized) return []
+  if (!normalized) return [{ terms: [query.trim()], categories: [] }]
 
   const tokens = normalized.split(' ').filter((token) => !['a', 'an', 'and', 'for', 'in', 'of', 'on', 'the', 'to', 'with', 'near'].includes(token))
   if (!tokens.length) return [{ terms: [normalized], categories: [] }]
