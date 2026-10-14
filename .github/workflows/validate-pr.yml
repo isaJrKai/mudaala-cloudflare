@@ -60,6 +60,23 @@ jobs:
           SETTINGS_ENCRYPTION_KEY: build-only-placeholder-key-32chars
           ADMIN_PHONES: "+256700000000"
 
+      - name: Start isolated Durable Object rate-limit prototype
+        run: |
+          npx wrangler dev --config wrangler.rate-limit-prototype.jsonc --local --port 8787 > /tmp/mudaala-rate-limit-prototype.log 2>&1 &
+          echo $! > /tmp/mudaala-rate-limit-prototype.pid
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:8787/health >/dev/null; then
+              echo "Rate-limit prototype Worker is ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/mudaala-rate-limit-prototype.log
+          exit 1
+
+      - name: Test Durable Object rate-limit atomicity, expiry, isolation, and clearing
+        run: npx tsx scripts/test-rate-limit-prototype.ts
+
       # All behavioural/security tests below use this disposable CI database.
       # Nothing in this job connects to or mutates the production Supabase DB.
       - name: Create schema in disposable PostgreSQL
