@@ -110,16 +110,16 @@ jobs:
           set -euo pipefail
           # A deliberately invalid phone format yields no phone candidates, so
           # this exercises the IP limiter without touching a real account or
-          # sending SMS. 401 proves the shared binding answered; 503 means the
-          # production limiter is unavailable and should trigger rollback.
+          # sending SMS. 401 means the limiter allowed the request; 429 means
+          # it enforced an existing budget. 503 means the shared binding is down.
           status="$(curl --silent --show-error --max-time 20 --output /tmp/rate-limit-smoke.json --write-out '%{http_code}' \
             --request POST "$APP_URL/api/auth/login" \
             --header 'content-type: application/json' \
             --data '{"phone":"x","password":"not-a-password"}')"
           echo "Shared limiter smoke HTTP status: $status"
-          if [ "$status" != "401" ]; then
+          if [ "$status" != "401" ] && [ "$status" != "429" ]; then
             cat /tmp/rate-limit-smoke.json
-            echo "Expected 401 from invalid phone login; 503/429/other status means limiter smoke did not meet its contract."
+            echo "Expected 401 or 429 from invalid phone login; 503/other status means shared limiter smoke failed."
             exit 1
           fi
 
