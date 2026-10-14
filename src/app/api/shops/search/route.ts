@@ -15,33 +15,34 @@ export async function GET(request: NextRequest) {
     const verdict = await hit(`shop-search:ip:${getClientIp(request)}`, 60, 60_000)
     if (!verdict.ok) throw new ApiError(429, 'You are searching too quickly. Please try again shortly')
 
-    const rows = await db.businessProfile.findMany({
+    const rows = await db.user.findMany({
       where: {
         OR: [
-          { businessName: { contains: q, mode: 'insensitive' } },
-          { user: { name: { contains: q, mode: 'insensitive' } } },
+          { name: { contains: q, mode: 'insensitive' } },
+          { profile: { is: { businessName: { contains: q, mode: 'insensitive' } } } },
         ],
       },
       select: {
-        userId: true,
-        businessName: true,
-        photoUrl: true,
-        area: true,
-        county: true,
-        user: { select: { id: true, name: true, country: true } },
+        id: true,
+        name: true,
+        country: true,
+        profile: {
+          select: { businessName: true, photoUrl: true, area: true, county: true },
+        },
       },
+      orderBy: { name: 'asc' },
       take: 40,
     })
 
     const needle = q.toLocaleLowerCase()
     const shops = rows
       .map((row) => ({
-        id: row.user.id,
-        name: row.businessName?.trim() || row.user.name,
-        photoUrl: row.photoUrl ?? null,
-        area: row.area ?? null,
-        county: row.county ?? null,
-        country: row.user.country ?? 'UG',
+        id: row.id,
+        name: row.profile?.businessName?.trim() || row.name,
+        photoUrl: row.profile?.photoUrl ?? null,
+        area: row.profile?.area ?? null,
+        county: row.profile?.county ?? null,
+        country: row.country ?? 'UG',
       }))
       .filter((shop, index, all) => all.findIndex((candidate) => candidate.id === shop.id) === index)
       .sort((a, b) => {
