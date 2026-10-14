@@ -54,6 +54,18 @@ jobs:
 
             const search = await json('/api/listings?page=1&pageSize=10');
             if (!Array.isArray(search.items)) throw new Error('Public listing search response is missing items[]');
+
+            // Exercise the public search paths after every production deploy.
+            // Do not require a specific product to exist in production data.
+            const perfumeSearch = await json('/api/listings?q=perfume&page=1&pageSize=10');
+            const budgetSearch = await json('/api/listings?q=perfume%20under%2030k&page=1&pageSize=10');
+            const cheapSearch = await json('/api/listings?q=cheap%20perfume&page=1&pageSize=10');
+            for (const [label, result] of [['perfume', perfumeSearch], ['budget', budgetSearch], ['cheap', cheapSearch]]) {
+              if (!Array.isArray(result.items)) throw new Error('Public ' + label + ' search response is missing items[]');
+            }
+            const shopNameSearch = await json('/api/shops/search?q=Mudaala');
+            if (!Array.isArray(shopNameSearch.shops)) throw new Error('Public shop-name search response is missing shops[]');
+
             const listing = search.items.find(item => Array.isArray(item.photos) && item.photos.length > 0);
             if (!listing) throw new Error('No active listing with photos is available for live media verification');
 
@@ -107,6 +119,8 @@ jobs:
               anonymousAuth: 'pass',
               protectedRoutes: '401 as expected',
               publicListingDetail: 'pass',
+              productSearch: { perfume: perfumeSearch.items.length, budget: budgetSearch.items.length, cheap: cheapSearch.items.length },
+              shopNameSearch: shopNameSearch.shops.length + ' results returned',
               privateOwnerFields: 'not exposed',
               publicShopAdminFlag: 'boolean present',
               targetAdminBadge: 'isAdmin=true',

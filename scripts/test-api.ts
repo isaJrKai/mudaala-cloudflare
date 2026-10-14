@@ -166,6 +166,7 @@ async function main() {
   let createdListingId = ''
   let fragranceListingId = ''
   let phoneOnlyListingId = ''
+  let luxuryCologneListingId = ''
   console.log('\n== 1. Authentication ==')
   const alice: Jar = { cookie: '' }
   const alicePhone = uniquePhone()
@@ -314,6 +315,18 @@ async function main() {
     fragranceListingId = fragrance.json?.listing?.id ?? ''
     ok('create fragrance fixture under category without the word perfume (201)', fragrance.status === 201 && Boolean(fragranceListingId))
 
+    const luxuryCologne = await call('POST', '/api/listings', {
+      ...validListing,
+      title: 'Luxury cologne',
+      description: 'Premium fragrance for special occasions.',
+      category: 'beauty-personal-care',
+      price: 80000,
+    }, fragranceOwner)
+    luxuryCologneListingId = luxuryCologne.json?.listing?.id ?? ''
+    ok('create higher-priced cologne fixture for sort intent (201)', luxuryCologne.status === 201 && Boolean(luxuryCologneListingId))
+    await db.listing.update({ where: { id: fragranceListingId }, data: { refreshedAt: new Date(Date.now() - 60 * 60 * 1000) } })
+    await db.listing.update({ where: { id: luxuryCologneListingId }, data: { refreshedAt: new Date() } })
+
     const phoneOnly = await call('POST', '/api/listings', {
       ...validListing,
       title: 'Android smartphone',
@@ -344,6 +357,35 @@ async function main() {
 
     const multiIntentSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('phone charger'))
     ok('multi-product queries do not return a category-only false match', multiIntentSearch.status === 200 && !multiIntentSearch.json.items.some((l: any) => l.id === phoneOnlyListingId))
+
+    const naturalLanguageSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('find a perfume'))
+    ok('shopping verbs and filler words do not block a product search', naturalLanguageSearch.status === 200 && naturalLanguageSearch.json.items.some((l: any) => l.id === fragranceListingId))
+
+    const cheapSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('cheap perfume') + '&pageSize=50')
+    const cheapMatches = (cheapSearch.json?.items ?? []).filter((l: any) => [fragranceListingId, luxuryCologneListingId].includes(l.id))
+    ok('cheap product intent sorts lower-priced matching products first',
+      cheapSearch.status === 200 && cheapMatches.length === 2 && cheapMatches[0].id === fragranceListingId && cheapMatches[1].id === luxuryCologneListingId)
+
+    const explicitNewestSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('cheap perfume') + '&sort=newest&pageSize=50')
+    const newestMatches = (explicitNewestSearch.json?.items ?? []).filter((l: any) => [fragranceListingId, luxuryCologneListingId].includes(l.id))
+    ok('explicit newest sort overrides inferred cheap sort',
+      explicitNewestSearch.status === 200 && newestMatches.length === 2 && newestMatches[0].id === luxuryCologneListingId)
+
+    const sortOnlySearch = await call('GET', '/api/listings?q=' + encodeURIComponent('show me cheapest') + '&pageSize=10')
+    ok('sort-only natural language works without literal filler matching',
+      sortOnlySearch.status === 200 && Array.isArray(sortOnlySearch.json.items) && sortOnlySearch.json.items.length > 0)
+
+    const budgetSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('perfume under 30k'))
+    ok('search extracts an under-30k budget from the query', budgetSearch.status === 200 && budgetSearch.json.items.some((l: any) => l.id === fragranceListingId))
+
+    const tightBudgetSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('perfume under 20k'))
+    ok('search excludes products above the requested budget', tightBudgetSearch.status === 200 && !tightBudgetSearch.json.items.some((l: any) => l.id === fragranceListingId))
+
+    const locationBudgetSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('perfume in Kampala under UGX 30,000'))
+    ok('search combines product, district, and UGX price intent', locationBudgetSearch.status === 200 && locationBudgetSearch.json.items.some((l: any) => l.id === fragranceListingId))
+
+    const rangeSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('perfume between 20k and 30k'))
+    ok('search extracts a between-price range', rangeSearch.status === 200 && rangeSearch.json.items.some((l: any) => l.id === fragranceListingId))
 
     const wrongQ = await call('GET', '/api/listings?q=' + encodeURIComponent('zebra-unicorn-nothing'))
     ok('non-matching search returns empty, not everything', wrongQ.json.total === 0)

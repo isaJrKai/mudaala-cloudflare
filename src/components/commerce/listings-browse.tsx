@@ -14,7 +14,7 @@ import type { ListingsPage, ShopLookupResponse, ShopNameSearchResponse, ListingD
 import { normalizeShopName, normalizeShopCode, telLink } from '@/lib/format'
 import { haversineMeters, formatDistance } from '@/lib/geo'
 import { CATEGORIES, COUNTIES, UNITS, categoryLabel } from '@/lib/constants'
-import { getSearchTermGroups } from '@/lib/search'
+import { getSearchTermGroups, parseSearchIntent } from '@/lib/search'
 import { useAppStore, filtersToQuery, DEFAULT_FILTERS } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { unlove, useLovedIds } from '@/lib/loved'
@@ -121,10 +121,23 @@ export function ListingsBrowse() {
     )
   }
 
+  const searchIntent = useMemo(() => parseSearchIntent(filters.q), [filters.q])
   const inferredSearchCategories = useMemo(
-    () => [...new Set(getSearchTermGroups(filters.q).flatMap((group) => group.categories))],
-    [filters.q],
+    () => [...new Set(getSearchTermGroups(searchIntent.text).flatMap((group) => group.categories))],
+    [searchIntent.text],
   )
+  const priceIntentHint = searchIntent.minPrice !== undefined && searchIntent.maxPrice !== undefined
+    ? `Price range: UGX ${searchIntent.minPrice.toLocaleString('en-UG')} - ${searchIntent.maxPrice.toLocaleString('en-UG')}`
+    : searchIntent.maxPrice !== undefined
+      ? `Up to UGX ${searchIntent.maxPrice.toLocaleString('en-UG')}`
+      : searchIntent.minPrice !== undefined
+        ? `From UGX ${searchIntent.minPrice.toLocaleString('en-UG')}`
+        : ''
+  const priceSortHint = !filters.sortExplicit && (filters.sort === 'newest' || !filters.sort) && searchIntent.sort === 'price_asc'
+    ? 'Lowest-priced matches first'
+    : !filters.sortExplicit && (filters.sort === 'newest' || !filters.sort) && searchIntent.sort === 'price_desc'
+      ? 'Higher-priced matches first'
+      : ''
 
   const query = filtersToQuery(filters)
   // A code-shaped query ("dk 2623", "MD-2623") is a till-number punch, not a
@@ -227,9 +240,13 @@ export function ListingsBrowse() {
         </Button>
       </div>
 
-      {filters.q.trim() && inferredSearchCategories.length > 0 ? (
+      {filters.q.trim() && (inferredSearchCategories.length > 0 || priceIntentHint || priceSortHint) ? (
         <p className="text-xs text-muted-foreground" role="status" aria-live="polite">
-          Also matching {inferredSearchCategories.map(categoryLabel).join(', ')} products
+          {inferredSearchCategories.length > 0
+            ? `Also matching ${inferredSearchCategories.map(categoryLabel).join(', ')} products`
+            : 'Search filters applied'}
+          {priceIntentHint ? ` · ${priceIntentHint}` : ''}
+          {priceSortHint ? ` · ${priceSortHint}` : ''}
         </p>
       ) : null}
 
