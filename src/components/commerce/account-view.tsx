@@ -36,6 +36,7 @@ interface ProfileFormState {
   businessName: string
   photoUrl: string
   coverPhotoUrl: string
+  websiteUrl: string
   category: string
   description: string
   county: string
@@ -289,6 +290,7 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
     businessName: '',
     photoUrl: '',
     coverPhotoUrl: '',
+    websiteUrl: '',
     category: 'none',
     description: '',
     county: 'none',
@@ -316,6 +318,7 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
         businessName: p?.businessName ?? user.name,
         photoUrl: p?.photoUrl ?? '',
         coverPhotoUrl: p?.coverPhotoUrl ?? '',
+        websiteUrl: p?.websiteUrl ?? '',
         category: p?.category ?? 'none',
         description: p?.description ?? '',
         county: p?.county ?? 'none',
@@ -404,6 +407,7 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
       businessName: form.businessName,
       photoUrl: form.photoUrl.trim() === '' ? null : form.photoUrl.trim(),
       coverPhotoUrl: form.coverPhotoUrl.trim() === '' ? null : form.coverPhotoUrl.trim(),
+      websiteUrl: form.websiteUrl.trim() === '' ? null : form.websiteUrl.trim(),
       category: !form.category || form.category === 'none' ? null : form.category,
       description: form.description.trim() === '' ? null : form.description.trim(),
       county: !form.county || form.county === 'none' ? null : form.county,
@@ -593,6 +597,13 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
         <Label htmlFor="bp-wa">WhatsApp</Label>
         <Input id="bp-wa" type="tel" inputMode="tel" value={form.whatsapp} onChange={(e) => set('whatsapp', e.target.value)} />
         {errors.whatsapp ? <p role="alert" className="text-sm text-destructive">{errors.whatsapp}</p> : null}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="bp-website">Website URL <span className="font-normal text-muted-foreground">(optional)</span></Label>
+        <Input id="bp-website" type="url" inputMode="url" autoComplete="url" value={form.websiteUrl} onChange={(e) => set('websiteUrl', e.target.value)} maxLength={2048} placeholder="https://yourshop.com" aria-invalid={Boolean(errors.websiteUrl)} />
+        <p className="text-xs text-muted-foreground">Customers can visit your own website from your public Mudaala shop. Use a secure https:// link.</p>
+        {errors.websiteUrl ? <p role="alert" className="text-sm text-destructive">{errors.websiteUrl}</p> : null}
       </div>
 
       {/* Mobile-money merchant identity. Self-reported and buyer-visible -
