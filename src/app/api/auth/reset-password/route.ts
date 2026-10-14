@@ -21,6 +21,7 @@ import { hashPassword } from '@/lib/auth'
 import { resetCodeMatches } from '@/lib/sms'
 import { clear, hit, RESET_WINDOW_MS } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
+import { NextResponse } from 'next/server'
 
 const GENERIC_FAIL = 'That code did not work or has expired. Request a new code and try again.'
 const RESET_SUBMIT_PHONE_MAX = Number(process.env.RATE_LIMIT_RESET_SUBMIT_PHONE_MAX ?? 10)
@@ -41,9 +42,10 @@ export async function POST(request: Request) {
     const ipBudget = await hit(`reset:submit:ip:${ip}`, RESET_SUBMIT_IP_MAX, RESET_WINDOW_MS)
     if (!phoneBudget.ok || !ipBudget.ok) {
       const retryAfter = Math.max(phoneBudget.retryAfterSeconds, ipBudget.retryAfterSeconds)
-      return jsonError(429, 'Too many reset attempts. Wait before trying again.', undefined, {
-        'retry-after': String(retryAfter),
-      })
+      return NextResponse.json(
+        { error: 'Too many reset attempts. Wait before trying again.' },
+        { status: 429, headers: { 'retry-after': String(retryAfter) } },
+      )
     }
     const user = candidates.length
       ? await db.user.findFirst({ where: { phone: { in: candidates } } })
