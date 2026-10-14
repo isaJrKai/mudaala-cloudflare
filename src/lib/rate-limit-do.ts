@@ -54,6 +54,7 @@ export class RateLimitShard extends DurableObject {
 
     if (row.count >= max) {
       const oldest = row.oldest ?? now
+      await this.ensureCleanupAlarm()
       return {
         ok: false,
         retryAfterSeconds: Math.max(1, Math.ceil((windowMs - (now - oldest)) / 1000)),
