@@ -30,7 +30,7 @@ import { chooseStorage, readStorageEnv, S3Storage, signS3Put } from '../src/lib/
 import { getClientIp } from '../src/lib/client-ip'
 import { pickMovers, MOVER_MIN_SAMPLE, MOVER_MIN_PCT, MOVER_LIMIT } from '../src/lib/price-movers'
 import { addToBasket, setLineQty, restoreLine, markShopDone, isShopDone, readBasket, basketCount } from '../src/lib/basket'
-import { createMemoryRateLimiter, createRedisRateLimiter } from '../src/lib/rate-limit'
+import { createMemoryRateLimiter, createRedisRateLimiter, createDurableObjectRateLimiter, RateLimitUnavailableError } from '../src/lib/rate-limit'
 import { businessProfileSchema, MOMO_NETWORKS } from '../src/lib/validation'
 
 const BASE = 'http://localhost:3000'
@@ -2374,6 +2374,56 @@ async function main() {
       const f1 = await broken.hit('suite:down', 1, 60_000)
       const f2 = await broken.hit('suite:down', 1, 60_000)
       ok('15.54 redis down degrades to the in-memory window - limits still hold', f1.ok && !f2.ok)
+
+      // Durable Object adapter: the real SQLite-backed class is exercised by
+      // the separate Wrangler/Workerd prototype test. These tests verify the
+      // application adapter hashes identifiers, selects a stable shard, and
+      // does not silently fall back when the shared service errors.
+      const doBuckets = new Map<string, number[]>()
+      const seenHashes: string[] = []
+      const seenShards: string[] = []
+      const fakeNamespace = {
+        idFromName(name: string) { seenShards.push(name); return name },
+        get(_id: unknown) {
+          return {
+            async hit(keyHash: string, max: number, windowMs: number) {
+              seenHashes.push(keyHash)
+              const now = Date.now()
+              const hits = (doBuckets.get(keyHash) ?? []).filter((at) => now - at < windowMs)
+              if (hits.length >= max) {
+                return { ok: false, retryAfterSeconds: Math.max(1, Math.ceil((windowMs - (now - hits[0]!)) / 1000)) }
+              }
+              hits.push(now)
+              doBuckets.set(keyHash, hits)
+              return { ok: true, retryAfterSeconds: 0 }
+            },
+            async clear(keyHash: string) { doBuckets.delete(keyHash) },
+          }
+        },
+      }
+      const doStore = createDurableObjectRateLimiter(fakeNamespace)
+      const doA = await doStore.hit('login:phone:+256700000123', 1, 60_000)
+      const doB = await doStore.hit('login:phone:+256700000123', 1, 60_000)
+      ok('15.55 Durable Object adapter applies the shared-store verdict', doA.ok && !doB.ok)
+      ok('15.56 Durable Object adapter sends only a SHA-256 digest, not a raw phone key',
+        seenHashes.length === 2 && seenHashes.every((key) => /^[a-f0-9]{64}$/.test(key)) && !seenHashes.some((key) => key.includes('256700000123')))
+      ok('15.57 the same logical key resolves to a stable shard',
+        seenShards.length === 2 && seenShards[0] === seenShards[1] && /^rate-limit-shard:\\d+$/.test(seenShards[0]!))
+      await doStore.clear('login:phone:+256700000123')
+      ok('15.58 Durable Object adapter clear reopens the bucket',
+        (await doStore.hit('login:phone:+256700000123', 1, 60_000)).ok)
+
+      const brokenDo = createDurableObjectRateLimiter({
+        idFromName() { throw new Error('binding unavailable') },
+        get() { throw new Error('unreachable') },
+      })
+      let failedClosed = false
+      try {
+        await brokenDo.hit('login:phone:+256700000124', 1, 60_000)
+      } catch (error) {
+        failedClosed = error instanceof RateLimitUnavailableError
+      }
+      ok('15.59 shared limiter failure is surfaced for fail-closed handling', failedClosed)
     }
   }
 
