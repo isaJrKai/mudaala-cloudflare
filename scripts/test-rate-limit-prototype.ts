@@ -25,12 +25,11 @@ async function main() {
   assert.equal(isolation.body?.ok, true, 'distinct logical keys do not share counters')
 
   const expiryKey = 'expiry-' + crypto.randomUUID()
-  const first = await request('/consume?key=' + encodeURIComponent(expiryKey) + '&max=1&windowMs=40')
-  const blocked = await request('/consume?key=' + encodeURIComponent(expiryKey) + '&max=1&windowMs=40')
+  const first = await request('/consume?key=' + encodeURIComponent(expiryKey) + '&max=1&windowMs=40&now=100000')
+  const blocked = await request('/consume?key=' + encodeURIComponent(expiryKey) + '&max=1&windowMs=40&now=100000')
   assert.equal(first.body?.ok, true, 'first request in a window passes')
   assert.equal(blocked.body?.ok, false, 'second request in the same window is rejected')
-  await new Promise((resolve) => setTimeout(resolve, 60))
-  const afterExpiry = await request('/consume?key=' + encodeURIComponent(expiryKey) + '&max=1&windowMs=40')
+  const afterExpiry = await request('/consume?key=' + encodeURIComponent(expiryKey) + '&max=1&windowMs=40&now=100041')
   assert.equal(afterExpiry.body?.ok, true, 'expired events no longer count')
 
   const clearKey = 'clear-' + crypto.randomUUID()
