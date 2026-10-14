@@ -2,12 +2,22 @@ name: Verify live product search semantics
 
 on:
   workflow_dispatch:
+  # Verify the existing production deployment when this guard is first added.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-live-search.yml'
+  # Re-run the read-only semantic checks after future successful deployments.
+  workflow_run:
+    workflows: ["Deploy Mudaala to Cloudflare Workers"]
+    types: [completed]
 
 permissions:
   contents: read
 
 jobs:
   verify-search:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
