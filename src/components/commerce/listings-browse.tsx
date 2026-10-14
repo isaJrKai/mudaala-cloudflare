@@ -133,6 +133,11 @@ export function ListingsBrowse() {
       : searchIntent.minPrice !== undefined
         ? `From UGX ${searchIntent.minPrice.toLocaleString('en-UG')}`
         : ''
+  const priceSortHint = searchIntent.sort === 'price_asc'
+    ? 'Lowest-priced matches first'
+    : searchIntent.sort === 'price_desc'
+      ? 'Higher-priced matches first'
+      : ''
 
   const query = filtersToQuery(filters)
   // A code-shaped query ("dk 2623", "MD-2623") is a till-number punch, not a
@@ -235,12 +240,13 @@ export function ListingsBrowse() {
         </Button>
       </div>
 
-      {filters.q.trim() && (inferredSearchCategories.length > 0 || priceIntentHint) ? (
+      {filters.q.trim() && (inferredSearchCategories.length > 0 || priceIntentHint || priceSortHint) ? (
         <p className="text-xs text-muted-foreground" role="status" aria-live="polite">
           {inferredSearchCategories.length > 0
             ? `Also matching ${inferredSearchCategories.map(categoryLabel).join(', ')} products`
             : 'Search filters applied'}
           {priceIntentHint ? ` · ${priceIntentHint}` : ''}
+          {priceSortHint ? ` · ${priceSortHint}` : ''}
         </p>
       ) : null}
 
