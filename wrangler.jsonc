@@ -8,6 +8,17 @@
     "nodejs_compat_populate_process_env"
   ],
   "keep_names": false,
+  "vars": {
+    "RATE_LIMIT_REQUIRE_SHARED": "1"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "MUDAALA_RATE_LIMITER", "class_name": "RateLimitShard" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1-rate-limit-shard", "new_sqlite_classes": ["RateLimitShard"] }
+  ],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"

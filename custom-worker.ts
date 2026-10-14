@@ -1,5 +1,6 @@
 // @ts-ignore .open-next/worker.js is generated during the OpenNext build.
 import { default as handler } from './.open-next/worker.js'
+export { RateLimitShard } from './src/lib/rate-limit-do'
 
 type MudaalaWorkerEnv = CloudflareEnv & {
   CRON_SECRET?: string

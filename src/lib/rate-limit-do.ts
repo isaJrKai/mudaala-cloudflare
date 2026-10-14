@@ -18,6 +18,8 @@ const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000
  * address, OTP, or session token.
  */
 export class RateLimitShard extends DurableObject {
+  private cleanupAlarmEnsured = false
+
   constructor(ctx: DurableObjectState, env: unknown) {
     super(ctx, env)
     this.ctx.storage.sql.exec(
@@ -37,9 +39,8 @@ export class RateLimitShard extends DurableObject {
     if (!Number.isSafeInteger(windowMs) || windowMs < 1 || windowMs > MAX_WINDOW_MS) throw new Error('Invalid rate-limit window')
     if (!Number.isSafeInteger(now) || now < 0) throw new Error('Invalid rate-limit timestamp')
 
-    // Bound storage even if a key has gone quiet. The daily alarm also cleans
-    // shards that receive no further traffic.
-    this.ctx.storage.sql.exec('DELETE FROM rate_limit_hits WHERE occurred_at <= ?', now - MAX_WINDOW_MS)
+    // Prune this key's expired events on the hot path. A daily alarm handles
+    // global cleanup, avoiding a table-wide expiry scan on every request.
     this.ctx.storage.sql.exec(
       'DELETE FROM rate_limit_hits WHERE key_hash = ? AND occurred_at <= ?',
       keyHash,
@@ -55,6 +56,7 @@ export class RateLimitShard extends DurableObject {
 
     if (row.count >= max) {
       const oldest = row.oldest ?? now
+      await this.ensureCleanupAlarm()
       return {
         ok: false,
         retryAfterSeconds: Math.max(1, Math.ceil((windowMs - (now - oldest)) / 1000)),
@@ -81,11 +83,23 @@ export class RateLimitShard extends DurableObject {
       'DELETE FROM rate_limit_hits WHERE occurred_at <= ?',
       Date.now() - MAX_WINDOW_MS,
     )
-    await this.ctx.storage.setAlarm(Date.now() + CLEANUP_INTERVAL_MS)
+    const remaining = this.ctx.storage.sql
+      .exec<{ count: number }>('SELECT COUNT(*) AS count FROM rate_limit_hits')
+      .one().count
+    // Do not schedule perpetual daily alarms for a shard whose buckets have
+    // all expired. The next request will schedule cleanup again if needed.
+    if (remaining > 0) {
+      await this.ctx.storage.setAlarm(Date.now() + CLEANUP_INTERVAL_MS)
+      this.cleanupAlarmEnsured = true
+    } else {
+      this.cleanupAlarmEnsured = false
+    }
   }
 
   private async ensureCleanupAlarm(): Promise<void> {
+    if (this.cleanupAlarmEnsured) return
     const alarm = await this.ctx.storage.getAlarm()
     if (alarm === null) await this.ctx.storage.setAlarm(Date.now() + CLEANUP_INTERVAL_MS)
+    this.cleanupAlarmEnsured = true
   }
 }

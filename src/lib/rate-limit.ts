@@ -6,21 +6,22 @@
 //                               on sign-in; a mistyping person is never locked
 //                               out of their shop by their own traffic)
 //
-// Two implementations:
-//   - MemoryRateLimiter: a sliding window of attempt timestamps per key, held
-//     in process memory. The default - right-sized for a single-instance
-//     deployment, zero moving parts.
-//   - RedisRateLimiter: the same sliding window on a Redis ZSET, chosen
-//     automatically when REDIS_URL is set - so a horizontally scaled deploy
-//     shares one set of buckets instead of one per process. Any Redis error
-//     falls back to the in-memory window for that call: the limiter degrades,
-//     it never blocks sign-ins by being down.
+// Three implementations with deliberately different trust levels:
+//   - MemoryRateLimiter: local development and unit tests only. Per-isolate
+//     memory is NOT a global security boundary.
+//   - RedisRateLimiter: legacy/test adapter. Its multi-command ZSET operation
+//     is not atomic, and its fallback is local memory; do not use it as the
+//     production authority until those semantics are redesigned.
+//   - DurableObjectRateLimiter: production authority, backed by a bounded set
+//     of SQLite-backed Durable Objects. If the production binding is missing
+//     or unavailable, rate-limited routes fail closed with HTTP 503.
 //
 // Limits are per phone (brute-forcing ONE account) and per IP (flooding many
 // accounts from one machine). The IP is whatever lib/client-ip decided -
 // call sites never see the header plumbing.
 
-import { randomBytes } from 'node:crypto'
+import { createHmac, randomBytes } from 'node:crypto'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 
 export interface RateVerdict {
   ok: boolean
@@ -144,6 +145,121 @@ export async function createRedisClient(url: string): Promise<RedisZSetClient> {
 }
 
 // ---------------------------------------------------------------------------
+// Cloudflare Durable Objects - production shared limiter
+// ---------------------------------------------------------------------------
+
+export interface DurableRateLimitStub {
+  hit(keyHash: string, max: number, windowMs: number): Promise<RateVerdict>
+  clear(keyHash: string): Promise<void>
+}
+
+export interface DurableRateLimitNamespace {
+  idFromName(name: string): unknown
+  get(id: unknown): DurableRateLimitStub
+}
+
+export class RateLimitUnavailableError extends Error {
+  constructor() {
+    super('Shared rate-limit service is unavailable')
+    this.name = 'RateLimitUnavailableError'
+  }
+}
+
+/**
+ * Authoritative production store. Logical identifiers are hashed before they
+ * are sent to a Durable Object or written to SQLite. A fixed set of 256
+ * shards avoids a single global bottleneck while each shard atomically
+ * evaluates its own keys through synchronous SQLite operations.
+ */
+export function createDurableObjectRateLimiter(namespace: DurableRateLimitNamespace): RateLimiterStore {
+  function keyAndStub(key: string): { keyHash: string; stub: DurableRateLimitStub } {
+    // Phone numbers and IP addresses are enumerable. Use a keyed digest so a
+    // storage-only leak does not let an attacker reverse the limiter keys by
+    // hashing a dictionary of likely identifiers. Domain separation keeps
+    // these digests distinct from reset-code and settings-encryption uses.
+    const secret = process.env.RATE_LIMIT_KEY_PEPPER
+      ?? process.env.SETTINGS_ENCRYPTION_KEY
+      ?? process.env.SETTINGS_ENC_KEY
+    if (!secret && (process.env.NODE_ENV === 'production' || process.env.RATE_LIMIT_REQUIRE_SHARED === '1')) {
+      throw new Error('Rate-limit key pepper is unavailable')
+    }
+    const keyHash = createHmac('sha256', secret || 'mudaala-development-only-rate-limit-key')
+      .update('mudaala:rate-limit-key:v1\0', 'utf8')
+      .update(key, 'utf8')
+      .digest('hex')
+    const shard = Number.parseInt(keyHash.slice(0, 4), 16) % 256
+    const id = namespace.idFromName('rate-limit-shard:' + shard)
+    return { keyHash, stub: namespace.get(id) }
+  }
+
+  return {
+    name: 'cloudflare-durable-objects',
+    async hit(key, max, windowMs) {
+      try {
+        const { keyHash, stub } = keyAndStub(key)
+        const verdict = await stub.hit(keyHash, max, windowMs)
+        if (
+          !verdict ||
+          typeof verdict.ok !== 'boolean' ||
+          !Number.isFinite(verdict.retryAfterSeconds) ||
+          verdict.retryAfterSeconds < 0
+        ) {
+          throw new Error('Invalid shared rate-limit response')
+        }
+        return verdict
+      } catch (err) {
+        // Do not silently downgrade a global auth limit to isolate-local memory.
+        console.error('[rate-limit] shared Durable Object unavailable:', err instanceof Error ? err.name : 'unknown error')
+        throw new RateLimitUnavailableError()
+      }
+    },
+    async clear(key) {
+      try {
+        const { keyHash, stub } = keyAndStub(key)
+        await stub.clear(keyHash)
+      } catch (err) {
+        // Clearing is cleanup after a successful action. Keep that action's
+        // response stable, but log that a bucket may remain until it expires.
+        console.error('[rate-limit] shared Durable Object clear failed:', err instanceof Error ? err.name : 'unknown error')
+      }
+    },
+  }
+}
+
+function createUnavailableRateLimiter(): RateLimiterStore {
+  return {
+    name: 'unavailable',
+    async hit() {
+      throw new RateLimitUnavailableError()
+    },
+    async clear() {
+      console.error('[rate-limit] no shared rate-limit binding is available in production')
+    },
+  }
+}
+
+function resolveActiveStore(): RateLimiterStore {
+  // The production Worker must have the Durable Object binding. If context or
+  // binding setup is broken, fail closed with 503 rather than claiming that
+  // per-isolate memory enforces a global auth limit.
+  try {
+    const env = getCloudflareContext().env as unknown as {
+      MUDAALA_RATE_LIMITER?: DurableRateLimitNamespace
+    }
+    if (env.MUDAALA_RATE_LIMITER) {
+      return createDurableObjectRateLimiter(env.MUDAALA_RATE_LIMITER)
+    }
+  } catch {
+    // Local Next development runs outside workerd; it deliberately uses the local store.
+  }
+
+  if (process.env.NODE_ENV === 'production' || process.env.RATE_LIMIT_REQUIRE_SHARED === '1') {
+    return createUnavailableRateLimiter()
+  }
+  return chooseRateLimiter()
+}
+
+// ---------------------------------------------------------------------------
 // Store choice + the module-level API call sites use
 // ---------------------------------------------------------------------------
 
@@ -153,8 +269,8 @@ export function chooseRateLimiter(
 ): RateLimiterStore {
   const url = env.REDIS_URL?.trim()
   if (!url) return createMemoryRateLimiter()
-  // Redis is chosen once per process; if dialing it fails the store itself
-  // degrades to the in-memory window per call (never blocks the request).
+  // Compatibility helper for development and tests. Production runtime uses
+  // the Durable Object binding and never selects this fallback path.
   const connect = deps.createRedisClient ?? createRedisClient
   let store: RateLimiterStore | null = null
   return {
@@ -182,7 +298,7 @@ export function chooseRateLimiter(
 let active: RateLimiterStore | null = null
 
 function activeStore(): RateLimiterStore {
-  if (!active) active = chooseRateLimiter()
+  if (!active) active = resolveActiveStore()
   return active
 }
 
