@@ -68,6 +68,24 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Apply and verify direct Data API deny policies in disposable PostgreSQL
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE ROLE anon NOLOGIN;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE ROLE authenticated NOLOGIN;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261014110000_deny_direct_data_api_access/migration.sql
+          policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND policyname='deny_direct_api_clients' AND 'anon'=ANY(roles) AND 'authenticated'=ANY(roles) AND qual='false' AND with_check='false'")
+          if [ "$policy_count" != "12" ]; then
+            echo "Expected 12 deny-all Data API policies, found $policy_count"
+            exit 1
+          fi
+          grant_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('AppSetting','AuditLog','BusinessProfile','Listing','Notification','PasswordReset','PriceSnapshot','Report','SavedSearch','Session','ShopFollow','User') AND grantee IN ('anon','authenticated') AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          if [ "$grant_count" != "0" ]; then
+            echo "Expected no direct Data API table grants, found $grant_count"
+            exit 1
+          fi
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
       - name: Seed development fixtures into disposable PostgreSQL
         run: npx tsx scripts/seed.ts
         env:
