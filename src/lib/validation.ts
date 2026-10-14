@@ -270,6 +270,7 @@ export const businessProfileSchema = z
     businessName: z.string().trim().min(2, 'Business name must be at least 2 characters').max(80, 'Business name is too long'),
     photoUrl: photoUrlSchema.nullable(),
     coverPhotoUrl: photoUrlSchema.nullable().optional(),
+    websiteUrl: z.string().trim().max(2048, 'Website URL is too long').url('Enter a valid website URL').refine((value) => { try { return new URL(value).protocol === 'https:' } catch { return false } }, 'Website URL must start with https://').nullable().optional(),
     category: z.enum(CATEGORY_KEYS as [string, ...string[]]).nullable(),
     description: z.string().trim().max(500, 'Description must be 500 characters or fewer').nullable(),
     county: z.string().trim().min(1, 'Choose your district or region').max(30).nullable(),
