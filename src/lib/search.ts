@@ -65,6 +65,10 @@ export function getSearchTermGroups(query: string): SearchTermGroup[] {
   if (!tokens.length) return [{ terms: [normalized], categories: [] }]
 
   const matchedConcepts = CONCEPTS.filter((concept) => concept.terms.some((term) => includesPhrase(normalized, term)))
+  // Category fallback is helpful for one clear intent ("perfume" → beauty),
+  // but must not make a multi-product query like "phone charger" match every
+  // item in Electronics merely because both words share that category.
+  const allowCategoryFallback = matchedConcepts.length === 1
   return tokens.map((token) => {
     const terms = new Set<string>([token])
     // Cheap plural/singular tolerance for ordinary English terms.
@@ -79,7 +83,7 @@ export function getSearchTermGroups(query: string): SearchTermGroup[] {
       const matchedTokens = new Set(matchedTerms.flatMap((term) => normalizeSearchText(term).split(' ')))
       if (!matchedTokens.has(token)) continue
       concept.terms.forEach((term) => terms.add(normalizeSearchText(term)))
-      concept.categories.forEach((category) => categories.add(category))
+      if (allowCategoryFallback) concept.categories.forEach((category) => categories.add(category))
     }
     return { terms: [...terms], categories: [...categories] }
   })
