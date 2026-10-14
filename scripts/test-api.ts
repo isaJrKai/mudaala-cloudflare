@@ -345,6 +345,18 @@ async function main() {
     const multiIntentSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('phone charger'))
     ok('multi-product queries do not return a category-only false match', multiIntentSearch.status === 200 && !multiIntentSearch.json.items.some((l: any) => l.id === phoneOnlyListingId))
 
+    const budgetSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('perfume under 30k'))
+    ok('search extracts an under-30k budget from the query', budgetSearch.status === 200 && budgetSearch.json.items.some((l: any) => l.id === fragranceListingId))
+
+    const tightBudgetSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('perfume under 20k'))
+    ok('search excludes products above the requested budget', tightBudgetSearch.status === 200 && !tightBudgetSearch.json.items.some((l: any) => l.id === fragranceListingId))
+
+    const locationBudgetSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('perfume in Kampala under UGX 30,000'))
+    ok('search combines product, district, and UGX price intent', locationBudgetSearch.status === 200 && locationBudgetSearch.json.items.some((l: any) => l.id === fragranceListingId))
+
+    const rangeSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('perfume between 20k and 30k'))
+    ok('search extracts a between-price range', rangeSearch.status === 200 && rangeSearch.json.items.some((l: any) => l.id === fragranceListingId))
+
     const wrongQ = await call('GET', '/api/listings?q=' + encodeURIComponent('zebra-unicorn-nothing'))
     ok('non-matching search returns empty, not everything', wrongQ.json.total === 0)
 
