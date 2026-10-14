@@ -298,13 +298,18 @@ async function main() {
     const ugListing = await call('POST', '/api/listings', { ...validListing, price: 18000, currency: 'UGX', country: 'UG', county: 'Kampala', contactPhone: '0772123456' }, alice)
     ok('UGX listing in Kampala with local UG phone → 201', ugListing.status === 201 && ugListing.json?.listing?.currency === 'UGX' && ugListing.json?.listing?.contactPhone === '+256772123456')
 
+    // Use a dedicated fixture owner so the new search test does not push
+    // Alice's existing multi-section fixture past the per-user publish cap.
+    const fragranceOwner: Jar = { cookie: '' }
+    const fragranceOwnerReg = await register(fragranceOwner, uniquePhone(), 'Fragrance Test Shop', 'password321')
+    ok('fragrance fixture owner registered (precondition)', fragranceOwnerReg.status === 201)
     const fragrance = await call('POST', '/api/listings', {
       ...validListing,
       title: "Men's fragrance spray",
       description: 'Long-lasting scent for everyday use.',
       category: 'beauty-personal-care',
       price: 25000,
-    }, alice)
+    }, fragranceOwner)
     fragranceListingId = fragrance.json?.listing?.id ?? ''
     ok('create fragrance fixture under category without the word perfume (201)', fragrance.status === 201 && Boolean(fragranceListingId))
 
