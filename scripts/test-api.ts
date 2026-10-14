@@ -511,6 +511,14 @@ async function main() {
     }, alice)
     ok('profile PUT with shop photo (200)', profilePut.status === 200 && profilePut.json?.profile?.photoUrl === (photoUrl ?? null))
 
+    // Shop-name search is a separate public endpoint. It must find a shop when
+    // the buyer types the right words with different punctuation/spacing.
+    const shopSearch = await call('GET', `/api/shops/search?q=${encodeURIComponent(`Alice Test-Shop ${RUN_TAG}`)}`)
+    ok(
+      'public shop search matches business name across punctuation',
+      shopSearch.status === 200 && shopSearch.json?.shops?.some((shop: any) => shop.id === alice.user!.id && shop.name === `Alice Test Shop ${RUN_TAG}`),
+    )
+
     const badPhotoProfile = await call('PUT', '/api/profile', {
       businessName: `Alice Test Shop ${RUN_TAG}`,
       photoUrl: 'javascript:alert(1)',
