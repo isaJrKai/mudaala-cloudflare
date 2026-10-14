@@ -283,17 +283,28 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
   // after the located ones, in freshness order.
   if (query.sort === 'nearest' && query.lat !== undefined && query.lng !== undefined) {
     const NEAREST_SCAN_CAP = 500
-    const [all, total] = await Promise.all([
-      db.listing.findMany({
-        where,
-        orderBy: [orderBy],
-        take: NEAREST_SCAN_CAP,
-        include: SHOP_OWNER_INCLUDE,
-      }),
+    const [all, total, fallbackCandidates] = await Promise.all([
+      db.listing.findMany({ where, orderBy: [orderBy], take: NEAREST_SCAN_CAP, include: SHOP_OWNER_INCLUDE }),
       db.listing.count({ where }),
+      searchText
+        ? db.listing.findMany({ where: textFallbackWhere, orderBy: [orderBy], take: NEAREST_SCAN_CAP, include: SHOP_OWNER_INCLUDE })
+        : Promise.resolve([] as ListingWithShop[]),
     ])
+    const groups = searchText ? getSearchTermGroups(query.q ?? '') : []
+    const normalizedFallback = fallbackCandidates.filter((row) =>
+      groups.length > 0 && groups.every((group) => searchTextMatchesGroup(
+        group, [row.title, row.description, row.category, row.area, row.county], row.category,
+      )),
+    )
+    const allIds = new Set(all.map((row) => row.id))
+    const extraFallback = normalizedFallback.filter((row) => !allIds.has(row.id))
+    const overlapCount = extraFallback.length
+      ? await db.listing.count({ where: { AND: [where, { id: { in: extraFallback.map((row) => row.id) } }] } })
+      : 0
+    const combined = [...all, ...extraFallback]
+    const adjustedTotal = total + extraFallback.length - overlapCount
     const buyer = { lat: query.lat, lng: query.lng }
-    const ranked = all.map((row, index) => {
+    const ranked = combined.map((row, index) => {
       const spot = row.user.profile
       const meters = spot && spot.lat !== null && spot.lng !== null ? haversineMeters(buyer, { lat: spot.lat, lng: spot.lng }) : null
       return { row, meters, index }
@@ -307,10 +318,53 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     const pageRows = ranked.slice((page - 1) * pageSize, page * pageSize).map((entry) => entry.row)
     return {
       items: pageRows.map(serializeListing),
-      total,
+      total: adjustedTotal,
       page,
       pageSize,
-      pageCount: Math.max(1, Math.ceil(total / pageSize)),
+      pageCount: Math.max(1, Math.ceil(adjustedTotal / pageSize)),
+    }
+  }
+
+  // Price-intent sorting uses a bounded in-memory merge too, so Unicode-styled
+  // seller text is not lost just because the query asked for the cheapest or
+  // most expensive matching products.
+  if (searchText && (effectiveSort === 'price_asc' || effectiveSort === 'price_desc')) {
+    const SEARCH_SCAN_CAP = 500
+    const [all, total, fallbackCandidates] = await Promise.all([
+      db.listing.findMany({ where, orderBy: [orderBy], take: SEARCH_SCAN_CAP, include: SHOP_OWNER_INCLUDE }),
+      db.listing.count({ where }),
+      db.listing.findMany({ where: textFallbackWhere, orderBy: [orderBy], take: SEARCH_SCAN_CAP, include: SHOP_OWNER_INCLUDE }),
+    ])
+    const groups = getSearchTermGroups(query.q ?? '')
+    const normalizedFallback = fallbackCandidates.filter((row) =>
+      groups.length > 0 && groups.every((group) => searchTextMatchesGroup(
+        group, [row.title, row.description, row.category, row.area, row.county], row.category,
+      )),
+    )
+    const allIds = new Set(all.map((row) => row.id))
+    const extraFallback = normalizedFallback.filter((row) => !allIds.has(row.id))
+    const overlapCount = extraFallback.length
+      ? await db.listing.count({ where: { AND: [where, { id: { in: extraFallback.map((row) => row.id) } }] } })
+      : 0
+    const combined = [...all, ...extraFallback]
+    const adjustedTotal = total + extraFallback.length - overlapCount
+    combined.sort((a, b) => {
+      const aPrice = a.price
+      const bPrice = b.price
+      if (aPrice === null && bPrice !== null) return 1
+      if (bPrice === null && aPrice !== null) return -1
+      if (aPrice !== null && bPrice !== null && aPrice !== bPrice) {
+        return effectiveSort === 'price_asc' ? aPrice - bPrice : bPrice - aPrice
+      }
+      return b.refreshedAt.getTime() - a.refreshedAt.getTime()
+    })
+    const pageRows = combined.slice((page - 1) * pageSize, page * pageSize)
+    return {
+      items: pageRows.map(serializeListing),
+      total: adjustedTotal,
+      page,
+      pageSize,
+      pageCount: Math.max(1, Math.ceil(adjustedTotal / pageSize)),
     }
   }
 
