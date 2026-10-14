@@ -2408,7 +2408,7 @@ async function main() {
       ok('15.56 Durable Object adapter sends only a SHA-256 digest, not a raw phone key',
         seenHashes.length === 2 && seenHashes.every((key) => /^[a-f0-9]{64}$/.test(key)) && !seenHashes.some((key) => key.includes('256700000123')))
       ok('15.57 the same logical key resolves to a stable shard',
-        seenShards.length === 2 && seenShards[0] === seenShards[1] && /^rate-limit-shard:\\d+$/.test(seenShards[0]!))
+        seenShards.length === 2 && seenShards[0] === seenShards[1] && /^rate-limit-shard:\d+$/.test(seenShards[0]!))
       await doStore.clear('login:phone:+256700000123')
       ok('15.58 Durable Object adapter clear reopens the bucket',
         (await doStore.hit('login:phone:+256700000123', 1, 60_000)).ok)
