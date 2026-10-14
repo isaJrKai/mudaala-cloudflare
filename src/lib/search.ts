@@ -129,8 +129,12 @@ export function parseSearchIntent(query: string): ParsedSearchIntent {
 }
 
 export function getSearchTermGroups(query: string): SearchTermGroup[] {
-  const normalized = normalizeSearchText(parseSearchIntent(query).text)
-  if (!normalized) return [{ terms: [query.trim()], categories: [] }]
+  const intent = parseSearchIntent(query)
+  const normalized = normalizeSearchText(intent.text)
+  if (!normalized) {
+    if (intent.minPrice !== undefined || intent.maxPrice !== undefined || intent.sort) return []
+    return [{ terms: [query.trim()], categories: [] }]
+  }
 
   // "Essentials" on its own is deliberately broad. Let buyers discover a few
   // everyday aisles instead of guessing one category for them.
@@ -147,7 +151,10 @@ export function getSearchTermGroups(query: string): SearchTermGroup[] {
     'nice', 'on', 'please', 'product', 'products', 'search', 'searching', 'show', 'the',
     'to', 'want', 'with', 'near',
   ].includes(token))
-  if (!tokens.length) return [{ terms: [normalized], categories: [] }]
+  if (!tokens.length) {
+    if (intent.minPrice !== undefined || intent.maxPrice !== undefined || intent.sort) return []
+    return [{ terms: [normalized], categories: [] }]
+  }
 
   const matchedConcepts = CONCEPTS.filter((concept) => concept.terms.some((term) => includesPhrase(normalized, term)))
   // Category fallback is helpful for one clear intent ("perfume" → beauty),

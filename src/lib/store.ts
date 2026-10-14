@@ -35,6 +35,7 @@ export interface BrowseFilters {
   maxPrice: string
   // 'nearest' only appears while the buyer's "Near me" position is on.
   sort: 'newest' | 'price_asc' | 'price_desc' | 'nearest'
+  sortExplicit: boolean
   page: number
 }
 
@@ -47,6 +48,7 @@ export const DEFAULT_FILTERS: BrowseFilters = {
   minPrice: '',
   maxPrice: '',
   sort: 'newest',
+  sortExplicit: false,
   page: 1,
 }
 
@@ -115,8 +117,22 @@ export const useAppStore = create<AppState>((set) => ({
     set({ view })
   },
   setAuthOpen: (open) => set({ authOpen: open }),
-  setFilters: (patch) => set((s) => ({ filters: { ...s.filters, ...patch, ...(patch.page === undefined ? { page: 1 } : {}) } })),
-  applyQuery: (query) => set((s) => ({ filters: { ...s.filters, ...query, page: 1 } })),
+  setFilters: (patch) => set((s) => ({
+    filters: {
+      ...s.filters,
+      ...patch,
+      sortExplicit: patch.sortExplicit ?? (Object.prototype.hasOwnProperty.call(patch, 'sort') ? true : s.filters.sortExplicit),
+      ...(patch.page === undefined ? { page: 1 } : {}),
+    },
+  })),
+  applyQuery: (query) => set((s) => ({
+    filters: {
+      ...s.filters,
+      ...query,
+      sortExplicit: query.sort !== undefined ? true : (query.sortExplicit ?? s.filters.sortExplicit),
+      page: 1,
+    },
+  })),
   resetFilters: () => set({ filters: { ...DEFAULT_FILTERS } }),
 }))
 
@@ -130,7 +146,7 @@ export function filtersToQuery(f: BrowseFilters): string {
   if (f.unit !== 'any') params.set('unit', f.unit)
   if (f.minPrice.trim() !== '') params.set('minPrice', f.minPrice)
   if (f.maxPrice.trim() !== '') params.set('maxPrice', f.maxPrice)
-  params.set('sort', f.sort)
+  if (f.sortExplicit || f.sort !== 'newest') params.set('sort', f.sort)
   params.set('page', String(f.page))
   return params.toString()
 }

@@ -133,9 +133,9 @@ export function ListingsBrowse() {
       : searchIntent.minPrice !== undefined
         ? `From UGX ${searchIntent.minPrice.toLocaleString('en-UG')}`
         : ''
-  const priceSortHint = (filters.sort === 'newest' || !filters.sort) && searchIntent.sort === 'price_asc'
+  const priceSortHint = !filters.sortExplicit && (filters.sort === 'newest' || !filters.sort) && searchIntent.sort === 'price_asc'
     ? 'Lowest-priced matches first'
-    : (filters.sort === 'newest' || !filters.sort) && searchIntent.sort === 'price_desc'
+    : !filters.sortExplicit && (filters.sort === 'newest' || !filters.sort) && searchIntent.sort === 'price_desc'
       ? 'Higher-priced matches first'
       : ''
 

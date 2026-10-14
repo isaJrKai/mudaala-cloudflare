@@ -213,7 +213,7 @@ export const listingQuerySchema = z.object({
   minPrice: z.number().min(0).max(100_000_000).optional(),
   maxPrice: z.number().min(0).max(100_000_000).optional(),
   unit: z.string().trim().max(20).optional(),
-  sort: z.enum(['newest', 'price_asc', 'price_desc', 'nearest']).default('newest').optional(),
+  sort: z.enum(['newest', 'price_asc', 'price_desc', 'nearest']).optional(),
   // Buyer's position for sort=nearest ("Near me"). Never persisted - it only
   // shapes the ordering of one response.
   lat: z.number().min(-90).max(90).optional(),

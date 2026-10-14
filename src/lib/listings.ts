@@ -165,7 +165,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     : intent.minPrice === undefined ? query.minPrice : Math.max(query.minPrice, intent.minPrice)
   const maxPrice = query.maxPrice === undefined ? intent.maxPrice
     : intent.maxPrice === undefined ? query.maxPrice : Math.min(query.maxPrice, intent.maxPrice)
-  const effectiveSort = intent.sort && (query.sort === 'newest' || query.sort === undefined)
+  const effectiveSort = intent.sort && query.sort === undefined
     ? intent.sort
     : query.sort
 
@@ -175,7 +175,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     // Every meaningful word must match, but each word may use customer-language
     // synonyms or an inferred category. Price phrases are extracted first, so
     // "perfume under 50k" filters by price instead of searching for "50k".
-    where.AND = searchWhereGroups(searchText)
+    where.AND = searchWhereGroups(query.q ?? '')
   }
   if (query.type) where.type = query.type
   if (query.category) where.category = query.category
@@ -189,7 +189,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
   }
 
   const orderBy: Prisma.ListingOrderByWithRelationInput =
-    effectiveSort === 'price_asc' ? { price: 'asc' } : effectiveSort === 'price_desc' ? { price: 'desc' } : { refreshedAt: 'desc' }
+    effectiveSort === 'price_asc' ? { price: { sort: 'asc', nulls: 'last' } } : effectiveSort === 'price_desc' ? { price: { sort: 'desc', nulls: 'last' } } : { refreshedAt: 'desc' }
 
   // "Photos sell": within the same recency band (ads refreshed on the same
   // day), ads WITH a photo rank slightly higher than ads without. Recency
@@ -302,7 +302,7 @@ function listingMatchesQuery(listing: Listing, query: ListingQuery): boolean {
   const intent = parseSearchIntent(query.q ?? '')
   if (intent.text) {
     const values = [listing.title, listing.description, listing.category, listing.area, listing.county]
-    if (!getSearchTermGroups(intent.text).every((group) => searchTextMatchesGroup(group, values, listing.category))) return false
+    if (!getSearchTermGroups(query.q ?? '').every((group) => searchTextMatchesGroup(group, values, listing.category))) return false
   }
   const minPrice = query.minPrice === undefined ? intent.minPrice
     : intent.minPrice === undefined ? query.minPrice : Math.max(query.minPrice, intent.minPrice)
@@ -354,7 +354,7 @@ function whereFromQuery(query: ListingQuery): Prisma.ListingWhereInput {
   if (query.county) where.county = query.county
   if (query.unit) where.unit = query.unit
   const intent = parseSearchIntent(query.q ?? '')
-  if (intent.text) where.AND = searchWhereGroups(intent.text)
+  if (intent.text) where.AND = searchWhereGroups(query.q ?? '')
   const minPrice = query.minPrice === undefined ? intent.minPrice
     : intent.minPrice === undefined ? query.minPrice : Math.max(query.minPrice, intent.minPrice)
   const maxPrice = query.maxPrice === undefined ? intent.maxPrice

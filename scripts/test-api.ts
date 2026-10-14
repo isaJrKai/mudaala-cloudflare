@@ -324,6 +324,8 @@ async function main() {
     }, fragranceOwner)
     luxuryCologneListingId = luxuryCologne.json?.listing?.id ?? ''
     ok('create higher-priced cologne fixture for sort intent (201)', luxuryCologne.status === 201 && Boolean(luxuryCologneListingId))
+    await db.listing.update({ where: { id: fragranceListingId }, data: { refreshedAt: new Date(Date.now() - 60 * 60 * 1000) } })
+    await db.listing.update({ where: { id: luxuryCologneListingId }, data: { refreshedAt: new Date() } })
 
     const phoneOnly = await call('POST', '/api/listings', {
       ...validListing,
@@ -363,6 +365,15 @@ async function main() {
     const cheapMatches = (cheapSearch.json?.items ?? []).filter((l: any) => [fragranceListingId, luxuryCologneListingId].includes(l.id))
     ok('cheap product intent sorts lower-priced matching products first',
       cheapSearch.status === 200 && cheapMatches.length === 2 && cheapMatches[0].id === fragranceListingId && cheapMatches[1].id === luxuryCologneListingId)
+
+    const explicitNewestSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('cheap perfume') + '&sort=newest&pageSize=50')
+    const newestMatches = (explicitNewestSearch.json?.items ?? []).filter((l: any) => [fragranceListingId, luxuryCologneListingId].includes(l.id))
+    ok('explicit newest sort overrides inferred cheap sort',
+      explicitNewestSearch.status === 200 && newestMatches.length === 2 && newestMatches[0].id === luxuryCologneListingId)
+
+    const sortOnlySearch = await call('GET', '/api/listings?q=' + encodeURIComponent('show me cheapest') + '&pageSize=10')
+    ok('sort-only natural language works without literal filler matching',
+      sortOnlySearch.status === 200 && Array.isArray(sortOnlySearch.json.items) && sortOnlySearch.json.items.length > 0)
 
     const budgetSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('perfume under 30k'))
     ok('search extracts an under-30k budget from the query', budgetSearch.status === 200 && budgetSearch.json.items.some((l: any) => l.id === fragranceListingId))
