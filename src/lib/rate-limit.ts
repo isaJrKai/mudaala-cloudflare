@@ -240,7 +240,9 @@ function resolveActiveStore(): RateLimiterStore {
     // Local Next development runs outside workerd; it deliberately uses the local store.
   }
 
-  if (process.env.NODE_ENV === 'production') return createUnavailableRateLimiter()
+  if (process.env.NODE_ENV === 'production' || process.env.RATE_LIMIT_REQUIRE_SHARED === '1') {
+    return createUnavailableRateLimiter()
+  }
   return chooseRateLimiter()
 }
 
