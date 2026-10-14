@@ -166,6 +166,7 @@ async function main() {
   let createdListingId = ''
   let fragranceListingId = ''
   let phoneOnlyListingId = ''
+  let luxuryCologneListingId = ''
   console.log('\n== 1. Authentication ==')
   const alice: Jar = { cookie: '' }
   const alicePhone = uniquePhone()
@@ -314,6 +315,16 @@ async function main() {
     fragranceListingId = fragrance.json?.listing?.id ?? ''
     ok('create fragrance fixture under category without the word perfume (201)', fragrance.status === 201 && Boolean(fragranceListingId))
 
+    const luxuryCologne = await call('POST', '/api/listings', {
+      ...validListing,
+      title: 'Luxury cologne',
+      description: 'Premium fragrance for special occasions.',
+      category: 'beauty-personal-care',
+      price: 80000,
+    }, fragranceOwner)
+    luxuryCologneListingId = luxuryCologne.json?.listing?.id ?? ''
+    ok('create higher-priced cologne fixture for sort intent (201)', luxuryCologne.status === 201 && Boolean(luxuryCologneListingId))
+
     const phoneOnly = await call('POST', '/api/listings', {
       ...validListing,
       title: 'Android smartphone',
@@ -344,6 +355,14 @@ async function main() {
 
     const multiIntentSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('phone charger'))
     ok('multi-product queries do not return a category-only false match', multiIntentSearch.status === 200 && !multiIntentSearch.json.items.some((l: any) => l.id === phoneOnlyListingId))
+
+    const naturalLanguageSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('find a perfume'))
+    ok('shopping verbs and filler words do not block a product search', naturalLanguageSearch.status === 200 && naturalLanguageSearch.json.items.some((l: any) => l.id === fragranceListingId))
+
+    const cheapSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('cheap perfume'))
+    const cheapMatches = (cheapSearch.json?.items ?? []).filter((l: any) => [fragranceListingId, luxuryCologneListingId].includes(l.id))
+    ok('cheap product intent sorts lower-priced matching products first',
+      cheapSearch.status === 200 && cheapMatches.length === 2 && cheapMatches[0].id === fragranceListingId && cheapMatches[1].id === luxuryCologneListingId)
 
     const budgetSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('perfume under 30k'))
     ok('search extracts an under-30k budget from the query', budgetSearch.status === 200 && budgetSearch.json.items.some((l: any) => l.id === fragranceListingId))
