@@ -70,58 +70,19 @@ jobs:
 
       - name: Apply and verify direct Data API deny policies in disposable PostgreSQL
         run: |
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
-          DO $
-          BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
-              CREATE ROLE anon NOLOGIN;
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
-              CREATE ROLE authenticated NOLOGIN;
-            END IF;
-          END
-          $;
-          SQL
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE ROLE anon NOLOGIN;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE ROLE authenticated NOLOGIN;'
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261014110000_deny_direct_data_api_access/migration.sql
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
-          DO $
-          DECLARE
-            tbl text;
-            policy_count integer;
-          BEGIN
-            SELECT count(*) INTO policy_count
-            FROM pg_policies
-            WHERE schemaname = 'public'
-              AND policyname = 'deny_direct_api_clients'
-              AND 'anon' = ANY(roles)
-              AND 'authenticated' = ANY(roles)
-              AND qual = 'false'
-              AND with_check = 'false';
-            IF policy_count <> 12 THEN
-              RAISE EXCEPTION 'Expected 12 deny-all Data API policies, found %', policy_count;
-            END IF;
-
-            FOREACH tbl IN ARRAY ARRAY[
-              'AppSetting', 'AuditLog', 'BusinessProfile', 'Listing',
-              'Notification', 'PasswordReset', 'PriceSnapshot', 'Report',
-              'SavedSearch', 'Session', 'ShopFollow', 'User'
-            ]
-            LOOP
-              IF has_table_privilege('anon', format('public.%I', tbl), 'SELECT')
-                 OR has_table_privilege('anon', format('public.%I', tbl), 'INSERT')
-                 OR has_table_privilege('anon', format('public.%I', tbl), 'UPDATE')
-                 OR has_table_privilege('anon', format('public.%I', tbl), 'DELETE')
-                 OR has_table_privilege('authenticated', format('public.%I', tbl), 'SELECT')
-                 OR has_table_privilege('authenticated', format('public.%I', tbl), 'INSERT')
-                 OR has_table_privilege('authenticated', format('public.%I', tbl), 'UPDATE')
-                 OR has_table_privilege('authenticated', format('public.%I', tbl), 'DELETE')
-              THEN
-                RAISE EXCEPTION 'Unexpected direct Data API table grant on %', tbl;
-              END IF;
-            END LOOP;
-          END
-          $;
-          SQL
+          policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND policyname='deny_direct_api_clients' AND 'anon'=ANY(roles) AND 'authenticated'=ANY(roles) AND qual='false' AND with_check='false'")
+          if [ "$policy_count" != "12" ]; then
+            echo "Expected 12 deny-all Data API policies, found $policy_count"
+            exit 1
+          fi
+          grant_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('AppSetting','AuditLog','BusinessProfile','Listing','Notification','PasswordReset','PriceSnapshot','Report','SavedSearch','Session','ShopFollow','User') AND grantee IN ('anon','authenticated') AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          if [ "$grant_count" != "0" ]; then
+            echo "Expected no direct Data API table grants, found $grant_count"
+            exit 1
+          fi
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
