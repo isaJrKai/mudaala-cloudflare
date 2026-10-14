@@ -28,6 +28,7 @@ import { route, jsonOk } from '../src/lib/api'
 // Pure-function units under test (no next/* imports - safe outside a request).
 import { bearerAuthEnabled } from '../src/lib/env-flags'
 import { validateEnv } from '../src/lib/env'
+import { isAdminIdentity } from '../src/lib/admin'
 import { chooseStorage, readStorageEnv, S3Storage, signS3Put } from '../src/lib/storage'
 import { getClientIp } from '../src/lib/client-ip'
 import { pickMovers, MOVER_MIN_SAMPLE, MOVER_MIN_PCT, MOVER_LIMIT } from '../src/lib/price-movers'
@@ -2018,6 +2019,22 @@ async function main() {
     )
     const prodBadBearer = validateEnv({ NODE_ENV: 'production', DATABASE_URL: 'x', NEXT_PUBLIC_APP_URL: 'https://m', CRON_SECRET: 's', SETTINGS_ENCRYPTION_KEY: 'k', ADMIN_PHONES: '+256712000001', ALLOW_BEARER_AUTH: '1' })
     ok('15.9 env validation: bearer enabled in production is at least a loud warning', prodBadBearer.ok && prodBadBearer.warnings.length === 1)
+
+    // Admin privileges must follow the stable account identity in production.
+    const knownAdmin = { id: 'admin-user-123', phone: '+256712000001' }
+    const phoneClone = { id: 'different-user-456', phone: '+256712000001' }
+    ok('15.9d configured production admin ID is authorized',
+      isAdminIdentity(knownAdmin, { NODE_ENV: 'production', ADMIN_USER_IDS: 'admin-user-123', ADMIN_PHONES: '+256712000001' }))
+    ok('15.9e production phone match alone cannot grant admin privileges',
+      !isAdminIdentity(phoneClone, { NODE_ENV: 'production', ADMIN_USER_IDS: 'admin-user-123', ADMIN_PHONES: '+256712000001' }))
+    ok('15.9f missing production ID allowlist fails closed despite legacy phone allowlist',
+      !isAdminIdentity(knownAdmin, { NODE_ENV: 'production', ADMIN_PHONES: '+256712000001' }))
+    ok('15.9g empty production ID allowlist fails closed',
+      !isAdminIdentity(knownAdmin, { NODE_ENV: 'production', ADMIN_USER_IDS: ' , ', ADMIN_PHONES: '+256712000001' }))
+    ok('15.9h non-production keeps phone fixture fallback when no ID allowlist is configured',
+      isAdminIdentity(knownAdmin, { NODE_ENV: 'test', ADMIN_PHONES: '+256712000001' }))
+    ok('15.9i a configured ID allowlist overrides phone fallback outside production too',
+      !isAdminIdentity(phoneClone, { NODE_ENV: 'development', ADMIN_USER_IDS: 'admin-user-123', ADMIN_PHONES: '+256712000001' }))
 
     // ---- 15a+. Reset-code hashes must resist database-only brute force ----
     const sampleResetCode = '042817'
