@@ -167,6 +167,7 @@ async function main() {
   let fragranceListingId = ''
   let phoneOnlyListingId = ''
   let luxuryCologneListingId = ''
+  let unicodeListingId = ''
   console.log('\n== 1. Authentication ==')
   const alice: Jar = { cookie: '' }
   const alicePhone = uniquePhone()
@@ -337,6 +338,18 @@ async function main() {
     phoneOnlyListingId = phoneOnly.json?.listing?.id ?? ''
     ok('create phone-only fixture for multi-intent precision (201)', phoneOnly.status === 201 && Boolean(phoneOnlyListingId))
 
+    // Compatibility-styled Unicode is common in seller display text. Keep
+    // the fixture inside the owner scope and make it unique for each test run.
+    const unicodeListing = await call('POST', '/api/listings', {
+      ...validListing,
+      title: `𝙇𝙤𝙣𝙜 𝙡𝙖𝙨𝙩𝙞𝙣𝙜 𝙤𝙞𝙡 𝙥𝙚𝙧𝙛𝙪𝙢𝙚𝙨 ${RUN_TAG}`,
+      description: `𝙇𝙤𝙣𝙜 𝙡𝙖𝙨𝙩𝙞𝙣𝙜 𝙤𝙞𝙡 𝙥𝙚𝙧𝙛𝙪𝙢𝙚𝙨 ${RUN_TAG} available in several scents.`,
+      category: 'other',
+      price: 5000,
+    }, fragranceOwner)
+    unicodeListingId = unicodeListing.json?.listing?.id ?? ''
+    ok('create Unicode-styled perfume fixture (201)', unicodeListing.status === 201 && Boolean(unicodeListingId))
+
     const mismatch = await call('POST', '/api/listings', { ...validListing, county: 'Nairobi' }, alice)
     ok('location outside Uganda → 400 (country/location match enforced)', mismatch.status === 400)
 
@@ -352,18 +365,8 @@ async function main() {
     const perfumeSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('perfume'))
     ok('search "perfume" finds a fragrance listing filed under Beauty & Personal Care', perfumeSearch.status === 200 && perfumeSearch.json.items.some((l: any) => l.id === fragranceListingId))
 
-    // Compatibility-styled Unicode is common in seller display text. The
-    // database substring query cannot reliably find it, so this distinctive
-    // phrase exercises the bounded normalized fallback.
-    const unicodeListing = await call('POST', '/api/listings', {
-      ...validListing,
-      title: `𝙇𝙤𝙣𝙜 𝙡𝙖𝙨𝙩𝙞𝙣𝙜 𝙤𝙞𝙡 𝙥𝙚𝙧𝙛𝙪𝙢𝙚𝙨 ${RUN_TAG}`,
-      description: `𝙇𝙤𝙣𝙜 𝙡𝙖𝙨𝙩𝙞𝙣𝙜 𝙤𝙞𝙡 𝙥𝙚𝙧𝙛𝙪𝙢𝙚𝙨 ${RUN_TAG} available in several scents.`,
-      category: 'other',
-      price: 5000,
-    }, fragranceOwner)
-    const unicodeListingId = unicodeListing.json?.listing?.id ?? ''
-    ok('create Unicode-styled perfume fixture (201)', unicodeListing.status === 201 && Boolean(unicodeListingId))
+    // PostgreSQL substring matching can miss compatibility-styled Unicode;
+    // this distinctive phrase exercises the bounded normalized fallback.
     const unicodeSearch = await call('GET', '/api/listings?q=' + encodeURIComponent(`long lasting oil perfume ${RUN_TAG}`))
     ok('normalized fallback finds Unicode-styled seller text without rewriting it',
       unicodeSearch.status === 200 && unicodeSearch.json.items.some((l: any) => l.id === unicodeListingId)
