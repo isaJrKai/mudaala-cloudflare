@@ -2,6 +2,11 @@ name: Verify live API, privacy boundaries, and photos
 
 on:
   workflow_dispatch:
+  # Workflow-only verifier changes can run against production without redeploying the Worker.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-live-api.yml'
   workflow_run:
     workflows: ["Deploy Mudaala to Cloudflare Workers"]
     types: [completed]
@@ -11,7 +16,7 @@ permissions:
 
 jobs:
   verify-live:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -109,6 +114,21 @@ jobs:
               throw new Error('The expected administrator shop is not receiving isAdmin=true from the live API');
             }
 
+            // A cover-photo value in the public shop response is read from the
+            // persisted profile row. Fetch the object too, so a stale/broken URL
+            // cannot pass as a successful photo-save round trip.
+            const coverPhotoUrl = adminShop.shop.coverPhotoUrl;
+            if (typeof coverPhotoUrl !== 'string' || coverPhotoUrl.length === 0) {
+              throw new Error('The production administrator shop has no persisted coverPhotoUrl');
+            }
+            const coverUrl = new URL(coverPhotoUrl, base);
+            if (coverUrl.protocol !== 'https:') throw new Error('Cover-photo URL is not HTTPS');
+            const coverResponse = await fetch(coverUrl);
+            const coverType = coverResponse.headers.get('content-type') || '';
+            if (!coverResponse.ok || !coverType.toLowerCase().startsWith('image/')) {
+              throw new Error('Persisted cover photo could not be served: HTTP ' + coverResponse.status + ', content-type=' + coverType);
+            }
+
             const imageUrls = [...new Set([
               detail.photos[0],
               shopBody.shop.photoUrl,
@@ -135,6 +155,7 @@ jobs:
               privateOwnerFields: 'not exposed',
               publicShopAdminFlag: 'boolean present',
               targetAdminBadge: 'isAdmin=true',
+              coverPhotoPersistence: 'persisted and publicly served',
               publicImages: imagesVerified + ' verified',
             }, null, 2));
           })().catch(error => {
