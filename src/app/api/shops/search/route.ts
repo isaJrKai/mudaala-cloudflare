@@ -57,15 +57,13 @@ export async function GET(request: NextRequest) {
         return {
           id: row.id,
           name: businessName || row.name,
-          accountName: row.name,
           photoUrl: row.profile?.photoUrl ?? null,
           area: row.profile?.area ?? null,
           county: row.profile?.county ?? null,
           country: row.country ?? 'UG',
         }
       })
-      .filter((shop) => matches(shop.name) || matches(shop.accountName))
-      .map(({ accountName: _accountName, ...shop }) => shop)
+      .filter((shop) => matches(shop.name))
 
     let shops = toShops(matchedCandidates)
     // Only pay for the bounded Unicode fallback when ordinary DB candidates
