@@ -27,18 +27,19 @@ export function normalizeSearchText(value: string): string {
 // Start with everyday language customers actually use. These are search-time
 // synonyms only: they do not rewrite seller listings or their chosen categories.
 const CONCEPTS: SearchConcept[] = [
-  { terms: ['perfume', 'perfumes', 'fragrance', 'fragrances', 'cologne', 'colognes', 'body spray', 'body sprays', 'aftershave', 'aftershaves', 'scent', 'scents'], categories: ['beauty-personal-care'] },
-  { terms: ['beauty', 'beauty personal care', 'cosmetic', 'cosmetics', 'makeup', 'make up', 'lipstick', 'skincare', 'skin care', 'lotion', 'deodorant', 'shampoo', 'conditioner', 'hair oil', 'wig', 'wigs'], categories: ['beauty-personal-care'] },
+  { terms: ['perfume', 'perfum', 'perfumes', 'fragrance', 'fragrances', 'cologne', 'colone', 'colognes', 'body spray', 'body sprays', 'aftershave', 'aftershaves', 'scent', 'scents'], categories: ['beauty-personal-care'] },
+  { terms: ['beauty', 'beauty personal care', 'beauty essentials', 'personal care essentials', 'cosmetic', 'cosmetics', 'makeup', 'make up', 'lipstick', 'skincare', 'skin care', 'lotion', 'deodorant', 'shampoo', 'conditioner', 'hair oil', 'wig', 'wigs'], categories: ['beauty-personal-care'] },
   { terms: ['phone', 'phones', 'mobile', 'mobiles', 'smartphone', 'smartphones', 'iphone', 'iphones', 'samsung', 'tecno', 'itel', 'infinix', 'android'], categories: ['electronics'] },
   { terms: ['charger', 'chargers', 'earphone', 'earphones', 'headphone', 'headphones', 'laptop', 'laptops', 'television', 'tv', 'radio', 'solar panel', 'solar panels'], categories: ['electronics'] },
   { terms: ['shoe', 'shoes', 'sneaker', 'sneakers', 'trainer', 'trainers', 'sandal', 'sandals', 'slipper', 'slippers', 'boot', 'boots', 'heel', 'heels'], categories: ['textiles-clothing'] },
   { terms: ['clothes', 'clothing', 'shirt', 'shirts', 'trousers', 'jeans', 'dress', 'dresses', 'skirt', 'skirts', 'jacket', 'jackets', 'tshirt', 't shirts', 'second hand', 'used clothes'], categories: ['textiles-clothing'] },
-  { terms: ['blanket', 'blankets', 'duvet', 'duvets', 'bedsheet', 'bedsheets', 'bed sheet', 'bed sheets', 'pillow', 'pillows', 'mattress', 'mattresses', 'sofa', 'sofas', 'furniture'], categories: ['home-kitchen'] },
+  { terms: ['household essentials', 'home essentials', 'blanket', 'blankets', 'duvet', 'duvets', 'bedsheet', 'bedsheets', 'bed sheet', 'bed sheets', 'pillow', 'pillows', 'mattress', 'mattresses', 'sofa', 'sofas', 'furniture'], categories: ['home-kitchen'] },
   { terms: ['cooker', 'cookers', 'saucepan', 'saucepans', 'pot', 'pots', 'pan', 'pans', 'plate', 'plates', 'cup', 'cups', 'kettle', 'kettles', 'gas cylinder', 'gas cylinders'], categories: ['home-kitchen'] },
   { terms: ['matooke', 'matoke', 'banana', 'bananas', 'cassava', 'sweet potato', 'sweet potatoes', 'tomato', 'tomatoes', 'onion', 'onions', 'vegetable', 'vegetables', 'maize', 'beans', 'eggs'], categories: ['farm-produce'] },
-  { terms: ['rice', 'flour', 'sugar', 'cooking oil', 'salt', 'bread', 'milk', 'posho', 'wheat flour', 'tea', 'coffee', 'spice', 'spices', 'groceries', 'food'], categories: ['food-groceries'] },
+  { terms: ['food essentials', 'grocery essentials', 'rice', 'flour', 'sugar', 'cooking oil', 'salt', 'bread', 'milk', 'posho', 'wheat flour', 'tea', 'coffee', 'spice', 'spices', 'groceries', 'food'], categories: ['food-groceries'] },
   { terms: ['cement', 'timber', 'steel', 'iron sheets', 'roofing', 'nail', 'nails', 'paint', 'tiles', 'brick', 'bricks', 'plumbing'], categories: ['hardware-building'] },
   { terms: ['copper', 'brass', 'aluminium', 'aluminum', 'scrap metal', 'plastic bottles', 'cartons', 'recyclables'], categories: ['scrap-recyclables'] },
+  { terms: ['charcoal', 'firewood', 'briquettes', 'cooking fuel'], categories: ['other'] },
 ]
 
 const GENDER_TERMS: Record<string, string[]> = {
