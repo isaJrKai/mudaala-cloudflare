@@ -357,17 +357,17 @@ async function main() {
     // phrase exercises the bounded normalized fallback.
     const unicodeListing = await call('POST', '/api/listings', {
       ...validListing,
-      title: '𝙇𝙤𝙣𝙜 𝙡𝙖𝙨𝙩𝙞𝙣𝙜 𝙤𝙞𝙡 𝙥𝙚𝙧𝙛𝙪𝙢𝙚𝙨',
-      description: '𝙇𝙤𝙣𝙜 𝙡𝙖𝙨𝙩𝙞𝙣𝙜 𝙤𝙞𝙡 𝙥𝙚𝙧𝙛𝙪𝙢𝙚𝙨 available in several scents.',
+      title: `𝙇𝙤𝙣𝙜 𝙡𝙖𝙨𝙩𝙞𝙣𝙜 𝙤𝙞𝙡 𝙥𝙚𝙧𝙛𝙪𝙢𝙚𝙨 ${RUN_TAG}`,
+      description: `𝙇𝙤𝙣𝙜 𝙡𝙖𝙨𝙩𝙞𝙣𝙜 𝙤𝙞𝙡 𝙥𝙚𝙧𝙛𝙪𝙢𝙚𝙨 ${RUN_TAG} available in several scents.`,
       category: 'other',
       price: 5000,
     }, fragranceOwner)
     const unicodeListingId = unicodeListing.json?.listing?.id ?? ''
     ok('create Unicode-styled perfume fixture (201)', unicodeListing.status === 201 && Boolean(unicodeListingId))
-    const unicodeSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('long lasting oil perfume'))
+    const unicodeSearch = await call('GET', '/api/listings?q=' + encodeURIComponent(`long lasting oil perfume ${RUN_TAG}`))
     ok('normalized fallback finds Unicode-styled seller text without rewriting it',
       unicodeSearch.status === 200 && unicodeSearch.json.items.some((l: any) => l.id === unicodeListingId)
-      && unicodeSearch.json.items.find((l: any) => l.id === unicodeListingId)?.title === '𝙇𝙤𝙣𝙜 𝙡𝙖𝙨𝙩𝙞𝙣𝙜 𝙤𝙞𝙡 𝙥𝙚𝙧𝙛𝙪𝙢𝙚𝙨')
+      && unicodeSearch.json.items.find((l: any) => l.id === unicodeListingId)?.title === `𝙇𝙤𝙣𝙜 𝙡𝙖𝙨𝙩𝙞𝙣𝙜 𝙤𝙞𝙡 𝙥𝙚𝙧𝙛𝙪𝙢𝙚𝙨 ${RUN_TAG}`)
 
     const compoundSearch = await call('GET', '/api/listings?q=' + encodeURIComponent("men's perfume"))
     ok('multi-word search understands gender wording plus a product synonym', compoundSearch.status === 200 && compoundSearch.json.items.some((l: any) => l.id === fragranceListingId))
