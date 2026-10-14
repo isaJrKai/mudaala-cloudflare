@@ -32,6 +32,7 @@ function effectiveScore(interest: Interest | undefined): number {
 
 export function useCategoryPreferences() {
   const { user, isLoading } = useSession()
+  const userId = user?.id
   const [interests, setInterests] = useState<Interest[]>([])
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
 
@@ -40,7 +41,7 @@ export function useCategoryPreferences() {
     setInterests([])
     setLoadedFor(null)
     if (isLoading) return () => { active = false }
-    if (!user) {
+    if (!userId) {
       setInterests(readGuestInterests())
       setLoadedFor('guest')
       return () => { active = false }
@@ -56,10 +57,10 @@ export function useCategoryPreferences() {
         // Browsing remains usable if personalization is temporarily offline.
       })
       .finally(() => {
-        if (active) setLoadedFor(user.id)
+        if (active) setLoadedFor(userId)
       })
     return () => { active = false }
-  }, [user?.id, isLoading])
+  }, [userId, isLoading])
 
   const orderedCategories = useMemo(() => {
     const scores = new Map(interests.map((interest) => [interest.category, effectiveScore(interest)]))
@@ -79,12 +80,12 @@ export function useCategoryPreferences() {
         lastSelectedAt: selectedAt,
       }
       const merged = [...current.filter((item) => item.category !== category), next]
-      if (!user) {
+      if (!userId) {
         try { localStorage.setItem(GUEST_KEY, JSON.stringify(merged)) } catch { /* storage may be unavailable */ }
       }
       return merged
     })
-    if (user) {
+    if (userId) {
       try {
         const result = await apiPost<{ interest: Interest }>('/api/category-preferences', { category })
         setInterests((current) => [...current.filter((item) => item.category !== category), result.interest])
@@ -93,10 +94,10 @@ export function useCategoryPreferences() {
         // the server's confirmed state rather than inventing persistence.
       }
     }
-  }, [user?.id])
+  }, [userId])
 
   const resetCategoryPreferences = useCallback(async () => {
-    if (user) {
+    if (userId) {
       try {
         await apiDelete<{ reset: boolean }>('/api/category-preferences')
       } catch {
@@ -107,7 +108,7 @@ export function useCategoryPreferences() {
       try { localStorage.removeItem(GUEST_KEY) } catch { /* storage may be unavailable */ }
     }
     setInterests([])
-  }, [user?.id])
+  }, [userId])
 
   return {
     orderedCategories,
