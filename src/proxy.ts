@@ -21,10 +21,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
-function hostOf(originHeader: string | null): string | null {
-  if (!originHeader) return null
+function parseOrigin(rawOrigin: string): URL | null {
   try {
-    return new URL(originHeader).host
+    const origin = new URL(rawOrigin)
+    if ((origin.protocol !== 'https:' && origin.protocol !== 'http:') || !origin.host) return null
+    return origin
   } catch {
     return null
   }
@@ -47,8 +48,16 @@ function trustedHostEntries(): string[] {
     .filter(Boolean)
 }
 
-function originOwnsDeployment(originHost: string, seenHost: string | null): boolean {
-  if (seenHost && originHost === seenHost.toLowerCase()) return true
+function originOwnsDeployment(origin: URL, requestOrigin: string): boolean {
+  // Exact origin match includes scheme and port, not just host. Never trust
+  // X-Forwarded-Host here: unless an edge explicitly overwrites it, a client
+  // can supply that header and make a foreign Origin appear same-host.
+  if (origin.origin.toLowerCase() === requestOrigin.toLowerCase()) return true
+
+  // The preview gateway legitimately rewrites the request Host. Its public
+  // origin is allowed only through the explicit host allowlist and HTTPS.
+  if (origin.protocol !== 'https:') return false
+  const originHost = origin.host.toLowerCase()
   return trustedHostEntries().some((entry) =>
     entry.startsWith('.') ? originHost.endsWith(entry) || originHost === entry.slice(1) : originHost === entry,
   )
@@ -58,15 +67,38 @@ export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (pathname.startsWith('/api/') && !SAFE_METHODS.has(request.method)) {
-    const originHost = hostOf(request.headers.get('origin'))
-    if (originHost) {
-      const seenHost = request.headers.get('x-forwarded-host') ?? request.headers.get('host')
-      if (!originOwnsDeployment(originHost, seenHost)) {
+    const rawOrigin = request.headers.get('origin')
+    const fetchSite = request.headers.get('sec-fetch-site')?.toLowerCase()
+
+    if (rawOrigin !== null) {
+      // A present but opaque/malformed Origin (including "null") is not the
+      // same as a non-browser request with no Origin header.
+      const origin = parseOrigin(rawOrigin)
+      if (!origin || !originOwnsDeployment(origin, request.nextUrl.origin)) {
         return NextResponse.json(
           { error: 'This request was blocked for your protection. It did not come from Mudaala' },
           { status: 403 },
         )
       }
+      // Fetch Metadata is a second signal. A cross-site request is allowed
+      // only when its public origin is explicitly trusted for the preview edge.
+      if (fetchSite === 'cross-site' && !trustedHostEntries().some((entry) => {
+        const host = origin.host.toLowerCase()
+        return entry.startsWith('.') ? host.endsWith(entry) || host === entry.slice(1) : host === entry
+      })) {
+        return NextResponse.json(
+          { error: 'This request was blocked for your protection. It did not come from Mudaala' },
+          { status: 403 },
+        )
+      }
+    } else if (fetchSite === 'cross-site') {
+      // A browser says the request is cross-site but supplies no Origin to
+      // validate. Reject it; server-to-server clients without Fetch Metadata
+      // continue to work.
+      return NextResponse.json(
+        { error: 'This request was blocked for your protection. It did not come from Mudaala' },
+        { status: 403 },
+      )
     }
   }
 
