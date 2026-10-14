@@ -39,6 +39,10 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Audit unused files, exports, and dependencies (Knip)
+        run: npx --yes knip@5 --reporter compact
+        continue-on-error: true # Audit findings are triaged before removal; don't hide build/security test results.
+
       - name: Validate Prisma schema and generate client
         run: |
           npx prisma validate
