@@ -299,7 +299,7 @@
 
   ::selection {
     color: var(--primary-foreground);
-    background: color-mix(in oklab, var(--primary) 86%, black);
+    background: var(--primary);
   }
 
   :where(button, a, input, textarea, select, [role="button"], [role="combobox"]):focus-visible {
