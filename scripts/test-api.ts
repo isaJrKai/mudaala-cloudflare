@@ -379,6 +379,8 @@ async function main() {
     const cheapMatches = (cheapSearch.json?.items ?? []).filter((l: any) => [fragranceListingId, luxuryCologneListingId].includes(l.id))
     ok('cheap product intent sorts lower-priced matching products first',
       cheapSearch.status === 200 && cheapMatches.length === 2 && cheapMatches[0].id === fragranceListingId && cheapMatches[1].id === luxuryCologneListingId)
+    ok('price-intent search also includes Unicode-styled product titles',
+      cheapSearch.status === 200 && cheapSearch.json.items.some((l: any) => l.id === unicodeFragranceListingId))
 
     const explicitNewestSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('cheap perfume') + '&sort=newest&pageSize=50')
     const newestMatches = (explicitNewestSearch.json?.items ?? []).filter((l: any) => [fragranceListingId, luxuryCologneListingId].includes(l.id))
