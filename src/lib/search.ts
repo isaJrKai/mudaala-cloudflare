@@ -79,7 +79,7 @@ export function parseSearchIntent(query: string): ParsedSearchIntent {
     return Math.round(value * (unit?.toLowerCase() === 'm' ? 1_000_000 : unit?.toLowerCase() === 'k' ? 1_000 : 1))
   }
 
-  const range = new RegExp('\\\\bbetween\\\\s+' + amount + '\\\\s+and\\\\s+' + amount + '\\\\b', 'i').exec(text)
+  const range = new RegExp('\\bbetween\\s+' + amount + '\\s+and\\s+' + amount + '\\b', 'i').exec(text)
   if (range) {
     const first = parseAmount(range[1]!, range[2])
     const second = parseAmount(range[3]!, range[4])
@@ -91,7 +91,7 @@ export function parseSearchIntent(query: string): ParsedSearchIntent {
   }
 
   if (minPrice === undefined && maxPrice === undefined) {
-    const upper = new RegExp('\\\\b(?:under|below|less than|up to|at most|max(?:imum)?)\\\\s*' + amount, 'i').exec(text)
+    const upper = new RegExp('\\b(?:under|below|less than|up to|at most|max(?:imum)?)\\s*' + amount, 'i').exec(text)
     if (upper) {
       const value = parseAmount(upper[1]!, upper[2])
       if (value !== undefined) {
@@ -99,7 +99,7 @@ export function parseSearchIntent(query: string): ParsedSearchIntent {
         text = text.replace(upper[0], ' ')
       }
     }
-    const lower = new RegExp('\\\\b(?:over|above|more than|at least|min(?:imum)?)\\\\s*' + amount, 'i').exec(text)
+    const lower = new RegExp('\\b(?:over|above|more than|at least|min(?:imum)?)\\s*' + amount, 'i').exec(text)
     if (lower) {
       const value = parseAmount(lower[1]!, lower[2])
       if (value !== undefined) {
@@ -110,8 +110,8 @@ export function parseSearchIntent(query: string): ParsedSearchIntent {
   }
 
   text = text
-    .replace(/\\b(?:price|prices|cost|costs|ugx|ush|shs?|shillings?)\\b/gi, ' ')
-    .replace(/\\s+/g, ' ')
+    .replace(/\b(?:price|prices|cost|costs|ugx|ush|shs?|shillings?)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
 
   return { text, ...(minPrice !== undefined ? { minPrice } : {}), ...(maxPrice !== undefined ? { maxPrice } : {}) }
