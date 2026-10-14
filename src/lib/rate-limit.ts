@@ -20,7 +20,8 @@
 // accounts from one machine). The IP is whatever lib/client-ip decided -
 // call sites never see the header plumbing.
 
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 
 export interface RateVerdict {
   ok: boolean
@@ -144,6 +145,106 @@ export async function createRedisClient(url: string): Promise<RedisZSetClient> {
 }
 
 // ---------------------------------------------------------------------------
+// Cloudflare Durable Objects - production shared limiter
+// ---------------------------------------------------------------------------
+
+export interface DurableRateLimitStub {
+  hit(keyHash: string, max: number, windowMs: number): Promise<RateVerdict>
+  clear(keyHash: string): Promise<void>
+}
+
+export interface DurableRateLimitNamespace {
+  idFromName(name: string): unknown
+  get(id: unknown): DurableRateLimitStub
+}
+
+export class RateLimitUnavailableError extends Error {
+  constructor() {
+    super('Shared rate-limit service is unavailable')
+    this.name = 'RateLimitUnavailableError'
+  }
+}
+
+/**
+ * Authoritative production store. Logical identifiers are hashed before they
+ * are sent to a Durable Object or written to SQLite. A fixed set of 256
+ * shards avoids a single global bottleneck while each shard atomically
+ * evaluates its own keys through synchronous SQLite operations.
+ */
+export function createDurableObjectRateLimiter(namespace: DurableRateLimitNamespace): RateLimiterStore {
+  function keyAndStub(key: string): { keyHash: string; stub: DurableRateLimitStub } {
+    const keyHash = createHash('sha256').update(key, 'utf8').digest('hex')
+    const shard = Number.parseInt(keyHash.slice(0, 4), 16) % 256
+    const id = namespace.idFromName('rate-limit-shard:' + shard)
+    return { keyHash, stub: namespace.get(id) }
+  }
+
+  return {
+    name: 'cloudflare-durable-objects',
+    async hit(key, max, windowMs) {
+      try {
+        const { keyHash, stub } = keyAndStub(key)
+        const verdict = await stub.hit(keyHash, max, windowMs)
+        if (
+          !verdict ||
+          typeof verdict.ok !== 'boolean' ||
+          !Number.isFinite(verdict.retryAfterSeconds) ||
+          verdict.retryAfterSeconds < 0
+        ) {
+          throw new Error('Invalid shared rate-limit response')
+        }
+        return verdict
+      } catch (err) {
+        // Do not silently downgrade a global auth limit to isolate-local memory.
+        console.error('[rate-limit] shared Durable Object unavailable:', err instanceof Error ? err.name : 'unknown error')
+        throw new RateLimitUnavailableError()
+      }
+    },
+    async clear(key) {
+      try {
+        const { keyHash, stub } = keyAndStub(key)
+        await stub.clear(keyHash)
+      } catch (err) {
+        // Clearing is cleanup after a successful action. Keep that action's
+        // response stable, but log that a bucket may remain until it expires.
+        console.error('[rate-limit] shared Durable Object clear failed:', err instanceof Error ? err.name : 'unknown error')
+      }
+    },
+  }
+}
+
+function createUnavailableRateLimiter(): RateLimiterStore {
+  return {
+    name: 'unavailable',
+    async hit() {
+      throw new RateLimitUnavailableError()
+    },
+    async clear() {
+      console.error('[rate-limit] no shared rate-limit binding is available in production')
+    },
+  }
+}
+
+function resolveActiveStore(): RateLimiterStore {
+  // The production Worker must have the Durable Object binding. If context or
+  // binding setup is broken, fail closed with 503 rather than claiming that
+  // per-isolate memory enforces a global auth limit.
+  try {
+    const env = getCloudflareContext().env as unknown as {
+      MUDAALA_RATE_LIMITER?: DurableRateLimitNamespace
+    }
+    if (env.MUDAALA_RATE_LIMITER) {
+      return createDurableObjectRateLimiter(env.MUDAALA_RATE_LIMITER)
+    }
+  } catch {
+    // Local Next development runs outside workerd; it deliberately uses the local store.
+  }
+
+  if (process.env.NODE_ENV === 'production') return createUnavailableRateLimiter()
+  return chooseRateLimiter()
+}
+
+// ---------------------------------------------------------------------------
 // Store choice + the module-level API call sites use
 // ---------------------------------------------------------------------------
 
@@ -182,7 +283,7 @@ export function chooseRateLimiter(
 let active: RateLimiterStore | null = null
 
 function activeStore(): RateLimiterStore {
-  if (!active) active = chooseRateLimiter()
+  if (!active) active = resolveActiveStore()
   return active
 }
 
