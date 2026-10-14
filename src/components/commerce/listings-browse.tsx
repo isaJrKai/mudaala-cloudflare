@@ -17,6 +17,7 @@ import { CATEGORIES, COUNTIES, UNITS, categoryLabel } from '@/lib/constants'
 import { getSearchTermGroups, parseSearchIntent } from '@/lib/search'
 import { useAppStore, filtersToQuery, DEFAULT_FILTERS } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
+import { useCategoryPreferences } from '@/hooks/use-category-preferences'
 import { unlove, useLovedIds } from '@/lib/loved'
 import { useAddToBasket } from './basket-view'
 import { ListingBlock, HeartButton } from './listing-card'
@@ -74,6 +75,7 @@ const NEARME_IDLE: NearMeState = { status: 'idle', lat: null, lng: null }
 // Browse - the primary user task: find who buys/sells what, nearby.
 export function ListingsBrowse() {
   const { filters, setFilters, resetFilters, navigate } = useAppStore()
+  const { orderedCategories, recordCategorySelection, resetCategoryPreferences, hasCategoryPreferences } = useCategoryPreferences()
   const addToBasket = useAddToBasket()
   const lovedIds = useLovedIds()
   const [lovedOnly, setLovedOnly] = useState(false)
@@ -255,13 +257,16 @@ export function ListingsBrowse() {
           (filters.category, 'any' = All), just always visible. Horizontally
           scrollable because eleven aisles don't fit a phone. */}
       <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-slim pb-0.5" role="group" aria-label="Filter by category">
-        {([['any', 'All'], ...CATEGORIES.map((c) => [c.key, c.label])] as Array<[string, string]>).map(([key, label]) => {
+        {([['any', 'All'], ...orderedCategories.map((c) => [c.key, c.label])] as Array<[string, string]>).map(([key, label]) => {
           const active = filters.category === key
           return (
             <button
               key={key}
               type="button"
-              onClick={() => setFilters({ category: key })}
+              onClick={() => {
+                setFilters({ category: key })
+                if (key !== 'any') void recordCategorySelection(key)
+              }}
               aria-pressed={active}
               className={cn(
                 'press shrink-0 rounded-full border px-3 py-1 text-[13px] font-medium transition-colors',
@@ -275,6 +280,13 @@ export function ListingsBrowse() {
           )
         })}
       </div>
+      {hasCategoryPreferences ? (
+        <div className="flex justify-end">
+          <button type="button" onClick={() => void resetCategoryPreferences()} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">
+            Reset category order
+          </button>
+        </div>
+      ) : null}
 
       {/* Active filter chips + sort */}
       <div className="flex items-center gap-2 overflow-x-auto scrollbar-slim pb-0.5">
