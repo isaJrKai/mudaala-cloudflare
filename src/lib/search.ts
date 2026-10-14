@@ -111,7 +111,7 @@ export function parseSearchIntent(query: string): ParsedSearchIntent {
     }
   }
 
-  if (/\b(?:cheap|cheaper|affordable|inexpensive|budget(?:[- ]friendly)?|lowest price|low price)\b/i.test(text)) sort = 'price_asc'
+  if (/\b(?:cheap|cheaper|cheapest|affordable|inexpensive|budget(?:[- ]friendly)?|lowest price|low price)\b/i.test(text)) sort = 'price_asc'
   else if (/\b(?:expensive|premium|high[- ]end|highest price|top price)\b/i.test(text)) sort = 'price_desc'
 
   text = text
@@ -142,9 +142,9 @@ export function getSearchTermGroups(query: string): SearchTermGroup[] {
   }
 
   const tokens = normalized.split(' ').filter((token) => ![
-    'a', 'an', 'and', 'around', 'buy', 'find', 'for', 'get', 'good', 'great',
+    'a', 'an', 'and', 'around', 'best', 'buy', 'find', 'for', 'get', 'good', 'great',
     'i', 'in', 'item', 'items', 'look', 'looking', 'me', 'my', 'need', 'of',
-    'on', 'please', 'product', 'products', 'search', 'searching', 'show', 'the',
+    'nice', 'on', 'please', 'product', 'products', 'search', 'searching', 'show', 'the',
     'to', 'want', 'with', 'near',
   ].includes(token))
   if (!tokens.length) return [{ terms: [normalized], categories: [] }]
