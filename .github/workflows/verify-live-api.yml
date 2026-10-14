@@ -52,6 +52,17 @@ jobs:
             // Aggregate analytics are private too: no session must never see counts.
             await json('/api/admin/analytics', 401);
 
+            // A 403 means the endpoint is configured and rejected our invalid
+            // secret. A 503 would mean CRON_SECRET is missing in production.
+            const cronGuard = await fetch(base + '/api/cron/sweep', {
+              method: 'POST',
+              headers: { 'x-cron-secret': 'mudaala-live-check-invalid-secret', accept: 'application/json' },
+            });
+            if (cronGuard.status !== 403) {
+              const detail = (await cronGuard.text()).slice(0, 200);
+              throw new Error('Cron sweep should reject an invalid secret with HTTP 403; got ' + cronGuard.status + ': ' + detail);
+            }
+
             const search = await json('/api/listings?page=1&pageSize=10');
             if (!Array.isArray(search.items)) throw new Error('Public listing search response is missing items[]');
 
