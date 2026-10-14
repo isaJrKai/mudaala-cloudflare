@@ -45,8 +45,10 @@ export default {
 
     const max = Number(url.searchParams.get('max') ?? 5)
     const windowMs = Number(url.searchParams.get('windowMs') ?? 60_000)
+    const nowParam = url.searchParams.get('now')
+    const now = nowParam === null ? Date.now() : Number(nowParam)
     try {
-      return json(await stub.hit(keyHash, max, windowMs))
+      return json(await stub.hit(keyHash, max, windowMs, now))
     } catch {
       return json({ error: 'invalid rate-limit arguments' }, 400)
     }
