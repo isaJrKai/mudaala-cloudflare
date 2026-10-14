@@ -102,15 +102,15 @@ jobs:
             });
           '
 
-      - name: Verify shared rate-limit binding is reachable (no account lookup or write)
+      - name: Verify shared rate-limit binding is reachable (no customer-data writes)
         if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         env:
           APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
         run: |
           set -euo pipefail
           # A deliberately invalid phone format yields no phone candidates, so
-          # this exercises the IP limiter without touching a real account or
-          # sending SMS. 401 means the limiter allowed the request; 429 means
+          # this writes only a short-lived IP limiter event: no account lookup,
+          # customer-data write, or SMS. 401 means the limiter allowed it; 429 means
           # it enforced an existing budget. 503 means the shared binding is down.
           status="$(curl --silent --show-error --max-time 20 --output /tmp/rate-limit-smoke.json --write-out '%{http_code}' \
             --request POST "$APP_URL/api/auth/login" \
