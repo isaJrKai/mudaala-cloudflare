@@ -531,6 +531,7 @@ async function main() {
     const profilePut = await call('PUT', '/api/profile', {
       businessName: `Alice Test Shop ${RUN_TAG}`,
       photoUrl: photoUrl ?? null,
+      coverPhotoUrl: photoUrl ?? null,
       category: 'other',
       description: null,
       county: 'Kampala',
@@ -539,7 +540,15 @@ async function main() {
       whatsapp: null,
       hours: null,
     }, alice)
-    ok('profile PUT with shop photo (200)', profilePut.status === 200 && profilePut.json?.profile?.photoUrl === (photoUrl ?? null))
+    ok('profile PUT with shop photo and cover (200)', profilePut.status === 200 && profilePut.json?.profile?.photoUrl === (photoUrl ?? null) && profilePut.json?.profile?.coverPhotoUrl === (photoUrl ?? null))
+
+    // Read after write through the public shop endpoint: the saved cover must
+    // survive a fresh request, not merely appear in the editor's PUT response.
+    const publicShopAfterSave = await call('GET', `/api/shops/${alice.user!.id}`)
+    ok(
+      'public shop returns persisted coverPhotoUrl after a fresh request',
+      publicShopAfterSave.status === 200 && publicShopAfterSave.json?.shop?.coverPhotoUrl === (photoUrl ?? null),
+    )
 
     // Shop-name search is a separate public endpoint. It must find a shop when
     // the buyer types the right words with different punctuation/spacing.
