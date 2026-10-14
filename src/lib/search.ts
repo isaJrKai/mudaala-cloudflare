@@ -115,7 +115,7 @@ export function parseSearchIntent(query: string): ParsedSearchIntent {
   else if (/\b(?:expensive|premium|high[- ]end|highest price|top price)\b/i.test(text)) sort = 'price_desc'
 
   text = text
-    .replace(/\b(?:cheap|cheaper|affordable|inexpensive|budget(?:[- ]friendly)?|lowest price|low price|expensive|premium|high[- ]end|highest price|top price)\b/gi, ' ')
+    .replace(/\b(?:cheap|cheaper|cheapest|affordable|inexpensive|budget(?:[- ]friendly)?|lowest price|low price|expensive|premium|high[- ]end|highest price|top price)\b/gi, ' ')
     .replace(/\b(?:price|prices|cost|costs|ugx|ush|shs?|shillings?)\b/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim()
