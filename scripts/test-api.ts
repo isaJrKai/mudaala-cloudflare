@@ -164,6 +164,7 @@ const validListing = {
 
 async function main() {
   let createdListingId = ''
+  let fragranceListingId = ''
   console.log('\n== 1. Authentication ==')
   const alice: Jar = { cookie: '' }
   const alicePhone = uniquePhone()
@@ -297,6 +298,16 @@ async function main() {
     const ugListing = await call('POST', '/api/listings', { ...validListing, price: 18000, currency: 'UGX', country: 'UG', county: 'Kampala', contactPhone: '0772123456' }, alice)
     ok('UGX listing in Kampala with local UG phone → 201', ugListing.status === 201 && ugListing.json?.listing?.currency === 'UGX' && ugListing.json?.listing?.contactPhone === '+256772123456')
 
+    const fragrance = await call('POST', '/api/listings', {
+      ...validListing,
+      title: "Men's fragrance spray",
+      description: 'Long-lasting scent for everyday use.',
+      category: 'beauty-personal-care',
+      price: 25000,
+    }, alice)
+    fragranceListingId = fragrance.json?.listing?.id ?? ''
+    ok('create fragrance fixture under category without the word perfume (201)', fragrance.status === 201 && Boolean(fragranceListingId))
+
     const mismatch = await call('POST', '/api/listings', { ...validListing, county: 'Nairobi' }, alice)
     ok('location outside Uganda → 400 (country/location match enforced)', mismatch.status === 400)
 
@@ -308,6 +319,12 @@ async function main() {
   {
     const search = await call('GET', '/api/listings?q=' + encodeURIComponent('test copper scrap'))
     ok('text search finds the created listing', search.json.items.some((l: any) => l.id === createdListingId))
+
+    const perfumeSearch = await call('GET', '/api/listings?q=' + encodeURIComponent('perfume'))
+    ok('search "perfume" finds a fragrance listing filed under Beauty & Personal Care', perfumeSearch.status === 200 && perfumeSearch.json.items.some((l: any) => l.id === fragranceListingId))
+
+    const compoundSearch = await call('GET', '/api/listings?q=' + encodeURIComponent("men's perfume"))
+    ok('multi-word search understands gender wording plus a product synonym', compoundSearch.status === 200 && compoundSearch.json.items.some((l: any) => l.id === fragranceListingId))
 
     const wrongQ = await call('GET', '/api/listings?q=' + encodeURIComponent('zebra-unicorn-nothing'))
     ok('non-matching search returns empty, not everything', wrongQ.json.total === 0)
