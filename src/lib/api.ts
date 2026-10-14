@@ -36,6 +36,13 @@ export function route(handler: () => Promise<NextResponse>): Promise<NextRespons
     if (err instanceof ZodError) {
       return jsonError(400, 'Invalid request', fieldErrors(err))
     }
+    // Shared abuse controls are part of the authentication boundary. If the
+    // authoritative rate-limit binding is unavailable, fail closed with a
+    // controlled 503 rather than silently using per-isolate memory.
+    if (err instanceof Error && err.name === 'RateLimitUnavailableError') {
+      console.error('[api] shared rate-limit service unavailable')
+      return jsonError(503, 'Security checks are temporarily unavailable. Please try again shortly.')
+    }
     // Prisma connection/authentication failures are operational outages, not browser errors.
     // Return 503 so clients can distinguish a server/database outage from a bad request,
     // while keeping driver details and credentials out of the response.
