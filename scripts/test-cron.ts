@@ -28,7 +28,7 @@ async function main() {
   assert(wrong.status === 403, `Wrong secret should be rejected with 403, got ${wrong.status}`)
 
   const first = await post(SECRET)
-  assert(first.status === 200, `Valid maintenance request should succeed, got ${first.status}: ${await first.text()}`)
+  assert(first.status === 200, `Valid maintenance request should succeed, got ${first.status}`)
   const firstBody = await first.json() as Record<string, unknown>
   for (const key of ['expired', 'expiringNotified', 'priceSnapshots']) {
     assert(typeof firstBody[key] === 'number' && Number.isInteger(firstBody[key]) && (firstBody[key] as number) >= 0,
@@ -38,7 +38,7 @@ async function main() {
   // The sweep is designed to be safe to repeat: expired listings must not be
   // re-notified and daily snapshots must upsert rather than duplicate rows.
   const second = await post(SECRET)
-  assert(second.status === 200, `Repeated maintenance request should remain safe, got ${second.status}: ${await second.text()}`)
+  assert(second.status === 200, `Repeated maintenance request should remain safe, got ${second.status}`)
   const secondBody = await second.json() as Record<string, unknown>
   assert(secondBody.expired === 0, 'Second sweep should not expire the same listings twice')
   assert(secondBody.expiringNotified === 0, 'Second sweep should not notify the same listings twice')
