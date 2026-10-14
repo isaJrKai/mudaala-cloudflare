@@ -18,6 +18,8 @@ const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000
  * address, OTP, or session token.
  */
 export class RateLimitShard extends DurableObject {
+  private cleanupAlarmEnsured = false
+
   constructor(ctx: DurableObjectState, env: unknown) {
     super(ctx, env)
     this.ctx.storage.sql.exec(
@@ -82,10 +84,13 @@ export class RateLimitShard extends DurableObject {
       Date.now() - MAX_WINDOW_MS,
     )
     await this.ctx.storage.setAlarm(Date.now() + CLEANUP_INTERVAL_MS)
+    this.cleanupAlarmEnsured = true
   }
 
   private async ensureCleanupAlarm(): Promise<void> {
+    if (this.cleanupAlarmEnsured) return
     const alarm = await this.ctx.storage.getAlarm()
     if (alarm === null) await this.ctx.storage.setAlarm(Date.now() + CLEANUP_INTERVAL_MS)
+    this.cleanupAlarmEnsured = true
   }
 }
