@@ -61,6 +61,7 @@ export interface ParsedSearchIntent {
   text: string
   minPrice?: number
   maxPrice?: number
+  sort?: 'price_asc' | 'price_desc'
 }
 
 /**
@@ -72,6 +73,7 @@ export function parseSearchIntent(query: string): ParsedSearchIntent {
   let text = query
   let minPrice: number | undefined
   let maxPrice: number | undefined
+  let sort: 'price_asc' | 'price_desc' | undefined
   const amount = '(?:(?:UGX|USh|Shs?)\\s*)?([0-9][0-9,]*(?:\\.[0-9]+)?)\\s*(k|m)?(?:\\s*(?:UGX|USh|Shs?))?'
   const parseAmount = (raw: string, unit?: string) => {
     const value = Number(raw.replace(/,/g, ''))
@@ -109,12 +111,21 @@ export function parseSearchIntent(query: string): ParsedSearchIntent {
     }
   }
 
+  if (/\b(?:cheap|cheaper|affordable|inexpensive|budget(?:[- ]friendly)?|lowest price|low price)\b/i.test(text)) sort = 'price_asc'
+  else if (/\b(?:expensive|premium|high[- ]end|highest price|top price)\b/i.test(text)) sort = 'price_desc'
+
   text = text
+    .replace(/\b(?:cheap|cheaper|affordable|inexpensive|budget(?:[- ]friendly)?|lowest price|low price|expensive|premium|high[- ]end|highest price|top price)\b/gi, ' ')
     .replace(/\b(?:price|prices|cost|costs|ugx|ush|shs?|shillings?)\b/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 
-  return { text, ...(minPrice !== undefined ? { minPrice } : {}), ...(maxPrice !== undefined ? { maxPrice } : {}) }
+  return {
+    text,
+    ...(minPrice !== undefined ? { minPrice } : {}),
+    ...(maxPrice !== undefined ? { maxPrice } : {}),
+    ...(sort ? { sort } : {}),
+  }
 }
 
 export function getSearchTermGroups(query: string): SearchTermGroup[] {
@@ -130,7 +141,12 @@ export function getSearchTermGroups(query: string): SearchTermGroup[] {
     }]
   }
 
-  const tokens = normalized.split(' ').filter((token) => !['a', 'an', 'and', 'for', 'in', 'of', 'on', 'the', 'to', 'with', 'near'].includes(token))
+  const tokens = normalized.split(' ').filter((token) => ![
+    'a', 'an', 'and', 'around', 'buy', 'find', 'for', 'get', 'good', 'great',
+    'i', 'in', 'item', 'items', 'look', 'looking', 'me', 'my', 'need', 'of',
+    'on', 'please', 'product', 'products', 'search', 'searching', 'show', 'the',
+    'to', 'want', 'with', 'near',
+  ].includes(token))
   if (!tokens.length) return [{ terms: [normalized], categories: [] }]
 
   const matchedConcepts = CONCEPTS.filter((concept) => concept.terms.some((term) => includesPhrase(normalized, term)))
