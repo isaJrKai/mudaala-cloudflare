@@ -165,6 +165,9 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     : intent.minPrice === undefined ? query.minPrice : Math.max(query.minPrice, intent.minPrice)
   const maxPrice = query.maxPrice === undefined ? intent.maxPrice
     : intent.maxPrice === undefined ? query.maxPrice : Math.min(query.maxPrice, intent.maxPrice)
+  const effectiveSort = intent.sort && (query.sort === 'newest' || query.sort === undefined)
+    ? intent.sort
+    : query.sort
 
   const where: Prisma.ListingWhereInput = { status: { in: includeStatuses } }
 
@@ -186,7 +189,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
   }
 
   const orderBy: Prisma.ListingOrderByWithRelationInput =
-    query.sort === 'price_asc' ? { price: 'asc' } : query.sort === 'price_desc' ? { price: 'desc' } : { refreshedAt: 'desc' }
+    effectiveSort === 'price_asc' ? { price: 'asc' } : effectiveSort === 'price_desc' ? { price: 'desc' } : { refreshedAt: 'desc' }
 
   // "Photos sell": within the same recency band (ads refreshed on the same
   // day), ads WITH a photo rank slightly higher than ads without. Recency
@@ -195,7 +198,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
   // sort: fetch a capped window in freshness order, re-rank in memory, slice
   // the page - so pagination stays honest (nearest-shop-on-page-1 logic,
   // same trade-off, same cap).
-  if (query.sort === 'newest' || query.sort === undefined) {
+  if (effectiveSort === 'newest' || effectiveSort === undefined) {
     const PHOTO_BOOST_SCAN_CAP = 500
     const BAND_MS = 24 * 60 * 60 * 1000
     const now = Date.now()
