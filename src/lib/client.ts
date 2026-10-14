@@ -264,6 +264,19 @@ export interface ShopLookupResponse {
   shop: ShopLookupResult
 }
 
+export interface ShopNameSearchResult {
+  id: string
+  name: string
+  photoUrl: string | null
+  area: string | null
+  county: string | null
+  country: string
+}
+
+export interface ShopNameSearchResponse {
+  shops: ShopNameSearchResult[]
+}
+
 // ---- Home dashboard ----
 export interface HomeData {
   user: { firstName: string }

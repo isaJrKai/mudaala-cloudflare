@@ -92,8 +92,8 @@ export const copy = {
   browse: {
     heading: 'Buy and sell near you',
     sub: 'Shops post what they sell and what they need. You call or message them direct.',
-    searchPlaceholder: 'Search matooke, charcoal, cement…',
-    searchLabel: 'Search listings',
+    searchPlaceholder: 'Search shops, matooke, charcoal…',
+    searchLabel: 'Search shops and listings',
     filters: 'Filters',
     openFiltersAria: 'Open filters',
     filterHeading: 'Filters',

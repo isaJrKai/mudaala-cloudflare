@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Search, SlidersHorizontal, Bookmark, X, ChevronLeft, ChevronRight, Hash, Heart, MapPin, Info, Phone } from 'lucide-react'
+import { Search, SlidersHorizontal, Bookmark, X, ChevronLeft, ChevronRight, Hash, Heart, MapPin, Info, Phone, Store } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { apiGet, apiPost } from '@/lib/client'
-import type { ListingsPage, ShopLookupResponse, ListingDetail as ListingDetailT, Listing, ListingShopOwner as ListingShopOwnerT, ShopPage as ShopPageT } from '@/lib/client'
+import type { ListingsPage, ShopLookupResponse, ShopNameSearchResponse, ListingDetail as ListingDetailT, Listing, ListingShopOwner as ListingShopOwnerT, ShopPage as ShopPageT } from '@/lib/client'
 import { normalizeShopName, normalizeShopCode, telLink } from '@/lib/format'
 import { haversineMeters, formatDistance } from '@/lib/geo'
 import { CATEGORIES, COUNTIES, UNITS } from '@/lib/constants'
@@ -316,6 +316,10 @@ export function ListingsBrowse() {
 
       <FilterDialog open={showFilters} onOpenChange={setShowFilters} />
 
+      {!lovedOnly && codeQuery === '' ? (
+        <ShopNameSearchResults query={filters.q} onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })} />
+      ) : null}
+
       {/* Loved mode replaces the whole feed - the buyer asked for their
           shortlist, not the market. Explicit intent wins over every other
           mode (search, filters, code punch all wait their turn). */}
@@ -405,6 +409,55 @@ export function ListingsBrowse() {
         </div>
       ) : null}
     </div>
+  )
+}
+
+// Shop names are searched independently from product listings. This means a
+// customer can reach a known shop even when its current catalogue is empty or
+// its listing titles do not contain the shop's name.
+function ShopNameSearchResults({ query, onOpenShop }: { query: string; onOpenShop: (shopId: string) => void }) {
+  const q = query.trim()
+  const search = useQuery({
+    queryKey: ['shop-name-search', q.toLocaleLowerCase()],
+    enabled: q.length >= 2,
+    staleTime: 30_000,
+    retry: false,
+    queryFn: () => apiGet<ShopNameSearchResponse>(`/api/shops/search?q=${encodeURIComponent(q)}`),
+  })
+  if (q.length < 2 || search.isLoading || search.isError || !search.data?.shops.length) return null
+
+  return (
+    <section className="space-y-2" aria-label="Shops matching your search">
+      <h2 className="text-sm font-semibold text-foreground">Shops matching “{q}”</h2>
+      <div className="divide-y rounded-lg border bg-card">
+        {search.data.shops.map((shop) => (
+          <button
+            key={shop.id}
+            type="button"
+            onClick={() => onOpenShop(shop.id)}
+            className="press flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+            aria-label={`Open shop ${shop.name}`}
+          >
+            {shop.photoUrl ? (
+              <img src={shop.photoUrl} alt="" loading="lazy" className="size-11 shrink-0 rounded-md border object-cover" />
+            ) : (
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-md border bg-muted/40 text-muted-foreground">
+                <Store className="size-5" aria-hidden />
+              </span>
+            )}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold">{shop.name}</span>
+              {shop.area || shop.county ? (
+                <span className="mt-0.5 block truncate text-xs text-muted-foreground">{[shop.area, shop.county].filter(Boolean).join(', ')}</span>
+              ) : (
+                <span className="mt-0.5 block text-xs text-muted-foreground">Shop on Mudaala</span>
+              )}
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          </button>
+        ))}
+      </div>
+    </section>
   )
 }
 
