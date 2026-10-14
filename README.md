@@ -57,9 +57,9 @@ The application expects a database connection, canonical public URL, cron secret
 
 ## Repository structure
 
-- `src/app/` — App Router pages and API routes.
-- `src/components/` — application and UI components.
-- `src/lib/` — database access, auth, validation, listing and shop domain logic.
-- `prisma/schema.prisma` and `prisma/migrations/` — PostgreSQL schema and migrations.
-- `scripts/test-api.ts` — API/security integration tests.
-- `.github/workflows/` — pull-request validation, live verification and production deployment.
+- `src/app/`: App Router pages and API routes.
+- `src/components/`: application and UI components.
+- `src/lib/`: database access, auth, validation, listing and shop domain logic.
+- `prisma/schema.prisma` and `prisma/migrations/`: PostgreSQL schema and migrations.
+- `scripts/test-api.ts`: API/security integration tests.
+- `.github/workflows/`: pull-request validation, live verification and production deployment.
