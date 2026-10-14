@@ -83,8 +83,17 @@ export class RateLimitShard extends DurableObject {
       'DELETE FROM rate_limit_hits WHERE occurred_at <= ?',
       Date.now() - MAX_WINDOW_MS,
     )
-    await this.ctx.storage.setAlarm(Date.now() + CLEANUP_INTERVAL_MS)
-    this.cleanupAlarmEnsured = true
+    const remaining = this.ctx.storage.sql
+      .exec<{ count: number }>('SELECT COUNT(*) AS count FROM rate_limit_hits')
+      .one().count
+    // Do not schedule perpetual daily alarms for a shard whose buckets have
+    // all expired. The next request will schedule cleanup again if needed.
+    if (remaining > 0) {
+      await this.ctx.storage.setAlarm(Date.now() + CLEANUP_INTERVAL_MS)
+      this.cleanupAlarmEnsured = true
+    } else {
+      this.cleanupAlarmEnsured = false
+    }
   }
 
   private async ensureCleanupAlarm(): Promise<void> {
