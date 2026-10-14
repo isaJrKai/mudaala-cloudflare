@@ -102,6 +102,27 @@ jobs:
             });
           '
 
+      - name: Verify shared rate-limit binding is reachable (no account lookup or write)
+        if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          set -euo pipefail
+          # A deliberately invalid phone format yields no phone candidates, so
+          # this exercises the IP limiter without touching a real account or
+          # sending SMS. 401 proves the shared binding answered; 503 means the
+          # production limiter is unavailable and should trigger rollback.
+          status="$(curl --silent --show-error --max-time 20 --output /tmp/rate-limit-smoke.json --write-out '%{http_code}' \
+            --request POST "$APP_URL/api/auth/login" \
+            --header 'content-type: application/json' \
+            --data '{"phone":"x","password":"not-a-password"}')"
+          echo "Shared limiter smoke HTTP status: $status"
+          if [ "$status" != "401" ]; then
+            cat /tmp/rate-limit-smoke.json
+            echo "Expected 401 from invalid phone login; 503/429/other status means limiter smoke did not meet its contract."
+            exit 1
+          fi
+
       - name: Roll back to the previous Worker version if deployment or health smoke fails
         id: rollback
         if: ${{ failure() && steps.capture_previous.outputs.previous_version != '' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
