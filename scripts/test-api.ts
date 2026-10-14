@@ -2015,9 +2015,9 @@ async function main() {
     const prodBroken = validateEnv({ NODE_ENV: 'production' })
     ok(
       '15.8 env validation: production without secrets fails with named errors',
-      !prodBroken.ok && prodBroken.errors.some((e) => e.includes('DATABASE_URL')) && prodBroken.errors.some((e) => e.includes('CRON_SECRET')) && prodBroken.errors.some((e) => e.includes('SETTINGS_ENCRYPTION_KEY')) && prodBroken.errors.some((e) => e.includes('ADMIN_PHONES')),
+      !prodBroken.ok && prodBroken.errors.some((e) => e.includes('DATABASE_URL')) && prodBroken.errors.some((e) => e.includes('CRON_SECRET')) && prodBroken.errors.some((e) => e.includes('SETTINGS_ENCRYPTION_KEY')) && prodBroken.errors.some((e) => e.includes('ADMIN_USER_IDS')),
     )
-    const prodBadBearer = validateEnv({ NODE_ENV: 'production', DATABASE_URL: 'x', NEXT_PUBLIC_APP_URL: 'https://m', CRON_SECRET: 's', SETTINGS_ENCRYPTION_KEY: 'k', ADMIN_PHONES: '+256712000001', ALLOW_BEARER_AUTH: '1' })
+    const prodBadBearer = validateEnv({ NODE_ENV: 'production', DATABASE_URL: 'x', NEXT_PUBLIC_APP_URL: 'https://m', CRON_SECRET: 's', SETTINGS_ENCRYPTION_KEY: 'k', ADMIN_USER_IDS: 'admin-user-123', ADMIN_PHONES: '+256712000001', ALLOW_BEARER_AUTH: '1' })
     ok('15.9 env validation: bearer enabled in production is at least a loud warning', prodBadBearer.ok && prodBadBearer.warnings.length === 1)
 
     // Admin privileges must follow the stable account identity in production.
