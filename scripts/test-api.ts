@@ -3024,9 +3024,22 @@ async function main() {
     const upload23Json = (await upload23.json().catch(() => null)) as { url?: string } | null
     ok('23.1 fixture: photo uploaded, path known', upload23.status === 201 && typeof upload23Json?.url === 'string')
     const leaverPhotoUrl = upload23Json?.url ?? ''
+    const uploadCover23 = await fetch(`${BASE}/api/upload`, {
+      method: 'POST',
+      headers: { cookie: leaver.cookie, ...(leaver.token ? { authorization: `Bearer ${leaver.token}` } : {}), 'cf-connecting-ip': autoEdgeIp() },
+      body: (() => {
+        const f = new FormData()
+        f.append('file', new Blob([new Uint8Array(tinyPng23)], { type: 'image/png' }), 'cover.png')
+        return f
+      })(),
+    })
+    const uploadCover23Json = (await uploadCover23.json().catch(() => null)) as { url?: string } | null
+    const leaverCoverPhotoUrl = uploadCover23Json?.url ?? ''
+    ok('23.1b fixture: distinct cover photo uploaded', uploadCover23.status === 201 && leaverCoverPhotoUrl !== '' && leaverCoverPhotoUrl !== leaverPhotoUrl)
     await call('PUT', '/api/profile', {
       businessName: `Leaver Shop ${Date.now().toString(36)}`,
       photoUrl: leaverPhotoUrl || null,
+      coverPhotoUrl: leaverCoverPhotoUrl || null,
       category: 'other',
       description: null,
       county: 'Kampala',
@@ -3084,7 +3097,9 @@ async function main() {
       wrongDelete.status === 403 && (await db.user.findUnique({ where: { phone: leaverPhone } })) !== null,
     )
     const storedPath = path.join(process.cwd(), 'public', leaverPhotoUrl)
-    ok('23.7 fixture: the photo file exists on disk before deletion', leaverPhotoUrl !== '' && fs.existsSync(storedPath))
+    const storedCoverPath = path.join(process.cwd(), 'public', leaverCoverPhotoUrl)
+    ok('23.7 fixture: the avatar photo file exists on disk before deletion', leaverPhotoUrl !== '' && fs.existsSync(storedPath))
+    ok('23.7b fixture: the distinct cover photo file exists on disk before deletion', leaverCoverPhotoUrl !== '' && fs.existsSync(storedCoverPath))
     const deleteRes = await call('DELETE', '/api/account', { password: 'quiet-harbor-31' }, leaver)
     ok('23.8 right password - 200 deleted', deleteRes.status === 200 && deleteRes.json?.deleted === true)
 
@@ -3108,10 +3123,11 @@ async function main() {
       '23.10 filed reports are anonymised (reporterId null), audit rows too',
       keptReports.every((r) => r.reporterId === null) && keptAudits.length === 1 && keptAudits[0]!.actorId === null,
     )
-    ok('23.11 the photo is gone from storage', leaverPhotoUrl !== '' && !fs.existsSync(storedPath))
+    ok('23.11 the avatar photo is gone from storage', leaverPhotoUrl !== '' && !fs.existsSync(storedPath))
+    ok('23.12 the distinct cover photo is also gone from storage', leaverCoverPhotoUrl !== '' && !fs.existsSync(storedCoverPath))
     const meAfter = await call('GET', '/api/auth/me', undefined, leaver)
     ok(
-      '23.12 the deleted account session no longer answers as anyone',
+      '23.13 the deleted account session no longer answers as anyone',
       // The me endpoint's contract: no session = 200 with user null (401 on
       // the Bearer channel). Either way, nobody is signed in.
       meAfter.status === 401 || (meAfter.status === 200 && meAfter.json?.user === null),
