@@ -1924,15 +1924,15 @@ async function main() {
     ok('second fixture requested its own code (200)', forgotB.status === 200)
     const codeB = await readDevCode(pwB.user!.phone)
     ok('code delivered for the second fixture', typeof codeB === 'string')
-    let killMsg = ''
-    for (let i = 0; i < 5; i++) {
-      const r = await call('POST', '/api/auth/reset-password', { phone: pwB.user!.phone, code: wrongOf(codeB!), newPassword: NEW_PW })
-      killMsg = typeof r.json?.error === 'string' ? r.json.error : killMsg
-    }
+    const wrongBurst = await Promise.all(Array.from({ length: 8 }, () =>
+      call('POST', '/api/auth/reset-password', { phone: pwB.user!.phone, code: wrongOf(codeB!), newPassword: NEW_PW }),
+    ))
+    const killMsg = wrongBurst.find((r) => typeof r.json?.error === 'string')?.json?.error ?? ''
+    ok('concurrent wrong-code burst returns controlled failures', wrongBurst.every((r) => r.status === 400) && killMsg.length > 10)
     const rightB = await call('POST', '/api/auth/reset-password', { phone: pwB.user!.phone, code: codeB!, newPassword: NEW_PW })
-    ok('after five wrong tries even the correct code is refused', rightB.status === 400 && rightB.json?.error === killMsg)
+    ok('after concurrent wrong tries the correct code is refused', rightB.status === 400 && rightB.json?.error === killMsg)
     const killedRow = await db.passwordReset.findFirst({ where: { userId: pwB.user!.id }, orderBy: { createdAt: 'desc' } })
-    ok('the killed code recorded five wrong tries and a used stamp', killedRow?.attempts === 5 && Boolean(killedRow?.usedAt))
+    ok('concurrent guesses atomically cap attempts at five and kill the code', killedRow?.attempts === 5 && Boolean(killedRow?.usedAt))
 
     // ---- Reset-endpoint anti-enumeration ----
     const resetGhost = await call('POST', '/api/auth/reset-password', { phone: await absentPhone(), code: '123456', newPassword: NEW_PW })
@@ -1947,8 +1947,13 @@ async function main() {
     const localPhone = `0${pwC.user!.phone.slice(4)}` // strip '+256' → everyday local form
     const phoneTry = await call('POST', '/api/auth/reset-password', { phone: pwC.user!.phone, code: codeC!, newPassword: localPhone })
     ok('the phone number itself as password is refused', phoneTry.status === 400 && (phoneTry.json?.error ?? '').includes('phone number'))
-    const goodC = await call('POST', '/api/auth/reset-password', { phone: pwC.user!.phone, code: codeC!, newPassword: NEW_PW })
-    ok('the code survives weak-password attempts and still completes the reset', goodC.status === 200)
+    const simultaneousGood = await Promise.all([
+      call('POST', '/api/auth/reset-password', { phone: pwC.user!.phone, code: codeC!, newPassword: NEW_PW }),
+      call('POST', '/api/auth/reset-password', { phone: pwC.user!.phone, code: codeC!, newPassword: NEW_PW }),
+    ])
+    ok('the code survives weak-password attempts and completes one valid reset',
+      simultaneousGood.filter((r) => r.status === 200).length === 1 &&
+      simultaneousGood.filter((r) => r.status === 400 && r.json?.error === wrongMsg).length === 1)
     const rejReg = await call('POST', '/api/auth/register', { phone: await absentPhone(), name: 'Common Pass', password: '12345678', country: 'UG', acceptTerms: true })
     ok('register shares the same rulebook and refuses common passwords too', rejReg.status === 400 && (rejReg.json?.error ?? '').includes('too easy to guess'))
 
@@ -1969,6 +1974,20 @@ async function main() {
     ok('three code requests for one number in an hour go through', firstThree === 3)
     const fourth = await call('POST', '/api/auth/forgot-password', { phone: pwD.user!.phone })
     ok('a fourth request for the same number waits an hour (429, friendly)', fourth.status === 429 && typeof fourth.json?.error === 'string' && fourth.json.error.length > 10)
+
+    // Verification submissions have a separate budget from SMS sends.
+    const codeD = await readDevCode(pwD.user!.phone)
+    if (codeD) {
+      const submissionBurst = await Promise.all(Array.from({ length: 10 }, () =>
+        call('POST', '/api/auth/reset-password', { phone: pwD.user!.phone, code: wrongOf(codeD), newPassword: NEW_PW }),
+      ))
+      const blockedSubmission = await call('POST', '/api/auth/reset-password', { phone: pwD.user!.phone, code: wrongOf(codeD), newPassword: NEW_PW })
+      ok('reset submissions have an independent per-phone abuse budget',
+        submissionBurst.every((r) => r.status === 400) && blockedSubmission.status === 429 &&
+        Number(blockedSubmission.json?.error?.length ?? 0) > 0)
+    } else {
+      ok('reset submissions have an independent per-phone abuse budget', false, 'dev SMS code unavailable for fixture')
+    }
 
     // ---- Hermetic cleanup: this section's fixtures never outlive the run ----
     const resetUserIds = [pwA, pwB, pwC, pwD, pwE].map((j) => j.user?.id).filter(Boolean) as string[]
