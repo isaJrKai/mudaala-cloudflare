@@ -1,0 +1,127 @@
+name: Verify live product search semantics
+
+on:
+  workflow_dispatch:
+  # Verify the existing production deployment when this guard is first added.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-live-search.yml'
+  # Re-run the read-only semantic checks after future successful deployments.
+  workflow_run:
+    workflows: ["Deploy Mudaala to Cloudflare Workers"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-search:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify live health and customer-facing search results
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          node <<'NODE'
+          const base = process.env.APP_URL.replace(/\/$/, '');
+
+          async function getJson(path) {
+            const response = await fetch(base + path, {
+              headers: { accept: 'application/json' },
+            });
+            const raw = await response.text();
+            let body;
+            try {
+              body = JSON.parse(raw);
+            } catch {
+              throw new Error(path + ' returned non-JSON (HTTP ' + response.status + ')');
+            }
+            if (!response.ok) {
+              throw new Error(path + ' returned HTTP ' + response.status);
+            }
+            return body;
+          }
+
+          function normalize(value) {
+            return String(value ?? '')
+              .normalize('NFKD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, ' ')
+              .trim()
+              .replace(/\s+/g, ' ');
+          }
+
+          const productPattern = /\b(?:oil )?perfumes?\b|\bfragrances?\b|\bcolognes?\b|\bcolones?\b|\bbody sprays?\b|\baftershaves?\b|\bscents?\b|\boudh?\b/;
+
+          function isRelevant(item) {
+            const text = normalize([
+              item.title,
+              item.description,
+              item.category,
+            ].filter(Boolean).join(' '));
+            return productPattern.test(text);
+          }
+
+          async function search(query) {
+            const path = '/api/listings?' + new URLSearchParams({
+              q: query,
+              page: '1',
+              pageSize: '50',
+            });
+            const body = await getJson(path);
+            if (!Array.isArray(body.items)) {
+              throw new Error('Search "' + query + '" did not return items[]');
+            }
+            return body.items;
+          }
+
+          (async () => {
+            const health = await getJson('/api/health');
+            if (health.ok !== true || health.app !== 'up' || health.database !== 'up') {
+              throw new Error('Production health did not report app and database up');
+            }
+
+            // The live catalogue has previously contained active perfume listings
+            // with mathematical-bold Unicode text and category "other". Normalize
+            // the returned seller text before checking relevance; never mutate data.
+            const perfume = await search('perfume');
+            const perfumeMatches = perfume.filter(isRelevant);
+            if (perfumeMatches.length === 0) {
+              throw new Error('Search "perfume" returned no semantically relevant listings in the first 50 results');
+            }
+
+            const budget = await search('perfume under 30k');
+            const budgetMatches = budget.filter((item) =>
+              isRelevant(item) &&
+              item.price !== null &&
+              item.price !== undefined &&
+              Number.isFinite(Number(item.price)) &&
+              Number(item.price) <= 30000
+            );
+            if (budgetMatches.length === 0) {
+              throw new Error('Search "perfume under 30k" returned no relevant priced listing within UGX 30,000');
+            }
+
+            const cheap = await search('cheap perfume');
+            const cheapMatches = cheap.filter(isRelevant);
+            if (cheapMatches.length === 0) {
+              throw new Error('Search "cheap perfume" returned no semantically relevant listings');
+            }
+
+            console.log(JSON.stringify({
+              productionHealth: 'pass',
+              perfume: { results: perfume.length, relevant: perfumeMatches.length },
+              budget: { results: budget.length, relevantWithinBudget: budgetMatches.length },
+              cheap: { results: cheap.length, relevant: cheapMatches.length },
+              writesPerformed: 0,
+              sellerTextOrListingsModified: false,
+            }, null, 2));
+          })().catch((error) => {
+            console.error(error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          });
+          NODE
