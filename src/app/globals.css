@@ -278,3 +278,96 @@
   }
   .no-print { display: none !important; }
 }
+
+
+/*
+ * Quiet premium finish (visual-only).
+ * Keep Mudaala's existing forest / paper / mango identity and all component
+ * geometry and behavior. This layer improves surface consistency, reading
+ * rhythm, and keyboard/touch feedback without introducing new UI states.
+ */
+:root {
+  --mudaala-surface: color-mix(in oklab, var(--card) 78%, var(--background));
+  --mudaala-border-hover: color-mix(in oklab, var(--primary) 28%, var(--border));
+}
+
+@layer base {
+  body {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    color: var(--primary-foreground);
+    background: color-mix(in oklab, var(--primary) 86%, black);
+  }
+
+  :where(button, a, input, textarea, select, [role="button"], [role="combobox"]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+
+  :where(input, textarea, select, [role="combobox"]) {
+    border-radius: 0.65rem;
+    transition: border-color 150ms ease, background-color 150ms ease;
+  }
+
+  :where(input, textarea, select):hover:not(:disabled):not([readonly]) {
+    border-color: var(--mudaala-border-hover);
+  }
+
+  :where(input, textarea, select):focus-visible {
+    background-color: var(--card);
+  }
+}
+
+/* Cards stay flat: contrast comes from paper tone and a considered border,
+   not a shadow. Hover only changes the surface edge, never the layout. */
+main .rounded-lg.border.bg-card,
+main .rounded-xl.border.bg-card {
+  border-color: color-mix(in oklab, var(--border) 88%, var(--foreground) 12%);
+  background-color: var(--mudaala-surface);
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  main .rounded-lg.border.bg-card:hover,
+  main .rounded-xl.border.bg-card:hover {
+    border-color: var(--mudaala-border-hover);
+  }
+}
+
+/* Small, deliberate typographic hierarchy: strong titles, quieter metadata,
+   and stable price numerals. No font, copy, or content changes. */
+main :where(h1, h2, h3) {
+  text-wrap: balance;
+}
+
+main :where(p) {
+  text-wrap: pretty;
+}
+
+main :where(.tabular-nums) {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Preserve the brand's existing green actions while making disabled,
+   loading, and hover states feel consistent across component variants. */
+button.press,
+a.press {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:disabled,
+button[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* Motion remains feedback, not decoration; respect the system preference. */
+@media (prefers-reduced-motion: reduce) {
+  :where(input, textarea, select, [role="combobox"]),
+  main .rounded-lg.border.bg-card,
+  main .rounded-xl.border.bg-card {
+    transition: none;
+  }
+}
