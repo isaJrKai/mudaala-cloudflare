@@ -34,8 +34,8 @@ export function validateEnv(env: Record<string, string | undefined> = process.en
     if (!env.SETTINGS_ENCRYPTION_KEY && !env.SETTINGS_ENC_KEY) {
       errors.push('SETTINGS_ENCRYPTION_KEY is required in production. Stored deployment secrets would be unencrypted')
     }
-    if (!env.ADMIN_PHONES || env.ADMIN_PHONES.trim() === '') {
-      errors.push('ADMIN_PHONES is required in production. With no allowlist the admin desk is unusable (fail closed)')
+    if (!env.ADMIN_USER_IDS || env.ADMIN_USER_IDS.split(',').every((entry) => entry.trim() === '')) {
+      errors.push('ADMIN_USER_IDS is required in production. Admin access must be bound to stable account IDs (fail closed)')
     }
     if (env.ALLOW_BEARER_AUTH === '1' || env.ALLOW_BEARER_AUTH === 'true' || env.AUTH_BEARER_FALLBACK === '1') {
       warnings.push(
