@@ -31,21 +31,16 @@ function parseOrigin(rawOrigin: string): URL | null {
   }
 }
 
-// Deployment hosts the Origin check accepts beyond the Host actually seen on
-// the request. Needed because the sandbox preview's edge rewrites Host to an
-// internal address and sends no x-forwarded-host, so a genuinely
-// same-deployment login arrives looking foreign (the seller's browser really
-// is talking to https://preview-…, the app just never sees that name).
-// Entries are comma-separated; an entry starting with a dot matches the
-// whole suffix (cookie-Domain semantics: ".space-z.ai" trusts that suffix
-// and its subdomains). Leaving this unset changes nothing for deployments
-// whose proxy preserves Host - the foreign-Origin block stays exactly as
-// strict as before.
+// Exact public hosts the Origin check accepts beyond request.nextUrl.origin.
+// Needed only when a trusted preview edge rewrites the request Host. Entries
+// are comma-separated exact hosts, including ports when non-default. Wildcard
+// suffixes are intentionally unsupported: preview platforms can be multi-tenant,
+// so trusting every subdomain of a shared platform would weaken CSRF protection.
 function trustedHostEntries(): string[] {
   return (process.env.CSRF_TRUSTED_HOSTS ?? '')
     .split(',')
     .map((entry) => entry.trim().toLowerCase())
-    .filter(Boolean)
+    .filter((entry) => Boolean(entry) && !entry.startsWith('.'))
 }
 
 function originOwnsDeployment(origin: URL, requestOrigin: string): boolean {
@@ -57,10 +52,7 @@ function originOwnsDeployment(origin: URL, requestOrigin: string): boolean {
   // The preview gateway legitimately rewrites the request Host. Its public
   // origin is allowed only through the explicit host allowlist and HTTPS.
   if (origin.protocol !== 'https:') return false
-  const originHost = origin.host.toLowerCase()
-  return trustedHostEntries().some((entry) =>
-    entry.startsWith('.') ? originHost.endsWith(entry) || originHost === entry.slice(1) : originHost === entry,
-  )
+  return trustedHostEntries().includes(origin.host.toLowerCase())
 }
 
 export default function proxy(request: NextRequest) {
@@ -82,10 +74,7 @@ export default function proxy(request: NextRequest) {
       }
       // Fetch Metadata is a second signal. A cross-site request is allowed
       // only when its public origin is explicitly trusted for the preview edge.
-      if (fetchSite === 'cross-site' && !trustedHostEntries().some((entry) => {
-        const host = origin.host.toLowerCase()
-        return entry.startsWith('.') ? host.endsWith(entry) || host === entry.slice(1) : host === entry
-      })) {
+      if (fetchSite === 'cross-site' && !trustedHostEntries().includes(origin.host.toLowerCase())) {
         return NextResponse.json(
           { error: 'This request was blocked for your protection. It did not come from Mudaala' },
           { status: 403 },
