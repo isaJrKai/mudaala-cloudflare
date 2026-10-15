@@ -260,6 +260,27 @@ jobs:
                 timeout: 60000,
               });
 
+              const offerResponse = await fetch(base + '/api/listings?type=OFFER&page=1&pageSize=10');
+              if (!offerResponse.ok) throw new Error('Could not load public offers for mobile cart-overlay verification');
+              const offerPayload = await offerResponse.json();
+              const offer = Array.isArray(offerPayload.items)
+                ? offerPayload.items.find(item => item.type === 'OFFER')
+                : null;
+              if (!offer) throw new Error('No active offer is available for mobile cart-overlay verification');
+
+              await page.goto(base + '/#/listing/' + encodeURIComponent(offer.id), {
+                waitUntil: 'domcontentloaded',
+                timeout: 60000,
+              });
+              await page.getByRole('button', { name: 'Add to cart' }).click();
+              const cartBar = page.locator('button[aria-controls="cart-mobile-sheet"]');
+              await cartBar.waitFor({ state: 'visible', timeout: 15000 });
+              await cartBar.click();
+              const cartSheet = page.locator('#cart-mobile-sheet');
+              await cartSheet.waitFor({ state: 'visible', timeout: 10000 });
+              await cartSheet.getByRole('button', { name: 'Close the cart' }).click();
+              await cartSheet.waitFor({ state: 'hidden', timeout: 10000 });
+
               const primary = page.getByRole('navigation', { name: 'Primary' });
               const post = primary.getByRole('button', { name: 'Post' });
               await post.waitFor({ state: 'visible', timeout: 20000 });
@@ -270,10 +291,11 @@ jobs:
 
               console.log(JSON.stringify({
                 mobileViewport: '390x844',
-                postAction: 'visible and tappable',
+                cartOverlay: 'opened and closed cleanly',
+                postAction: 'visible and tappable after overlay dismissal',
                 destination: await page.evaluate(() => window.location.hash),
                 signedOutGuard: 'publish view shown without creating data',
-                writesPerformed: 0,
+                serverWritesPerformed: 0,
               }, null, 2));
             } finally {
               await browser.close();
