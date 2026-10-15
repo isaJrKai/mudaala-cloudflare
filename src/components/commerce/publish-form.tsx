@@ -215,7 +215,7 @@ export function PublishForm() {
           onChange={(e) => set('title', e.target.value)}
           placeholder={
             form.category === 'services'
-              ? 'e.g. Women’s haircut, wedding photography, plumbing repair'
+              ? 'e.g. Women's haircut, wedding photography, plumbing repair'
               : form.category === 'other'
               ? form.type === 'OFFER'
                 ? 'e.g. perfume, spare parts, firewood'
@@ -271,7 +271,7 @@ export function PublishForm() {
 
       <div className="rounded-lg border bg-secondary/30 p-3.5">
         <div className={cn('grid grid-cols-1 gap-4', form.category === 'services' ? 'sm:grid-cols-1' : 'sm:grid-cols-3')}>
-          <Field label={form.category === 'services' ? 'Price / starting price' : form.type === 'OFFER' ? copy.common.price : copy.common.budget} htmlFor="p-price" error={errors.price}>
+          <Field label={form.category === 'services' ? (form.type === 'OFFER' ? 'Price / starting price' : 'Budget / maximum budget') : form.type === 'OFFER' ? copy.common.price : copy.common.budget} htmlFor="p-price" error={errors.price}>
             <div className="flex gap-2">
               <Input
                 id="p-price"
@@ -338,7 +338,7 @@ export function PublishForm() {
         </div>
         <label className="mt-3 flex items-center gap-2 text-sm">
           <Checkbox checked={form.priceNegotiable} onCheckedChange={(v) => set('priceNegotiable', v === true)} />
-          {form.category === 'services' ? 'Price is negotiable or quote required' : copy.publish.priceNegotiable}
+          {form.category === 'services' ? (form.type === 'OFFER' ? 'Price is negotiable or quote required' : 'Budget is flexible') : copy.publish.priceNegotiable}
         </label>
       </div>
 
@@ -604,7 +604,7 @@ export function EditListingForm({ id }: { id: string }) {
       </Field>
 
       <div className={cn('grid grid-cols-1 gap-4', form.category === 'services' ? 'sm:grid-cols-1' : 'sm:grid-cols-3')}>
-        <Field label={form.category === 'services' ? 'Price / starting price' : 'Price'} htmlFor="e-price" error={errors.price}>
+        <Field label={form.category === 'services' ? (loaded.type === 'OFFER' ? 'Price / starting price' : 'Budget / maximum budget') : 'Price'} htmlFor="e-price" error={errors.price}>
           <div className="flex gap-2">
             <Input
               id="e-price"
@@ -663,7 +663,7 @@ export function EditListingForm({ id }: { id: string }) {
       </div>
       <label className="flex items-center gap-2 text-sm">
         <Checkbox checked={form.priceNegotiable} onCheckedChange={(v) => set('priceNegotiable', v === true)} />
-        {form.category === 'services' ? 'Price is negotiable or quote required' : 'Price is negotiable'}
+        {form.category === 'services' ? (loaded.type === 'OFFER' ? 'Price is negotiable or quote required' : 'Budget is flexible') : 'Price is negotiable'}
       </label>
 
       <div className={cn('grid grid-cols-1 gap-4', form.category === 'services' ? 'sm:grid-cols-1' : 'sm:grid-cols-2')}>
