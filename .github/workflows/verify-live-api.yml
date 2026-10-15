@@ -295,7 +295,7 @@ jobs:
                 postAction: 'visible and tappable after overlay dismissal',
                 destination: await page.evaluate(() => window.location.hash),
                 signedOutGuard: 'publish view shown without creating data',
-                serverWritesPerformed: 0,
+                explicitMutationRequests: 0,
               }, null, 2));
             } finally {
               await browser.close();
