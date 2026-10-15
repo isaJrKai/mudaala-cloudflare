@@ -271,7 +271,7 @@ jobs:
               console.log(JSON.stringify({
                 mobileViewport: '390x844',
                 postAction: 'visible and tappable',
-                destination: window.location.hash,
+                destination: await page.evaluate(() => window.location.hash),
                 signedOutGuard: 'publish view shown without creating data',
                 writesPerformed: 0,
               }, null, 2));
