@@ -111,7 +111,7 @@ export function MyListings() {
       <EmptyState
         title={copy.mySales.emptyTitle}
         description={copy.mySales.emptySub}
-        action={<Button onClick={() => navigate({ name: 'publish' })}>{copy.mySales.postFirst}</Button>}
+        action={<Button className="mudaala-money-cta" onClick={() => navigate({ name: 'publish' })}>{copy.mySales.postFirst}</Button>}
       />
     )
   }
