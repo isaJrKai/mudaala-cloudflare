@@ -36,6 +36,9 @@ export function SiteFooter({ padded = false }: { padded?: boolean }) {
           <Link href="/terms" className="hover:text-foreground hover:underline">
             Terms
           </Link>
+          <Link href="/business-terms" className="hover:text-foreground hover:underline">
+            For businesses
+          </Link>
         </nav>
       </div>
     </footer>
