@@ -109,6 +109,9 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Test service listing stock-field normalization for publish and edit
+        run: npx tsx scripts/test-service-listing-form.ts
+
       - name: Start local app for API tests
         run: |
           npm run dev > /tmp/mudaala-dev.log 2>&1 &
