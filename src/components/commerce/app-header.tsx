@@ -71,7 +71,7 @@ export function AppHeader() {
   }, [units])
 
   return (
-    <header className="sticky top-0 z-40 border-b-[3px] border-b-[#F6C94C] bg-card pt-[env(safe-area-inset-top)]">
+    <header className="sticky top-0 z-40 border-b border-b-[#E9C85A] bg-card pt-[env(safe-area-inset-top)]">
       <div className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-4">
         <button type="button" onClick={() => navigate({ name: 'home' })} className="flex items-center gap-1.5 lg:hidden" aria-label="Mudaala home">
           {/* The wordmark is the signboard: lowercase serif in the brand
