@@ -1,4 +1,4 @@
-name: Verify live product search semantics
+name: Verify live shop and product search semantics
 
 on:
   workflow_dispatch:
@@ -85,6 +85,32 @@ jobs:
               throw new Error('Production health did not report app and database up');
             }
 
+            // Verify the shop-name search path independently from product search.
+            // "Gras" is a known prefix from a live seller listing; do not print
+            // names, phone numbers, or other seller data into CI logs.
+            const shopSearch = await getJson('/api/shops/search?q=gras');
+            if (!Array.isArray(shopSearch.shops) || shopSearch.shops.length === 0) {
+              throw new Error('Shop-name search did not find the known live seller prefix "gras"');
+            }
+            const safeShopFields = new Set(['id', 'name', 'photoUrl', 'area', 'county', 'country']);
+            const shop = shopSearch.shops[0];
+            if (!shop || typeof shop.id !== 'string' || typeof shop.name !== 'string') {
+              throw new Error('Shop-name search returned an invalid public shop result');
+            }
+            if (Object.keys(shop).some((key) => !safeShopFields.has(key))) {
+              throw new Error('Shop-name search returned an unexpected field; public search must not expose private contact/account data');
+            }
+
+            const shopPage = await getJson('/api/shops/' + encodeURIComponent(shop.id));
+            const code = shopPage.shop?.shopCode;
+            if (typeof code !== 'string' || !code) {
+              throw new Error('The matched live shop has no public shop code for lookup verification');
+            }
+            const codeLookup = await getJson('/api/shops/lookup?code=' + encodeURIComponent(code));
+            if (codeLookup.shop?.id !== shop.id) {
+              throw new Error('Shop-code lookup did not resolve to the same shop returned by shop-name search');
+            }
+
             // The live catalogue has previously contained active perfume listings
             // with mathematical-bold Unicode text and category "other". Normalize
             // the returned seller text before checking relevance; never mutate data.
@@ -114,6 +140,8 @@ jobs:
 
             console.log(JSON.stringify({
               productionHealth: 'pass',
+              shopNameSearch: { results: shopSearch.shops.length, privateFieldsExcluded: true },
+              shopCodeLookup: { resolvedSameShop: true },
               perfume: { results: perfume.length, relevant: perfumeMatches.length },
               budget: { results: budget.length, relevantWithinBudget: budgetMatches.length },
               cheap: { results: cheap.length, relevant: cheapMatches.length },

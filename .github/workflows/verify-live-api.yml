@@ -239,3 +239,69 @@ jobs:
             process.exit(1);
           });
           NODE
+      - name: Verify mobile Post navigation reaches the publish flow
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          node <<'NODE'
+          const { chromium } = require('/tmp/mudaala-browser-test/node_modules/playwright');
+          const base = process.env.APP_URL.replace(/\/$/, '');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            try {
+              const page = await browser.newPage({
+                viewport: { width: 390, height: 844 },
+                isMobile: true,
+                hasTouch: true,
+              });
+              await page.goto(base + '/#/browse', {
+                waitUntil: 'domcontentloaded',
+                timeout: 60000,
+              });
+
+              const offerResponse = await fetch(base + '/api/listings?type=OFFER&page=1&pageSize=10');
+              if (!offerResponse.ok) throw new Error('Could not load public offers for mobile cart-overlay verification');
+              const offerPayload = await offerResponse.json();
+              const offer = Array.isArray(offerPayload.items)
+                ? offerPayload.items.find(item => item.type === 'OFFER')
+                : null;
+              if (!offer) throw new Error('No active offer is available for mobile cart-overlay verification');
+
+              await page.goto(base + '/#/listing/' + encodeURIComponent(offer.id), {
+                waitUntil: 'domcontentloaded',
+                timeout: 60000,
+              });
+              await page.getByRole('button', { name: 'Add to cart' }).click();
+              const cartBar = page.locator('button[aria-controls="cart-mobile-sheet"]');
+              await cartBar.waitFor({ state: 'visible', timeout: 15000 });
+              await cartBar.click();
+              const cartSheet = page.locator('#cart-mobile-sheet');
+              await cartSheet.waitFor({ state: 'visible', timeout: 10000 });
+              await cartSheet.getByRole('button', { name: 'Close the cart' }).click();
+              await cartSheet.waitFor({ state: 'hidden', timeout: 10000 });
+
+              const primary = page.getByRole('navigation', { name: 'Primary' });
+              const post = primary.getByRole('button', { name: 'Post' });
+              await post.waitFor({ state: 'visible', timeout: 20000 });
+              await post.click();
+
+              await page.waitForFunction(() => window.location.hash === '#/publish', null, { timeout: 10000 });
+              await page.getByRole('heading', { name: 'Sign in to post an ad' }).waitFor({ timeout: 15000 });
+
+              console.log(JSON.stringify({
+                mobileViewport: '390x844',
+                cartOverlay: 'opened and closed cleanly',
+                postAction: 'visible and tappable after overlay dismissal',
+                destination: await page.evaluate(() => window.location.hash),
+                signedOutGuard: 'publish view shown without creating data',
+                explicitMutationRequests: 0,
+              }, null, 2));
+            } finally {
+              await browser.close();
+            }
+          })().catch(error => {
+            console.error(error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          });
+          NODE
