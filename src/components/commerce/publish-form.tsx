@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast'
 import { apiPost, apiPatch, apiGet } from '@/lib/client'
 import type { Listing, SessionUser } from '@/lib/client'
 import { listingCreateSchema, fieldErrors } from '@/lib/validation'
-import { listingFormStockFields } from '@/lib/listing-form-fields'
+import { listingFormCategoryFields } from '@/lib/listing-form-fields'
 import { CATEGORIES, UNITS, CURRENCIES, countryDef, currencyDef } from '@/lib/constants'
 import { useAppStore } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
@@ -116,7 +116,7 @@ export function PublishForm() {
     const priceRaw = form.price.trim()
     const oldPriceRaw = form.compareAtPrice.trim()
     const quantityRaw = form.quantity.trim()
-    const stockFields = listingFormStockFields(form.category, oldPriceRaw, form.unit, quantityRaw)
+    const stockFields = listingFormCategoryFields(form.category, oldPriceRaw, form.unit, quantityRaw, priceRaw, form.priceNegotiable)
     return {
       type: form.type,
       title: form.title,
@@ -126,7 +126,6 @@ export function PublishForm() {
       ...stockFields,
       currency: form.currency,
       country: user?.country ?? 'UG',
-      priceNegotiable: form.priceNegotiable,
       county: form.county === 'none' ? undefined : form.county,
       area: form.area.trim() === '' ? null : form.area.trim(),
       contactPhone: form.contactPhone,
@@ -525,7 +524,7 @@ export function EditListingForm({ id }: { id: string }) {
     const priceRaw = form.price.trim()
     const oldPriceRaw = form.compareAtPrice.trim()
     const quantityRaw = form.quantity.trim()
-    const stockFields = listingFormStockFields(form.category, oldPriceRaw, form.unit, quantityRaw)
+    const stockFields = listingFormCategoryFields(form.category, oldPriceRaw, form.unit, quantityRaw, priceRaw, form.priceNegotiable)
     const payload = {
       title: form.title,
       description: form.description,
@@ -533,7 +532,6 @@ export function EditListingForm({ id }: { id: string }) {
       price: priceRaw === '' ? null : Number(priceRaw),
       ...stockFields,
       currency: form.currency,
-      priceNegotiable: form.priceNegotiable,
       county: form.county === 'none' ? undefined : form.county,
       area: form.area.trim() === '' ? null : form.area.trim(),
       contactPhone: form.contactPhone,
