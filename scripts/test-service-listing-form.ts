@@ -18,6 +18,12 @@ assert.equal(
   'Both publish and edit flows must use the shared category-field normalizer',
 )
 
+assert.equal(
+  (formSource.match(/checked={form\.priceNegotiable \|\| \(form\.category === 'services' && form\.price\.trim\(\) === ''\)}/g) ?? []).length,
+  2,
+  'Both forms must visibly show quote-required state when an unpriced service is selected',
+)
+
 assert.deepEqual(
   listingFormCategoryFields('services', '90000', 'piece', '12', '', false),
   { compareAtPrice: null, unit: null, quantity: null, priceNegotiable: true },
