@@ -153,7 +153,7 @@ jobs:
             echo "Runtime role unexpectedly has CREATE on public schema"
             exit 1
           fi
-          migration_table_access=$(psql "$DATABASE_URL" -Atc "SELECT has_table_privilege('mudaala_runtime','public._prisma_migrations','SELECT')")
+          migration_table_access=$(psql "$DATABASE_URL" -Atc "SELECT CASE WHEN to_regclass('public._prisma_migrations') IS NULL THEN false ELSE has_table_privilege('mudaala_runtime','public._prisma_migrations','SELECT') END")
           if [ "$migration_table_access" != "f" ]; then
             echo "Runtime role unexpectedly has access to Prisma migration metadata"
             exit 1
