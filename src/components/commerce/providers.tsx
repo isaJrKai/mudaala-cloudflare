@@ -36,7 +36,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 }
 
-function CurrentView() {
+function CurrentViewContent() {
   const { view } = useAppStore()
   switch (view.name) {
     case 'home':
@@ -114,3 +114,19 @@ function HashSync() {
 }
 
 export { CurrentView, HashSync }
+
+
+/**
+ * The mango geometry is page-aware: a shared Fibonacci/circle language,
+ * with different scale and placement for each view rather than one sticker
+ * repeated over every screen. This wrapper is visual-only; routing and data
+ * remain inside CurrentViewContent.
+ */
+function CurrentView() {
+  const { view } = useAppStore()
+  return (
+    <div className={`mudaala-page mudaala-page--${view.name}`} data-mudaala-view={view.name}>
+      <CurrentViewContent />
+    </div>
+  )
+}
