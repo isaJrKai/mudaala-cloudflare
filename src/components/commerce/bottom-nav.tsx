@@ -29,7 +29,7 @@ export function BottomNav() {
   const items: Array<{ name: ViewName; label: string; icon: React.ReactNode; badge?: number }> = [
     { name: 'home', label: copy.nav.home, icon: <Home aria-hidden /> },
     { name: 'browse', label: copy.nav.browse, icon: <Search aria-hidden /> },
-    { name: 'publish', label: copy.nav.post, icon: <PlusCircle aria-hidden /> },
+    { name: 'publish', label: copy.nav.post, icon: <Plus aria-hidden /> },
     { name: 'my-listings', label: copy.nav.myListings, icon: <Tag aria-hidden /> },
     { name: 'notifications', label: copy.nav.notifications, icon: <Bell aria-hidden />, badge: unread },
   ]
