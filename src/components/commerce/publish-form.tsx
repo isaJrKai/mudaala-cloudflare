@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast'
 import { apiPost, apiPatch, apiGet } from '@/lib/client'
 import type { Listing, SessionUser } from '@/lib/client'
 import { listingCreateSchema, fieldErrors } from '@/lib/validation'
+import { listingFormCategoryFields } from '@/lib/listing-form-fields'
 import { CATEGORIES, UNITS, CURRENCIES, countryDef, currencyDef } from '@/lib/constants'
 import { useAppStore } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
@@ -115,18 +116,16 @@ export function PublishForm() {
     const priceRaw = form.price.trim()
     const oldPriceRaw = form.compareAtPrice.trim()
     const quantityRaw = form.quantity.trim()
+    const stockFields = listingFormCategoryFields(form.category, oldPriceRaw, form.unit, quantityRaw, priceRaw, form.priceNegotiable)
     return {
       type: form.type,
       title: form.title,
       description: form.description,
       category: form.category === 'none' ? undefined : form.category,
       price: priceRaw === '' ? null : Number(priceRaw),
-      compareAtPrice: oldPriceRaw === '' ? null : Number(oldPriceRaw),
+      ...stockFields,
       currency: form.currency,
       country: user?.country ?? 'UG',
-      priceNegotiable: form.priceNegotiable,
-      unit: form.unit === 'none' ? null : form.unit,
-      quantity: quantityRaw === '' ? null : Number(quantityRaw),
       county: form.county === 'none' ? undefined : form.county,
       area: form.area.trim() === '' ? null : form.area.trim(),
       contactPhone: form.contactPhone,
@@ -214,7 +213,9 @@ export function PublishForm() {
           value={form.title}
           onChange={(e) => set('title', e.target.value)}
           placeholder={
-            form.category === 'other'
+            form.category === 'services'
+              ? "e.g. Women's haircut, wedding photography, plumbing repair"
+              : form.category === 'other'
               ? form.type === 'OFFER'
                 ? 'e.g. perfume, spare parts, firewood'
                 : 'e.g. Need a specific item or material'
@@ -243,6 +244,10 @@ export function PublishForm() {
         </Select>
       </Field>
 
+      {form.category === 'services' ? (
+        <p className="rounded-md border border-primary/20 bg-accent/40 px-3 py-2.5 text-sm text-muted-foreground">Describe the service, the area you cover and what customers should expect. Leave the price empty if customers need to request a quote.</p>
+      ) : null}
+
       <Field label="Description" htmlFor="p-desc" error={errors.description} hint={`${form.description.length}/2000`}>
         <Textarea
           id="p-desc"
@@ -252,7 +257,7 @@ export function PublishForm() {
           maxLength={2000}
           placeholder={
             form.type === 'OFFER'
-              ? copy.publish.descPlaceholderOffer
+              ? (form.category === 'services' ? 'Describe your service, experience, what is included and where you work.' : copy.publish.descPlaceholderOffer)
               : copy.publish.descPlaceholderRequest
           }
           required
@@ -264,8 +269,8 @@ export function PublishForm() {
       </Field>
 
       <div className="rounded-lg border bg-secondary/30 p-3.5">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label={form.type === 'OFFER' ? copy.common.price : copy.common.budget} htmlFor="p-price" error={errors.price}>
+        <div className={cn('grid grid-cols-1 gap-4', form.category === 'services' ? 'sm:grid-cols-1' : 'sm:grid-cols-3')}>
+          <Field label={form.category === 'services' ? (form.type === 'OFFER' ? 'Price / starting price' : 'Budget / maximum budget') : form.type === 'OFFER' ? copy.common.price : copy.common.budget} htmlFor="p-price" error={errors.price}>
             <div className="flex gap-2">
               <Input
                 id="p-price"
@@ -275,7 +280,7 @@ export function PublishForm() {
                 step={currencyDef(form.currency).zeroDecimal ? '1' : '0.01'}
                 value={form.price}
                 onChange={(e) => set('price', e.target.value)}
-                placeholder="Leave empty if negotiable"
+                placeholder={form.category === 'services' ? 'Leave empty to request a quote' : 'Leave empty if negotiable'}
                 className="flex-1"
               />
               {/* Native select: opens the phone's own picker, easiest for everyone. */}
@@ -293,6 +298,7 @@ export function PublishForm() {
               </select>
             </div>
           </Field>
+          {form.category !== 'services' ? (
           <Field
             label={copy.publish.oldPrice}
             htmlFor="p-compare"
@@ -311,6 +317,8 @@ export function PublishForm() {
               disabled={form.type === 'REQUEST'}
             />
           </Field>
+          ) : null}
+          {form.category !== 'services' ? (
           <Field label={copy.publish.per} htmlFor="p-unit" error={errors.unit}>
             <Select value={form.unit} onValueChange={(v) => set('unit', v)}>
               <SelectTrigger id="p-unit" aria-invalid={Boolean(errors.unit)}>
@@ -325,14 +333,16 @@ export function PublishForm() {
               </SelectContent>
             </Select>
           </Field>
+          ) : null}
         </div>
         <label className="mt-3 flex items-center gap-2 text-sm">
-          <Checkbox checked={form.priceNegotiable} onCheckedChange={(v) => set('priceNegotiable', v === true)} />
-          {copy.publish.priceNegotiable}
+          <Checkbox checked={form.priceNegotiable || (form.category === 'services' && form.price.trim() === '')} onCheckedChange={(v) => set('priceNegotiable', v === true)} />
+          {form.category === 'services' ? (form.type === 'OFFER' ? 'Price is negotiable or quote required' : 'Budget is flexible') : copy.publish.priceNegotiable}
         </label>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className={cn('grid grid-cols-1 gap-4', form.category === 'services' ? 'sm:grid-cols-1' : 'sm:grid-cols-2')}>
+        {form.category !== 'services' ? (
         <Field label={copy.publish.quantity} htmlFor="p-qty" error={errors.quantity}>
           <Input
             id="p-qty"
@@ -345,6 +355,7 @@ export function PublishForm() {
             placeholder="e.g. 500"
           />
         </Field>
+        ) : null}
         <Field label={copy.browse.district} htmlFor="p-county" error={errors.county}>
           <Select value={form.county} onValueChange={(v) => set('county', v)}>
             <SelectTrigger id="p-county" aria-invalid={Boolean(errors.county)}>
@@ -513,16 +524,14 @@ export function EditListingForm({ id }: { id: string }) {
     const priceRaw = form.price.trim()
     const oldPriceRaw = form.compareAtPrice.trim()
     const quantityRaw = form.quantity.trim()
+    const stockFields = listingFormCategoryFields(form.category, oldPriceRaw, form.unit, quantityRaw, priceRaw, form.priceNegotiable)
     const payload = {
       title: form.title,
       description: form.description,
       category: form.category === 'none' ? undefined : form.category,
       price: priceRaw === '' ? null : Number(priceRaw),
-      compareAtPrice: oldPriceRaw === '' ? null : Number(oldPriceRaw),
+      ...stockFields,
       currency: form.currency,
-      priceNegotiable: form.priceNegotiable,
-      unit: form.unit === 'none' ? null : form.unit,
-      quantity: quantityRaw === '' ? null : Number(quantityRaw),
       county: form.county === 'none' ? undefined : form.county,
       area: form.area.trim() === '' ? null : form.area.trim(),
       contactPhone: form.contactPhone,
@@ -579,6 +588,10 @@ export function EditListingForm({ id }: { id: string }) {
         </Select>
       </Field>
 
+      {form.category === 'services' ? (
+        <p className="rounded-md border border-primary/20 bg-accent/40 px-3 py-2.5 text-sm text-muted-foreground">Describe the service, the area you cover and what customers should expect. Leave the price empty if customers need to request a quote.</p>
+      ) : null}
+
       <Field label="Description" htmlFor="e-desc" error={errors.description} hint={`${form.description.length}/2000`}>
         <Textarea id="e-desc" value={form.description} onChange={(e) => set('description', e.target.value)} rows={5} maxLength={2000} required />
       </Field>
@@ -587,8 +600,8 @@ export function EditListingForm({ id }: { id: string }) {
         <PhotoPicker value={form.photos} onChange={(photos) => set('photos', photos)} max={4} />
       </Field>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Field label="Price" htmlFor="e-price" error={errors.price}>
+      <div className={cn('grid grid-cols-1 gap-4', form.category === 'services' ? 'sm:grid-cols-1' : 'sm:grid-cols-3')}>
+        <Field label={form.category === 'services' ? (loaded.type === 'OFFER' ? 'Price / starting price' : 'Budget / maximum budget') : 'Price'} htmlFor="e-price" error={errors.price}>
           <div className="flex gap-2">
             <Input
               id="e-price"
@@ -614,6 +627,7 @@ export function EditListingForm({ id }: { id: string }) {
             </select>
           </div>
         </Field>
+        {form.category !== 'services' ? (
         <Field label="Old price (optional)" htmlFor="e-compare" error={errors.compareAtPrice} hint="shows as a discount">
           <Input
             id="e-compare"
@@ -626,6 +640,8 @@ export function EditListingForm({ id }: { id: string }) {
             placeholder="e.g. 30000"
           />
         </Field>
+        ) : null}
+        {form.category !== 'services' ? (
         <Field label="Per" htmlFor="e-unit" error={errors.unit}>
           <Select value={form.unit} onValueChange={(v) => set('unit', v)}>
             <SelectTrigger id="e-unit">
@@ -640,13 +656,15 @@ export function EditListingForm({ id }: { id: string }) {
             </SelectContent>
           </Select>
         </Field>
+        ) : null}
       </div>
       <label className="flex items-center gap-2 text-sm">
-        <Checkbox checked={form.priceNegotiable} onCheckedChange={(v) => set('priceNegotiable', v === true)} />
-        Price is negotiable
+        <Checkbox checked={form.priceNegotiable || (form.category === 'services' && form.price.trim() === '')} onCheckedChange={(v) => set('priceNegotiable', v === true)} />
+        {form.category === 'services' ? (loaded.type === 'OFFER' ? 'Price is negotiable or quote required' : 'Budget is flexible') : 'Price is negotiable'}
       </label>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className={cn('grid grid-cols-1 gap-4', form.category === 'services' ? 'sm:grid-cols-1' : 'sm:grid-cols-2')}>
+        {form.category !== 'services' ? (
         <Field label="Quantity available" htmlFor="e-qty" error={errors.quantity}>
           <Input
             id="e-qty"
@@ -658,6 +676,7 @@ export function EditListingForm({ id }: { id: string }) {
             onChange={(e) => set('quantity', e.target.value)}
           />
         </Field>
+        ) : null}
         <Field label="District / Region" htmlFor="e-county" error={errors.county}>
           <Select value={form.county} onValueChange={(v) => set('county', v)}>
             <SelectTrigger id="e-county">

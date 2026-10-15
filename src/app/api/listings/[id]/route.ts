@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { route, jsonOk, requireUser, ApiError } from '@/lib/api'
-import { listingUpdateSchema, listingStatusSchema, isTransitionAllowed, fieldErrors, normalizePhone, type CountryKey } from '@/lib/validation'
+import { listingUpdateSchema, listingStatusSchema, isTransitionAllowed, fieldErrors, listingNeedsUnit, normalizePhone, type CountryKey } from '@/lib/validation'
 import { db } from '@/lib/db'
 import { expireOverdueListings, getOwnedListingOr404, sanitizePhotos, serializeListing } from '@/lib/listings'
 import { LISTING_ACTIVE_DAYS, countryDef, findProhibitedItem } from '@/lib/constants'
@@ -166,7 +166,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (merged.price === null && !merged.priceNegotiable) {
       throw new ApiError(400, 'Enter a price or mark it as negotiable', { price: 'Enter a price or mark it as negotiable' })
     }
-    if (merged.price !== null && merged.unit === null) {
+    if (listingNeedsUnit(merged.category, merged.price) && merged.unit === null) {
       throw new ApiError(400, 'Choose the unit the price refers to', { unit: 'Choose the unit the price refers to' })
     }
     // Discount rules against the merged record (partials cannot be judged alone).

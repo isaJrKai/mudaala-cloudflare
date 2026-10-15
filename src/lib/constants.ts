@@ -163,7 +163,7 @@ export const CATEGORIES: CategoryDef[] = [
   { key: 'home-decor', label: 'Home Décor & Furniture', examples: 'curtains, rugs, cushions, vases, wall art, furniture, decorative pieces' },
   { key: 'arts-crafts', label: 'Arts & Crafts', examples: 'handmade gifts, crochet, beadwork, pottery, paintings, woven crafts' },
   { key: 'beauty-personal-care', label: 'Beauty & Personal Care', examples: 'perfume, cologne, cosmetics, hair products' },
-  { key: 'services', label: 'Services', examples: 'repair, welding, tailoring, grinding' },
+  { key: 'services', label: 'Services', examples: 'hair, beauty, photography, plumbing, repairs, tutoring' },
   { key: 'other', label: 'Other', examples: 'anything else traded locally' },
 ]
 
