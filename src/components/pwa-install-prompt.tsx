@@ -61,7 +61,7 @@ export function PwaInstallPrompt() {
           </div>
           <p className="text-sm leading-6 text-muted-foreground">
             { /iPhone|iPad|iPod/i.test(navigator.userAgent)
-              ? 'On your iPhone or iPad, open this page in Safari, tap Share, then choose “Add to Home Screen”.'
+              ? 'On your iPhone or iPad, open this page in Safari, tap Share, choose “Add to Home Screen”, turn on “Open as Web App”, then tap Add. If Mudaala opened inside WhatsApp or another app, open the link in Safari first.'
               : /Android/i.test(navigator.userAgent)
                 ? 'Open this page in Chrome, tap the browser menu, then choose “Install app” or “Add to Home screen”.'
                 : 'In Chrome or Edge, use the install icon in the address bar, or open the browser menu and choose “Install Mudaala”.' }
