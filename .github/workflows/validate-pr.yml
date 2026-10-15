@@ -159,7 +159,7 @@ jobs:
             exit 1
           fi
           runtime_policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND policyname='mudaala_runtime_access' AND 'mudaala_runtime'=ANY(roles)")
-          table_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_tables WHERE schemaname='public'")
+          table_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'")
           if [ "$runtime_policy_count" != "$table_count" ]; then
             echo "Expected one runtime policy per public table ($table_count), found $runtime_policy_count"
             exit 1
