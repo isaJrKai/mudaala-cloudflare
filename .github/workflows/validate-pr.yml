@@ -121,7 +121,7 @@ jobs:
             NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
           GRANT CONNECT ON DATABASE mudaala TO mudaala_runtime;
           GRANT USAGE ON SCHEMA public TO mudaala_runtime;
-          DO $
+          DO $body$
           DECLARE tbl record;
           BEGIN
             FOR tbl IN
@@ -135,7 +135,7 @@ jobs:
                 tbl.tablename
               );
             END LOOP;
-          END $;
+          END $body$;
           GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO mudaala_runtime;
           SQL
           role_flags=$(psql "$DATABASE_URL" -Atc "SELECT rolsuper::int || ',' || rolcreatedb::int || ',' || rolcreaterole::int || ',' || rolreplication::int || ',' || rolbypassrls::int FROM pg_roles WHERE rolname='mudaala_runtime'")
