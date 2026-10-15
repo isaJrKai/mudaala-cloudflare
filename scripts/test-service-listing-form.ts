@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { listingFormCategoryFields } from '../src/lib/listing-form-fields'
+import { listingCreateSchema, listingNeedsUnit } from '../src/lib/validation'
 
 const formSource = readFileSync(
   resolve(process.cwd(), 'src/components/commerce/publish-form.tsx'),
@@ -39,6 +40,44 @@ assert.deepEqual(
   listingFormCategoryFields('electronics', '', 'none', '', '75000', true),
   { compareAtPrice: null, unit: null, quantity: null, priceNegotiable: true },
   'Empty optional product fields must remain null',
+)
+
+
+const serviceBase = {
+  type: 'OFFER' as const,
+  title: 'Wedding photography',
+  description: 'Professional wedding photography across Kampala and nearby areas.',
+  category: 'services',
+  compareAtPrice: null,
+  currency: 'UGX',
+  unit: null,
+  quantity: null,
+  country: 'UG',
+  county: 'Central',
+  area: null,
+  contactPhone: '0772345678',
+  contactWhatsapp: null,
+  photos: [],
+}
+
+assert.equal(listingNeedsUnit('services', 45000), false)
+assert.equal(listingNeedsUnit('electronics', 45000), true)
+assert.equal(listingNeedsUnit('electronics', null), false)
+
+assert.equal(
+  listingCreateSchema.safeParse({ ...serviceBase, price: 45000, priceNegotiable: false }).success,
+  true,
+  'A fixed-price service must validate without product unit/quantity fields',
+)
+assert.equal(
+  listingCreateSchema.safeParse({ ...serviceBase, price: null, priceNegotiable: true }).success,
+  true,
+  'A quote-only service must validate without product unit/quantity fields',
+)
+assert.equal(
+  listingCreateSchema.safeParse({ ...serviceBase, category: 'electronics', price: 45000, priceNegotiable: false }).success,
+  false,
+  'Priced product listings must still require a unit',
 )
 
 console.log('Service listing regression checks passed (publish + edit + quote pricing).')
