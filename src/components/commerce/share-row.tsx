@@ -68,7 +68,7 @@ export function ShareAdRow({ title, url, priceLabel, label = copy.listing.shareA
           href={waHref}
           target="_blank"
           rel="noopener noreferrer"
-          className="press flex h-10 flex-1 items-center justify-center gap-1.5 rounded-md border border-emerald-600 bg-emerald-50 text-[14px] font-medium text-emerald-800 hover:bg-emerald-100"
+          className="whatsapp-brand press flex h-10 flex-1 items-center justify-center gap-1.5 rounded-md border text-[14px] font-semibold"
           aria-label={`Share ${title} on WhatsApp`}
         >
           <WhatsAppIcon className="size-4" aria-hidden /> WhatsApp
