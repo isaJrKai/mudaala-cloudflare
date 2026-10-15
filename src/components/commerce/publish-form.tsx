@@ -336,7 +336,7 @@ export function PublishForm() {
           ) : null}
         </div>
         <label className="mt-3 flex items-center gap-2 text-sm">
-          <Checkbox checked={form.priceNegotiable} onCheckedChange={(v) => set('priceNegotiable', v === true)} />
+          <Checkbox checked={form.priceNegotiable || (form.category === 'services' && form.price.trim() === '')} onCheckedChange={(v) => set('priceNegotiable', v === true)} />
           {form.category === 'services' ? (form.type === 'OFFER' ? 'Price is negotiable or quote required' : 'Budget is flexible') : copy.publish.priceNegotiable}
         </label>
       </div>
@@ -659,7 +659,7 @@ export function EditListingForm({ id }: { id: string }) {
         ) : null}
       </div>
       <label className="flex items-center gap-2 text-sm">
-        <Checkbox checked={form.priceNegotiable} onCheckedChange={(v) => set('priceNegotiable', v === true)} />
+        <Checkbox checked={form.priceNegotiable || (form.category === 'services' && form.price.trim() === '')} onCheckedChange={(v) => set('priceNegotiable', v === true)} />
         {form.category === 'services' ? (loaded.type === 'OFFER' ? 'Price is negotiable or quote required' : 'Budget is flexible') : 'Price is negotiable'}
       </label>
 
