@@ -121,20 +121,22 @@ jobs:
             NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
           GRANT CONNECT ON DATABASE mudaala TO mudaala_runtime;
           GRANT USAGE ON SCHEMA public TO mudaala_runtime;
-          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO mudaala_runtime;
-          GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO mudaala_runtime;
-          DO $$
+          DO $
           DECLARE tbl record;
           BEGIN
             FOR tbl IN
-              SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+              SELECT tablename FROM pg_tables
+              WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'
             LOOP
+              EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.%I TO mudaala_runtime', tbl.tablename);
+              EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl.tablename);
               EXECUTE format(
                 'CREATE POLICY mudaala_runtime_access ON public.%I FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true)',
                 tbl.tablename
               );
             END LOOP;
-          END $$;
+          END $;
+          GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO mudaala_runtime;
           SQL
           role_flags=$(psql "$DATABASE_URL" -Atc "SELECT rolsuper::int || ',' || rolcreatedb::int || ',' || rolcreaterole::int || ',' || rolreplication::int || ',' || rolbypassrls::int FROM pg_roles WHERE rolname='mudaala_runtime'")
           if [ "$role_flags" != "0,0,0,0,0" ]; then
@@ -149,6 +151,11 @@ jobs:
           can_create_schema=$(psql "$DATABASE_URL" -Atc "SELECT has_schema_privilege('mudaala_runtime','public','CREATE')")
           if [ "$can_create_schema" != "f" ]; then
             echo "Runtime role unexpectedly has CREATE on public schema"
+            exit 1
+          fi
+          migration_table_access=$(psql "$DATABASE_URL" -Atc "SELECT has_table_privilege('mudaala_runtime','public._prisma_migrations','SELECT')")
+          if [ "$migration_table_access" != "f" ]; then
+            echo "Runtime role unexpectedly has access to Prisma migration metadata"
             exit 1
           fi
           runtime_policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND policyname='mudaala_runtime_access' AND 'mudaala_runtime'=ANY(roles)")
