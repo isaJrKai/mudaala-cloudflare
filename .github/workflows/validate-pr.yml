@@ -109,7 +109,59 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
-      - name: Start local app for API tests
+      - name: Create and prove least-privilege runtime database role
+        # This role is deliberately created only in the disposable CI database.
+        # It cannot own objects, bypass RLS, create roles/databases, or perform DDL.
+        # The app-role RLS policy is permissive by design because user-level
+        # ownership is enforced in the Worker; anon/authenticated remain denied.
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE mudaala_runtime LOGIN PASSWORD 'runtime_test_only'
+            NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+          GRANT CONNECT ON DATABASE mudaala TO mudaala_runtime;
+          GRANT USAGE ON SCHEMA public TO mudaala_runtime;
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO mudaala_runtime;
+          GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO mudaala_runtime;
+          DO $$
+          DECLARE tbl record;
+          BEGIN
+            FOR tbl IN
+              SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+            LOOP
+              EXECUTE format(
+                'CREATE POLICY mudaala_runtime_access ON public.%I FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true)',
+                tbl.tablename
+              );
+            END LOOP;
+          END $$;
+          SQL
+          role_flags=$(psql "$DATABASE_URL" -Atc "SELECT rolsuper::int || ',' || rolcreatedb::int || ',' || rolcreaterole::int || ',' || rolreplication::int || ',' || rolbypassrls::int FROM pg_roles WHERE rolname='mudaala_runtime'")
+          if [ "$role_flags" != "0,0,0,0,0" ]; then
+            echo "Runtime role has unexpected elevated flags: $role_flags"
+            exit 1
+          fi
+          owned_objects=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_class c JOIN pg_roles r ON r.oid=c.relowner WHERE r.rolname='mudaala_runtime'")
+          if [ "$owned_objects" != "0" ]; then
+            echo "Runtime role unexpectedly owns $owned_objects database objects"
+            exit 1
+          fi
+          can_create_schema=$(psql "$DATABASE_URL" -Atc "SELECT has_schema_privilege('mudaala_runtime','public','CREATE')")
+          if [ "$can_create_schema" != "f" ]; then
+            echo "Runtime role unexpectedly has CREATE on public schema"
+            exit 1
+          fi
+          runtime_policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND policyname='mudaala_runtime_access' AND 'mudaala_runtime'=ANY(roles)")
+          table_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_tables WHERE schemaname='public'")
+          if [ "$runtime_policy_count" != "$table_count" ]; then
+            echo "Expected one runtime policy per public table ($table_count), found $runtime_policy_count"
+            exit 1
+          fi
+          echo "Least-privilege role proof passed: no elevated role flags, no owned objects, no schema CREATE, runtime policy covers $table_count public tables."
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
+      - name: Start local app for API tests using restricted runtime role
         run: |
           npm run dev > /tmp/mudaala-dev.log 2>&1 &
           echo $! > /tmp/mudaala-dev.pid
@@ -123,8 +175,8 @@ jobs:
           cat /tmp/mudaala-dev.log
           exit 1
         env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
-          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          DATABASE_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
           CRON_SECRET: ci-only-cron-secret
           SETTINGS_ENCRYPTION_KEY: ci-only-settings-encryption-key-32chars
           ADMIN_PHONES: "+256712000001"
@@ -133,11 +185,11 @@ jobs:
           ALLOW_BEARER_AUTH: "1"
           CSRF_TRUSTED_HOSTS: preview-sandbox.preview-platform.example
 
-      - name: Run API behavior, account-isolation, moderation, and photo tests
+      - name: Run API behavior, account-isolation, moderation, and photo tests under restricted role
         run: npx tsx scripts/test-api.ts
         env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
-          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          DATABASE_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
           CRON_SECRET: ci-only-cron-secret
           SETTINGS_ENCRYPTION_KEY: ci-only-settings-encryption-key-32chars
           ADMIN_PHONES: "+256712000001"
@@ -146,11 +198,11 @@ jobs:
           ALLOW_BEARER_AUTH: "1"
           CSRF_TRUSTED_HOSTS: preview-sandbox.preview-platform.example
 
-      - name: Verify scheduled maintenance authorization and idempotency
+      - name: Verify scheduled maintenance authorization and idempotency under restricted role
         run: npx tsx scripts/test-cron.ts
         env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
-          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          DATABASE_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
           CRON_SECRET: ci-only-cron-secret
           SETTINGS_ENCRYPTION_KEY: ci-only-settings-encryption-key-32chars
           ADMIN_PHONES: "+256712000001"
