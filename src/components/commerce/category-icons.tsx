@@ -12,6 +12,8 @@ import {
   Hammer,
   HelpCircle,
   Package,
+  Palette,
+  Armchair,
   Recycle,
   Shirt,
   Truck,
