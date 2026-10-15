@@ -169,12 +169,16 @@ const listingBaseSchema = z.object({
   photos: z.array(z.string().trim().max(500)).max(4).optional(),
 })
 
+export function listingNeedsUnit(category: string, price: number | null | undefined): boolean {
+  return category !== 'services' && price !== null && price !== undefined
+}
+
 export const listingCreateSchema = listingBaseSchema
   .refine((v) => v.price !== null || v.priceNegotiable || v.type === 'REQUEST', {
     message: 'Enter a price or mark it as negotiable',
     path: ['price'],
   })
-  .refine((v) => v.price === null || v.unit !== null, {
+  .refine((v) => !listingNeedsUnit(v.category, v.price) || v.unit !== null, {
     message: 'Choose the unit the price refers to',
     path: ['unit'],
   })
