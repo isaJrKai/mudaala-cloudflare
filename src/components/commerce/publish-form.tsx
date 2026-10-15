@@ -215,7 +215,7 @@ export function PublishForm() {
           onChange={(e) => set('title', e.target.value)}
           placeholder={
             form.category === 'services'
-              ? 'e.g. Women's haircut, wedding photography, plumbing repair'
+              ? "e.g. Women's haircut, wedding photography, plumbing repair"
               : form.category === 'other'
               ? form.type === 'OFFER'
                 ? 'e.g. perfume, spare parts, firewood'
