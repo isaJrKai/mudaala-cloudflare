@@ -21,42 +21,88 @@ async function preparePhoto(file: File): Promise<File> {
   if (!file.type.startsWith('image/')) {
     throw new Error('Choose an image from your gallery.')
   }
-  if (typeof createImageBitmap !== 'function') {
-    throw new Error('This browser cannot prepare photos. Please try an updated browser.')
-  }
 
-  let bitmap: ImageBitmap
-  try {
-    bitmap = await createImageBitmap(file)
-  } catch {
-    throw new Error('This photo could not be opened. Choose a JPG, PNG or WebP image.')
-  }
+  // Prefer ImageBitmap where available, but retain an HTMLImageElement path
+  // for older/mobile Safari browsers that do not implement createImageBitmap.
+  let width = 0
+  let height = 0
+  let drawSource: CanvasImageSource
+  let bitmap: ImageBitmap | null = null
+  let objectUrl: string | null = null
 
   try {
-    const scale = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height))
+    if (typeof createImageBitmap === 'function') {
+      try {
+        bitmap = await createImageBitmap(file)
+        width = bitmap.width
+        height = bitmap.height
+        drawSource = bitmap
+      } catch {
+        // Some browser/image combinations reject ImageBitmap but can still
+        // decode the same file through a regular image element.
+        objectUrl = URL.createObjectURL(file)
+        const image = await loadImage(objectUrl)
+        width = image.naturalWidth
+        height = image.naturalHeight
+        drawSource = image
+      }
+    } else {
+      objectUrl = URL.createObjectURL(file)
+      const image = await loadImage(objectUrl)
+      width = image.naturalWidth
+      height = image.naturalHeight
+      drawSource = image
+    }
+
+    if (!width || !height) {
+      throw new Error('This photo could not be opened. Choose a JPG, PNG or WebP image.')
+    }
+
+    const scale = Math.min(1, 1200 / Math.max(width, height))
     const canvas = document.createElement('canvas')
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale))
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale))
+    canvas.width = Math.max(1, Math.round(width * scale))
+    canvas.height = Math.max(1, Math.round(height * scale))
     const context = canvas.getContext('2d')
     if (!context) throw new Error('Could not prepare this photo. Please try again.')
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    context.drawImage(drawSource, 0, 0, canvas.width, canvas.height)
 
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((result) => {
-        if (result) resolve(result)
-        else reject(new Error('Could not prepare this photo. Please try again.'))
-      }, 'image/webp', 0.86)
+    // WebP is smaller, but not every browser/canvas implementation supports
+    // encoding it. Fall back to JPEG rather than blocking the entire upload.
+    const blob = await canvasToBlob(canvas, 'image/webp', 0.84)
+      .then((result) => result.type === 'image/webp' ? result : null)
+      .catch(() => null)
+      ?? await canvasToBlob(canvas, 'image/jpeg', 0.86)
+
+    const stem = file.name.replace(/\.[^.]+$/, '') || 'photo'
+    const isJpeg = blob.type === 'image/jpeg'
+    const extension = isJpeg ? 'jpg' : 'webp'
+    return new File([blob], `${stem}.${extension}`, {
+      type: isJpeg ? 'image/jpeg' : 'image/webp',
+      lastModified: Date.now(),
     })
-    if (blob.type !== 'image/webp') {
-      throw new Error('This browser cannot prepare photos. Please try an updated browser.')
-    }
-    const stem = file.name.replace(/\\.[^.]+$/, '') || 'photo'
-    return new File([blob], `${stem}.webp`, { type: 'image/webp', lastModified: Date.now() })
   } finally {
-    bitmap.close()
+    bitmap?.close()
+    if (objectUrl) URL.revokeObjectURL(objectUrl)
   }
 }
 
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('This photo could not be opened. Choose a JPG, PNG or WebP image.'))
+    image.src = src
+  })
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob)
+      else reject(new Error('Could not prepare this photo. Please try again.'))
+    }, type, quality)
+  })
+}
 interface PhotoPickerProps {
   value: string[]
   onChange: (photos: string[]) => void
