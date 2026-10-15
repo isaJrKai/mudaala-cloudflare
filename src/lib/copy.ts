@@ -451,7 +451,7 @@ export const copy = {
     placeholder: 'MD-2623',
     go: 'Find the shop',
     inputAria: 'Shop code',
-    badFormat: 'A shop code looks like MD-2623. You will find it on the shop poster or in their WhatsApp status.',
+    badFormat: 'A shop code looks like MD-2623 (MU-2623 also works). You will find it on the shop poster or in their WhatsApp status.',
   },
 
   // The mobile-money pay sheet. Mudaala never touches money and never sees
