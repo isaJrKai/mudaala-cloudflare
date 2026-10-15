@@ -175,19 +175,45 @@ function AccountDataSection({ user }: { user: SessionUser }) {
 
   async function exportData() {
     try {
-      const res = await fetch('/api/account/export')
-      if (!res.ok) throw new Error(`export failed: ${res.status}`)
+      // Keep the session cookie explicit for mobile browsers and avoid serving
+      // a cached export. The endpoint contains private account data.
+      const res = await fetch('/api/account/export', {
+        method: 'GET',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      })
+      if (!res.ok) {
+        let message = `Export failed (${res.status})`
+        try {
+          const body = await res.json() as { error?: string }
+          if (body.error) message = body.error
+        } catch {
+          // Proxies can return a non-JSON error page; keep the useful status.
+        }
+        throw new Error(message)
+      }
+
       const blob = await res.blob()
+      if (blob.size === 0) throw new Error('The export was empty. Please try again.')
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
+      const disposition = res.headers.get('content-disposition') ?? ''
+      const serverFilename = /filename="([^"]+)"/i.exec(disposition)?.[1]
       a.href = url
-      a.download = `mudaala-data-${new Date().toISOString().slice(0, 10)}.json`
+      a.download = serverFilename || `mudaala-data-${new Date().toISOString().slice(0, 10)}.json`
+      a.style.display = 'none'
       document.body.appendChild(a)
       a.click()
       a.remove()
-      URL.revokeObjectURL(url)
-    } catch {
-      toast({ description: copy.accountData.exportFailed, variant: 'destructive' })
+      // Safari can begin reading a blob URL after the click handler returns.
+      // Revoking synchronously can cancel the download on some mobile versions.
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000)
+    } catch (err) {
+      const message = err instanceof Error && err.message
+        ? err.message
+        : copy.accountData.exportFailed
+      toast({ description: message, variant: 'destructive' })
     }
   }
 

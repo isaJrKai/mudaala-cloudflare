@@ -28,12 +28,14 @@ import { EmptyState } from './empty-state'
 import { PlaceholderTile } from './placeholder-tile'
 import { copy } from '@/lib/copy'
 import { categoryLabel } from '@/lib/constants'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 export function ShopView({ id }: { id: string }) {
   const { navigate } = useAppStore()
   const { user, isLoading: sessionLoading } = useSession()
   const addToBasket = useAddToBasket()
   const [posterOpen, setPosterOpen] = useState(false)
+  const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false)
   // Copy-the-code feedback: the button itself becomes the receipt - it swaps
   // to a check + "Copied" for a beat, the same swap pattern as Add to basket.
   const [copied, setCopied] = useState(false)
@@ -157,13 +159,35 @@ export function ShopView({ id }: { id: string }) {
             />
             <MudaalaCurve className="absolute inset-x-0 bottom-0 block h-5 w-full text-card sm:h-6" />
             {shop.photoUrl ? (
-              <img
-                src={shop.photoUrl}
-                alt={`${shop.name} profile photo`}
-                loading="lazy"
-                className="absolute -bottom-4 left-4 z-10 size-14 rounded-lg border border-border bg-card object-cover sm:-bottom-5 sm:left-5 sm:size-16"
-              />
+              <button
+                type="button"
+                onClick={() => setPhotoPreviewOpen(true)}
+                aria-label={`Enlarge ${shop.name} profile photo`}
+                className="absolute -bottom-4 left-4 z-10 size-14 overflow-hidden rounded-lg border border-border bg-card object-cover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:-bottom-5 sm:left-5 sm:size-16"
+              >
+                <img
+                  src={shop.photoUrl}
+                  alt={`${shop.name} profile photo`}
+                  loading="lazy"
+                  className="size-full object-cover"
+                />
+              </button>
             ) : null}
+            <Dialog open={photoPreviewOpen} onOpenChange={setPhotoPreviewOpen}>
+              <DialogContent className="max-w-[min(92vw,34rem)] p-3 sm:p-4">
+                <DialogHeader>
+                  <DialogTitle>{shop.name}</DialogTitle>
+                  <DialogDescription>Shop profile photo</DialogDescription>
+                </DialogHeader>
+                {shop.photoUrl ? (
+                  <img
+                    src={shop.photoUrl}
+                    alt={`Enlarged profile photo of ${shop.name}`}
+                    className="mx-auto max-h-[70dvh] w-auto max-w-full rounded-md object-contain"
+                  />
+                ) : null}
+              </DialogContent>
+            </Dialog>
           </div>
         ) : (
           <div className="relative">
