@@ -9,7 +9,8 @@
   ],
   "keep_names": false,
   "vars": {
-    "RATE_LIMIT_REQUIRE_SHARED": "1"
+    "RATE_LIMIT_REQUIRE_SHARED": "1",
+    "APP_ORIGIN": "https://mudaala-cloudflare.kaisoisaac.workers.dev"
   },
   "durable_objects": {
     "bindings": [
