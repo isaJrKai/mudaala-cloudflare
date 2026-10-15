@@ -297,7 +297,7 @@ export function ListingDetail({ id }: { id: string }) {
             <SafetyCard />
           </div>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <Button asChild className="press h-11 flex-1 text-[15px]">
+            <Button asChild className="mudaala-money-cta press h-11 flex-1 text-[15px]">
               <a href={telLink(listing.contactPhone)} aria-label={`Call ${formatPhonePretty(listing.contactPhone)}`}>
                 <Phone className="size-4" aria-hidden /> {copy.common.call}
               </a>
