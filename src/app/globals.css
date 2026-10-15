@@ -56,7 +56,7 @@
  */
 :root {
   --radius: 0.5rem;
-  --mango: #F7C843;                        /* signature mango yellow */
+  --mango: #F3B51B;                        /* marigold-leaning mango identity */
   --background: oklch(0.977 0.004 85);        /* warm off-white */
   --foreground: oklch(0.235 0.012 95);        /* warm near-black */
   --card: oklch(0.995 0.002 90);
@@ -78,7 +78,7 @@
   --input: oklch(0.885 0.008 85);
   --ring: #39765D;
   --chart-1: #0F3D2E;
-  --chart-2: #F6C94C;
+  --chart-2: #F3B51B;
   --chart-3: oklch(0.55 0.10 140);
   --chart-4: oklch(0.75 0.08 95);
   --chart-5: oklch(0.50 0.10 25);
@@ -380,9 +380,9 @@ button[aria-disabled="true"] {
  * responsive; the real leaf mark remains botanical green.
  */
 :root {
-  --mango-strong: #F7C843;
-  --mango-soft: #FFF0B8;
-  --mango-pale: #FFF8DF;
+  --mango-strong: #E9BD55;
+  --mango-soft: #F8EBC6;
+  --mango-pale: #FBF6E8;
   --mango-ink: #664B00;
 }
 .mudaala-page {
@@ -487,7 +487,7 @@ button[aria-disabled="true"] {
 .mango-icon {
   color: var(--mango-ink);
   background: var(--mango-soft);
-  border: 1px solid rgb(247 200 67 / 55%);
+  border: 1px solid rgb(233 189 85 / 55%);
   border-radius: 999px;
 }
 .mango-icon svg,
@@ -506,3 +506,33 @@ svg.mango-stroke { stroke: currentColor; }
 @media (prefers-reduced-motion: reduce) {
   .mudaala-page::before, .mudaala-page::after { scroll-behavior: auto; }
 }
+
+
+/* Economic-action color: reserve marigold for actions that create a listing or move a seller toward value. */
+.mudaala-money-cta {
+  background-color: #F3B51B !important;
+  border-color: #F3B51B !important;
+  color: #0F3D2E !important;
+  font-weight: 700;
+}
+.mudaala-money-cta:hover:not(:disabled) {
+  background-color: #E6A90B !important;
+  border-color: #E6A90B !important;
+}
+.mudaala-money-cta:focus-visible {
+  outline: 2px solid #0F3D2E;
+  outline-offset: 3px;
+}
+.mudaala-money-cta:disabled { opacity: .58; }
+
+/* Keep WhatsApp recognizable by its icon and label, while the button belongs to Mudaala. */
+.whatsapp-brand {
+  background-color: #0F3D2E !important;
+  border-color: #0F3D2E !important;
+  color: #FFFFFF !important;
+}
+.whatsapp-brand:hover:not(:disabled) {
+  background-color: #18543F !important;
+  border-color: #18543F !important;
+}
+.whatsapp-brand svg { color: currentColor; }
