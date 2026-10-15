@@ -56,7 +56,7 @@ export function BottomNav() {
             >
               {item.name === 'publish' ? (
                 <>
-                  <span className="flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                  <span className="mudaala-money-cta flex size-10 items-center justify-center rounded-full">
                     <Plus className="size-6" aria-hidden />
                   </span>
                   <span className="font-semibold">{item.label}</span>

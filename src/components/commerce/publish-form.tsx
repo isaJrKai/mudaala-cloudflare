@@ -409,7 +409,7 @@ export function PublishForm() {
       ) : null}
 
       <div className="flex gap-2 pb-2">
-        <Button type="submit" disabled={busy} className="press flex-1 sm:flex-none sm:px-8">
+        <Button type="submit" disabled={busy} className="mudaala-money-cta press flex-1 sm:flex-none sm:px-8">
           {busy ? copy.publish.submitting : copy.publish.submit}
         </Button>
         <Button type="button" variant="outline" onClick={() => navigate({ name: 'browse' })} disabled={busy} className="press">

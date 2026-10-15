@@ -306,7 +306,7 @@ export function ListingDetail({ id }: { id: string }) {
               <Button
                 asChild
                 variant="outline"
-                className="press h-11 flex-1 border-emerald-600 text-[15px] text-emerald-800 hover:bg-emerald-50"
+                className="whatsapp-brand press h-11 flex-1 text-[15px]"
               >
                 <a href={whatsappLink(whatsapp, listing.title, listing.type)} target="_blank" rel="noopener noreferrer">
                   <WhatsAppIcon className="size-4" aria-hidden /> {copy.common.whatsapp}

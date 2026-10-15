@@ -536,7 +536,7 @@ function OfferRow({
           </a>
         </Button>
         {whatsappNumber ? (
-          <Button asChild size="sm" className="h-8 gap-1.5 px-2.5 text-xs">
+          <Button asChild size="sm" className="whatsapp-brand h-8 gap-1.5 px-2.5 text-xs">
             <a
               href={whatsappLink(whatsappNumber, listing.title, listing.type)}
               target="_blank"

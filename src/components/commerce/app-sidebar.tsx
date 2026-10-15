@@ -133,7 +133,7 @@ export function AppSidebar() {
         {/* The one big action - posting is what this app exists for. */}
         <Button
           size="lg"
-          className="w-full text-sm"
+          className="mudaala-money-cta w-full text-sm"
           onClick={() => navigate({ name: 'publish' })}
         >
           <PlusCircle className="size-4" aria-hidden />
@@ -149,12 +149,12 @@ export function AppSidebar() {
             href={supportLink(SUPPORT_WHATSAPP)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2.5 rounded-md border bg-background px-3 py-2.5 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+            className="whatsapp-brand flex items-center gap-2.5 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors"
           >
-            <WhatsAppIcon className="size-4 shrink-0 text-primary" aria-hidden />
+            <WhatsAppIcon className="size-4 shrink-0" aria-hidden />
             <span>
               {copy.nav.helpNeed}{' '}
-              <span className="font-medium text-foreground">{copy.nav.helpWhatsApp}</span>
+              <span className="font-medium">{copy.nav.helpWhatsApp}</span>
             </span>
           </a>
         ) : null}

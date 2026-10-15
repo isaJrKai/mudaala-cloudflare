@@ -237,7 +237,7 @@ export function ListingCard({ listing, onOpen, actions, showStatus, onOpenShop, 
               href={whatsappLink(whatsappNumber, listing.title, listing.type)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-100"
+              className="whatsapp-brand inline-flex h-9 shrink-0 items-center gap-1 rounded-md border px-2.5 text-xs font-semibold transition-colors"
               aria-label={copy.card.whatsappAria(shopDisplayName, listing.title)}
             >
               <WhatsAppIcon className="size-3.5" aria-hidden /> {copy.common.whatsapp}
@@ -374,7 +374,7 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
                 href={whatsappLink(whatsappNumber, listing.title, listing.type)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="press inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-50 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
+                className="whatsapp-brand press inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border text-xs font-semibold"
                 aria-label={copy.card.whatsappAria(shopDisplayName, listing.title)}
               >
                 <WhatsAppIcon className="size-3.5" aria-hidden /> {copy.common.whatsapp}
