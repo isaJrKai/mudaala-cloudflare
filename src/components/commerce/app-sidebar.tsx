@@ -154,7 +154,7 @@ export function AppSidebar() {
             <WhatsAppIcon className="size-4 shrink-0" aria-hidden />
             <span>
               {copy.nav.helpNeed}{' '}
-              <span className="font-medium text-foreground">{copy.nav.helpWhatsApp}</span>
+              <span className="font-medium">{copy.nav.helpWhatsApp}</span>
             </span>
           </a>
         ) : null}
