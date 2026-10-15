@@ -374,63 +374,135 @@ button[aria-disabled="true"] {
 
 
 /*
- * Mango identity layer: the colour is repeated with intent, not sprayed
- * across every surface. Use the circular motif on page introductions and
- * section headers; keep forms, photos, and reading surfaces quiet.
+ * Mudaala mango geometry — a page-aware Fibonacci-inspired visual system.
+ * The circles are composed into each view's canvas, not applied as yellow
+ * stickers to cards. All decoration is behind content, pointer-inert, and
+ * responsive; the real leaf mark remains botanical green.
  */
 :root {
   --mango-strong: #F7C843;
   --mango-soft: #FFF0B8;
+  --mango-pale: #FFF8DF;
   --mango-ink: #664B00;
 }
-.mudaala-orbit {
+.mudaala-page {
+  --orbit-size: clamp(15rem, 29vw, 27rem);
+  --orbit-top: -9rem;
+  --orbit-right: -11rem;
+  --orbit-weight: clamp(1.6rem, 3.2vw, 3rem);
+  --satellite-size: clamp(2.8rem, 6vw, 5.2rem);
+  --satellite-left: 0.25rem;
+  --satellite-bottom: 1.5rem;
   position: relative;
   isolation: isolate;
+  min-width: 0;
 }
-.mudaala-orbit::before {
+.mudaala-page::before,
+.mudaala-page::after {
   content: "";
   position: absolute;
-  z-index: -1;
-  width: clamp(10rem, 27vw, 25rem);
-  aspect-ratio: 1;
-  right: clamp(-8rem, -8vw, -3rem);
-  top: clamp(-12rem, -13vw, -4rem);
-  border: clamp(1.5rem, 4vw, 3.75rem) solid var(--mango-strong);
-  border-radius: 50%;
+  z-index: 0;
   pointer-events: none;
 }
-.mudaala-orbit::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  width: clamp(2.5rem, 6vw, 5rem);
+.mudaala-page::before {
+  width: var(--orbit-size);
   aspect-ratio: 1;
-  left: clamp(-1rem, 1vw, 1.5rem);
-  bottom: -1rem;
+  top: var(--orbit-top);
+  right: var(--orbit-right);
+  border: var(--orbit-weight) solid var(--mango-strong);
+  border-radius: 50%;
+  opacity: .92;
+}
+.mudaala-page::after {
+  width: var(--satellite-size);
+  aspect-ratio: 1;
+  left: var(--satellite-left);
+  bottom: var(--satellite-bottom);
   border-radius: 50%;
   background: var(--mango-soft);
-  box-shadow: 5.25rem -2.75rem 0 -1.05rem var(--mango-strong);
-  pointer-events: none;
+  box-shadow: 4.25rem -2.25rem 0 -1.1rem var(--mango-strong);
+}
+.mudaala-page > * {
+  position: relative;
+  z-index: 1;
+}
+/* Home gets the clearest signature: a large cropped orbit and two echoes. */
+.mudaala-page--home {
+  --orbit-size: clamp(18rem, 35vw, 32rem);
+  --orbit-top: -10rem;
+  --orbit-right: -12rem;
+  --orbit-weight: clamp(2rem, 4vw, 3.8rem);
+  --satellite-size: clamp(3.5rem, 7vw, 6rem);
+  --satellite-left: .5rem;
+  --satellite-bottom: 2rem;
+}
+/* Browse: the ring becomes a side frame so products remain the focal point. */
+.mudaala-page--browse {
+  --orbit-size: clamp(12rem, 22vw, 20rem);
+  --orbit-top: 2.5rem;
+  --orbit-right: -14rem;
+  --orbit-weight: 1.7rem;
+  --satellite-size: 2.8rem;
+  --satellite-left: auto;
+  --satellite-bottom: 5rem;
+  background-image: radial-gradient(circle at calc(100% - 1rem) 11rem, var(--mango-pale) 0 2.4rem, transparent 2.45rem);
+}
+/* Product and shop detail: curved framing lives to the right of the content. */
+.mudaala-page--listing,
+.mudaala-page--shop {
+  --orbit-size: clamp(13rem, 24vw, 22rem);
+  --orbit-top: 1rem;
+  --orbit-right: -14rem;
+  --orbit-weight: 1.8rem;
+  --satellite-size: 2.5rem;
+  --satellite-left: auto;
+  --satellite-bottom: 2.5rem;
+}
+/* Seller workspaces use smaller, quieter arcs near the outer edges. */
+.mudaala-page--publish,
+.mudaala-page--edit,
+.mudaala-page--my-listings,
+.mudaala-page--account,
+.mudaala-page--following {
+  --orbit-size: clamp(10rem, 18vw, 17rem);
+  --orbit-top: 4rem;
+  --orbit-right: -13rem;
+  --orbit-weight: 1.35rem;
+  --satellite-size: 2.2rem;
+  --satellite-left: auto;
+  --satellite-bottom: 1rem;
+}
+.mudaala-page--basket,
+.mudaala-page--saved,
+.mudaala-page--notifications,
+.mudaala-page--settings {
+  --orbit-size: 9rem;
+  --orbit-top: 6rem;
+  --orbit-right: -8rem;
+  --orbit-weight: 1rem;
+  --satellite-size: 1.6rem;
+  --satellite-left: auto;
+  --satellite-bottom: 1rem;
 }
 .mango-icon {
   color: var(--mango-ink);
   background: var(--mango-soft);
   border: 1px solid rgb(247 200 67 / 55%);
-  border-radius: 0.7rem;
+  border-radius: 999px;
 }
 .mango-icon svg,
-svg.mango-stroke {
-  stroke: currentColor;
-}
-.mango-mark {
-  background: var(--mango-strong);
-  color: var(--primary);
-}
-.mango-focus:focus-visible {
-  outline: 3px solid var(--mango-strong);
-  outline-offset: 3px;
+svg.mango-stroke { stroke: currentColor; }
+.mango-mark { background: var(--mango-strong); color: var(--primary); }
+.mango-focus:focus-visible { outline: 3px solid var(--mango-strong); outline-offset: 3px; }
+@media (max-width: 640px) {
+  .mudaala-page--home { --orbit-size: 17rem; --orbit-top: -7rem; --orbit-right: -12rem; --orbit-weight: 1.8rem; }
+  .mudaala-page--browse { --orbit-size: 10rem; --orbit-top: 4rem; --orbit-right: -8rem; --orbit-weight: 1rem; }
+  .mudaala-page--listing, .mudaala-page--shop { --orbit-size: 10rem; --orbit-top: 2rem; --orbit-right: -8rem; --orbit-weight: 1rem; }
+  .mudaala-page--publish, .mudaala-page--edit, .mudaala-page--my-listings,
+  .mudaala-page--account, .mudaala-page--following,
+  .mudaala-page--basket, .mudaala-page--saved, .mudaala-page--notifications,
+  .mudaala-page--settings { --orbit-size: 7rem; --orbit-top: 5rem; --orbit-right: -5.5rem; --orbit-weight: .75rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .mudaala-orbit::before,
-  .mudaala-orbit::after { scroll-behavior: auto; }
+  .mudaala-page::before, .mudaala-page::after { scroll-behavior: auto; }
 }
