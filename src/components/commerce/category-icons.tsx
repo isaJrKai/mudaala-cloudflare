@@ -32,6 +32,8 @@ const CATEGORY_GLYPHS: Record<string, React.ReactNode> = {
   electronics: <Cpu aria-hidden />,
   'transport-haulage': <Truck aria-hidden />,
   'home-kitchen': <CookingPot aria-hidden />,
+  'home-decor': <Armchair aria-hidden />,
+  'arts-crafts': <Palette aria-hidden />,
   'beauty-personal-care': <Sparkles aria-hidden />,
   services: <Wrench aria-hidden />,
   other: <Package aria-hidden />,
