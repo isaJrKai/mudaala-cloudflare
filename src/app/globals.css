@@ -374,7 +374,7 @@ button[aria-disabled="true"] {
 
 
 /*
- * Mudaala mango geometry — a page-aware Fibonacci-inspired visual system.
+ * Mudaala mango geometry: a page-aware Fibonacci-inspired visual system.
  * The circles are composed into each view's canvas, not applied as yellow
  * stickers to cards. All decoration is behind content, pointer-inert, and
  * responsive; the real leaf mark remains botanical green.
