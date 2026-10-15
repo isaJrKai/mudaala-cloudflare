@@ -99,14 +99,13 @@ export function normalizeShopName(name: string): string {
 // Shop-code canonicalizer, shared by the server (lookup API) and the client
 // (browse search detection). Buyers punch in a code like a mobile-money till
 // number - forgiving about case, spaces and dashes ("md 2623", "MD-2623",
-// "md2623" all work), but the match against the stored code stays EXACT, so
-// a mistyped number never lands on a stranger's shop. Both prefixes are
-// accepted and canonicalize to MD-: the digits ARE the identity, so a code
-// read off a pre-rename DK- poster still lands on the same shop. Lives in
-// format.ts because the client imports it and format.ts must stay
-// server-free.
+// "md2623" all work). MU- is accepted as a customer-facing shorthand, and DK-
+// remains supported for older posters; all aliases resolve to the canonical
+// stored MD- code. The digits ARE the identity, so a mistyped number never
+// lands on a stranger's shop. Lives in format.ts because the client imports
+// it and format.ts must stay server-free.
 export function normalizeShopCode(raw: string): string | null {
   const compact = raw.replace(/[\s-]+/g, '').toUpperCase()
-  const match = /^(?:DK|MD)(\d{4})$/.exec(compact)
+  const match = /^(?:DK|MD|MU)(\d{4})$/.exec(compact)
   return match ? `MD-${match[1]}` : null
 }
