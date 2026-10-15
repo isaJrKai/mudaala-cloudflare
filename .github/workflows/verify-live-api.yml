@@ -239,3 +239,47 @@ jobs:
             process.exit(1);
           });
           NODE
+      - name: Verify mobile Post navigation reaches the publish flow
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          node <<'NODE'
+          const { chromium } = require('/tmp/mudaala-browser-test/node_modules/playwright');
+          const base = process.env.APP_URL.replace(/\\/$/, '');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            try {
+              const page = await browser.newPage({
+                viewport: { width: 390, height: 844 },
+                isMobile: true,
+                hasTouch: true,
+              });
+              await page.goto(base + '/#/browse', {
+                waitUntil: 'domcontentloaded',
+                timeout: 60000,
+              });
+
+              const primary = page.getByRole('navigation', { name: 'Primary' });
+              const post = primary.getByRole('button', { name: 'Post' });
+              await post.waitFor({ state: 'visible', timeout: 20000 });
+              await post.click();
+
+              await page.waitForFunction(() => window.location.hash === '#/publish', null, { timeout: 10000 });
+              await page.getByRole('heading', { name: 'Sign in to post an ad' }).waitFor({ timeout: 15000 });
+
+              console.log(JSON.stringify({
+                mobileViewport: '390x844',
+                postAction: 'visible and tappable',
+                destination: window.location.hash,
+                signedOutGuard: 'publish view shown without creating data',
+                writesPerformed: 0,
+              }, null, 2));
+            } finally {
+              await browser.close();
+            }
+          })().catch(error => {
+            console.error(error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          });
+          NODE
