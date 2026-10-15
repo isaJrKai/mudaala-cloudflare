@@ -65,5 +65,5 @@ export function categoryTint(category: string): string {
 // The category glyph itself. Size it from the caller via className using the
 // `[&_svg]:size-X` pattern (e.g. "[&_svg]:size-8").
 export function CategoryGlyph({ category, className }: { category: string; className?: string }) {
-  return <span className={cn('inline-flex', className)}>{CATEGORY_GLYPHS[category] ?? <HelpCircle aria-hidden />}</span>
+  return <span className={cn('inline-flex items-center justify-center rounded-xl border border-amber-300/70 bg-amber-100/80 p-2 text-amber-900 [&_svg]:stroke-current', className)}>{CATEGORY_GLYPHS[category] ?? <HelpCircle aria-hidden />}</span>
 }
