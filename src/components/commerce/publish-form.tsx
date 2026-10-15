@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast'
 import { apiPost, apiPatch, apiGet } from '@/lib/client'
 import type { Listing, SessionUser } from '@/lib/client'
 import { listingCreateSchema, fieldErrors } from '@/lib/validation'
+import { listingFormStockFields } from '@/lib/listing-form-fields'
 import { CATEGORIES, UNITS, CURRENCIES, countryDef, currencyDef } from '@/lib/constants'
 import { useAppStore } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
@@ -115,18 +116,19 @@ export function PublishForm() {
     const priceRaw = form.price.trim()
     const oldPriceRaw = form.compareAtPrice.trim()
     const quantityRaw = form.quantity.trim()
+    const stockFields = listingFormStockFields(form.category, oldPriceRaw, form.unit, quantityRaw)
     return {
       type: form.type,
       title: form.title,
       description: form.description,
       category: form.category === 'none' ? undefined : form.category,
       price: priceRaw === '' ? null : Number(priceRaw),
-      compareAtPrice: form.category === 'services' || oldPriceRaw === '' ? null : Number(oldPriceRaw),
+      ...stockFields,
       currency: form.currency,
       country: user?.country ?? 'UG',
       priceNegotiable: form.priceNegotiable,
-      unit: form.category === 'services' || form.unit === 'none' ? null : form.unit,
-      quantity: form.category === 'services' || quantityRaw === '' ? null : Number(quantityRaw),
+      ...stockFields,
+      ...stockFields,
       county: form.county === 'none' ? undefined : form.county,
       area: form.area.trim() === '' ? null : form.area.trim(),
       contactPhone: form.contactPhone,
@@ -525,16 +527,17 @@ export function EditListingForm({ id }: { id: string }) {
     const priceRaw = form.price.trim()
     const oldPriceRaw = form.compareAtPrice.trim()
     const quantityRaw = form.quantity.trim()
+    const stockFields = listingFormStockFields(form.category, oldPriceRaw, form.unit, quantityRaw)
     const payload = {
       title: form.title,
       description: form.description,
       category: form.category === 'none' ? undefined : form.category,
       price: priceRaw === '' ? null : Number(priceRaw),
-      compareAtPrice: form.category === 'services' || oldPriceRaw === '' ? null : Number(oldPriceRaw),
+      ...stockFields,
       currency: form.currency,
       priceNegotiable: form.priceNegotiable,
-      unit: form.category === 'services' || form.unit === 'none' ? null : form.unit,
-      quantity: form.category === 'services' || quantityRaw === '' ? null : Number(quantityRaw),
+      ...stockFields,
+      ...stockFields,
       county: form.county === 'none' ? undefined : form.county,
       area: form.area.trim() === '' ? null : form.area.trim(),
       contactPhone: form.contactPhone,
