@@ -23,7 +23,7 @@ export default function Home() {
       <AppSidebar />
       <RailShell>
         <AppHeader />
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-4 lg:pb-10">
+        <main className="mudaala-orbit mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-4 lg:pb-10">
           <CurrentView />
         </main>
         <SiteFooter padded />

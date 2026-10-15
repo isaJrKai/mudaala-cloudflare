@@ -37,7 +37,7 @@ export const viewport: Viewport = {
   // browsers the inset is 0, so this is invisible there - it only earns
   // its keep where the hardware actually curves (standalone webviews, PWA).
   viewportFit: "cover",
-  themeColor: "#1d4a35",
+  themeColor: "#F7C843",
 };
 
 export default function RootLayout({

@@ -56,7 +56,7 @@
  */
 :root {
   --radius: 0.5rem;
-  --mango: #F6C94C;                        /* ripe mango, with a stronger yellow tinge */
+  --mango: #F7C843;                        /* signature mango yellow */
   --background: oklch(0.977 0.004 85);        /* warm off-white */
   --foreground: oklch(0.235 0.012 95);        /* warm near-black */
   --card: oklch(0.995 0.002 90);
@@ -86,8 +86,8 @@
   --sidebar-foreground: oklch(0.235 0.012 95);
   --sidebar-primary: #0F3D2E;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: oklch(0.952 0.006 85);
-  --sidebar-accent-foreground: oklch(0.32 0.012 95);
+  --sidebar-accent: #FFF0B8;
+  --sidebar-accent-foreground: #0F3D2E;
   --sidebar-border: oklch(0.906 0.008 85);
   --sidebar-ring: oklch(0.48 0.075 155);
 }
@@ -370,4 +370,67 @@ button[aria-disabled="true"] {
   main .rounded-xl.border.bg-card {
     transition: none;
   }
+}
+
+
+/*
+ * Mango identity layer: the colour is repeated with intent, not sprayed
+ * across every surface. Use the circular motif on page introductions and
+ * section headers; keep forms, photos, and reading surfaces quiet.
+ */
+:root {
+  --mango-strong: #F7C843;
+  --mango-soft: #FFF0B8;
+  --mango-ink: #664B00;
+}
+.mudaala-orbit {
+  position: relative;
+  isolation: isolate;
+}
+.mudaala-orbit::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: clamp(10rem, 27vw, 25rem);
+  aspect-ratio: 1;
+  right: clamp(-8rem, -8vw, -3rem);
+  top: clamp(-12rem, -13vw, -4rem);
+  border: clamp(1.5rem, 4vw, 3.75rem) solid var(--mango-strong);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.mudaala-orbit::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: clamp(2.5rem, 6vw, 5rem);
+  aspect-ratio: 1;
+  left: clamp(-1rem, 1vw, 1.5rem);
+  bottom: -1rem;
+  border-radius: 50%;
+  background: var(--mango-soft);
+  box-shadow: 5.25rem -2.75rem 0 -1.05rem var(--mango-strong);
+  pointer-events: none;
+}
+.mango-icon {
+  color: var(--mango-ink);
+  background: var(--mango-soft);
+  border: 1px solid rgb(247 200 67 / 55%);
+  border-radius: 0.7rem;
+}
+.mango-icon svg,
+svg.mango-stroke {
+  stroke: currentColor;
+}
+.mango-mark {
+  background: var(--mango-strong);
+  color: var(--primary);
+}
+.mango-focus:focus-visible {
+  outline: 3px solid var(--mango-strong);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mudaala-orbit::before,
+  .mudaala-orbit::after { scroll-behavior: auto; }
 }
