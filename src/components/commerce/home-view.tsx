@@ -385,7 +385,7 @@ function BestOffers({ location }: { location: HomeData['location'] }) {
         <button
           type="button"
           onClick={() => setPickOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground/80 transition-colors hover:bg-accent"
+          className="whatsapp-brand inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-colors"
         >
           <MapPin className="size-3.5 text-primary" aria-hidden />
           {locationLabel}
