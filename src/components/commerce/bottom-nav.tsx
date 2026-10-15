@@ -1,6 +1,6 @@
 'use client'
 
-import { Home, Search, PlusCircle, Tag, Bell } from 'lucide-react'
+import { Home, Search, Plus, Tag, Bell } from 'lucide-react'
 import { useAppStore, type ViewName } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { useBellShake } from '@/hooks/use-bell-shake'
@@ -29,7 +29,7 @@ export function BottomNav() {
   const items: Array<{ name: ViewName; label: string; icon: React.ReactNode; badge?: number }> = [
     { name: 'home', label: copy.nav.home, icon: <Home aria-hidden /> },
     { name: 'browse', label: copy.nav.browse, icon: <Search aria-hidden /> },
-    { name: 'publish', label: copy.nav.post, icon: <PlusCircle aria-hidden /> },
+    { name: 'publish', label: copy.nav.post, icon: <Plus aria-hidden /> },
     { name: 'my-listings', label: copy.nav.myListings, icon: <Tag aria-hidden /> },
     { name: 'notifications', label: copy.nav.notifications, icon: <Bell aria-hidden />, badge: unread },
   ]
@@ -49,20 +49,32 @@ export function BottomNav() {
               onClick={() => navigate({ name: item.name })}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'relative flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium',
+                'relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary',
+                item.name === 'publish' ? 'min-h-16 py-1' : 'py-1',
                 active ? 'text-primary' : 'text-muted-foreground',
               )}
             >
-              <span className="[&_svg]:size-5">
-                {item.name === 'notifications' ? (
-                  <span ref={bellRef} className="inline-flex" style={{ transformOrigin: '50% 18%' }}>
-                    {item.icon}
+              {item.name === 'publish' ? (
+                <>
+                  <span className="flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                    <Plus className="size-6" aria-hidden />
                   </span>
-                ) : (
-                  item.icon
-                )}
-              </span>
-              {item.label}
+                  <span className="font-semibold">{item.label}</span>
+                </>
+              ) : (
+                <>
+                  <span className="[&_svg]:size-5">
+                    {item.name === 'notifications' ? (
+                      <span ref={bellRef} className="inline-flex" style={{ transformOrigin: '50% 18%' }}>
+                        {item.icon}
+                      </span>
+                    ) : (
+                      item.icon
+                    )}
+                  </span>
+                  {item.label}
+                </>
+              )}
               {item.badge ? (
                 <span className="absolute right-[22%] top-2 flex size-4 items-center justify-center rounded-full bg-destructive text-[9px] font-semibold text-white">
                   {item.badge > 9 ? '9+' : item.badge}
