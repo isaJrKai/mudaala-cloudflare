@@ -109,6 +109,9 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Test service listing stock-field normalization for publish and edit
+        run: npx tsx scripts/test-service-listing-form.ts
+
       - name: Create and prove least-privilege runtime database role
         # This role is deliberately created only in the disposable CI database.
         # It cannot own objects, bypass RLS, create roles/databases, or perform DDL.
