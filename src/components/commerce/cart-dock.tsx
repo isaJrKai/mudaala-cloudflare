@@ -260,7 +260,9 @@ function CartDockContent() {
           aria-controls="cart-mobile-sheet"
           aria-label={copy.cart.iconAria(count)}
           className={cn(
-            'press fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+3.75rem)] z-30 flex items-center gap-2.5 rounded-xl border bg-card py-2.5 pl-3.5 pr-3 shadow-lg transition-all duration-200 motion-reduce:transition-none lg:bottom-4 lg:left-[16.75rem] xl:hidden',
+            // Keep the tap target above page content (including detail sections)
+            // while leaving modal/dialog layers above the cart control.
+            'press fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+3.75rem)] z-[45] flex items-center gap-2.5 rounded-xl border bg-card py-2.5 pl-3.5 pr-3 shadow-lg transition-all duration-200 motion-reduce:transition-none lg:bottom-4 lg:left-[16.75rem] xl:hidden',
             open ? 'invisible translate-y-2 opacity-0' : 'visible translate-y-0 opacity-100',
           )}
         >
