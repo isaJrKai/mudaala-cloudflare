@@ -40,7 +40,7 @@ import { useSession } from '@/hooks/use-session'
 import { Camera } from 'lucide-react'
 
 function PhotoGallery({ listing }: { listing: ListingDetailT }) {
-  if (listing.photos.length === 0) {
+  if (listing.photos.length === 0 && !listing.videoUrl) {
     // PLACEHOLDER RULE - no photo yet: the neutral tile (flat grey, category
     // name, small camera icon), never a stock or illustrated stand-in.
     return (
@@ -59,12 +59,26 @@ function PhotoGallery({ listing }: { listing: ListingDetailT }) {
         className="flex snap-x snap-mandatory gap-2 overflow-x-auto scrollbar-slim p-2"
         aria-label={copy.listing.photosOfAria(listing.title)}
       >
+        {listing.videoUrl ? (
+          <div key={listing.videoUrl} className="relative h-56 w-[88%] shrink-0 snap-center overflow-hidden rounded-lg border bg-black sm:h-80">
+            <video
+              src={listing.videoUrl}
+              controls
+              playsInline
+              preload="metadata"
+              controlsList="nodownload noplaybackrate"
+              className="size-full object-contain"
+              aria-label={`Video demo for ${listing.title}`}
+            />
+            <span className="absolute left-2 top-2 rounded bg-black/70 px-2 py-1 text-xs font-medium text-white">Video demo</span>
+          </div>
+        ) : null}
         {listing.photos.map((photo, i) => (
           <div key={photo} className="relative h-56 w-[88%] shrink-0 snap-center overflow-hidden rounded-lg border sm:h-80">
             <img
               src={photo}
               alt={copy.listing.photoAlt(listing.title, i, listing.photos.length)}
-              loading={i === 0 ? 'eager' : 'lazy'}
+              loading={i === 0 && !listing.videoUrl ? 'eager' : 'lazy'}
               className="size-full object-cover"
             />
           </div>
