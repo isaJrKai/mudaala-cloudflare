@@ -273,7 +273,7 @@ export function PublishForm() {
       </Field>
 
       <Field label="Video demo (optional)" htmlFor="p-video">
-        <VideoPicker value={form.videoUrl} onChange={(videoUrl) => set('videoUrl', videoUrl)} />
+        <VideoPicker id="p-video" value={form.videoUrl} onChange={(videoUrl) => set('videoUrl', videoUrl)} />
       </Field>
 
       <div className="rounded-lg border bg-secondary/30 p-3.5">
@@ -610,7 +610,7 @@ export function EditListingForm({ id }: { id: string }) {
         <PhotoPicker value={form.photos} onChange={(photos) => set('photos', photos)} max={4} />
       </Field>
       <Field label="Video demo (optional)" htmlFor="e-video">
-        <VideoPicker value={form.videoUrl} onChange={(videoUrl) => set('videoUrl', videoUrl)} />
+        <VideoPicker id="e-video" value={form.videoUrl} onChange={(videoUrl) => set('videoUrl', videoUrl)} />
       </Field>
 
       <div className={cn('grid grid-cols-1 gap-4', form.category === 'services' ? 'sm:grid-cols-1' : 'sm:grid-cols-3')}>
