@@ -37,6 +37,7 @@
 // simply not mounted and nothing changes.
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, CheckCircle2, ChevronLeft, ChevronRight, ChevronUp, ShoppingCart, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatPrice } from '@/lib/format'
@@ -86,6 +87,13 @@ function focusWhenVisible(el: HTMLElement | null, depth = 0) {
 }
 
 function CartDock() {
+  // Keep fixed cart controls outside page-level stacking contexts. The page's
+  // decorative/visual wrappers must never intercept a real mobile tap.
+  if (typeof document === 'undefined') return null
+  return createPortal(<CartDockContent />, document.body)
+}
+
+function CartDockContent() {
   const { navigate } = useAppStore()
   const basket = useBasket()
   const shopIds = Object.keys(basket.lines)
