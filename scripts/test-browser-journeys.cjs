@@ -57,7 +57,35 @@ async function verifySavedSearch(browser) {
       console.error('Saved-search browser diagnostic:', JSON.stringify(diagnostics, null, 2));
       throw error;
     }
-    await saveButton.click();
+    try {
+      // Keep the failure bounded and capture the actual hit target. A visible
+      // button can still be blocked by a transparent overlay or another layer.
+      await saveButton.click({ timeout: 6000 });
+    } catch (error) {
+      const diagnostics = await saveButton.evaluateAll((buttons) => buttons.map((el) => {
+        const rect = el.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        const hit = document.elementFromPoint(x, y);
+        return {
+          text: el.innerText.trim(),
+          ariaLabel: el.getAttribute('aria-label'),
+          disabled: el.disabled,
+          rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+          pointerEvents: getComputedStyle(el).pointerEvents,
+          hitTarget: hit ? {
+            tag: hit.tagName,
+            text: (hit.textContent || '').trim().slice(0, 160),
+            ariaLabel: hit.getAttribute('aria-label'),
+            className: typeof hit.className === 'string' ? hit.className.slice(0, 240) : '',
+          } : null,
+          url: window.location.href,
+          bodyText: document.body.innerText.slice(0, 1800),
+        };
+      }));
+      console.error('Saved-search click diagnostic:', JSON.stringify(diagnostics, null, 2));
+      throw error;
+    }
 
     const dialog = page.getByRole('dialog');
     await dialog.waitFor({ state: 'visible', timeout });
