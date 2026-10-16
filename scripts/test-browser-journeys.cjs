@@ -231,7 +231,7 @@ async function verifyListingLifecycle(browser) {
       return response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/listings';
     }, { timeout });
-    await page.locator('form').getByRole('button', { name: /publish/i }).click();
+    await page.locator('#p-title').locator('xpath=ancestor::form').getByRole('button', { name: /publish/i }).click();
     const createResponse = await createResponsePromise;
     const createBody = await createResponse.text();
     if (createResponse.status() !== 201) {
