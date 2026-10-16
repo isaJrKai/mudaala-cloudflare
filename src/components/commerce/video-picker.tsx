@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useState } from 'react'
+import { useState } from 'react'
 import { Loader2, Video, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { apiFetch } from '@/lib/client'
@@ -9,10 +9,9 @@ import { cn } from '@/lib/utils'
 const MAX_VIDEO_BYTES = 20 * 1024 * 1024
 
 /** One optional, original MP4/WebM demo. Playback is always user initiated. */
-export function VideoPicker({ value, onChange }: { value: string | null; onChange: (url: string | null) => void }) {
+export function VideoPicker({ id, value, onChange }: { id: string; value: string | null; onChange: (url: string | null) => void }) {
   const { toast } = useToast()
   const [busy, setBusy] = useState(false)
-  const inputId = useId().replace(/:/g, '')
 
   async function upload(file: File | undefined) {
     if (!file) return
@@ -66,7 +65,7 @@ export function VideoPicker({ value, onChange }: { value: string | null; onChang
         </div>
       ) : (
         <label
-          htmlFor={inputId}
+          htmlFor={id}
           className={cn(
             'flex min-h-20 cursor-pointer items-center gap-3 rounded-lg border border-dashed bg-secondary/20 p-3 transition-colors hover:bg-accent',
             busy && 'pointer-events-none opacity-60',
@@ -82,7 +81,7 @@ export function VideoPicker({ value, onChange }: { value: string | null; onChang
         </label>
       )}
       <input
-        id={inputId}
+        id={id}
         type="file"
         accept="video/mp4,video/webm"
         className="sr-only"
