@@ -58,9 +58,9 @@ export function NotificationsView() {
   // that silently deletes a seller's expiry history.
   const clearAll = useMutation({
     mutationFn: () => apiDelete<{ ok: boolean }>('/api/notifications?ids=all'),
-    onSuccess: () => {
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] })
       setConfirmClear(false)
-      void queryClient.invalidateQueries({ queryKey: ['notifications'] })
       toast({ title: 'Notifications cleared' })
     },
     onError: (err: Error) => toast({
