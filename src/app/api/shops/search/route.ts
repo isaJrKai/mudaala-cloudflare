@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     // First use indexed/DB-side substring candidates for arbitrary shop ages.
     // OR-ing individual words avoids requiring the exact spacing/punctuation
-    // the customer typed. A second, bounded recent window catches Unicode
+    // the customer typed. A second, tightly bounded recent window catches Unicode
     // styling that PostgreSQL's raw text contains() cannot see.
     const matchedCandidates = await db.user.findMany({
       where: {
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       },
       select,
       orderBy: { updatedAt: 'desc' },
-      take: 300,
+      take: 100,
     })
 
     // Normalize each candidate exactly once. Re-normalizing both names in
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       const recentCandidates = await db.user.findMany({
         select,
         orderBy: { updatedAt: 'desc' },
-        take: 500,
+        take: 100,
       })
       candidates = toShops(recentCandidates)
     }
