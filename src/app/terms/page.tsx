@@ -7,8 +7,6 @@ export const metadata = legalPageMetadata({
   description: 'The rules of the market: what you may sell, how you must treat people, and what Mudaala is.',
 })
 
-export const dynamic = 'force-dynamic'
-
 export default function TermsPage() {
   return (
     <>
