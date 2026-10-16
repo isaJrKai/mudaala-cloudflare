@@ -268,6 +268,23 @@ jobs:
                 : null;
               if (!offer) throw new Error('No active offer is available for mobile cart-overlay verification');
 
+              async function tapMobile(locator) {
+                await locator.waitFor({ state: 'visible', timeout: 15000 });
+                await page.waitForTimeout(250);
+                const point = await locator.evaluate(el => {
+                  const rect = el.getBoundingClientRect();
+                  const viewport = window.visualViewport;
+                  const scale = viewport?.scale ?? 1;
+                  const offsetLeft = viewport?.offsetLeft ?? 0;
+                  const offsetTop = viewport?.offsetTop ?? 0;
+                  return {
+                    x: (rect.left + rect.width / 2 - offsetLeft) / scale,
+                    y: (rect.top + rect.height / 2 - offsetTop) / scale,
+                  };
+                });
+                await page.touchscreen.tap(point.x, point.y);
+              }
+
               await page.goto(base + '/#/listing/' + encodeURIComponent(offer.id), {
                 waitUntil: 'domcontentloaded',
                 timeout: 60000,
@@ -286,22 +303,24 @@ jobs:
                 return {
                   rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
                   viewport: { innerWidth: window.innerWidth, innerHeight: window.innerHeight, clientWidth: document.documentElement.clientWidth, clientHeight: document.documentElement.clientHeight, scrollY: window.scrollY },
+                  visualViewport: window.visualViewport ? { width: window.visualViewport.width, height: window.visualViewport.height, scale: window.visualViewport.scale, offsetLeft: window.visualViewport.offsetLeft, offsetTop: window.visualViewport.offsetTop } : null,
+                  viewportMeta: document.querySelector('meta[name="viewport"]')?.getAttribute('content') ?? null,
                   buttonStyle: { position: style.position, zIndex: style.zIndex, pointerEvents: style.pointerEvents, left: style.left, right: style.right, bottom: style.bottom, width: style.width, transform: style.transform },
                   layerStyle: layerStyle ? { position: layerStyle.position, zIndex: layerStyle.zIndex, pointerEvents: layerStyle.pointerEvents, width: layerStyle.width, height: layerStyle.height } : null,
                   hitTarget: top ? { tag: top.tagName, id: top.id, className: typeof top.className === 'string' ? top.className : '', isCartButton: top === el, insideCartButton: el.contains(top) } : null,
                 };
               });
               console.log('Mobile cart hit-test diagnostics:', JSON.stringify(hitTest));
-              await cartBar.click();
+              await tapMobile(cartBar);
               const cartSheet = page.locator('#cart-mobile-sheet');
               await cartSheet.waitFor({ state: 'visible', timeout: 10000 });
-              await cartSheet.getByRole('button', { name: 'Close the cart' }).click();
+              await tapMobile(cartSheet.getByRole('button', { name: 'Close the cart' }));
               await cartSheet.waitFor({ state: 'hidden', timeout: 10000 });
 
               const primary = page.getByRole('navigation', { name: 'Primary' });
               const post = primary.getByRole('button', { name: 'Post' });
               await post.waitFor({ state: 'visible', timeout: 20000 });
-              await post.click();
+              await tapMobile(post);
 
               await page.waitForFunction(() => window.location.hash === '#/publish', null, { timeout: 10000 });
               await page.getByRole('heading', { name: 'Sign in to post an ad' }).waitFor({ timeout: 15000 });
