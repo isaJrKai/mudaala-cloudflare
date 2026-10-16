@@ -17,6 +17,7 @@ import { chooseStorage } from '@/lib/storage'
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024 // 8 MB
 const MAX_VIDEO_BYTES = 20 * 1024 * 1024 // 20 MB; original files only, no Worker transcoding
+const VIDEO_UPLOADS_PER_HOUR = 5
 
 // Read the first bytes and say what the file REALLY is, if anything we accept.
 function sniffVideo(b: Uint8Array): { extension: 'mp4' | 'webm'; contentType: 'video/mp4' | 'video/webm' } | null {
@@ -177,6 +178,14 @@ export async function POST(request: Request) {
       const video = sniffVideo(head)
       if (!video) {
         throw new ApiError(400, 'That file is not a supported MP4 or WebM video')
+      }
+      const videoIpVerdict = await hit(`upload-video:ip:${ip}`, VIDEO_UPLOADS_PER_HOUR, UPLOAD_WINDOW_MS)
+      if (!videoIpVerdict.ok) {
+        throw new ApiError(429, 'You have uploaded several videos recently. Please try again later')
+      }
+      const videoUserVerdict = await hit(`upload-video:user:${user.id}`, VIDEO_UPLOADS_PER_HOUR, UPLOAD_WINDOW_MS)
+      if (!videoUserVerdict.ok) {
+        throw new ApiError(429, 'You have uploaded several videos recently. Please try again later')
       }
       // No transcoding in the Worker: store a validated original video so
       // upload processing stays bounded and image uploads remain unchanged.
