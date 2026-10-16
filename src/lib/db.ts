@@ -14,8 +14,6 @@ function runtimeDatabaseUrl() {
   const value = process.env.DATABASE_URL
   if (!value) return value
 
-  // Keep compatibility with existing Supabase pooler configuration outside
-  // Cloudflare Hyperdrive.
   try {
     const url = new URL(value)
     if (url.port === '6543' && url.hostname.endsWith('.pooler.supabase.com')) {
@@ -30,22 +28,31 @@ function runtimeDatabaseUrl() {
   return value
 }
 
+// A Worker isolate can handle many requests. Reuse its Prisma client rather
+// than constructing a new adapter/client for every property access through db.
+// Hyperdrive owns the upstream pool; maxUses: 1 defeats connection reuse.
+let cachedPrisma: PrismaClient | undefined
+let cachedConnectionString: string | undefined
+
 function getPrisma(): PrismaClient {
   const connectionString = runtimeDatabaseUrl()
   if (!connectionString) {
     throw new Error('DATABASE_URL or Cloudflare HYPERDRIVE is required to initialize Prisma')
   }
 
-  // Hyperdrive owns the underlying connection pool. Create a short-lived
-  // Prisma client for each access instead of retaining a Worker-global pool.
-  const adapter = new PrismaPg({ connectionString, maxUses: 1 })
-  return new PrismaClient({
+  if (cachedPrisma && cachedConnectionString === connectionString) return cachedPrisma
+
+  const adapter = new PrismaPg({ connectionString })
+  const client = new PrismaClient({
     adapter,
     log:
       process.env.PRISMA_LOG_QUERIES === '1' || process.env.PRISMA_LOG_QUERIES === 'true'
         ? ['query']
         : ['error'],
   })
+  cachedConnectionString = connectionString
+  cachedPrisma = client
+  return client
 }
 
 export const db = new Proxy({} as PrismaClient, {
