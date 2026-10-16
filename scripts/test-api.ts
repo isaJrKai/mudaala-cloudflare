@@ -1074,6 +1074,19 @@ async function main() {
     const raceStatuses = raceResults.map((result) => result.status).sort((a, b) => a - b)
     ok('simultaneous removal is one 200 and one 404, never 503', raceStatuses[0] === 200 && raceStatuses[1] === 404, raceStatuses.join(', '))
 
+    const checkRaceFixture = await call('POST', '/api/saved-searches', { name: 'Concurrent check test', query: { q: 'copper' } }, ss)
+    ok('concurrent-check fixture created', checkRaceFixture.status === 201)
+    const checkRaceId = checkRaceFixture.json?.search?.id as string
+    const checkRaceResults = await Promise.all([
+      call('POST', '/api/saved-searches/' + checkRaceId + '/check', undefined, ss),
+      call('DELETE', '/api/saved-searches/' + checkRaceId, undefined, ss),
+    ])
+    ok(
+      'checking while removing a search returns controlled outcomes, not 5xx',
+      [200, 404].includes(checkRaceResults[0].status) && checkRaceResults[1].status === 200,
+      'check=' + checkRaceResults[0].status + ', remove=' + checkRaceResults[1].status,
+    )
+
     const markRead = await call('POST', '/api/notifications/mark-read?ids=all', undefined, ss)
     ok('mark all read works', markRead.status === 200)
     const afterRead = await call('GET', '/api/notifications', undefined, ss)
