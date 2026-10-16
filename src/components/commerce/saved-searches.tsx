@@ -43,10 +43,15 @@ export function SavedSearches() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiDelete<{ ok: boolean }>(`/api/saved-searches/${id}`),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['saved-searches'] })
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['saved-searches'] })
       toast({ title: 'Saved search removed' })
     },
+    onError: (err: Error) => toast({
+      title: 'Could not remove saved search',
+      description: err.message,
+      variant: 'destructive',
+    }),
   })
 
   if (sessionLoading) return <ListingListSkeleton count={2} />
