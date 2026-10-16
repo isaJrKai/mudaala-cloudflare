@@ -250,5 +250,15 @@ export function readStorageEnv(env: Record<string, string | undefined> = process
 
 export function chooseStorage(env: Record<string, string | undefined> = process.env): PhotoStorage {
   const s3 = readStorageEnv(env)
-  return s3 ? new S3Storage(s3) : new LocalDiskStorage()
+  if (s3) return new S3Storage(s3)
+
+  // Cloudflare Workers do not have durable local-disk storage. Silently
+  // returning /uploads URLs in production creates false-success uploads that
+  // disappear or cannot be served after the request. Keep disk only for local
+  // development and fail closed in production when storage is misconfigured.
+  if (env.NODE_ENV === 'production') {
+    throw new Error('Production photo storage is not configured: STORAGE_ENDPOINT, STORAGE_BUCKET, STORAGE_KEY and STORAGE_SECRET are required')
+  }
+
+  return new LocalDiskStorage()
 }
