@@ -181,6 +181,12 @@ async function verifySavedSearch(browser) {
 async function verifyListingLifecycle(browser) {
   const context = await browser.newContext({ viewport: { width: 1365, height: 900 } });
   const page = await context.newPage();
+  const browserConsoleErrors = [];
+  const browserPageErrors = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') browserConsoleErrors.push(message.text().slice(0, 500));
+  });
+  page.on('pageerror', (error) => browserPageErrors.push(String(error.message).slice(0, 500)));
   const phone = uniquePhone();
   const title = 'Browser lifecycle ' + Date.now();
   const editedTitle = title + ' edited';
@@ -256,6 +262,8 @@ async function verifyListingLifecycle(browser) {
         }).map(el => (el.textContent || '').trim()).slice(-30),
         bodyText: document.body.innerText.slice(-3500),
       }));
+      diagnostics.browserConsoleErrors = browserConsoleErrors;
+      diagnostics.browserPageErrors = browserPageErrors;
       console.error('Listing publish browser diagnostic:', JSON.stringify(diagnostics, null, 2));
       throw error;
     }
