@@ -181,6 +181,7 @@ async function verifySavedSearch(browser) {
 async function verifyMobileCart(browser) {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
+    screen: { width: 390, height: 844 },
     deviceScaleFactor: 1,
     isMobile: true,
     hasTouch: true,
@@ -248,6 +249,8 @@ async function verifyMobileCart(browser) {
           } : null,
           screen: { width: screen.width, height: screen.height, devicePixelRatio },
           viewportMeta: metaViewport?.getAttribute('content') ?? null,
+          rootZoom: getComputedStyle(document.documentElement).zoom,
+          bodyZoom: getComputedStyle(document.body).zoom,
           button: describe(el),
           buttonAncestors: ancestors(el),
           hitTarget: describe(hit),
