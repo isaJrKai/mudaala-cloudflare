@@ -232,7 +232,33 @@ async function verifyListingLifecycle(browser) {
         && new URL(response.url()).pathname === '/api/listings';
     }, { timeout });
     await page.locator('#p-title').locator('xpath=ancestor::form').getByRole('button', { name: /publish/i }).click();
-    const createResponse = await createResponsePromise;
+    let createResponse;
+    try {
+      createResponse = await createResponsePromise;
+    } catch (error) {
+      // A form-level Zod rejection intentionally prevents the API request. If
+      // the browser journey times out, capture the visible validation state so
+      // the next CI run identifies the missing/invalid field instead of only
+      // reporting a generic waitForResponse timeout.
+      const diagnostics = await page.evaluate(() => ({
+        url: window.location.href,
+        title: document.title,
+        alerts: Array.from(document.querySelectorAll('[role="alert"]')).map(el => (el.textContent || '').trim()).filter(Boolean),
+        fields: Array.from(document.querySelectorAll('#p-title,#p-desc,#p-price,#p-compare,#p-qty,#p-phone,#p-wa,#p-category,#p-unit,#p-county')).map(el => ({
+          id: el.id,
+          value: 'value' in el ? el.value : (el.textContent || '').trim(),
+          invalid: el.getAttribute('aria-invalid'),
+          required: 'required' in el ? el.required : false,
+        })),
+        visibleErrors: Array.from(document.querySelectorAll('p,span,div')).filter(el => {
+          const text = (el.textContent || '').trim();
+          return text.length > 0 && text.length < 180 && /choose a category|choose the unit|price must|quantity must|phone number|at least 4 characters|at least 20 characters|choose your district|negotiable/i.test(text);
+        }).map(el => (el.textContent || '').trim()).slice(-30),
+        bodyText: document.body.innerText.slice(-3500),
+      }));
+      console.error('Listing publish browser diagnostic:', JSON.stringify(diagnostics, null, 2));
+      throw error;
+    }
     const createBody = await createResponse.text();
     if (createResponse.status() !== 201) {
       throw new Error('Listing creation failed: HTTP ' + createResponse.status() + ' ' + createBody.slice(0, 500));
