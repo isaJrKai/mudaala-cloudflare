@@ -1035,6 +1035,13 @@ async function main() {
     ok('saved search created with computed match count', create.status === 201 && create.json?.search?.lastMatchCount >= 1)
     const savedId = create.json.search.id
 
+    // Prove the create operation persists and is visible through the same GET
+    // endpoint used by the Saved searches screen, not only in the POST response.
+    const savedList = await call('GET', '/api/saved-searches', undefined, ss)
+    const persistedSearch = savedList.json?.searches?.find((search: any) => search.id === savedId)
+    ok('new saved search is retrievable from Saved searches list', savedList.status === 200 && Boolean(persistedSearch))
+    ok('retrieved saved search preserves its filters', persistedSearch?.name === 'Copper in Kampala' && JSON.parse(persistedSearch?.queryJson ?? '{}')?.q === 'copper' && JSON.parse(persistedSearch?.queryJson ?? '{}')?.county === 'Kampala')
+
     const otherUserDelete = await call('DELETE', `/api/saved-searches/${savedId}`, undefined, bob)
     ok('another user cannot delete my saved search → 404', otherUserDelete.status === 404)
 
@@ -1051,6 +1058,11 @@ async function main() {
 
     const check = await call('POST', `/api/saved-searches/${savedId}/check`, undefined, ss)
     ok('check-now recomputes count upward', check.status === 200 && check.json.search.lastMatchCount >= create.json.search.lastMatchCount)
+
+    const removed = await call('DELETE', `/api/saved-searches/${savedId}`, undefined, ss)
+    ok('owner can remove their saved search', removed.status === 200 && removed.json?.ok === true)
+    const afterRemove = await call('GET', '/api/saved-searches', undefined, ss)
+    ok('removed saved search stays removed after reloading list', afterRemove.status === 200 && !afterRemove.json.searches.some((search: any) => search.id === savedId))
 
     const markRead = await call('POST', '/api/notifications/mark-read?ids=all', undefined, ss)
     ok('mark all read works', markRead.status === 200)
