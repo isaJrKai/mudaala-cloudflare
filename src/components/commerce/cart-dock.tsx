@@ -157,7 +157,10 @@ function CartDockContent() {
       typeof window !== 'undefined' &&
       !window.matchMedia('(prefers-reduced-motion: reduce)').matches
     ) {
-      for (const el of [stripRef.current, barRef.current]) {
+      // Keep the mobile control stationary while it becomes tappable. The
+      // browser hit-testing check exposed the scale animation as a source of
+      // unstable click geometry immediately after adding an item.
+      for (const el of [stripRef.current]) {
         el?.animate(
           [
             { transform: 'scale(1)' },
@@ -266,7 +269,7 @@ function CartDockContent() {
           aria-label={copy.cart.iconAria(count)}
           style={{ zIndex: 1000, pointerEvents: 'auto' }}
           className={cn(
-            'press fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+3.75rem)] z-50 flex items-center gap-2.5 rounded-xl border bg-card py-2.5 pl-3.5 pr-3 shadow-lg transition-all duration-200 motion-reduce:transition-none lg:bottom-4 lg:left-[16.75rem] xl:hidden',
+            'press fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+3.75rem)] z-[100] flex items-center gap-2.5 rounded-xl border bg-card py-2.5 pl-3.5 pr-3 shadow-lg transition-all duration-200 motion-reduce:transition-none lg:bottom-4 lg:left-[16.75rem] xl:hidden',
             open ? 'invisible translate-y-2 opacity-0' : 'visible translate-y-0 opacity-100',
           )}
         >
@@ -297,7 +300,7 @@ function CartDockContent() {
         onClick={() => setOpen(false)}
         style={{ zIndex: 1001, pointerEvents: 'auto' }}
         className={cn(
-          'fixed inset-0 z-50 bg-black/40 transition-opacity duration-200 motion-reduce:transition-none xl:hidden',
+          'fixed inset-0 z-[100] bg-black/40 transition-opacity duration-200 motion-reduce:transition-none xl:hidden',
           open ? 'visible opacity-100' : 'invisible opacity-0',
         )}
       />
@@ -312,7 +315,7 @@ function CartDockContent() {
         aria-label={copy.cart.railAria}
         style={{ zIndex: 1002, pointerEvents: 'auto' }}
         className={cn(
-          'fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] z-50 mx-auto flex max-h-[70dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border bg-card shadow-xl outline-none transition-all duration-200 motion-reduce:transition-none lg:bottom-4 lg:rounded-2xl xl:hidden',
+          'fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] z-[100] mx-auto flex max-h-[70dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border bg-card shadow-xl outline-none transition-all duration-200 motion-reduce:transition-none lg:bottom-4 lg:rounded-2xl xl:hidden',
           open ? 'visible translate-y-0 opacity-100' : 'invisible translate-y-6 opacity-0',
         )}
       >
