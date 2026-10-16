@@ -22,7 +22,7 @@ export interface PhotoStorage {
   /** Human-readable provider name for logs and health reporting. */
   readonly name: string
   /** Persist one validated photo; resolves with its PUBLIC url. */
-  save(data: Buffer, extension: string): Promise<string>
+  save(data: Buffer, extension: string, options?: { contentType?: string; prefix?: string }): Promise<string>
   /** Delete one stored photo by its public URL. A URL this provider does not
    *  own resolves quietly; an already-deleted object too - deletion is
    *  idempotent because account deletion must never fail on a missing file. */
@@ -38,7 +38,7 @@ const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads')
 export class LocalDiskStorage implements PhotoStorage {
   readonly name = 'local-disk'
 
-  async save(data: Buffer, extension: string): Promise<string> {
+  async save(data: Buffer, extension: string, _options?: { contentType?: string; prefix?: string }): Promise<string> {
     const name = `${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}.${extension}`
     await fs.mkdir(UPLOAD_DIR, { recursive: true })
     await fs.writeFile(path.join(UPLOAD_DIR, name), data)
@@ -162,9 +162,10 @@ export class S3Storage implements PhotoStorage {
       throw new Error('S3 put failed')
     }
   }
-  async save(data: Buffer, extension: string): Promise<string> {
-    const key = `photos/${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}.${extension}`
-    const contentType = extension === 'jpg' ? 'image/jpeg' : extension === 'png' ? 'image/png' : 'image/webp'
+  async save(data: Buffer, extension: string, options: { contentType?: string; prefix?: string } = {}): Promise<string> {
+    const prefix = options.prefix === 'videos' ? 'videos' : 'photos'
+    const key = `${prefix}/${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}.${extension}`
+    const contentType = options.contentType ?? (extension === 'jpg' ? 'image/jpeg' : extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'application/octet-stream')
     await this.put(key, data, contentType)
     return this.publicUrlFor(key)
   }
