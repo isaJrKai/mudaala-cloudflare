@@ -15,9 +15,23 @@ import { hit, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
 import { chooseStorage } from '@/lib/storage'
 
-const MAX_BYTES = 8 * 1024 * 1024 // 8MB upload limit
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024 // 8 MB
+const MAX_VIDEO_BYTES = 20 * 1024 * 1024 // 20 MB; original files only, no Worker transcoding
+const VIDEO_UPLOADS_PER_HOUR = 5
 
 // Read the first bytes and say what the file REALLY is, if anything we accept.
+function sniffVideo(b: Uint8Array): { extension: 'mp4' | 'webm'; contentType: 'video/mp4' | 'video/webm' } | null {
+  // ISO Base Media File Format: the first box is ftyp for normal MP4 uploads.
+  if (b.length >= 12 && String.fromCharCode(...b.slice(4, 8)) === 'ftyp') {
+    return { extension: 'mp4', contentType: 'video/mp4' }
+  }
+  // Matroska/WebM EBML header.
+  if (b.length >= 4 && b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) {
+    return { extension: 'webm', contentType: 'video/webm' }
+  }
+  return null
+}
+
 function sniffImage(b: Uint8Array): 'jpg' | 'png' | 'webp' | null {
   if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'jpg'
   if (
@@ -138,34 +152,68 @@ export async function POST(request: Request) {
 
     const form = await request.formData().catch(() => null)
     const file = form?.get('file')
+    const rawKind = form?.get('kind')
+    const kind = rawKind === 'video' ? 'video' : 'photo'
+    if (rawKind !== null && rawKind !== 'photo' && rawKind !== 'video') {
+      throw new ApiError(400, 'Choose photo or video media')
+    }
     if (!(file instanceof File) || file.size === 0) {
-      throw new ApiError(400, 'Choose a photo to upload')
-    }
-    if (file.size > MAX_BYTES) {
-      throw new ApiError(413, 'That photo is too large - 8MB is the limit')
+      throw new ApiError(400, kind === 'video' ? 'Choose a video to upload' : 'Choose a photo to upload')
     }
 
-    // Magic bytes, not the filename, decide acceptance.
+    const maxBytes = kind === 'video' ? MAX_VIDEO_BYTES : MAX_PHOTO_BYTES
+    if (file.size > maxBytes) {
+      throw new ApiError(413, kind === 'video' ? 'That video is too large - 20 MB is the limit' : 'That photo is too large - 8 MB is the limit')
+    }
+
+    // Inspect file signatures instead of trusting the browser MIME type or name.
     const head = new Uint8Array(await file.slice(0, 12).arrayBuffer())
-    const detectedType = sniffImage(head)
-    if (!detectedType) {
-      throw new ApiError(400, 'That file is not a JPEG, PNG or WebP image')
+    const original = new Uint8Array(await file.arrayBuffer())
+    let input: Buffer
+    let extension: string
+    let contentType: string
+    let prefix: 'photos' | 'videos'
+
+    if (kind === 'video') {
+      const video = sniffVideo(head)
+      if (!video) {
+        throw new ApiError(400, 'That file is not a supported MP4 or WebM video')
+      }
+      const videoIpVerdict = await hit(`upload-video:ip:${ip}`, VIDEO_UPLOADS_PER_HOUR, UPLOAD_WINDOW_MS)
+      if (!videoIpVerdict.ok) {
+        throw new ApiError(429, 'You have uploaded several videos recently. Please try again later')
+      }
+      const videoUserVerdict = await hit(`upload-video:user:${user.id}`, VIDEO_UPLOADS_PER_HOUR, UPLOAD_WINDOW_MS)
+      if (!videoUserVerdict.ok) {
+        throw new ApiError(429, 'You have uploaded several videos recently. Please try again later')
+      }
+      // No transcoding in the Worker: store a validated original video so
+      // upload processing stays bounded and image uploads remain unchanged.
+      input = Buffer.from(original)
+      extension = video.extension
+      contentType = video.contentType
+      prefix = 'videos'
+    } else {
+      const detectedType = sniffImage(head)
+      if (!detectedType) {
+        throw new ApiError(400, 'That file is not a JPEG, PNG or WebP image')
+      }
+      // Keep the existing photo pipeline: strip metadata, preserve original
+      // raster bytes, and store under the photos prefix.
+      input = Buffer.from(stripImageMetadata(original, detectedType))
+      extension = detectedType
+      contentType = detectedType === 'jpg' ? 'image/jpeg' : detectedType === 'png' ? 'image/png' : 'image/webp'
+      prefix = 'photos'
     }
 
-    // Cloudflare Workers cannot run sharp's native binaries, and canvas
-    // image APIs are not part of the documented Workers runtime. Keep the
-    // upload compatible by storing the validated original raster image.
-    // The storage layer derives Content-Type from the detected magic bytes.
-    const original = new Uint8Array(await file.arrayBuffer())
-    const input = Buffer.from(stripImageMetadata(original, detectedType))
     let url: string
     try {
-      url = await chooseStorage().save(input, detectedType)
+      url = await chooseStorage().save(input, extension, { contentType, prefix })
     } catch (err) {
-      console.error('[upload] storage write failed:', err)
-      throw new ApiError(502, 'The photo could not be stored right now. Please try again')
+      console.error('[upload] media storage write failed:', err)
+      throw new ApiError(502, kind === 'video' ? 'The video could not be stored right now. Please try again' : 'The photo could not be stored right now. Please try again')
     }
 
-    return jsonOk({ url }, 201)
+    return jsonOk({ url, kind }, 201)
   })
 }

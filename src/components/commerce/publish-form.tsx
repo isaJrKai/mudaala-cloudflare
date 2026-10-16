@@ -20,6 +20,7 @@ import { useSession } from '@/hooks/use-session'
 import { ErrorState } from './listings-browse'
 import { ListingListSkeleton } from './skeletons'
 import { PhotoPicker } from './photo-picker'
+import { VideoPicker } from './video-picker'
 import { cn } from '@/lib/utils'
 import { copy } from '@/lib/copy'
 
@@ -39,6 +40,7 @@ interface FormState {
   contactPhone: string
   contactWhatsapp: string
   photos: string[]
+  videoUrl: string | null
 }
 
 const EMPTY_FORM: FormState = {
@@ -57,6 +59,7 @@ const EMPTY_FORM: FormState = {
   contactPhone: '',
   contactWhatsapp: '',
   photos: [],
+  videoUrl: null,
 }
 
 // Publish (and edit) a listing. Required fields are validated with the SAME
@@ -131,6 +134,7 @@ export function PublishForm() {
       contactPhone: form.contactPhone,
       contactWhatsapp: form.contactWhatsapp.trim() === '' ? null : form.contactWhatsapp.trim(),
       photos: form.photos,
+      videoUrl: form.videoUrl,
     }
   }
 
@@ -266,6 +270,10 @@ export function PublishForm() {
 
       <Field label={copy.publish.photos} htmlFor="p-photos" hint={copy.publish.photosHint}>
         <PhotoPicker value={form.photos} onChange={(photos) => set('photos', photos)} max={4} />
+      </Field>
+
+      <Field label="Video demo (optional)" htmlFor="p-video">
+        <VideoPicker id="p-video" value={form.videoUrl} onChange={(videoUrl) => set('videoUrl', videoUrl)} />
       </Field>
 
       <div className="rounded-lg border bg-secondary/30 p-3.5">
@@ -480,6 +488,7 @@ export function EditListingForm({ id }: { id: string }) {
           contactPhone: listing.contactPhone,
           contactWhatsapp: listing.contactWhatsapp ?? '',
           photos: listing.photos ?? [],
+          videoUrl: listing.videoUrl ?? null,
         })
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : 'Could not load listing'))
@@ -537,6 +546,7 @@ export function EditListingForm({ id }: { id: string }) {
       contactPhone: form.contactPhone,
       contactWhatsapp: form.contactWhatsapp.trim() === '' ? null : form.contactWhatsapp.trim(),
       photos: form.photos,
+      videoUrl: form.videoUrl,
     }
 
     const parsed = listingCreateSchema.safeParse({ ...payload, type: current.type })
@@ -598,6 +608,9 @@ export function EditListingForm({ id }: { id: string }) {
 
       <Field label="Photos" htmlFor="e-photos" hint="Real photos get more calls">
         <PhotoPicker value={form.photos} onChange={(photos) => set('photos', photos)} max={4} />
+      </Field>
+      <Field label="Video demo (optional)" htmlFor="e-video">
+        <VideoPicker id="e-video" value={form.videoUrl} onChange={(videoUrl) => set('videoUrl', videoUrl)} />
       </Field>
 
       <div className={cn('grid grid-cols-1 gap-4', form.category === 'services' ? 'sm:grid-cols-1' : 'sm:grid-cols-3')}>

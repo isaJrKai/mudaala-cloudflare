@@ -9,7 +9,7 @@
 // never a stock or generated image. Contact stays on the card: Call and
 // WhatsApp are reachable without opening the ad.
 
-import { Check, Heart, Phone, Plus, Store } from 'lucide-react'
+import { Check, Heart, Phone, Plus, Store, Video } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/commerce/brand-icons'
 import { formatPrice, formatQuantity, timeAgo, telLink, whatsappLink } from '@/lib/format'
 import { unitLabel } from '@/lib/constants'
@@ -44,6 +44,16 @@ interface ListingCardProps {
 function ListingPhoto({ listing, className }: { listing: Listing; className?: string }) {
   if (listing.photos.length > 0) {
     return <img src={listing.photos[0]} alt="" loading="lazy" className={cn('size-full object-cover', className)} />
+  }
+  // A video-only ad still needs a clear, quiet browse thumbnail. Playback
+  // is deliberately deferred to the detail page and requires a buyer action.
+  if (listing.videoUrl) {
+    return (
+      <div className={cn('flex size-full flex-col items-center justify-center gap-1 bg-secondary/70 text-muted-foreground', className)}>
+        <Video className="size-5" aria-hidden />
+        <span className="text-[10px] font-medium">Video demo</span>
+      </div>
+    )
   }
   // PLACEHOLDER RULE - no photo yet: the neutral tile (flat grey, category
   // name, small camera icon), never a stock or illustrated stand-in.

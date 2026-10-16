@@ -22,7 +22,7 @@ export interface PhotoStorage {
   /** Human-readable provider name for logs and health reporting. */
   readonly name: string
   /** Persist one validated photo; resolves with its PUBLIC url. */
-  save(data: Buffer, extension: string): Promise<string>
+  save(data: Buffer, extension: string, options?: { contentType?: string; prefix?: string }): Promise<string>
   /** Delete one stored photo by its public URL. A URL this provider does not
    *  own resolves quietly; an already-deleted object too - deletion is
    *  idempotent because account deletion must never fail on a missing file. */
@@ -38,7 +38,7 @@ const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads')
 export class LocalDiskStorage implements PhotoStorage {
   readonly name = 'local-disk'
 
-  async save(data: Buffer, extension: string): Promise<string> {
+  async save(data: Buffer, extension: string, _options?: { contentType?: string; prefix?: string }): Promise<string> {
     const name = `${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}.${extension}`
     await fs.mkdir(UPLOAD_DIR, { recursive: true })
     await fs.writeFile(path.join(UPLOAD_DIR, name), data)
@@ -162,9 +162,10 @@ export class S3Storage implements PhotoStorage {
       throw new Error('S3 put failed')
     }
   }
-  async save(data: Buffer, extension: string): Promise<string> {
-    const key = `photos/${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}.${extension}`
-    const contentType = extension === 'jpg' ? 'image/jpeg' : extension === 'png' ? 'image/png' : 'image/webp'
+  async save(data: Buffer, extension: string, options: { contentType?: string; prefix?: string } = {}): Promise<string> {
+    const prefix = options.prefix === 'videos' ? 'videos' : 'photos'
+    const key = `${prefix}/${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}.${extension}`
+    const contentType = options.contentType ?? (extension === 'jpg' ? 'image/jpeg' : extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'application/octet-stream')
     await this.put(key, data, contentType)
     return this.publicUrlFor(key)
   }
@@ -250,5 +251,15 @@ export function readStorageEnv(env: Record<string, string | undefined> = process
 
 export function chooseStorage(env: Record<string, string | undefined> = process.env): PhotoStorage {
   const s3 = readStorageEnv(env)
-  return s3 ? new S3Storage(s3) : new LocalDiskStorage()
+  if (s3) return new S3Storage(s3)
+
+  // Cloudflare Workers do not have durable local-disk storage. Silently
+  // returning /uploads URLs in production creates false-success uploads that
+  // disappear or cannot be served after the request. Keep disk only for local
+  // development and fail closed in production when storage is misconfigured.
+  if (env.NODE_ENV === 'production') {
+    throw new Error('Production photo storage is not configured: STORAGE_ENDPOINT, STORAGE_BUCKET, STORAGE_KEY and STORAGE_SECRET are required')
+  }
+
+  return new LocalDiskStorage()
 }

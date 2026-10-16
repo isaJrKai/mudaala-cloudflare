@@ -10,6 +10,7 @@ import {
   searchListings,
   notifySavedSearchMatches,
   sanitizePhotos,
+  sanitizeVideoUrl,
   serializeListing,
 } from '@/lib/listings'
 import { LISTING_ACTIVE_DAYS, countryDef, currencyDef, findProhibitedItem } from '@/lib/constants'
@@ -116,6 +117,7 @@ export async function POST(request: Request) {
         contactPhone,
         contactWhatsapp,
         photos: JSON.stringify(sanitizePhotos(data.photos)),
+        videoUrl: sanitizeVideoUrl(data.videoUrl),
         status: 'ACTIVE',
         publishedAt: now,
         refreshedAt: now,

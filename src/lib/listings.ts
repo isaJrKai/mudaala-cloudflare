@@ -125,6 +125,15 @@ export function sanitizePhotos(input: unknown): string[] {
   return out
 }
 
+// A listing can carry one optional demo video, stored separately from its
+// photos so existing image galleries and cards never try to render video as an image.
+export function sanitizeVideoUrl(input: unknown): string | null {
+  if (typeof input !== 'string') return null
+  const value = input.trim()
+  if (!value || value.length > 500) return null
+  return value.startsWith('/uploads/') || /^https?:\/\/\S+$/i.test(value) ? value : null
+}
+
 // Serialize a listing for the API: photos become a real array.
 export function serializeListing<T extends { photos: string }>(listing: T): Serialized<T> {
   const { photos, ...rest } = listing

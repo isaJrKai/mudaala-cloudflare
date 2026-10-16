@@ -91,6 +91,7 @@ export interface Listing {
   contactPhone: string
   contactWhatsapp: string | null
   photos: string[]
+  videoUrl?: string | null
   status: ListingStatus
   viewCount: number
   publishedAt: string

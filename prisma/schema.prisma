@@ -128,6 +128,7 @@ model Listing {
   contactPhone     String // normalized E.164
   contactWhatsapp  String?
   photos           String    @default("[]") // JSON array of image URLs (SQLite has no array type)
+  videoUrl         String?   // Optional single MP4/WebM product/service demo; separate from photos
   // PLACEHOLDER RULE - seed listings (and their /uploads/seed/ photos) are
   // development fixtures; flagged so scripts/remove-seed-data.ts can wipe
   // them in one step, and so sitemaps/OG never ship them as real content.
