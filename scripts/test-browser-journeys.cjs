@@ -18,6 +18,7 @@ async function verifySavedSearch(browser) {
   const context = await browser.newContext({ viewport: { width: 1365, height: 900 } });
   const page = await context.newPage();
   const phone = uniquePhone();
+  const searchTerm = 'browser persistence ' + Date.now();
   const searchName = 'Browser persistence ' + Date.now();
 
   try {
@@ -49,6 +50,11 @@ async function verifySavedSearch(browser) {
       await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
       await shopSetupDialog.waitFor({ state: 'hidden', timeout });
     }
+
+    // Give the saved search meaningful filters so Apply is verified as a
+    // state-restoring action, not merely a navigation to Browse.
+    await page.getByRole('searchbox', { name: /search/i }).fill(searchTerm);
+    await page.waitForTimeout(500); // matches the UI's 350 ms debounce
 
     const saveButton = page.getByRole('button', { name: /save (this )?search/i });
     try {
@@ -114,6 +120,11 @@ async function verifySavedSearch(browser) {
     const row = page.locator('div.rounded-lg.border.bg-card.p-4').filter({ hasText: searchName });
     await row.getByRole('button', { name: /apply/i }).click();
     await page.waitForFunction(() => window.location.hash === '#/browse', null, { timeout });
+    await page.getByRole('searchbox', { name: /search/i }).waitFor({ state: 'visible', timeout });
+    const appliedSearchTerm = await page.getByRole('searchbox', { name: /search/i }).inputValue();
+    if (appliedSearchTerm !== searchTerm) {
+      throw new Error(`Saved-search Apply did not restore the search term: expected "${searchTerm}", received "${appliedSearchTerm}"`);
+    }
 
     await page.goto(base + '/#/saved', { waitUntil: 'domcontentloaded', timeout: 60000 });
     const savedRow = page.locator('div.rounded-lg.border.bg-card.p-4').filter({ hasText: searchName });
