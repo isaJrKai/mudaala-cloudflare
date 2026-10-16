@@ -117,7 +117,20 @@ async function verifySavedSearch(browser) {
 
     await page.goto(base + '/#/saved', { waitUntil: 'domcontentloaded', timeout: 60000 });
     const savedRow = page.locator('div.rounded-lg.border.bg-card.p-4').filter({ hasText: searchName });
+    // Capture the actual delete response as well as the rendered outcome. This
+    // makes a server/database failure distinguishable from a stale UI row.
+    const deleteResponsePromise = page.waitForResponse((response) => {
+      const request = response.request();
+      return request.method() === 'DELETE'
+        && new URL(response.url()).pathname.startsWith('/api/saved-searches/');
+    }, { timeout });
     await savedRow.getByRole('button', { name: /remove/i }).click();
+    const deleteResponse = await deleteResponsePromise;
+    const deleteBody = await deleteResponse.text();
+    if (!deleteResponse.ok()) {
+      throw new Error(`Saved-search deletion failed: HTTP ${deleteResponse.status()} ${deleteBody.slice(0, 500)}`);
+    }
+    await page.getByText('Saved search removed', { exact: true }).waitFor({ state: 'visible', timeout });
     await page.getByText(searchName, { exact: true }).waitFor({ state: 'detached', timeout });
 
     // Revisit after deletion; a local-only optimistic update must not pass.
