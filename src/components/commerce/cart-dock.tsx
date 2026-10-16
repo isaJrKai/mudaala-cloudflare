@@ -90,7 +90,7 @@ function CartDock() {
   // Keep fixed cart controls outside page-level stacking contexts. The page's
   // decorative/visual wrappers must never intercept a real mobile tap.
   if (typeof document === 'undefined') return null
-  return createPortal(<CartDockContent />, document.body)
+  return createPortal(<CartDockContent />, document.documentElement)
 }
 
 function CartDockContent() {
@@ -157,7 +157,9 @@ function CartDockContent() {
       typeof window !== 'undefined' &&
       !window.matchMedia('(prefers-reduced-motion: reduce)').matches
     ) {
-      for (const el of [stripRef.current, barRef.current]) {
+      // The mobile cart must not animate its hitbox as soon as it appears.
+      // Keep the small pop on the desktop rail only.
+      for (const el of [stripRef.current]) {
         el?.animate(
           [
             { transform: 'scale(1)' },
@@ -192,7 +194,7 @@ function CartDockContent() {
         aria-controls="basket-rail-panel"
         aria-label={copy.cart.iconAria(count)}
         className={cn(
-          'press fixed right-0 top-14 z-30 hidden w-16 flex-col items-center gap-1.5 rounded-l-xl border bg-card py-3 shadow-sm transition-all duration-200 motion-reduce:transition-none xl:flex',
+          'press absolute right-0 top-14 z-30 hidden w-16 flex-col items-center gap-1.5 rounded-l-xl border bg-card py-3 shadow-sm transition-all duration-200 motion-reduce:transition-none xl:flex',
           open ? 'invisible translate-x-full' : 'visible translate-x-0',
         )}
       >
@@ -218,7 +220,7 @@ function CartDockContent() {
         aria-label={copy.cart.railAria}
         style={{ pointerEvents: 'auto' }}
         className={cn(
-          'fixed bottom-4 right-0 top-14 z-30 hidden w-80 flex-col overflow-hidden rounded-l-xl border bg-card shadow-xl outline-none transition-all duration-200 motion-reduce:transition-none xl:flex',
+          'absolute bottom-4 right-0 top-14 z-30 hidden w-80 flex-col overflow-hidden rounded-l-xl border bg-card shadow-xl outline-none transition-all duration-200 motion-reduce:transition-none xl:flex',
           open ? 'visible translate-x-0' : 'invisible translate-x-full',
         )}
       >
@@ -265,7 +267,7 @@ function CartDockContent() {
           aria-label={copy.cart.iconAria(count)}
           style={{ zIndex: 1000, pointerEvents: 'auto' }}
           className={cn(
-            'press fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+3.75rem)] z-50 flex items-center gap-2.5 rounded-xl border bg-card py-2.5 pl-3.5 pr-3 shadow-lg transition-all duration-200 motion-reduce:transition-none lg:bottom-4 lg:left-[16.75rem] xl:hidden',
+            'press absolute inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+3.75rem)] z-50 flex items-center gap-2.5 rounded-xl border bg-card py-2.5 pl-3.5 pr-3 shadow-lg transition-all duration-200 motion-reduce:transition-none lg:bottom-4 lg:left-[16.75rem] xl:hidden',
             open ? 'invisible translate-y-2 opacity-0' : 'visible translate-y-0 opacity-100',
           )}
         >
@@ -296,7 +298,7 @@ function CartDockContent() {
         onClick={() => setOpen(false)}
         style={{ zIndex: 1001, pointerEvents: 'auto' }}
         className={cn(
-          'fixed inset-0 z-50 bg-black/40 transition-opacity duration-200 motion-reduce:transition-none xl:hidden',
+          'absolute inset-0 z-50 bg-black/40 transition-opacity duration-200 motion-reduce:transition-none xl:hidden',
           open ? 'visible opacity-100' : 'invisible opacity-0',
         )}
       />
@@ -311,7 +313,7 @@ function CartDockContent() {
         aria-label={copy.cart.railAria}
         style={{ zIndex: 1002, pointerEvents: 'auto' }}
         className={cn(
-          'fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] z-50 mx-auto flex max-h-[70dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border bg-card shadow-xl outline-none transition-all duration-200 motion-reduce:transition-none lg:bottom-4 lg:rounded-2xl xl:hidden',
+          'absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] z-50 mx-auto flex max-h-[70dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border bg-card shadow-xl outline-none transition-all duration-200 motion-reduce:transition-none lg:bottom-4 lg:rounded-2xl xl:hidden',
           open ? 'visible translate-y-0 opacity-100' : 'invisible translate-y-6 opacity-0',
         )}
       >
