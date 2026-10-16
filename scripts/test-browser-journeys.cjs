@@ -202,7 +202,52 @@ async function verifyMobileCart(browser) {
     await page.getByRole('button', { name: /add to cart/i }).click();
     const cartBar = page.locator('button[aria-controls="cart-mobile-sheet"]');
     await cartBar.waitFor({ state: 'visible', timeout });
-    await cartBar.click({ timeout });
+    try {
+      await cartBar.click({ timeout });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => {
+        const el = document.querySelector('button[aria-controls="cart-mobile-sheet"]');
+        if (!(el instanceof HTMLElement)) return { found: false };
+        const rect = el.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        const hit = document.elementFromPoint(x, y);
+        const describe = (node) => {
+          if (!(node instanceof HTMLElement)) return null;
+          const style = getComputedStyle(node);
+          const box = node.getBoundingClientRect();
+          return {
+            tag: node.tagName,
+            text: (node.innerText || '').trim().slice(0, 100),
+            className: typeof node.className === 'string' ? node.className.slice(0, 220) : '',
+            position: style.position,
+            zIndex: style.zIndex,
+            transform: style.transform,
+            opacity: style.opacity,
+            pointerEvents: style.pointerEvents,
+            rect: { x: box.x, y: box.y, width: box.width, height: box.height },
+          };
+        };
+        const ancestors = (node) => {
+          const result = [];
+          let current = node;
+          while (current instanceof HTMLElement && result.length < 8) {
+            result.push(describe(current));
+            current = current.parentElement;
+          }
+          return result;
+        };
+        return {
+          viewport: { width: innerWidth, height: innerHeight },
+          button: describe(el),
+          buttonAncestors: ancestors(el),
+          hitTarget: describe(hit),
+          hitAncestors: ancestors(hit),
+        };
+      });
+      console.error('Mobile cart click diagnostic:', JSON.stringify(diagnostic, null, 2));
+      throw error;
+    }
     const cartSheet = page.locator('#cart-mobile-sheet');
     await cartSheet.waitFor({ state: 'visible', timeout });
     await cartSheet.getByRole('button', { name: /close the cart/i }).click();
