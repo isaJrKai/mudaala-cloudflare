@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480">
+  <title>Mudaala African textile accent pattern</title>
+  <desc>Hand-cut geometric textile motifs in marigold, cream and forest green, with restrained red, cobalt and burnt-orange details on black.</desc>
+  <rect width="480" height="480" fill="#10100F"/>
+  <defs>
+    <pattern id="stitch" width="16" height="16" patternUnits="userSpaceOnUse">
+      <path d="M3 3h4M11 11h3" stroke="#10100F" stroke-width="3" stroke-linecap="square"/>
+    </pattern>
+  </defs>
+  <!-- Top band: blocks, beads, dots and ribs -->
+  <g stroke="#10100F" stroke-width="7" stroke-linejoin="round">
+    <path fill="#C83A32" d="M-10 4 20-8 38 17 8 29Z"/>
+    <path fill="#C83A32" d="M12 36 42 24 52 40 22 54Z"/>
+    <path fill="#F3E9D2" d="M45 0 78 0 82 34 48 31Z"/>
+    <path fill="#285D91" d="M45 36 80 32 85 66 50 69Z"/>
+    <path fill="#E3AD22" d="M88 9 120 2 128 24 96 34Z"/>
+    <path fill="#F3E9D2" d="M112-5 143-5 151 75 127 84 111 62 120 39Z"/>
+    <path d="M129 6 132 17M131 27 135 38M133 49 137 60" stroke="#10100F" stroke-width="5"/>
+    <path fill="#E3AD22" d="M157 4 190-4 205 13 174 25Z"/>
+    <path fill="#F3E9D2" d="M171 32 204 23 216 43 183 55Z"/>
+    <path fill="#C83A32" d="M198 4 211-1 222 12 210 23Z"/>
+    <path fill="#E3AD22" d="M222-8 292-8 284 70 263 84 232 64Z"/>
+    <g fill="#10100F" stroke="none">
+      <circle cx="239" cy="10" r="5"/><circle cx="270" cy="8" r="5"/><circle cx="253" cy="30" r="5"/><circle cx="279" cy="48" r="5"/><circle cx="242" cy="58" r="5"/>
+    </g>
+    <path fill="#245B43" d="M298-10 349-10 343 78 300 83 289 57 299 30Z"/>
+    <path d="M292 8Q322 15 349 7M291 23Q322 30 348 22M291 39Q321 46 346 38M292 56Q320 62 345 54M296 70Q322 75 343 68" fill="none" stroke="#10100F" stroke-width="4"/>
+    <path fill="#E3AD22" d="M354-8 392-8 402 6 391 25 405 39 390 56 400 73 378 83 354 65 362 44 352 24Z"/>
+    <path d="M360 12 377 16M360 34 379 38M365 56 384 60" stroke="#C85D2D" stroke-width="5" stroke-linecap="round"/>
+    <g fill="#C83A32">
+      <path d="M405 6 423 0 432 15 414 23Z"/><path d="M427 30 445 24 454 39 436 47Z"/><path d="M407 53 425 47 434 62 416 70Z"/>
+    </g>
+    <path fill="#E3AD22" d="M399 76Q437 49 486 70L490 88Q439 66 402 98Z"/>
+    <path fill="#F3E9D2" d="M453-6 470-6 476 16 466 28 476 40 465 52 476 64 465 77 449 68 456 54 446 42 456 29 446 16Z"/>
+  </g>
+  <!-- Central band: ribbons, mosaic, stripes and waves -->
+  <g stroke="#10100F" stroke-width="7" stroke-linejoin="round">
+    <path fill="#E3AD22" d="M-10 105 33 95 44 121 28 140 44 160 25 181 40 202 18 225-10 216Z"/>
+    <path fill="#245B43" d="M-8 130 28 120 32 138-8 150ZM-8 166 31 154 36 172-8 184ZM-8 202 26 191 32 209-8 220Z"/>
+    <path fill="#285D91" d="M2 105 29 98 35 113 8 122Z"/>
+    <path fill="#C83A32" d="M45 99Q75 119 58 143T64 186Q75 208 55 231L38 219Q53 199 43 183T39 145Q55 124 34 111Z"/>
+    <path fill="#E3AD22" d="M65 142 89 124 104 139 84 157Z"/>
+    <path fill="#C85D2D" d="M66 184 88 170 102 185 81 201Z"/>
+    <path fill="#F3E9D2" d="M104 98Q130 110 114 137T118 176Q133 202 113 230L96 220Q112 197 100 178T98 138Q112 116 91 107Z"/>
+    <path fill="#E3AD22" d="M128 99Q151 120 137 146T143 185Q159 206 143 232L127 222Q142 202 129 184T121 145Q136 121 115 108Z"/>
+    <g fill="#C83A32" stroke="none">
+      <circle cx="131" cy="119" r="4"/><circle cx="132" cy="143" r="4"/><circle cx="137" cy="166" r="4"/><circle cx="140" cy="190" r="4"/><circle cx="140" cy="211" r="4"/>
+    </g>
+    <path fill="#E3AD22" d="M165 105 192 93 218 120 201 140 222 157 199 177 219 198 193 225 165 208 180 186 160 167 178 146 158 126Z"/>
+    <path fill="#245B43" d="M171 112 190 101 198 121 181 133Z"/>
+    <path fill="#F3E9D2" d="M197 140 216 126 228 144 209 158Z"/>
+    <path fill="#C83A32" d="M174 168 192 155 205 172 187 185Z"/>
+    <path fill="#285D91" d="M199 197 215 183 229 199 212 214Z"/>
+    <path fill="#245B43" d="M235 96Q256 111 245 135T250 173Q263 195 249 225L232 217Q246 195 235 174T231 135Q244 113 221 104Z"/>
+    <path fill="#245B43" d="M259 100Q281 115 269 140T274 178Q287 198 273 229L257 220Q270 198 259 179T255 140Q267 117 246 107Z"/>
+    <path d="M231 123Q243 129 249 123M233 157Q245 164 251 157M236 190Q246 196 253 190" fill="none" stroke="#F3E9D2" stroke-width="3"/>
+    <path fill="#E3AD22" d="M296 96Q321 116 306 143T311 181Q325 203 309 229L293 220Q308 198 296 180T292 142Q305 119 284 106Z"/>
+    <path fill="#E3AD22" d="M322 99Q347 119 333 145T338 183Q351 205 336 229L320 220Q334 199 323 182T318 145Q332 122 310 108Z"/>
+    <g fill="#C83A32" stroke="none">
+      <path d="M306 125q6-8 9 0t-5 9Z"/><path d="M332 157q6-8 9 0t-5 9Z"/><path d="M308 191q6-8 9 0t-5 9Z"/>
+    </g>
+    <path fill="#F3E9D2" d="M357 103 379 94 397 112 382 130 401 148 382 166 400 185 382 204 399 221 381 232 355 213 370 194 353 176 370 157 351 139 367 120Z"/>
+    <path fill="#245B43" d="M404 101 430 94 447 115 431 134 450 153 431 172 450 191 431 210 448 225 430 235 406 216 421 196 404 176 421 155 403 136 420 116Z"/>
+    <path fill="#E3AD22" d="M452 106 482 96 490 119 469 136 489 156 468 175 487 196 466 216 481 232 454 235 439 217 455 197 438 176 456 155 438 135 454 119Z"/>
+  </g>
+  <!-- Bottom band echoes the top, with shifted crops for repeat rhythm -->
+  <g stroke="#10100F" stroke-width="7" stroke-linejoin="round">
+    <path fill="#F3E9D2" d="M-7 252 19 245 31 264 21 281 33 297 21 313 32 330 17 345-7 333 4 314-6 297 5 280-5 265Z"/>
+    <path fill="#E3AD22" d="M35 253 67 245 77 268 45 280Z"/>
+    <path fill="#F3E9D2" d="M49 290 82 280 94 301 61 312Z"/>
+    <path fill="#C83A32" d="M82 254 96 247 108 261 94 273Z"/>
+    <path fill="#245B43" d="M104 244 166 244 159 335 116 347 102 320 113 292Z"/>
+    <path d="M106 264Q135 271 163 263M104 283Q135 290 161 282M105 302Q134 309 160 301M109 322Q135 328 158 321" fill="none" stroke="#10100F" stroke-width="4"/>
+    <path fill="#E3AD22" d="M170 245 227 245 220 334 199 346 177 327 185 307 172 287 184 267Z"/>
+    <g fill="#10100F" stroke="none"><circle cx="188" cy="264" r="5"/><circle cx="207" cy="282" r="5"/><circle cx="193" cy="303" r="5"/><circle cx="211" cy="322" r="5"/></g>
+    <path fill="#C83A32" d="M235 253 251 246 261 260 245 272Z"/><path fill="#C83A32" d="M255 285 272 278 281 292 265 304Z"/>
+    <path fill="#E3AD22" d="M226 337Q264 309 307 331L310 350Q268 330 230 359Z"/>
+    <path fill="#F3E9D2" d="M286 244 310 244 320 261 309 277 320 294 308 311 319 329 304 345 285 332 295 312 284 294 295 276 284 260Z"/>
+    <path fill="#E3AD22" d="M330 244 358 244 366 263 351 279 367 296 351 313 367 331 348 345 328 329 340 312 325 294 341 277 325 261Z"/>
+    <path d="M332 264 349 268M332 291 351 295M333 319 352 323" stroke="#C85D2D" stroke-width="5" stroke-linecap="round"/>
+    <path fill="#F3E9D2" d="M373 243 397 243 407 261 395 277 408 294 396 311 407 328 392 344 373 330 383 311 372 294 383 277 371 260Z"/>
+    <path fill="#285D91" d="M414 249 438 243 450 260 433 278 451 295 433 313 451 330 433 345 413 330 425 311 410 294 426 276 410 260Z"/>
+    <path fill="#245B43" d="M454 247 482 245 490 267 470 282 489 301 470 319 487 335 468 347 448 330 462 312 447 294 463 276 447 260Z"/>
+  </g>
+  <!-- Fine block-print imperfections: dry-brush cuts stay within the inked shapes -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M18 12 28 8M18 18 31 14M178 12 187 9M181 17 193 14M238 16 247 13M252 39 262 36M365 20 373 22M369 42 381 45M51 266 61 263M54 273 65 270M190 259 201 256M193 266 205 263" stroke="#F3E9D2" stroke-opacity=".55" stroke-width="2"/>
+    <path d="M48 44 59 40M51 51 64 47M241 111 251 116M244 116 254 121M303 151 313 154M305 157 316 160M182 310 192 306M186 317 197 313" stroke="#C85D2D" stroke-opacity=".7" stroke-width="2"/>
+  </g>
+</svg>
