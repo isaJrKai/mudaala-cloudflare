@@ -181,7 +181,6 @@ function CartDockContent() {
 
   return (
     <div
-      aria-hidden
       style={{ position: 'fixed', inset: 0, zIndex: 2147483647, pointerEvents: 'none' }}
     >
       <button
