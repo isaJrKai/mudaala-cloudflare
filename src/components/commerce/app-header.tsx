@@ -152,6 +152,11 @@ export function AppHeader() {
                   onClick={() =>
                     signOut.mutate(undefined, {
                       onSuccess: () => toast({ title: 'Signed out' }),
+                      onError: (err) => toast({
+                        title: 'Could not sign out',
+                        description: err instanceof Error ? err.message : 'Please try again.',
+                        variant: 'destructive',
+                      }),
                     })
                   }
                 >
