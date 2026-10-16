@@ -30,22 +30,35 @@ function runtimeDatabaseUrl() {
   return value
 }
 
+// Prisma and its pg adapter are comparatively expensive to initialize. A
+// Worker isolate handles many requests over its lifetime, so cache the client
+// for that isolate instead of rebuilding a pool for every model access.
+// Hyperdrive owns the upstream connection pool; maxUses: 1 here would discard
+// each local pg connection after one query and defeat reuse.
+let cachedPrisma: PrismaClient | undefined
+let cachedConnectionString: string | undefined
+
 function getPrisma(): PrismaClient {
   const connectionString = runtimeDatabaseUrl()
   if (!connectionString) {
     throw new Error('DATABASE_URL or Cloudflare HYPERDRIVE is required to initialize Prisma')
   }
 
-  // Hyperdrive owns the underlying connection pool. Create a short-lived
-  // Prisma client for each access instead of retaining a Worker-global pool.
-  const adapter = new PrismaPg({ connectionString, maxUses: 1 })
-  return new PrismaClient({
+  if (cachedPrisma && cachedConnectionString === connectionString) {
+    return cachedPrisma
+  }
+
+  const adapter = new PrismaPg({ connectionString })
+  const client = new PrismaClient({
     adapter,
     log:
       process.env.PRISMA_LOG_QUERIES === '1' || process.env.PRISMA_LOG_QUERIES === 'true'
         ? ['query']
         : ['error'],
   })
+  cachedConnectionString = connectionString
+  cachedPrisma = client
+  return client
 }
 
 export const db = new Proxy({} as PrismaClient, {
