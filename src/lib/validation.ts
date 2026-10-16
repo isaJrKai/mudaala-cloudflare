@@ -167,7 +167,15 @@ const listingBaseSchema = z.object({
   contactPhone: rawPhone,
   contactWhatsapp: rawPhone.nullable(),
   photos: z.array(z.string().trim().max(500)).max(4).optional(),
-  videoUrl: z.string().trim().max(500, 'Video link is too long').refine((v) => v.startsWith('/uploads/') || /^https?:\\/\\/\\S+$/i.test(v), { message: 'Invalid video link' }).nullable().optional(),
+  videoUrl: z.string().trim().max(500, 'Video link is too long').refine((value) => {
+    if (value.startsWith('/uploads/')) return true
+    try {
+      const url = new URL(value)
+      return (url.protocol === 'https:' || url.protocol === 'http:') && Boolean(url.hostname)
+    } catch {
+      return false
+    }
+  }, { message: 'Invalid video link' }).nullable().optional(),
 })
 
 export function listingNeedsUnit(category: string, price: number | null | undefined): boolean {
