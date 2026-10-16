@@ -505,15 +505,40 @@ export async function refreshListing(listing: Listing): Promise<Listing> {
   if (listing.status !== 'ACTIVE') {
     throw new ApiError(409, 'Only active listings can be refreshed. Repost it instead.')
   }
-  const cooldownEnds = new Date(listing.refreshedAt.getTime() + REFRESH_COOLDOWN_HOURS * 60 * 60 * 1000)
+  const cooldownMs = REFRESH_COOLDOWN_HOURS * 60 * 60 * 1000
+  const cooldownEnds = new Date(listing.refreshedAt.getTime() + cooldownMs)
   if (cooldownEnds.getTime() > Date.now()) {
     throw new ApiError(429, `You can refresh this listing again after ${cooldownEnds.toLocaleString('en-KE')}`)
   }
+
   const now = new Date()
-  return db.listing.update({
-    where: { id: listing.id },
+  // Claim the refresh atomically. If two requests race, only one can move
+  // refreshedAt past the old cooldown boundary; the other gets a controlled
+  // cooldown/conflict response instead of Prisma P2025 or duplicate refreshes.
+  const changed = await db.listing.updateMany({
+    where: {
+      id: listing.id,
+      userId: listing.userId,
+      status: 'ACTIVE',
+      refreshedAt: { lte: new Date(now.getTime() - cooldownMs) },
+    },
     data: { refreshedAt: now, expiresAt: addDays(now, LISTING_ACTIVE_DAYS), expiringNotifiedAt: null },
   })
+  if (changed.count === 0) {
+    const current = await getOwnedListingOr404(listing.id, listing.userId)
+    if (current.status !== 'ACTIVE') {
+      throw new ApiError(409, 'Only active listings can be refreshed. Repost it instead.')
+    }
+    const currentCooldownEnds = new Date(current.refreshedAt.getTime() + cooldownMs)
+    if (currentCooldownEnds.getTime() > Date.now()) {
+      throw new ApiError(429, `You can refresh this listing again after ${currentCooldownEnds.toLocaleString('en-KE')}`)
+    }
+    throw new ApiError(409, 'This listing changed while refreshing. Please try again.')
+  }
+
+  const updated = await db.listing.findFirst({ where: { id: listing.id, userId: listing.userId } })
+  if (!updated) throw new ApiError(404, 'Listing not found')
+  return updated
 }
 
 // Ownership is enforced here - callers pass the authenticated user's id.
