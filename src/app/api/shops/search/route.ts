@@ -47,14 +47,13 @@ export async function GET(request: NextRequest) {
       take: 300,
     })
 
-    const matches = (name: string) => {
-      const normalized = normalizeSearchText(name)
-      return normalized.includes(needle) || tokens.every((token) => normalized.includes(token))
-    }
+    // Normalize each candidate exactly once. Re-normalizing both names in
+    // every Array.sort comparator turns the Unicode fallback into thousands of
+    // extra Unicode transforms and can exhaust the Worker's CPU budget.
     const toShops = (rows: typeof matchedCandidates) => rows
       .map((row) => {
         const businessName = row.profile?.businessName?.trim() || ''
-        return {
+        const shop = {
           id: row.id,
           name: businessName || row.name,
           photoUrl: row.profile?.photoUrl ?? null,
@@ -62,31 +61,30 @@ export async function GET(request: NextRequest) {
           county: row.profile?.county ?? null,
           country: row.country ?? 'UG',
         }
+        return { shop, normalizedName: normalizeSearchText(shop.name) }
       })
-      .filter((shop) => matches(shop.name))
+      .filter(({ normalizedName }) =>
+        normalizedName.includes(needle) || tokens.every((token) => normalizedName.includes(token)),
+      )
 
-    let shops = toShops(matchedCandidates)
+    let candidates = toShops(matchedCandidates)
     // Only pay for the bounded Unicode fallback when ordinary DB candidates
-    // fail to produce a normalized match. This keeps normal keystroke searches
-    // from reading hundreds of unrelated profiles.
-    if (shops.length === 0) {
+    // fail to produce a normalized match.
+    if (candidates.length === 0) {
       const recentCandidates = await db.user.findMany({
         select,
         orderBy: { updatedAt: 'desc' },
         take: 500,
       })
-      shops = toShops(recentCandidates)
+      candidates = toShops(recentCandidates)
     }
 
-    shops = shops
-      .sort((a, b) => {
-        const score = (name: string) => {
-          const normalized = normalizeSearchText(name)
-          return normalized === needle ? 0 : normalized.startsWith(needle) ? 1 : normalized.includes(needle) ? 2 : 3
-        }
-        return score(a.name) - score(b.name) || a.name.localeCompare(b.name)
-      })
+    const score = (normalized: string) =>
+      normalized === needle ? 0 : normalized.startsWith(needle) ? 1 : normalized.includes(needle) ? 2 : 3
+    const shops = candidates
+      .sort((a, b) => score(a.normalizedName) - score(b.normalizedName) || a.shop.name.localeCompare(b.shop.name))
       .slice(0, 8)
+      .map(({ shop }) => shop)
 
     return jsonOk({ shops })
   })
