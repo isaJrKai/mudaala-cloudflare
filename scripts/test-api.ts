@@ -1064,6 +1064,16 @@ async function main() {
     const afterRemove = await call('GET', '/api/saved-searches', undefined, ss)
     ok('removed saved search stays removed after reloading list', afterRemove.status === 200 && !afterRemove.json.searches.some((search: any) => search.id === savedId))
 
+    const raceFixture = await call('POST', '/api/saved-searches', { name: 'Duplicate removal test', query: { q: 'copper' } }, ss)
+    ok('duplicate-removal fixture created', raceFixture.status === 201)
+    const raceId = raceFixture.json?.search?.id as string
+    const raceResults = await Promise.all([
+      call('DELETE', '/api/saved-searches/' + raceId, undefined, ss),
+      call('DELETE', '/api/saved-searches/' + raceId, undefined, ss),
+    ])
+    const raceStatuses = raceResults.map((result) => result.status).sort((a, b) => a - b)
+    ok('simultaneous removal is one 200 and one 404, never 503', raceStatuses[0] === 200 && raceStatuses[1] === 404, raceStatuses.join(', '))
+
     const markRead = await call('POST', '/api/notifications/mark-read?ids=all', undefined, ss)
     ok('mark all read works', markRead.status === 200)
     const afterRead = await call('GET', '/api/notifications', undefined, ss)
