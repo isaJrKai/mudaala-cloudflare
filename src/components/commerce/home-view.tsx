@@ -129,6 +129,7 @@ export function HomeDashboard() {
 function SignedInHome() {
   const { navigate } = useAppStore()
   const queryClient = useQueryClient()
+  const { toast } = useToast()
 
   const homeQuery = useQuery({
     queryKey: ['home'],
@@ -153,7 +154,16 @@ function SignedInHome() {
 
   const renewMutation = useMutation({
     mutationFn: (id: string) => apiPost<{ listing: { id: string } }>(`/api/listings/${id}/refresh`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['home'] }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['home'] })
+      await queryClient.invalidateQueries({ queryKey: ['my-listings'] })
+      toast({ title: 'Listing refreshed', description: 'Your listing has a new freshness window.' })
+    },
+    onError: (err: Error) => toast({
+      title: 'Could not refresh listing',
+      description: err.message,
+      variant: 'destructive',
+    }),
   })
 
   if (homeQuery.isError) {
