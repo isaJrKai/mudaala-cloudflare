@@ -181,6 +181,7 @@ async function verifySavedSearch(browser) {
 async function verifyMobileCart(browser) {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 1,
     isMobile: true,
     hasTouch: true,
   });
@@ -237,8 +238,16 @@ async function verifyMobileCart(browser) {
           }
           return result;
         };
+        const metaViewport = document.querySelector('meta[name="viewport"]');
         return {
           viewport: { width: innerWidth, height: innerHeight },
+          visualViewport: window.visualViewport ? {
+            width: window.visualViewport.width,
+            height: window.visualViewport.height,
+            scale: window.visualViewport.scale,
+          } : null,
+          screen: { width: screen.width, height: screen.height, devicePixelRatio },
+          viewportMeta: metaViewport?.getAttribute('content') ?? null,
           button: describe(el),
           buttonAncestors: ancestors(el),
           hitTarget: describe(hit),
