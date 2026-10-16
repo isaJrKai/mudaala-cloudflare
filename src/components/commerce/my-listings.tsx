@@ -58,8 +58,8 @@ export function MyListings() {
   const refreshMutation = useMutation({
     mutationFn: (id: string) => apiPost<{ listing: Listing }>(`/api/listings/${id}/refresh`),
     onMutate: (id: string) => setActiveAction({ id, key: 'refresh' }),
-    onSuccess: (_data, id: string) => {
-      void invalidate()
+    onSuccess: async (_data, id: string) => {
+      await invalidate()
       setExpiryFlash({ id, tick: Date.now() })
       toast({ title: copy.mySales.refreshedToast, description: copy.mySales.refreshedToastSub(LISTING_ACTIVE_DAYS) })
     },
@@ -70,8 +70,8 @@ export function MyListings() {
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => apiPatch<{ listing: Listing }>(`/api/listings/${id}`, { status }),
     onMutate: ({ id, status }) => setActiveAction({ id, key: `status:${status}` }),
-    onSuccess: (_data, vars) => {
-      void invalidate()
+    onSuccess: async (_data, vars) => {
+      await invalidate()
       toast({ title: vars.status === 'FULFILLED' ? copy.mySales.statusFulfilled : vars.status === 'ACTIVE' ? copy.mySales.statusActive : copy.mySales.statusArchived })
     },
     onError: (err: Error) => toast({ title: copy.mySales.couldNotUpdate, description: err.message, variant: 'destructive' }),
@@ -81,8 +81,8 @@ export function MyListings() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiDelete<{ ok: boolean }>(`/api/listings/${id}`),
     onMutate: (id: string) => setActiveAction({ id, key: 'delete' }),
-    onSuccess: () => {
-      void invalidate()
+    onSuccess: async () => {
+      await invalidate()
       setDeleteTarget(null)
       toast({ title: copy.mySales.deletedToast })
     },
