@@ -23,6 +23,7 @@ import { EmptyState } from './empty-state'
 import { ErrorState } from './listings-browse'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
+import { useToast } from '@/hooks/use-toast'
 import { copy } from '@/lib/copy'
 
 // Notifications - real events only: new matches for saved searches,
@@ -31,6 +32,7 @@ export function NotificationsView() {
   const { user, isLoading: sessionLoading } = useSession()
   const { navigate } = useAppStore()
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const [confirmClear, setConfirmClear] = useState(false)
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -44,6 +46,11 @@ export function NotificationsView() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
+    onError: (err: Error) => toast({
+      title: 'Could not mark notifications as read',
+      description: err.message,
+      variant: 'destructive',
+    }),
   })
 
   // Clear = delete, not read. The server removes the rows; the confirm
@@ -54,7 +61,13 @@ export function NotificationsView() {
     onSuccess: () => {
       setConfirmClear(false)
       void queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      toast({ title: 'Notifications cleared' })
     },
+    onError: (err: Error) => toast({
+      title: 'Could not clear notifications',
+      description: err.message,
+      variant: 'destructive',
+    }),
   })
 
   if (sessionLoading) return <ListingListSkeleton count={3} />
