@@ -60,6 +60,9 @@ jobs:
           SETTINGS_ENCRYPTION_KEY: build-only-placeholder-key-32chars
           ADMIN_PHONES: "+256700000000"
 
+      - name: Verify photo storage configuration fails closed in production
+        run: npx tsx scripts/test-photo-storage-config.ts
+
       - name: Start isolated Durable Object rate-limit prototype
         run: |
           npx wrangler dev --config wrangler.rate-limit-prototype.jsonc --local --port 8787 > /tmp/mudaala-rate-limit-prototype.log 2>&1 &
