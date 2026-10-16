@@ -973,6 +973,15 @@ async function main() {
     const stillIntact = await call('GET', `/api/listings/${createdListingId}`)
     ok('listing unchanged after attack attempts', stillIntact.json.listing.title === validListing.title)
 
+    const raceListing = await call('POST', '/api/listings', { ...validListing, title: 'Concurrent listing removal test' }, alice)
+    const raceId = raceListing.json?.listing?.id as string
+    const raceResults = await Promise.all([
+      call('DELETE', '/api/listings/' + raceId, undefined, alice),
+      call('DELETE', '/api/listings/' + raceId, undefined, alice),
+    ])
+    const raceStatuses = raceResults.map((result) => result.status).sort((a, b) => a - b)
+    ok('concurrent listing removal gives one 200 and one 404', raceListing.status === 201 && raceStatuses[0] === 200 && raceStatuses[1] === 404, raceStatuses.join(', '))
+
     const anonPatch = await call('PATCH', `/api/listings/${createdListingId}`, { title: 'Anonymous defacement' })
     ok('unauthenticated edit → 401', anonPatch.status === 401)
 
