@@ -24,7 +24,7 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 | P0 | PR #87 — end-to-end journey and silent action failures | **Blocked by browser CI failure** | Saved-search browser journey passed on commit ff8fbaff. Listing lifecycle journey timed out waiting for POST /api/listings at publish. A diagnostic-only commit 5dc8848b was added to print validation errors and form state; rerun CI on the latest head and fix the actual cause. Do not merge/deploy until required CI is green. [PR #87](https://github.com/isaJrKai/mudaala-cloudflare/pull/87) |
 | P0 | Shop creation / first-run onboarding | **User reports fixed; production verification pending** | Test a fresh account through sign-in, shop creation, save, refresh, product publish and public shop URL. |
 | P0 | Photo upload and persistence | **Production status not confirmed** | Earlier reports said profile gallery and listing photos failed. Test authenticated upload → saved URL → reload/new session → public rendering. Verify storage is durable in the production Worker; never accept local /uploads as durable production storage. |
-| P0 | Account isolation and database least privilege | **CI evidence exists; production evidence pending** | CI on PR #87's prior head passed disposable-Postgres checks for direct Data API deny policies, a runtime role without BYPASSRLS, API/account-isolation, moderation and photo behavior. This does not prove production Supabase settings/role are correct. Verify production grants, RLS, Worker connection identity and cross-account access safely. |
+| P0 | Account isolation and database least privilege | **Direct API protections verified; Worker runtime role still unverified** | Live Supabase read-only inspection on 2026-10-16: Security Advisor returned no security lints; all 13 public application tables have RLS enabled; `anon` and `authenticated` have no table grants; deny-all policies cover those roles. The production Worker has `DATABASE_URL` and `HYPERDRIVE` bindings, but the secret values and actual runtime database identity were not inspected. Verify the Worker uses an appropriately restricted runtime role and run cross-account checks safely. CI on PR #87's prior head also passed disposable-Postgres least-privilege and account-isolation tests; that is not proof of the production runtime role. |
 | P1 | PR #63 — scheduled maintenance origin | **Open; scheduled execution not yet confirmed** | After the appropriate deploy, confirm a successful mudaala_scheduled_sweep_completed event in Cloudflare logs. [PR #63](https://github.com/isaJrKai/mudaala-cloudflare/pull/63) |
 | P1 | PR #89 — Worker DB reuse + video media | **Draft; not for production** | Requires CI, reviewed additive videoUrl schema migration, configured durable media storage, and authenticated upload → save → refresh → playback verification. Keep separate from photo bug fixes. [PR #89](https://github.com/isaJrKai/mudaala-cloudflare/pull/89) |
 | P1 | Public customer journey | **End-to-end verification pending** | Browse real listings → open detail → contact via call/WhatsApp → shop link/QR. Verify mobile layout and slow connection. |
@@ -32,6 +32,18 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 | P2 | Settings and preferences | **Pending audit** | Verify notification/search notification preferences, privacy controls and supported language options; remove duplication only after identifying the canonical implementation. |
 | P2 | Search quality | **Incremental work after stability** | Fix Unicode/normalization and practical Uganda-first product vocabulary; verify exact model terms outrank overly broad matches without inventing product claims. |
 | P2 | Product polish and future video | **Do not block stability work** | Preserve green + warm mango/yellow accents and botanical identity. Video stays deferred until its separate release gate passes. |
+
+
+
+### Latest read-only production inspection (2026-10-16)
+
+- Supabase project status: ACTIVE_HEALTHY; region eu-west-2.
+- Security Advisor: no security lints returned.
+- RLS: enabled on all 13 public application tables.
+- Direct Data API access: `anon` and `authenticated` have no table grants; deny-all policies exist on the application tables.
+- Cloudflare Worker: active deployment reported at 2026-10-16T16:22:31Z (version `a9d7a94d-7f04-4c81-9c40-c1404a41ff4a`, 100% traffic); no Cloudflare Observability issues were returned for the Worker query.
+- Worker secret values were not read. Presence of storage-related bindings does not prove a fresh photo upload succeeds.
+- These read-only checks did not change production data or settings.
 
 ## Immediate execution queue
 
