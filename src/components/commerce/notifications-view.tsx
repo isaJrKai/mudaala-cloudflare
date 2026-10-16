@@ -43,8 +43,8 @@ export function NotificationsView() {
 
   const markRead = useMutation({
     mutationFn: (ids: string) => apiPost<{ ok: boolean }>(`/api/notifications/mark-read?ids=${ids}`),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
     onError: (err: Error) => toast({
       title: 'Could not mark notifications as read',
