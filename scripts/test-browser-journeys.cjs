@@ -40,6 +40,16 @@ async function verifySavedSearch(browser) {
     // Wait for the cookie-backed session query before touching Save search;
     // otherwise the test could race the auth check and open the sign-in dialog.
     await page.getByRole('button', { name: /Browser Saved Search Tester/ }).waitFor({ state: 'visible', timeout });
+
+    // A brand-new account can legitimately receive the first-run Shop Setup
+    // dialog. Dismiss it the same way a user can (not by bypassing the overlay)
+    // before exercising the independent saved-search journey.
+    const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
+    if (await shopSetupDialog.isVisible().catch(() => false)) {
+      await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
+      await shopSetupDialog.waitFor({ state: 'hidden', timeout });
+    }
+
     const saveButton = page.getByRole('button', { name: /save (this )?search/i });
     try {
       await saveButton.waitFor({ state: 'visible', timeout });
