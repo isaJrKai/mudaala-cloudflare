@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { route, jsonOk, requireUser, ApiError } from '@/lib/api'
 import { listingUpdateSchema, listingStatusSchema, isTransitionAllowed, fieldErrors, listingNeedsUnit, normalizePhone, type CountryKey } from '@/lib/validation'
 import { db } from '@/lib/db'
-import { expireOverdueListings, getOwnedListingOr404, sanitizePhotos, serializeListing } from '@/lib/listings'
+import { expireOverdueListings, getOwnedListingOr404, sanitizePhotos, sanitizeVideoUrl, serializeListing } from '@/lib/listings'
 import { LISTING_ACTIVE_DAYS, countryDef, findProhibitedItem } from '@/lib/constants'
 import { getSessionUser } from '@/lib/auth'
 import { isAdminUser } from '@/lib/admin'
@@ -161,6 +161,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       contactPhone,
       contactWhatsapp,
       photos: 'photos' in data ? JSON.stringify(sanitizePhotos(data.photos)) : listing.photos,
+      videoUrl: 'videoUrl' in data ? sanitizeVideoUrl(data.videoUrl) : listing.videoUrl,
     }
 
     if (merged.price === null && !merged.priceNegotiable) {
