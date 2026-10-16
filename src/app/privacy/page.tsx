@@ -7,8 +7,6 @@ export const metadata = legalPageMetadata({
   description: 'What Mudaala collects, what it never does with your number, and how your data is kept safe.',
 })
 
-export const dynamic = 'force-dynamic'
-
 export default function PrivacyPage() {
   return (
     <>
