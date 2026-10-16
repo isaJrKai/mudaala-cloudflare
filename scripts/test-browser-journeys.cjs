@@ -37,10 +37,20 @@ async function verifySavedSearch(browser) {
       throw new Error('Could not create disposable browser-test account: HTTP ' + registration.status() + ' ' + (await registration.text()).slice(0, 200));
     }
 
+    // Register the profile-response waiter before navigation. A fresh user's
+    // shop-setup query can resolve after the session button appears; checking
+    // for the dialog too early lets it open underneath the test later.
+    const profileResponsePromise = page.waitForResponse((response) => {
+      return new URL(response.url()).pathname === '/api/profile';
+    }, { timeout });
     await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    // Wait for the cookie-backed session query before touching Save search;
-    // otherwise the test could race the auth check and open the sign-in dialog.
+    // Wait for both the cookie-backed session and profile query before Save.
     await page.getByRole('button', { name: /Browser Saved Search Tester/ }).waitFor({ state: 'visible', timeout });
+    const profileResponse = await profileResponsePromise;
+    if (!profileResponse.ok()) {
+      throw new Error('Browser-test profile request failed: HTTP ' + profileResponse.status());
+    }
+    await page.waitForTimeout(100); // allow React Query's response update to render
 
     // A brand-new account can legitimately receive the first-run Shop Setup
     // dialog. Dismiss it the same way a user can (not by bypassing the overlay)
