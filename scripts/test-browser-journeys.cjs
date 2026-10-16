@@ -41,7 +41,22 @@ async function verifySavedSearch(browser) {
     // otherwise the test could race the auth check and open the sign-in dialog.
     await page.getByRole('button', { name: /Browser Saved Search Tester/ }).waitFor({ state: 'visible', timeout });
     const saveButton = page.getByRole('button', { name: /save (this )?search/i });
-    await saveButton.waitFor({ state: 'visible', timeout });
+    try {
+      await saveButton.waitFor({ state: 'visible', timeout });
+    } catch (error) {
+      const diagnostics = await page.evaluate(() => ({
+        url: window.location.href,
+        title: document.title,
+        headings: Array.from(document.querySelectorAll('h1,h2,h3')).map(el => el.textContent?.trim()).filter(Boolean),
+        buttons: Array.from(document.querySelectorAll('button')).filter(el => {
+          const rect = el.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        }).map(el => ({ text: el.innerText.trim(), ariaLabel: el.getAttribute('aria-label'), disabled: el.disabled })).slice(0, 60),
+        bodyText: document.body.innerText.slice(0, 2500),
+      }));
+      console.error('Saved-search browser diagnostic:', JSON.stringify(diagnostics, null, 2));
+      throw error;
+    }
     await saveButton.click();
 
     const dialog = page.getByRole('dialog');
