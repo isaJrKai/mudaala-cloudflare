@@ -217,6 +217,7 @@ function CartDockContent() {
         id="basket-rail-panel"
         tabIndex={-1}
         aria-label={copy.cart.railAria}
+        style={{ pointerEvents: 'auto' }}
         className={cn(
           'fixed bottom-4 right-0 top-14 z-30 hidden w-80 flex-col overflow-hidden rounded-l-xl border bg-card shadow-xl outline-none transition-all duration-200 motion-reduce:transition-none xl:flex',
           open ? 'visible translate-x-0' : 'invisible translate-x-full',
