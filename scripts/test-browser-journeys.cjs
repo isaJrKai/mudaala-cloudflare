@@ -5,7 +5,7 @@
  *
  * Runs only against the disposable CI PostgreSQL database and local Next server.
  */
-const { chromium } = require('/tmp/mudaala-browser-test/node_modules/playwright');
+const { chromium, devices } = require('/tmp/mudaala-browser-test/node_modules/playwright');
 
 const base = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 const timeout = 20000;
@@ -179,13 +179,13 @@ async function verifySavedSearch(browser) {
 }
 
 async function verifyMobileCart(browser) {
-  const context = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    screen: { width: 390, height: 844 },
-    deviceScaleFactor: 1,
-    isMobile: true,
-    hasTouch: true,
-  });
+  // Use a complete mobile device descriptor (including its user agent,
+  // screen, viewport, and touch model). A hand-built isMobile context left
+  // Chromium's layout viewport at 502x1087 while the visual viewport was
+  // 390x844, placing fixed bottom controls outside the real tap area.
+  const mobileDevice = devices['Pixel 7'] || devices['Pixel 5'] || devices['iPhone 13'];
+  if (!mobileDevice) throw new Error('No supported Playwright mobile device descriptor is available');
+  const context = await browser.newContext({ ...mobileDevice });
   const page = await context.newPage();
 
   try {
