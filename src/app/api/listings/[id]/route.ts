@@ -6,6 +6,7 @@ import { expireOverdueListings, getOwnedListingOr404, sanitizePhotos, sanitizeVi
 import { LISTING_ACTIVE_DAYS, countryDef, findProhibitedItem } from '@/lib/constants'
 import { getSessionUser } from '@/lib/auth'
 import { isAdminUser } from '@/lib/admin'
+import { chooseStorage } from '@/lib/storage'
 type Params = { params: Promise<{ id: string }> }
 
 // Public detail view. Also expires overdue listings so status is always truthful.
@@ -188,6 +189,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         ...merged,
       },
     })
+    if (listing.videoUrl && updated.videoUrl !== listing.videoUrl) {
+      await chooseStorage().remove(listing.videoUrl).catch(() => {
+        console.error('[listing] replaced video cleanup failed')
+      })
+    }
     return jsonOk({ listing: serializeListing(updated) })
   })
 }
@@ -197,8 +203,13 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   return route(async () => {
     const user = await requireUser()
     const { id } = await params
-    await getOwnedListingOr404(id, user.id)
+    const listing = await getOwnedListingOr404(id, user.id)
     await db.listing.delete({ where: { id } })
+    if (listing.videoUrl) {
+      await chooseStorage().remove(listing.videoUrl).catch(() => {
+        console.error('[listing] deleted video cleanup failed')
+      })
+    }
     return jsonOk({ ok: true })
   })
 }
