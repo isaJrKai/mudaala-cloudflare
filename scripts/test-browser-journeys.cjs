@@ -78,26 +78,34 @@ async function verifySavedSearch(browser) {
       // button can still be blocked by a transparent overlay or another layer.
       await saveButton.click({ timeout: 6000 });
     } catch (error) {
-      const diagnostics = await saveButton.evaluateAll((buttons) => buttons.map((el) => {
-        const rect = el.getBoundingClientRect();
-        const x = rect.left + rect.width / 2;
-        const y = rect.top + rect.height / 2;
-        const hit = document.elementFromPoint(x, y);
-        return {
-          text: el.innerText.trim(),
-          ariaLabel: el.getAttribute('aria-label'),
-          disabled: el.disabled,
-          rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-          pointerEvents: getComputedStyle(el).pointerEvents,
-          hitTarget: hit ? {
-            tag: hit.tagName,
-            text: (hit.textContent || '').trim().slice(0, 160),
-            ariaLabel: hit.getAttribute('aria-label'),
-            className: typeof hit.className === 'string' ? hit.className.slice(0, 240) : '',
-          } : null,
-          url: window.location.href,
-          bodyText: document.body.innerText.slice(0, 1800),
-        };
+      const diagnostics = await page.evaluate(() => ({
+        url: window.location.href,
+        title: document.title,
+        headings: Array.from(document.querySelectorAll('h1,h2,h3,[role="heading"]'))
+          .map(el => (el.textContent || '').trim()).filter(Boolean).slice(0, 30),
+        dialogs: Array.from(document.querySelectorAll('[role="dialog"]'))
+          .map(el => ({ text: (el.textContent || '').trim().slice(0, 500), visible: !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length) })),
+        buttons: Array.from(document.querySelectorAll('button')).map(el => {
+          const rect = el.getBoundingClientRect();
+          const x = rect.left + rect.width / 2;
+          const y = rect.top + rect.height / 2;
+          const hit = document.elementFromPoint(x, y);
+          return {
+            text: (el.innerText || '').trim().slice(0, 120),
+            ariaLabel: el.getAttribute('aria-label'),
+            disabled: el.disabled,
+            visible: rect.width > 0 && rect.height > 0,
+            rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+            pointerEvents: getComputedStyle(el).pointerEvents,
+            hitTarget: hit ? {
+              tag: hit.tagName,
+              text: (hit.textContent || '').trim().slice(0, 120),
+              ariaLabel: hit.getAttribute('aria-label'),
+              className: typeof hit.className === 'string' ? hit.className.slice(0, 180) : '',
+            } : null,
+          };
+        }).filter(b => b.visible).slice(0, 80),
+        bodyText: document.body.innerText.slice(0, 3000),
       }));
       console.error('Saved-search click diagnostic:', JSON.stringify(diagnostics, null, 2));
       throw error;
