@@ -167,6 +167,7 @@ const listingBaseSchema = z.object({
   contactPhone: rawPhone,
   contactWhatsapp: rawPhone.nullable(),
   photos: z.array(z.string().trim().max(500)).max(4).optional(),
+  videoUrl: z.string().trim().max(500, 'Video link is too long').refine((v) => v.startsWith('/uploads/') || /^https?:\\/\\/\\S+$/i.test(v), { message: 'Invalid video link' }).nullable().optional(),
 })
 
 export function listingNeedsUnit(category: string, price: number | null | undefined): boolean {
