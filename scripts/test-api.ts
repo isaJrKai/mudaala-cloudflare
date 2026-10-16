@@ -1019,6 +1019,23 @@ async function main() {
 
     const second = await call('POST', `/api/listings/${createdListingId}/refresh`, undefined, alice)
     ok('second refresh within 24h → 429', second.status === 429)
+
+    // Re-open the cooldown window in the disposable database and race two
+    // refresh requests. Only one may extend freshness; the other must get 429.
+    await db.listing.update({
+      where: { id: createdListingId },
+      data: { refreshedAt: new Date(Date.now() - 25 * 3_600_000) },
+    })
+    const concurrentRefreshes = await Promise.all([
+      call('POST', `/api/listings/${createdListingId}/refresh`, undefined, alice),
+      call('POST', `/api/listings/${createdListingId}/refresh`, undefined, alice),
+    ])
+    const refreshStatuses = concurrentRefreshes.map((result) => result.status).sort((a, b) => a - b)
+    ok(
+      'simultaneous refreshes produce one success and one cooldown response',
+      refreshStatuses[0] === 200 && refreshStatuses[1] === 429,
+      refreshStatuses.join(', '),
+    )
   }
 
   console.log('\n== 7. Saved searches & real matching ==')
