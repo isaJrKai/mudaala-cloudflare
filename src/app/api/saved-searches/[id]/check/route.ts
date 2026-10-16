@@ -11,8 +11,10 @@ export async function POST(_request: NextRequest, { params }: Params) {
   return route(async () => {
     const user = await requireUser()
     const { id } = await params
-    const search = await db.savedSearch.findUnique({ where: { id } })
-    if (!search || search.userId !== user.id) {
+    const search = await db.savedSearch.findFirst({
+      where: { id, userId: user.id },
+    })
+    if (!search) {
       throw new ApiError(404, 'Saved search not found')
     }
 
@@ -28,10 +30,25 @@ export async function POST(_request: NextRequest, { params }: Params) {
     }
 
     const { total } = await searchListings({ query: { ...parsed.data, page: 1, pageSize: 1 } })
-    const updated = await db.savedSearch.update({
-      where: { id },
+
+    // The record may have been removed while matches were being recomputed.
+    // updateMany is conditional and cannot throw Prisma P2025 for that race.
+    const updated = await db.savedSearch.updateMany({
+      where: { id, userId: user.id },
       data: { lastMatchCount: total, lastCheckedAt: new Date() },
     })
-    return jsonOk({ search: updated })
+    if (updated.count === 0) {
+      throw new ApiError(404, 'Saved search not found')
+    }
+
+    // Return the canonical record for the existing client contract. A delete
+    // racing this read is still a normal 404, never a database 503.
+    const refreshed = await db.savedSearch.findFirst({
+      where: { id, userId: user.id },
+    })
+    if (!refreshed) {
+      throw new ApiError(404, 'Saved search not found')
+    }
+    return jsonOk({ search: refreshed })
   })
 }
