@@ -178,6 +178,123 @@ async function verifySavedSearch(browser) {
   }
 }
 
+async function verifyListingLifecycle(browser) {
+  const context = await browser.newContext({ viewport: { width: 1365, height: 900 } });
+  const page = await context.newPage();
+  const phone = uniquePhone();
+  const title = 'Browser lifecycle ' + Date.now();
+  const editedTitle = title + ' edited';
+
+  try {
+    const registration = await context.request.post(base + '/api/auth/register', {
+      data: {
+        phone,
+        name: 'Browser Listing Lifecycle Tester',
+        password: 'password321',
+        country: 'UG',
+        acceptTerms: true,
+      },
+      headers: { origin: base, referer: base + '/' },
+      timeout,
+    });
+    if (registration.status() !== 201) {
+      throw new Error('Could not create listing-lifecycle account: HTTP ' + registration.status() + ' ' + (await registration.text()).slice(0, 200));
+    }
+
+    const profileResponsePromise = page.waitForResponse((response) => {
+      return new URL(response.url()).pathname === '/api/profile';
+    }, { timeout });
+    await page.goto(base + '/#/publish', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.getByRole('button', { name: /Browser Listing Lifecycle Tester/ }).waitFor({ state: 'visible', timeout });
+    const profileResponse = await profileResponsePromise;
+    if (!profileResponse.ok()) throw new Error('Listing-lifecycle profile request failed: HTTP ' + profileResponse.status());
+    await page.waitForTimeout(100);
+
+    const setupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
+    if (await setupDialog.isVisible().catch(() => false)) {
+      await setupDialog.getByRole('button', { name: 'Later', exact: true }).click();
+      await setupDialog.waitFor({ state: 'hidden', timeout });
+    }
+
+    await page.locator('#p-category').click();
+    await page.getByRole('option', { name: /Scrap & Recyclables/i }).click();
+    await page.locator('#p-title').fill(title);
+    await page.locator('#p-desc').fill('Temporary regression fixture for listing creation, editing, and deletion.');
+    await page.locator('#p-price').fill('20000');
+    await page.locator('#p-unit').click();
+    await page.getByRole('option', { name: /per kg/i }).click();
+    await page.locator('#p-county').click();
+    await page.getByRole('option', { name: /^Kampala$/i }).click();
+    await page.locator('#p-phone').fill(phone);
+
+    const createResponsePromise = page.waitForResponse((response) => {
+      return response.request().method() === 'POST'
+        && new URL(response.url()).pathname === '/api/listings';
+    }, { timeout });
+    await page.locator('form').getByRole('button', { name: /publish/i }).click();
+    const createResponse = await createResponsePromise;
+    const createBody = await createResponse.text();
+    if (createResponse.status() !== 201) {
+      throw new Error('Listing creation failed: HTTP ' + createResponse.status() + ' ' + createBody.slice(0, 500));
+    }
+    await page.waitForFunction(() => window.location.hash.startsWith('#/listing/'), null, { timeout });
+    await page.getByText(title, { exact: true }).waitFor({ state: 'visible', timeout });
+
+    await page.goto(base + '/#/my-listings', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.getByRole('heading', { name: /my listings/i }).waitFor({ state: 'visible', timeout });
+    const listingCard = () => page.locator('div.overflow-hidden.rounded-lg.border.bg-card').filter({ hasText: editedTitle });
+    const originalCard = page.locator('div.overflow-hidden.rounded-lg.border.bg-card').filter({ hasText: title });
+    await originalCard.waitFor({ state: 'visible', timeout });
+    await originalCard.getByRole('button', { name: /edit/i }).click();
+    await page.waitForFunction(() => window.location.hash.startsWith('#/edit/'), null, { timeout });
+    await page.locator('#e-title').waitFor({ state: 'visible', timeout });
+    await page.locator('#e-title').fill(editedTitle);
+    await page.locator('#e-desc').fill('Updated regression fixture proving the edit journey persists.');
+    const editResponsePromise = page.waitForResponse((response) => {
+      return response.request().method() === 'PATCH'
+        && new URL(response.url()).pathname.startsWith('/api/listings/');
+    }, { timeout });
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    const editResponse = await editResponsePromise;
+    const editBody = await editResponse.text();
+    if (!editResponse.ok()) {
+      throw new Error('Listing edit failed: HTTP ' + editResponse.status() + ' ' + editBody.slice(0, 500));
+    }
+    await page.waitForFunction(() => window.location.hash.startsWith('#/listing/'), null, { timeout });
+    await page.getByText(editedTitle, { exact: true }).waitFor({ state: 'visible', timeout });
+
+    await page.goto(base + '/#/my-listings', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.getByRole('heading', { name: /my listings/i }).waitFor({ state: 'visible', timeout });
+    const card = listingCard();
+    await card.waitFor({ state: 'visible', timeout });
+    await card.getByRole('button', { name: /delete/i }).click();
+    const confirmation = page.getByRole('alertdialog');
+    await confirmation.waitFor({ state: 'visible', timeout });
+    const deleteResponsePromise = page.waitForResponse((response) => {
+      return response.request().method() === 'DELETE'
+        && new URL(response.url()).pathname.startsWith('/api/listings/');
+    }, { timeout });
+    await confirmation.getByRole('button', { name: /delete/i }).click();
+    const deleteResponse = await deleteResponsePromise;
+    const deleteBody = await deleteResponse.text();
+    if (!deleteResponse.ok()) {
+      throw new Error('Listing deletion failed: HTTP ' + deleteResponse.status() + ' ' + deleteBody.slice(0, 500));
+    }
+    await card.waitFor({ state: 'detached', timeout });
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.getByText(editedTitle, { exact: true }).waitFor({ state: 'detached', timeout });
+
+    console.log(JSON.stringify({
+      listingLifecycle: 'pass',
+      create: 'listing published and opened',
+      edit: 'updated title persisted',
+      delete: 'listing absent after reload',
+    }, null, 2));
+  } finally {
+    await context.close();
+  }
+}
+
 async function verifyMobileCart(browser) {
   // Exercise the real mobile layout at a narrow CSS viewport with touch input.
   // Chromium's isMobile device emulation in CI produced a mismatched layout
@@ -296,6 +413,7 @@ async function verifyMobileCart(browser) {
   const browser = await chromium.launch({ headless: true });
   try {
     await verifySavedSearch(browser);
+    await verifyListingLifecycle(browser);
     await verifyMobileCart(browser);
   } finally {
     await browser.close();
