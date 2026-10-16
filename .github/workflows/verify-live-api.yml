@@ -285,8 +285,9 @@ jobs:
                 const layerStyle = layer ? getComputedStyle(layer) : null;
                 return {
                   rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-                  buttonStyle: { position: style.position, zIndex: style.zIndex, pointerEvents: style.pointerEvents, transform: style.transform },
-                  layerStyle: layerStyle ? { position: layerStyle.position, zIndex: layerStyle.zIndex, pointerEvents: layerStyle.pointerEvents } : null,
+                  viewport: { innerWidth: window.innerWidth, innerHeight: window.innerHeight, clientWidth: document.documentElement.clientWidth, clientHeight: document.documentElement.clientHeight, scrollY: window.scrollY },
+                  buttonStyle: { position: style.position, zIndex: style.zIndex, pointerEvents: style.pointerEvents, left: style.left, right: style.right, bottom: style.bottom, width: style.width, transform: style.transform },
+                  layerStyle: layerStyle ? { position: layerStyle.position, zIndex: layerStyle.zIndex, pointerEvents: layerStyle.pointerEvents, width: layerStyle.width, height: layerStyle.height } : null,
                   hitTarget: top ? { tag: top.tagName, id: top.id, className: typeof top.className === 'string' ? top.className : '', isCartButton: top === el, insideCartButton: el.contains(top) } : null,
                 };
               });
