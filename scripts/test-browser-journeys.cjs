@@ -37,6 +37,9 @@ async function verifySavedSearch(browser) {
     }
 
     await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    // Wait for the cookie-backed session query before touching Save search;
+    // otherwise the test could race the auth check and open the sign-in dialog.
+    await page.getByRole('button', { name: /Browser Saved Search Tester/ }).waitFor({ state: 'visible', timeout });
     const saveButton = page.getByRole('button', { name: /save search/i });
     await saveButton.waitFor({ state: 'visible', timeout });
     await saveButton.click();
