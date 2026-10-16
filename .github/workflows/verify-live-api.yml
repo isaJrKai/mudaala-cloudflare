@@ -278,8 +278,8 @@ jobs:
                   const offsetLeft = viewport?.offsetLeft ?? 0;
                   const offsetTop = viewport?.offsetTop ?? 0;
                   return {
-                    x: (rect.left + rect.width / 2 - offsetLeft) * scale,
-                    y: (rect.top + rect.height / 2 - offsetTop) * scale,
+                    x: (rect.left + rect.width / 2 - offsetLeft) / scale,
+                    y: (rect.top + rect.height / 2 - offsetTop) / scale,
                   };
                 });
                 await page.touchscreen.tap(point.x, point.y);
