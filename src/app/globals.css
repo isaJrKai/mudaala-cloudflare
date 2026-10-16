@@ -409,9 +409,14 @@ button[aria-disabled="true"] {
   aspect-ratio: 1;
   top: var(--orbit-top);
   right: var(--orbit-right);
-  border: var(--orbit-weight) solid var(--mango-strong);
+  /* The existing orbit geometry stays fixed; only its solid mango stroke
+     becomes the textile artwork. A radial mask keeps the art inside the
+     original circular ring and transparent everywhere else. */
   border-radius: 50%;
-  opacity: .92;
+  background: url('/mudaala-african-textile.svg') center / 240px 240px repeat;
+  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - var(--orbit-weight)), #000 calc(100% - var(--orbit-weight) + 1px));
+  mask: radial-gradient(circle closest-side, transparent calc(100% - var(--orbit-weight)), #000 calc(100% - var(--orbit-weight) + 1px));
+  opacity: .96;
 }
 .mudaala-page::after {
   width: var(--satellite-size);
