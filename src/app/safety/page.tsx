@@ -7,8 +7,6 @@ export const metadata = legalPageMetadata({
   description: 'Meet in public, check the goods before you pay, never pay in advance, and how to report a bad ad.',
 })
 
-export const dynamic = 'force-dynamic'
-
 export default function SafetyPage() {
   return (
     <>
