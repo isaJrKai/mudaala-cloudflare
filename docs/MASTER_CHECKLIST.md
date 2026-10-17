@@ -1,12 +1,14 @@
 # Mudaala — Master Project Checklist
 
-**Last reconciled:** 2026-10-17 (UTC+3; deployed Prisma reuse fix, audit reconciliation and living product requirements in review)  
+**Last reconciled:** 2026-10-17 (UTC+3; PR #107 merged, production smoke gates added, restricted runtime-role migration under CI review)  
 **Production app:** https://mudaala-cloudflare.kaisoisaac.workers.dev  
 **Repository:** https://github.com/isaJrKai/mudaala-cloudflare
 
 This is the canonical project checklist. Use it across Mudaala conversations instead of starting competing checklists. Individual chats can work on a task, but status changes belong here after evidence is available.
 
 ## Operating rules
+
+- **Execution freeze:** until the P0 reliability and database-privilege gates are closed, do not implement new catalogue/collection layouts, trending products, likes/engagement, or video. Keep these as backlog ideas only; preserve the current shop design.
 
 - Follow **Investigate → Fix → Test → Deploy → Verify → Update this checklist**.
 - A commit, a green build, or a merged PR is not proof that production works.
@@ -22,9 +24,9 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 | Priority | Workstream | Status | Evidence / next action |
 |---|---|---|---|
 | P0 | PR #87 reconciliation / saved-search and listing concurrency | **Merged and deployed; production smoke evidence positive** | Stale PR #87 was superseded by [PR #104](https://github.com/isaJrKai/mudaala-cloudflare/pull/104), which passed required CI and merged as `9d8ded6c826249526a9f729b850f38d0e064d095`. Cloudflare shows version `4945a9f4-6e0c-442c-9ce9-0f46de22ad88` serving 100% traffic from 2026-10-17 11:11 UTC. Production health returned HTTP 200 with database connection logs; sampled Browse requests on the new version returned HTTP 200. Continue observing for recurrence; this is not a zero-risk guarantee. |
-| P0 | Shop creation / deletion | **Prisma reuse fix deployed; CPU errors absent in sampled post-release window, but two non-CPU 500s need investigation** | Main commit `a9b2d5b0e6c3e66e35eac9756ba0499d317ca21f` contains the per-isolate Prisma client reuse fix. Cloudflare reports version `e19f1b62-b3fb-49a4-83fb-d6ecb2cc8747` serving 100% traffic from 2026-10-17T17:14:36Z. A telemetry query for 17:14–18:58 UTC recorded zero `exceededCpu` events, but recorded HTTP 500s on `GET /api/listings?page=1&pageSize=10` (10.17s wall time, 48ms CPU) and `GET /api/shops/search?q=gras` (733ms wall time, 52ms CPU), both from Node-based Microsoft-hosted probes. Root cause is not established. Next: capture actionable exception details safely, reproduce these public GETs, then exercise shop create/delete using controlled test accounts. Do not call the reliability gate complete yet. |
+| P0 | Shop creation / deletion | **Prisma reuse fix deployed; no new CPU/error-level events in the latest sampled window, earlier public GET 500s remain unexplained** | Main commit `a9b2d5b0e6c3e66e35eac9756ba0499d317ca21f` contains the per-isolate Prisma client reuse fix. Cloudflare reports version `e19f1b62-b3fb-49a4-83fb-d6ecb2cc8747` serving 100% traffic from 2026-10-17T17:14:36Z. A telemetry query for 17:14–18:58 UTC recorded zero `exceededCpu` events, while an earlier probe recorded HTTP 500s on `GET /api/listings?page=1&pageSize=10` and `GET /api/shops/search?q=gras`; both were attributed to Node-based Microsoft-hosted probes, but the underlying cause was not established. A fresh 24-hour telemetry query on 2026-10-17 found no matching HTTP 500 events for either route and no error-level events in the latest two-hour window. Direct live endpoint reads were unavailable from the current verification client, so the issue is not declared resolved. Next: use the merged deployment smoke gate on the next app release and inspect logs if it fails; then exercise shop create/delete with controlled test accounts. |
 | P0 | Photo upload and persistence | **Working in the current app; user-confirmed** | Isaac confirms photo uploads work in the current Mudaala version. Earlier upload/storage logs also show successful uploads and public image delivery. Do not treat this as an active bug or ask for another upload test unless a new failure is reported. The previous post-release fresh-upload telemetry gap was based on an outdated checklist assumption. Never accept local `/uploads` as durable production storage. |
-| P0 | Account isolation and database least privilege | **Production runtime role remains over-privileged; Data API deny policy already exists, CI coverage being corrected** | Read-only checks on 2026-10-17: Security Advisor returned zero lints; all 13 public tables have RLS enabled; `anon` and `authenticated` have no table grants. Read-only inspection found `public.CategoryInterest` already has the permissive-policy-form `category_interest_deny_direct_api_clients` for `anon` and `authenticated`, with both `USING (false)` and `WITH CHECK (false)`. The policy name differs from the other tables; do not add a duplicate policy. Branch `fix/category-interest-deny-policy` updates disposable-Postgres CI to verify deny-all policies by table semantics across all 13 tables and zero direct grants; required CI must pass before merge. Separately, Cloudflare Hyperdrive authenticates as `postgres`, which has `BYPASSRLS`, `CREATEROLE`, `CREATEDB`, and `CREATE` on `public`. This remains the larger security gap: design a restricted runtime role compatible with current application authorization, review rollback, prove behavior in disposable CI, then schedule a controlled production credential cutover. No production database permissions or credentials were changed. |
+| P0 | Account isolation and database least privilege | **Production runtime role remains over-privileged; Data API deny policy already exists, CI coverage being corrected** | Read-only checks on 2026-10-17: Security Advisor returned zero lints; all 13 public tables have RLS enabled; `anon` and `authenticated` have no table grants. Read-only inspection found `public.CategoryInterest` already has the permissive-policy-form `category_interest_deny_direct_api_clients` for `anon` and `authenticated`, with both `USING (false)` and `WITH CHECK (false)`. The policy name differs from the other tables; do not add a duplicate policy. PR #107 merged as `e781147be8be3084ee5ecfbea2b9578de66607b2`; required CI run 221 passed on its exact head. The production deployment workflow now includes read-only Browse and shop-search response-shape checks and can roll back if they fail. Separately, Cloudflare Hyperdrive authenticates as `postgres`, which has `BYPASSRLS`, `CREATEROLE`, `CREATEDB`, and `CREATE` on `public`. This remains the larger security gap: design a restricted runtime role compatible with current application authorization, review rollback, prove behavior in disposable CI, then schedule a controlled production credential cutover. No production database permissions or credentials were changed. |
 | P1 | Scheduled maintenance origin | **Successful scheduled sweep verified** | The origin fix is on `main` in commit `fb9e0ba7`. Cloudflare telemetry for the scheduled run at `2026-10-17T03:00:30Z` recorded outcome `ok`; the sweep endpoint completed with HTTP 200. It processed zero expired listings, zero expiring notifications, and zero price snapshots because none were due. This verifies execution, not behavior when records are due. |
 | P1 | PR #89 — Worker DB reuse + video media | **Draft; not for production** | Requires CI, reviewed additive videoUrl schema migration, configured durable media storage, and authenticated upload → save → refresh → playback verification. Keep separate from photo bug fixes. [PR #89](https://github.com/isaJrKai/mudaala-cloudflare/pull/89) |
 | P1 | Public customer journey | **Browsing confirmed by founder; contact actions still need verification** | Founder confirms customers can browse listings. Remaining: open detail → call/WhatsApp → shop link/QR, plus mobile/slow-connection checks. |
@@ -58,6 +60,7 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 - [x] Post-release health telemetry: `/api/health` returned HTTP 200 and `[startup-db] connected` was recorded.
 - [x] Post-release Browse telemetry: 17 sampled `/api/listings` HTTP requests returned 200; no `error`-level or `exceededCpu` events were found for the new version in the checked window.
 - [ ] Continue monitoring because intermittent errors can recur outside the sampled window.
+- [x] After Prisma reuse deployment, a 24-hour telemetry query on 2026-10-17 found no HTTP 500 events for Browse or shop-name search and no error-level events in the latest two-hour sample; direct live API reads were unavailable from the verification client, so this is telemetry-only evidence, not a complete live smoke pass.
 
 ### 2. Confirm scheduled maintenance execution
 
@@ -77,15 +80,18 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 - [x] Inspect production database role, grants, RLS policies and direct Data API exposure (read-only, 2026-10-17).
 - [x] Read-only investigation confirmed the configured production Hyperdrive database user maps to the powerful `postgres` role; the role has `BYPASSRLS` and schema `CREATE` privilege. This is a confirmed gap, not a completed fix.
 - [x] Recheck the `CategoryInterest` Data API policy: `category_interest_deny_direct_api_clients` already denies all rows for `anon` and `authenticated` (`USING false`, `WITH CHECK false`). The policy name differs from the common name; no production policy change is needed. CI is being changed to validate policy behavior/table coverage rather than demand identical policy names.
-- [ ] Design and review a restricted runtime role plus compatible authorization/RLS policy strategy; preserve the existing app and data.
-- [ ] Test the proposed role and cross-account isolation in disposable CI before any production change.
+- [ ] Review [restricted runtime-role cutover PR](https://github.com/isaJrKai/mudaala-cloudflare/pull/108) and pass CI using the exact production migration in disposable PostgreSQL.
+- [ ] Apply the additive migration with the runtime role left `NOLOGIN`; verify grants, RLS policies and default privileges without changing the live Worker connection.
+- [ ] Generate/store a runtime credential outside Git, then stage a separate Hyperdrive configuration and prove health, Browse, shop search, authenticated owner operations, photos and cron authorization before switching production traffic.
+- [ ] Keep the old Hyperdrive configuration available for rollback; after cutover, verify the Worker connects as `mudaala_runtime` and has no elevated role flags.
 - [ ] Test owner/admin boundaries with separate test accounts without modifying real customer records.
 - [ ] Verify secrets are not exposed to client bundles or logs.
 - [ ] Record production evidence and a rollback plan before any security migration/policy change.
 
 ### 4. Deployment release gate
 
-- [ ] Required CI passes on the exact commit intended for release.
+- [x] PR #107 required CI passed on its exact head (workflow run 221); production smoke gates are merged but will execute on the next application deployment.
+- [ ] Required CI passes on the exact commit intended for each subsequent release.
 - [ ] Review the diff and migration impact.
 - [ ] Deploy only the intended release.
 - [ ] Check Cloudflare deployment/version and live health.
@@ -117,7 +123,7 @@ Copilot's 91% score is not a measured readiness score: the audit does not define
 ### Already implemented (do not rebuild without a demonstrated gap)
 
 - PR validation runs against disposable PostgreSQL, validates/generates Prisma, builds the Cloudflare Worker, tests photo-storage fail-closed behavior, tests shared Durable Object rate limits, verifies Data API deny policies and a restricted CI role, runs API/account-isolation/moderation/photo tests, and exercises saved-search persistence, listing lifecycle and mobile cart behavior in Playwright.
-- Main-branch deployment builds the Worker, captures the current production version, checks `/api/health`, verifies the shared rate limiter and cookie-only auth mode, and attempts rollback plus a post-rollback health check if the release gate fails. Draft PR #107 adds read-only, response-shape-checked Browse and shop-search smoke tests so those public endpoints can trigger automatic rollback on HTTP or JSON-shape failure.
+- Main-branch deployment builds the Worker, captures the current production version, checks `/api/health`, verifies the shared rate limiter and cookie-only auth mode, and attempts rollback plus a post-rollback health check if the release gate fails. PR #107 (`e781147be8be3084ee5ecfbea2b9578de66607b2`) merged after its required CI passed; the next application deployment will run read-only Browse and shop-search response-shape checks and roll back on failure.
 - Cloudflare Worker observability is enabled. This is evidence of telemetry collection, not proof that alert delivery, SLO dashboards or incident response are configured.
 - User-confirmed shop creation/deletion, Browse, badge display, preferences and photo upload are recorded above; do not reopen working features without a specific new failure.
 
