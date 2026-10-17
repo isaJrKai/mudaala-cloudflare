@@ -11,8 +11,8 @@ export async function POST(_request: NextRequest, { params }: Params) {
   return route(async () => {
     const user = await requireUser()
     const { id } = await params
-    const search = await db.savedSearch.findUnique({ where: { id } })
-    if (!search || search.userId !== user.id) {
+    const search = await db.savedSearch.findFirst({ where: { id, userId: user.id } })
+    if (!search) {
       throw new ApiError(404, 'Saved search not found')
     }
 
@@ -28,10 +28,13 @@ export async function POST(_request: NextRequest, { params }: Params) {
     }
 
     const { total } = await searchListings({ query: { ...parsed.data, page: 1, pageSize: 1 } })
-    const updated = await db.savedSearch.update({
-      where: { id },
+    const updated = await db.savedSearch.updateMany({
+      where: { id, userId: user.id },
       data: { lastMatchCount: total, lastCheckedAt: new Date() },
     })
-    return jsonOk({ search: updated })
+    if (updated.count === 0) throw new ApiError(404, 'Saved search not found')
+    const refreshed = await db.savedSearch.findFirst({ where: { id, userId: user.id } })
+    if (!refreshed) throw new ApiError(404, 'Saved search not found')
+    return jsonOk({ search: refreshed })
   })
 }
