@@ -119,37 +119,16 @@ jobs:
         run: npx tsx scripts/test-service-listing-form.ts
 
       - name: Create and prove least-privilege runtime database role
-        # This role is deliberately created only in the disposable CI database.
-        # It cannot own objects, bypass RLS, create roles/databases, or perform DDL.
-        # The app-role RLS policy is permissive by design because user-level
-        # ownership is enforced in the Worker; anon/authenticated remain denied.
+        # Apply the exact migration intended for production, but only in disposable CI.
+        # Login is enabled here with a test-only password; the migration itself leaves
+        # the production role NOLOGIN until a separate credential cutover is approved.
         run: |
           set -euo pipefail
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
-          CREATE ROLE mudaala_runtime LOGIN PASSWORD 'runtime_test_only'
-            NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-          GRANT CONNECT ON DATABASE mudaala TO mudaala_runtime;
-          GRANT USAGE ON SCHEMA public TO mudaala_runtime;
-          DO $body$
-          DECLARE tbl record;
-          BEGIN
-            FOR tbl IN
-              SELECT tablename FROM pg_tables
-              WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'
-            LOOP
-              EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.%I TO mudaala_runtime', tbl.tablename);
-              EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl.tablename);
-              EXECUTE format(
-                'CREATE POLICY mudaala_runtime_access ON public.%I FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true)',
-                tbl.tablename
-              );
-            END LOOP;
-          END $body$;
-          GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO mudaala_runtime;
-          SQL
-          role_flags=$(psql "$DATABASE_URL" -Atc "SELECT rolsuper::int || ',' || rolcreatedb::int || ',' || rolcreaterole::int || ',' || rolreplication::int || ',' || rolbypassrls::int FROM pg_roles WHERE rolname='mudaala_runtime'")
-          if [ "$role_flags" != "0,0,0,0,0" ]; then
-            echo "Runtime role has unexpected elevated flags: $role_flags"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261017193000_restricted_runtime_role/migration.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "ALTER ROLE mudaala_runtime LOGIN PASSWORD 'runtime_test_only';"
+          role_flags=$(psql "$DATABASE_URL" -Atc "SELECT rolsuper::int || ',' || rolcreatedb::int || ',' || rolcreaterole::int || ',' || rolreplication::int || ',' || rolbypassrls::int || ',' || rolcanlogin::int FROM pg_roles WHERE rolname='mudaala_runtime'")
+          if [ "$role_flags" != "0,0,0,0,0,1" ]; then
+            echo "Runtime role has unexpected flags/login state: $role_flags"
             exit 1
           fi
           owned_objects=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_class c JOIN pg_roles r ON r.oid=c.relowner WHERE r.rolname='mudaala_runtime'")
@@ -169,11 +148,12 @@ jobs:
           fi
           runtime_policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND policyname='mudaala_runtime_access' AND 'mudaala_runtime'=ANY(roles)")
           table_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'")
-          if [ "$runtime_policy_count" != "$table_count" ]; then
-            echo "Expected one runtime policy per public table ($table_count), found $runtime_policy_count"
+          rls_table_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_tables t JOIN pg_class c ON c.relname=t.tablename JOIN pg_namespace n ON n.oid=c.relnamespace AND n.nspname=t.schemaname WHERE t.schemaname='public' AND t.tablename <> '_prisma_migrations' AND c.relrowsecurity")
+          if [ "$runtime_policy_count" != "$table_count" ] || [ "$rls_table_count" != "$table_count" ]; then
+            echo "Expected runtime policy and RLS on all public tables ($table_count); policies=$runtime_policy_count RLS=$rls_table_count"
             exit 1
           fi
-          echo "Least-privilege role proof passed: no elevated role flags, no owned objects, no schema CREATE, runtime policy covers $table_count public tables."
+          echo "Runtime role proof passed: no elevated flags or object ownership, no schema CREATE or migration-table access, RLS/policy coverage on $table_count tables."
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
