@@ -3,6 +3,8 @@
 -- This policy protects the table if direct API privileges are accidentally granted later.
 -- Idempotent so an already-present policy does not block migration recovery.
 
+ALTER TABLE public."CategoryInterest" ENABLE ROW LEVEL SECURITY;
+
 DO $$
 BEGIN
   IF NOT EXISTS (
