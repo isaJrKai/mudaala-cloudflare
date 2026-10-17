@@ -23,20 +23,30 @@ function runtimeDatabaseUrl() {
   return value
 }
 
+// Reuse Prisma within a Worker isolate. Recreating a Prisma client and pg
+// adapter for every model access is expensive and can exhaust the Worker's CPU
+// budget during multi-step operations (for example account deletion). Hyperdrive
+// provides upstream pooling; keep one adapter/client per isolate and connection.
+let cachedPrisma: PrismaClient | undefined
+let cachedConnectionString: string | undefined
+
 function getPrisma(): PrismaClient {
   const connectionString = runtimeDatabaseUrl()
   if (!connectionString) throw new Error('DATABASE_URL or Cloudflare HYPERDRIVE is required to initialize Prisma')
-  // Keep this adapter isolated to the short-lived route client. In production
-  // observability, reusing the module-level pg pool was followed by Worker
-  // runtime cancellations on session lookups and public listing reads. The
-  // single-use pool avoids reusing a potentially wedged connection while the
-  // underlying Hyperdrive service remains responsible for upstream pooling.
-  const adapter = new PrismaPg({ connectionString, maxUses: 1 })
-  return new PrismaClient({
+
+  if (cachedPrisma && cachedConnectionString === connectionString) {
+    return cachedPrisma
+  }
+
+  const adapter = new PrismaPg({ connectionString })
+  const client = new PrismaClient({
     adapter,
     log: process.env.PRISMA_LOG_QUERIES === '1' || process.env.PRISMA_LOG_QUERIES === 'true'
       ? ['query'] : ['error'],
   })
+  cachedConnectionString = connectionString
+  cachedPrisma = client
+  return client
 }
 
 export const db = new Proxy({} as PrismaClient, {
