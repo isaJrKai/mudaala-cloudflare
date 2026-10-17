@@ -81,8 +81,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       // freshness and expiry. FULFILLED → ACTIVE never touches timestamps.
       const now = new Date()
       const repost = data.status === 'ACTIVE' && (listing.status === 'EXPIRED' || listing.status === 'ARCHIVED')
-      const updated = await db.listing.update({
-        where: { id },
+      const changed = await db.listing.updateMany({
+        where: { id, userId: user.id, status: listing.status, updatedAt: listing.updatedAt },
         data: {
           status: data.status,
           ...(repost
@@ -94,6 +94,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
             : {}),
         },
       })
+      if (changed.count === 0) {
+        await getOwnedListingOr404(id, user.id)
+        throw new ApiError(409, 'This listing changed while you were editing. Reload and try again.')
+      }
+      const updated = await db.listing.findFirst({ where: { id, userId: user.id } })
+      if (!updated) throw new ApiError(404, 'Listing not found')
       return jsonOk({ listing: updated })
     }
 
@@ -181,12 +187,19 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       })
     }
 
-    const updated = await db.listing.update({
-      where: { id },
-      data: {
-        ...merged,
-      },
+    const changed = await db.listing.updateMany({
+      where: { id, userId: user.id, status: 'ACTIVE', updatedAt: listing.updatedAt },
+      data: { ...merged },
     })
+    if (changed.count === 0) {
+      const current = await getOwnedListingOr404(id, user.id)
+      if (current.status !== 'ACTIVE') {
+        throw new ApiError(409, `This listing is ${current.status.toLowerCase()}. Reactivate it before editing.`)
+      }
+      throw new ApiError(409, 'This listing changed while you were editing. Reload and try again.')
+    }
+    const updated = await db.listing.findFirst({ where: { id, userId: user.id } })
+    if (!updated) throw new ApiError(404, 'Listing not found')
     return jsonOk({ listing: serializeListing(updated) })
   })
 }
@@ -196,8 +209,9 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   return route(async () => {
     const user = await requireUser()
     const { id } = await params
-    await getOwnedListingOr404(id, user.id)
-    await db.listing.delete({ where: { id } })
+    // Owner-scoped atomic delete avoids a check-then-delete race.
+    const removed = await db.listing.deleteMany({ where: { id, userId: user.id } })
+    if (removed.count === 0) throw new ApiError(404, 'Listing not found')
     return jsonOk({ ok: true })
   })
 }
