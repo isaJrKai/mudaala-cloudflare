@@ -245,7 +245,7 @@ async function verifyListingLifecycle(browser) {
     );
     let publishClickError;
     try {
-      await page.locator('#p-title').locator('xpath=ancestor::form').getByRole('button', { name: /publish/i }).click({ timeout: 6000 });
+      await page.locator('#p-title').locator('xpath=ancestor::form').getByRole('button', { name: /^Post ad$/i }).click({ timeout: 6000 });
     } catch (error) {
       publishClickError = error;
     }
