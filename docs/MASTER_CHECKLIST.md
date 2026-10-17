@@ -1,6 +1,6 @@
 # Mudaala — Master Project Checklist
 
-**Last reconciled:** 2026-10-17 (UTC+3; PR #107 merged, production smoke gates added, restricted runtime-role migration under CI review)  
+**Last reconciled:** 2026-10-17 (UTC+3; PR #107 smoke gates merged, runtime-role migration corrected after Supabase privilege check)  
 **Production app:** https://mudaala-cloudflare.kaisoisaac.workers.dev  
 **Repository:** https://github.com/isaJrKai/mudaala-cloudflare
 
@@ -80,8 +80,8 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 - [x] Inspect production database role, grants, RLS policies and direct Data API exposure (read-only, 2026-10-17).
 - [x] Read-only investigation confirmed the configured production Hyperdrive database user maps to the powerful `postgres` role; the role has `BYPASSRLS` and schema `CREATE` privilege. This is a confirmed gap, not a completed fix.
 - [x] Recheck the `CategoryInterest` Data API policy: `category_interest_deny_direct_api_clients` already denies all rows for `anon` and `authenticated` (`USING false`, `WITH CHECK false`). The policy name differs from the common name; no production policy change is needed. CI is being changed to validate policy behavior/table coverage rather than demand identical policy names.
-- [ ] Review [restricted runtime-role cutover PR](https://github.com/isaJrKai/mudaala-cloudflare/pull/108) and pass CI using the exact production migration in disposable PostgreSQL.
-- [ ] Apply the additive migration with the runtime role left `NOLOGIN`; verify grants, RLS policies and default privileges without changing the live Worker connection.
+- [ ] Review [runtime-role migration fix PR](https://github.com/isaJrKai/mudaala-cloudflare/pull/109) and pass CI using the exact production migration in disposable PostgreSQL.
+- [ ] Apply the corrected additive migration with the runtime role left `NOLOGIN`; verify grants, RLS policies and default privileges without changing the live Worker connection.
 - [ ] Generate/store a runtime credential outside Git, then stage a separate Hyperdrive configuration and prove health, Browse, shop search, authenticated owner operations, photos and cron authorization before switching production traffic.
 - [ ] Keep the old Hyperdrive configuration available for rollback; after cutover, verify the Worker connects as `mudaala_runtime` and has no elevated role flags.
 - [ ] Test owner/admin boundaries with separate test accounts without modifying real customer records.
@@ -131,7 +131,7 @@ Copilot's 91% score is not a measured readiness score: the audit does not define
 
 - **PR #106 database reuse reconciliation:** the current `src/lib/db.ts` on `main` and on `fix/worker-db-reuse-no-video` have the same content (SHA `98b72e99ceb4690a01c20a5df8d7a854e5805392`). The reuse fix is already in main commit `a9b2d5b0e6c3e66e35eac9756ba0499d317ca21f` and is running in production version `e19f1b62-b3fb-49a4-83fb-d6ecb2cc8747`. Do not merge PR #106 as a second code change; retain its context until its stale checklist diff is reconciled, then close/supersede it to avoid conflicting release records.
 
-- **P0 database privilege:** production Hyperdrive still uses the powerful `postgres` role. `CategoryInterest` already has a deny-all Data API policy under a different name; CI is being corrected to verify the behavior across all 13 tables. The restricted production runtime-role cutover remains separate and not yet done.
+- **P0 database privilege:** production Hyperdrive still uses the powerful `postgres` role. `CategoryInterest` already has a deny-all Data API policy under a different name; PR #107 now verifies the behavior across all 13 tables. PR #108 added the runtime-role migration, but its first production apply attempt was rejected because Supabase's migration executor cannot restate role flags with `ALTER ROLE`. A read-only follow-up confirmed no `mudaala_runtime` role, runtime policies or table grants were left behind. PR #109 removes that privileged `ALTER ROLE` and validates existing role flags instead. No production credentials or live Worker binding have changed.
 - **P0 reliability:** CPU reuse fix is deployed and no `exceededCpu` events were recorded in the checked post-release window. Two public GET requests returned HTTP 500 shortly after deploy; investigate before calling production stable.
 - **P1 customer journey:** existing browser tests do not cover the complete public journey from Browse → listing detail → call/WhatsApp contact, nor a full shop link/QR open. Add deterministic coverage using seeded disposable records; avoid destructive production tests.
 - **P1 performance:** no measured field p95/LCP/INP/CLS baseline or representative load-test result is recorded. Do not claim sub-500ms p95 or 99.99% uptime until measured. Google Core Web Vitals use LCP ≤2.5s, INP ≤200ms and CLS ≤0.1 as “good” field thresholds; these are more defensible initial web UX targets than a blanket <500ms page-load claim.
