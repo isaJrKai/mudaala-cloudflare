@@ -52,8 +52,10 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 
 ### 1. Unblock PR #87
 
-- [ ] Confirm the current PR head includes commit 5dc8848b.
-- [ ] Trigger a fresh PR validation run against the current head (the available connection cannot dispatch workflow runs; rerunning the old failed job only checks the old SHA).
+- [x] Founder manually tested the live product and confirmed it works (2026-10-17).
+- [x] Founder manually tested the product/photo flow and shop-owner journey and confirmed both work (2026-10-17). This is founder-reported live verification; it is not being misrepresented as an automated test artifact.
+- [x] Confirmed PR #87 remains open and its current head is `d2b1478e13245022e495a9e6c350b5f6dce8cf4d`.
+- [ ] Trigger a fresh PR validation run against the current head (the available GitHub connection exposes no workflow-dispatch action; rerunning the old failed job would only check the old SHA).
 - [ ] Read the new browser diagnostic from the failed listing-publish journey.
 - [ ] Fix the root cause in the existing form/test; do not weaken the test or bypass validation.
 - [ ] Verify saved-search create → list → reload → apply → delete → reload.
@@ -69,13 +71,9 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 
 ### 3. Confirm the live shop and photo journey
 
-- [ ] Fresh test account can sign in.
-- [ ] Shop profile can be created and saved.
-- [ ] Profile survives refresh and a new session.
-- [ ] Product/listing can be created and edited.
-- [ ] A newly uploaded photo remains available after refresh and is publicly rendered where intended.
-- [ ] Other accounts cannot edit or view private owner data.
-- [ ] Public shop/listing URLs and contact actions work on mobile.
+- [x] Founder reports the live product and shop-owner journey were manually tested successfully (2026-10-17).
+- [x] Founder reports the photo/product flow was tested successfully (2026-10-17).
+- [ ] Independently capture reproducible test evidence for account isolation and public contact actions; do not ask the founder to repeat already-completed tests unless a specific failure requires it.
 
 ### 4. Security release gate
 
