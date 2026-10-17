@@ -7,6 +7,7 @@ on:
     # If a commit also changes application/configuration code, deployment runs.
     paths-ignore:
       - '.github/workflows/**'
+      - 'prisma/migrations/**'
       - 'scripts/test-api.ts'
       - '**/*.md'
   workflow_dispatch:
