@@ -1,17 +1,27 @@
 -- Give the Worker a non-privileged runtime role, separate from Supabase's postgres owner.
 -- This role starts NOLOGIN; the production credential cutover is a separate, reversible
 -- operational step after this migration has been applied and verified.
-DO $$
+DO $
+DECLARE
+  existing_role record;
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mudaala_runtime') THEN
+  SELECT rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls
+    INTO existing_role
+    FROM pg_roles
+    WHERE rolname = 'mudaala_runtime';
+
+  IF NOT FOUND THEN
     CREATE ROLE mudaala_runtime
       NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+  ELSIF existing_role.rolsuper
+     OR existing_role.rolcreatedb
+     OR existing_role.rolcreaterole
+     OR existing_role.rolreplication
+     OR existing_role.rolbypassrls THEN
+    RAISE EXCEPTION 'Existing mudaala_runtime role has elevated privileges; refusing to change it automatically';
   END IF;
 END
-$$;
-
-ALTER ROLE mudaala_runtime
-  NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+$;
 
 DO $$
 BEGIN
