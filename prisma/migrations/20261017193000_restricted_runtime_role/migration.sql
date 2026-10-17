@@ -1,7 +1,7 @@
 -- Give the Worker a non-privileged runtime role, separate from Supabase's postgres owner.
 -- This role starts NOLOGIN; the production credential cutover is a separate, reversible
 -- operational step after this migration has been applied and verified.
-DO $
+DO $body$
 DECLARE
   existing_role record;
 BEGIN
@@ -21,7 +21,7 @@ BEGIN
     RAISE EXCEPTION 'Existing mudaala_runtime role has elevated privileges; refusing to change it automatically';
   END IF;
 END
-$;
+$body$;
 
 DO $$
 BEGIN
