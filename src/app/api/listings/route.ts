@@ -5,8 +5,6 @@ import { getClientIp } from '@/lib/client-ip'
 import { listingCreateSchema, listingQuerySchema, normalizePhone, type CountryKey } from '@/lib/validation'
 import { db } from '@/lib/db'
 import {
-  expireOverdueListings,
-  notifyExpiringSoon,
   searchListings,
   notifySavedSearchMatches,
   sanitizePhotos,
@@ -17,10 +15,6 @@ import { LISTING_ACTIVE_DAYS, countryDef, currencyDef, findProhibitedItem } from
 // Public search - filter, sort and paginate in the database, not the browser.
 export async function GET(request: NextRequest) {
   return route(async () => {
-    // Real time-dependent behaviour: overdue listings are expired on read.
-    await expireOverdueListings()
-    notifyExpiringSoon().catch((err) => console.error('[listings] expiring-soon sweep failed:', err))
-
     const raw = Object.fromEntries(request.nextUrl.searchParams.entries())
     const cleaned = Object.fromEntries(
       Object.entries(raw).filter(([, v]) => v !== '' && v !== 'any'),
