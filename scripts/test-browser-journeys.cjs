@@ -233,15 +233,25 @@ async function verifyListingLifecycle(browser) {
     await page.getByRole('option', { name: /^Kampala$/i }).click();
     await page.locator('#p-phone').fill(phone);
 
+    // Attach rejection handling immediately: otherwise the response wait can
+    // time out while Playwright is still waiting for the Publish button click,
+    // causing Node to report an unhandled rejection before diagnostics run.
     const createResponsePromise = page.waitForResponse((response) => {
       return response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/listings';
-    }, { timeout });
-    await page.locator('#p-title').locator('xpath=ancestor::form').getByRole('button', { name: /publish/i }).click();
-    let createResponse;
+    }, { timeout }).then(
+      (response) => ({ response }),
+      (error) => ({ error }),
+    );
+    let publishClickError;
     try {
-      createResponse = await createResponsePromise;
+      await page.locator('#p-title').locator('xpath=ancestor::form').getByRole('button', { name: /publish/i }).click({ timeout: 6000 });
     } catch (error) {
+      publishClickError = error;
+    }
+    const createResult = await createResponsePromise;
+    let createResponse;
+    if (createResult.error) {
       // A form-level Zod rejection intentionally prevents the API request. If
       // the browser journey times out, capture the visible validation state so
       // the next CI run identifies the missing/invalid field instead of only
@@ -262,11 +272,14 @@ async function verifyListingLifecycle(browser) {
         }).map(el => (el.textContent || '').trim()).slice(-30),
         bodyText: document.body.innerText.slice(-3500),
       }));
+      diagnostics.publishClickError = publishClickError ? publishClickError.message : null;
       diagnostics.browserConsoleErrors = browserConsoleErrors;
       diagnostics.browserPageErrors = browserPageErrors;
       console.error('Listing publish browser diagnostic:', JSON.stringify(diagnostics, null, 2));
-      throw error;
+      throw new Error('No POST /api/listings response was observed: ' + createResult.error.message);
     }
+    createResponse = createResult.response;
+    if (publishClickError) throw publishClickError;
     const createBody = await createResponse.text();
     if (createResponse.status() !== 201) {
       throw new Error('Listing creation failed: HTTP ' + createResponse.status() + ' ' + createBody.slice(0, 500));
