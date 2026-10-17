@@ -973,6 +973,15 @@ async function main() {
     const stillIntact = await call('GET', `/api/listings/${createdListingId}`)
     ok('listing unchanged after attack attempts', stillIntact.json.listing.title === validListing.title)
 
+    const raceListing = await call('POST', '/api/listings', { ...validListing, title: 'Concurrent listing removal test' }, bob)
+    const raceId = raceListing.json?.listing?.id as string
+    const raceResults = await Promise.all([
+      call('DELETE', '/api/listings/' + raceId, undefined, bob),
+      call('DELETE', '/api/listings/' + raceId, undefined, bob),
+    ])
+    const raceStatuses = raceResults.map((result) => result.status).sort((a, b) => a - b)
+    ok('concurrent listing removal gives one 200 and one 404', raceListing.status === 201 && raceStatuses[0] === 200 && raceStatuses[1] === 404, raceStatuses.join(', '))
+
     const anonPatch = await call('PATCH', `/api/listings/${createdListingId}`, { title: 'Anonymous defacement' })
     ok('unauthenticated edit → 401', anonPatch.status === 401)
 
@@ -1019,6 +1028,17 @@ async function main() {
 
     const second = await call('POST', `/api/listings/${createdListingId}/refresh`, undefined, alice)
     ok('second refresh within 24h → 429', second.status === 429)
+
+    await db.listing.update({
+      where: { id: createdListingId },
+      data: { refreshedAt: new Date(Date.now() - 25 * 3_600_000) },
+    })
+    const concurrentRefreshes = await Promise.all([
+      call('POST', `/api/listings/${createdListingId}/refresh`, undefined, alice),
+      call('POST', `/api/listings/${createdListingId}/refresh`, undefined, alice),
+    ])
+    const refreshStatuses = concurrentRefreshes.map((result) => result.status).sort((a, b) => a - b)
+    ok('simultaneous refreshes produce one success and one cooldown response', refreshStatuses[0] === 200 && refreshStatuses[1] === 429, refreshStatuses.join(', '))
   }
 
   console.log('\n== 7. Saved searches & real matching ==')
