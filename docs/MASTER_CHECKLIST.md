@@ -25,7 +25,7 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 | P0 | Shop creation / first-run onboarding | **User reports fixed; production verification pending** | Test a fresh account through sign-in, shop creation, save, refresh, product publish and public shop URL. |
 | P0 | Photo upload and persistence | **Public photo delivery passed; fresh authenticated upload still unverified** | Production live verification workflow passed on 2026-10-16 16:31 UTC: existing listing photos rendered in-browser (3 images) and the admin shop cover photo was persisted and publicly served. This proves existing media delivery, not a new upload. Next: authenticate, upload a fresh profile/listing photo, save, reload/new session, and verify durable storage and public rendering. Never accept local /uploads as durable production storage. |
 | P0 | Account isolation and database least privilege | **Direct API protections verified; Worker runtime role still unverified** | Live Supabase read-only inspection on 2026-10-16: Security Advisor returned no security lints; all 13 public application tables have RLS enabled; `anon` and `authenticated` have no table grants; deny-all policies cover those roles. The production Worker has `DATABASE_URL` and `HYPERDRIVE` bindings, but the secret values and actual runtime database identity were not inspected. Verify the Worker uses an appropriately restricted runtime role and run cross-account checks safely. CI on PR #87's prior head also passed disposable-Postgres least-privilege and account-isolation tests; that is not proof of the production runtime role. |
-| P1 | PR #63 — scheduled maintenance origin | **Open; scheduled execution not yet confirmed** | After the appropriate deploy, confirm a successful mudaala_scheduled_sweep_completed event in Cloudflare logs. [PR #63](https://github.com/isaJrKai/mudaala-cloudflare/pull/63) |
+| P1 | Scheduled maintenance origin | **Origin fix is on main; scheduled execution not yet confirmed** | The PR #63 change is already on `main` in commit `fb9e0ba7` (same two-file change); closed the duplicate open PR without merging. Production Worker was redeployed after that commit, but a successful `mudaala_scheduled_sweep_completed` event still needs to be verified in Cloudflare logs. [Commit](https://github.com/isaJrKai/mudaala-cloudflare/commit/fb9e0ba7dd5c82a1887bd3da33b61ca5330a752d) |
 | P1 | PR #89 — Worker DB reuse + video media | **Draft; not for production** | Requires CI, reviewed additive videoUrl schema migration, configured durable media storage, and authenticated upload → save → refresh → playback verification. Keep separate from photo bug fixes. [PR #89](https://github.com/isaJrKai/mudaala-cloudflare/pull/89) |
 | P1 | Public customer journey | **End-to-end verification pending** | Browse real listings → open detail → contact via call/WhatsApp → shop link/QR. Verify mobile layout and slow connection. |
 | P1 | Admin badge and permissions | **Live verification pending** | Verify authorized admin response includes shop.isAdmin: true and UI badge renders correctly; verify ordinary users cannot gain admin privileges. |
@@ -60,7 +60,12 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 - [ ] Ensure the other API, security, type-check, lint and build steps remain green.
 - [ ] Merge only after the required checks pass; then verify the deployed Worker.
 
-### 2. Confirm the live shop and photo journey
+### 2. Confirm scheduled maintenance execution
+
+- [ ] Inspect Cloudflare Worker observability for the scheduled invocation at 03:00 UTC and confirm a successful `mudaala_scheduled_sweep_completed` event.
+- [ ] If the event failed or is missing, inspect the scheduled handler's HTTP response and error before changing configuration again.
+
+### 3. Confirm the live shop and photo journey
 
 - [ ] Fresh test account can sign in.
 - [ ] Shop profile can be created and saved.
@@ -70,7 +75,7 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 - [ ] Other accounts cannot edit or view private owner data.
 - [ ] Public shop/listing URLs and contact actions work on mobile.
 
-### 3. Security release gate
+### 4. Security release gate
 
 - [ ] Inspect production database role, grants, RLS policies and direct Data API exposure.
 - [ ] Confirm the production runtime role cannot bypass RLS or perform schema changes.
