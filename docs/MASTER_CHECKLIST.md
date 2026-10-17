@@ -1,6 +1,6 @@
 # Mudaala — Master Project Checklist
 
-**Last reconciled:** 2026-10-17 (UTC+3; deletion CPU error correlated and focused no-video fix prepared)  
+**Last reconciled:** 2026-10-17 (UTC+3; deployed Prisma reuse fix, audit reconciliation and living product requirements in review)  
 **Production app:** https://mudaala-cloudflare.kaisoisaac.workers.dev  
 **Repository:** https://github.com/isaJrKai/mudaala-cloudflare
 
@@ -22,9 +22,9 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 | Priority | Workstream | Status | Evidence / next action |
 |---|---|---|---|
 | P0 | PR #87 reconciliation / saved-search and listing concurrency | **Merged and deployed; production smoke evidence positive** | Stale PR #87 was superseded by [PR #104](https://github.com/isaJrKai/mudaala-cloudflare/pull/104), which passed required CI and merged as `9d8ded6c826249526a9f729b850f38d0e064d095`. Cloudflare shows version `4945a9f4-6e0c-442c-9ce9-0f46de22ad88` serving 100% traffic from 2026-10-17 11:11 UTC. Production health returned HTTP 200 with database connection logs; sampled Browse requests on the new version returned HTTP 200. Continue observing for recurrence; this is not a zero-risk guarantee. |
-| P0 | Shop creation / deletion | **Intermittent delete failure correlated with Worker CPU exhaustion; isolated fix proposed, not deployed** | Founder reports sample shop creation/deletion succeeded after a first error. Cloudflare observability shows `DELETE /api/account` failed with “Worker exceeded CPU time limit” at 2026-10-17T13:28:30.542Z; a public shop GET failed from CPU exhaustion within the same second. Code inspection found `src/lib/db.ts` constructs a fresh Prisma client and pg adapter on each model-property access and sets `maxUses: 1`. A focused branch `fix/worker-db-reuse-no-video` now proposes reusing one Prisma client per Worker isolate, without video changes. Required next: run CI/regression tests, review connection lifecycle and deploy only after passing; then verify production telemetry. No production code changed. |
+| P0 | Shop creation / deletion | **Prisma reuse fix deployed; CPU errors absent in sampled post-release window, but two non-CPU 500s need investigation** | Main commit `a9b2d5b0e6c3e66e35eac9756ba0499d317ca21f` contains the per-isolate Prisma client reuse fix. Cloudflare reports version `e19f1b62-b3fb-49a4-83fb-d6ecb2cc8747` serving 100% traffic from 2026-10-17T17:14:36Z. A telemetry query for 17:14–18:58 UTC recorded zero `exceededCpu` events, but recorded HTTP 500s on `GET /api/listings?page=1&pageSize=10` (10.17s wall time, 48ms CPU) and `GET /api/shops/search?q=gras` (733ms wall time, 52ms CPU), both from Node-based Microsoft-hosted probes. Root cause is not established. Next: capture actionable exception details safely, reproduce these public GETs, then exercise shop create/delete using controlled test accounts. Do not call the reliability gate complete yet. |
 | P0 | Photo upload and persistence | **Working in the current app; user-confirmed** | Isaac confirms photo uploads work in the current Mudaala version. Earlier upload/storage logs also show successful uploads and public image delivery. Do not treat this as an active bug or ask for another upload test unless a new failure is reported. The previous post-release fresh-upload telemetry gap was based on an outdated checklist assumption. Never accept local `/uploads` as durable production storage. |
-| P0 | Account isolation and database least privilege | **P0 security gap confirmed: production Worker is configured to connect as the powerful `postgres` database user** | Read-only checks on 2026-10-17: Security Advisor returned zero lints; all 13 public tables have RLS enabled; `anon` and `authenticated` have no table grants. Twelve tables have the `deny_direct_api_clients` policy; `CategoryInterest` is missing that policy, although both direct roles currently have no SELECT privilege on it. Cloudflare config shows the Worker prefers `HYPERDRIVE`; its production Hyperdrive origin is configured with the project's `postgres` database user. The database role inspection confirms `postgres` has `BYPASSRLS`, `CREATEROLE`, `CREATEDB`, and `CREATE` on `public`. Therefore, RLS does not constrain queries made through that connection. Do not mark security complete: design a restricted runtime role and an account-isolation/RLS strategy, review impact and rollback, test in disposable CI first, then deploy and verify. No production settings were changed during this investigation. |
+| P0 | Account isolation and database least privilege | **Production runtime role remains over-privileged; Data API deny policy already exists, CI coverage being corrected** | Read-only checks on 2026-10-17: Security Advisor returned zero lints; all 13 public tables have RLS enabled; `anon` and `authenticated` have no table grants. Read-only inspection found `public.CategoryInterest` already has the permissive-policy-form `category_interest_deny_direct_api_clients` for `anon` and `authenticated`, with both `USING (false)` and `WITH CHECK (false)`. The policy name differs from the other tables; do not add a duplicate policy. Branch `fix/category-interest-deny-policy` updates disposable-Postgres CI to verify deny-all policies by table semantics across all 13 tables and zero direct grants; required CI must pass before merge. Separately, Cloudflare Hyperdrive authenticates as `postgres`, which has `BYPASSRLS`, `CREATEROLE`, `CREATEDB`, and `CREATE` on `public`. This remains the larger security gap: design a restricted runtime role compatible with current application authorization, review rollback, prove behavior in disposable CI, then schedule a controlled production credential cutover. No production database permissions or credentials were changed. |
 | P1 | Scheduled maintenance origin | **Successful scheduled sweep verified** | The origin fix is on `main` in commit `fb9e0ba7`. Cloudflare telemetry for the scheduled run at `2026-10-17T03:00:30Z` recorded outcome `ok`; the sweep endpoint completed with HTTP 200. It processed zero expired listings, zero expiring notifications, and zero price snapshots because none were due. This verifies execution, not behavior when records are due. |
 | P1 | PR #89 — Worker DB reuse + video media | **Draft; not for production** | Requires CI, reviewed additive videoUrl schema migration, configured durable media storage, and authenticated upload → save → refresh → playback verification. Keep separate from photo bug fixes. [PR #89](https://github.com/isaJrKai/mudaala-cloudflare/pull/89) |
 | P1 | Public customer journey | **Browsing confirmed by founder; contact actions still need verification** | Founder confirms customers can browse listings. Remaining: open detail → call/WhatsApp → shop link/QR, plus mobile/slow-connection checks. |
@@ -76,7 +76,7 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 
 - [x] Inspect production database role, grants, RLS policies and direct Data API exposure (read-only, 2026-10-17).
 - [x] Read-only investigation confirmed the configured production Hyperdrive database user maps to the powerful `postgres` role; the role has `BYPASSRLS` and schema `CREATE` privilege. This is a confirmed gap, not a completed fix.
-- [ ] Add the missing `deny_direct_api_clients` policy for `CategoryInterest` after reviewing a minimal, reversible SQL change.
+- [x] Recheck the `CategoryInterest` Data API policy: `category_interest_deny_direct_api_clients` already denies all rows for `anon` and `authenticated` (`USING false`, `WITH CHECK false`). The policy name differs from the common name; no production policy change is needed. CI is being changed to validate policy behavior/table coverage rather than demand identical policy names.
 - [ ] Design and review a restricted runtime role plus compatible authorization/RLS policy strategy; preserve the existing app and data.
 - [ ] Test the proposed role and cross-account isolation in disposable CI before any production change.
 - [ ] Test owner/admin boundaries with separate test accounts without modifying real customer records.
@@ -108,3 +108,80 @@ Record:
 6. **Next:** one highest-priority action.
 
 Do not mark an item done just because code was written.
+
+
+## Independent audit reconciliation (2026-10-17)
+
+Copilot's 91% score is not a measured readiness score: the audit does not define a weighted rubric or provide production evidence for the KPI targets. Use the following evidence-based status instead.
+
+### Already implemented (do not rebuild without a demonstrated gap)
+
+- PR validation runs against disposable PostgreSQL, validates/generates Prisma, builds the Cloudflare Worker, tests photo-storage fail-closed behavior, tests shared Durable Object rate limits, verifies Data API deny policies and a restricted CI role, runs API/account-isolation/moderation/photo tests, and exercises saved-search persistence, listing lifecycle and mobile cart behavior in Playwright.
+- Main-branch deployment builds the Worker, captures the current production version, checks `/api/health`, verifies the shared rate limiter and cookie-only auth mode, and attempts rollback plus a post-rollback health check if the release gate fails. Draft PR #107 adds read-only, response-shape-checked Browse and shop-search smoke tests so those public endpoints can trigger automatic rollback on HTTP or JSON-shape failure.
+- Cloudflare Worker observability is enabled. This is evidence of telemetry collection, not proof that alert delivery, SLO dashboards or incident response are configured.
+- User-confirmed shop creation/deletion, Browse, badge display, preferences and photo upload are recorded above; do not reopen working features without a specific new failure.
+
+### Verified gaps / next actions
+
+- **PR #106 database reuse reconciliation:** the current `src/lib/db.ts` on `main` and on `fix/worker-db-reuse-no-video` have the same content (SHA `98b72e99ceb4690a01c20a5df8d7a854e5805392`). The reuse fix is already in main commit `a9b2d5b0e6c3e66e35eac9756ba0499d317ca21f` and is running in production version `e19f1b62-b3fb-49a4-83fb-d6ecb2cc8747`. Do not merge PR #106 as a second code change; retain its context until its stale checklist diff is reconciled, then close/supersede it to avoid conflicting release records.
+
+- **P0 database privilege:** production Hyperdrive still uses the powerful `postgres` role. `CategoryInterest` already has a deny-all Data API policy under a different name; CI is being corrected to verify the behavior across all 13 tables. The restricted production runtime-role cutover remains separate and not yet done.
+- **P0 reliability:** CPU reuse fix is deployed and no `exceededCpu` events were recorded in the checked post-release window. Two public GET requests returned HTTP 500 shortly after deploy; investigate before calling production stable.
+- **P1 customer journey:** existing browser tests do not cover the complete public journey from Browse → listing detail → call/WhatsApp contact, nor a full shop link/QR open. Add deterministic coverage using seeded disposable records; avoid destructive production tests.
+- **P1 performance:** no measured field p95/LCP/INP/CLS baseline or representative load-test result is recorded. Do not claim sub-500ms p95 or 99.99% uptime until measured. Google Core Web Vitals use LCP ≤2.5s, INP ≤200ms and CLS ≤0.1 as “good” field thresholds; these are more defensible initial web UX targets than a blanket <500ms page-load claim.
+- **P1 recovery:** no verified backup-restore drill is evidenced in this checklist. Document the backup source/retention and restore to a disposable database before calling recovery ready.
+- **P1 supply chain / CI:** PR CI currently lacks a blocking lint step and a blocking dependency vulnerability audit; the Knip audit is explicitly `continue-on-error`. Add lint and a suitable lockfile/dependency scan, then triage findings instead of silently suppressing them.
+- **P1 operations:** deploy rollback exists, but a canary traffic split, alert routing, tested incident contact list and measured MTTR are not evidenced. Prioritize actionable failure alerts and a tested rollback/restore runbook before building a large custom admin dashboard.
+- **P2 product analytics:** seller views/contacts/conversion analytics and response-time measurement should follow reliable event definitions and privacy boundaries; don't invent KPI claims.
+
+### Market position: compete on the job Mudaala does best
+
+Mudaala is currently a shop identity and shareable product-catalogue tool with direct phone/WhatsApp contact, not an in-app checkout marketplace. Jiji Uganda offers broad classifieds, category/location/price filtering, seller contact, feedback and paid promotion; WhatsApp Business offers product catalogues, shareable catalog/item links, collections and cart-to-chat. Mudaala should not attempt to match Jiji's listing volume or WhatsApp's messaging platform immediately. Its near-term edge should be a lightweight, persistent, mobile-first storefront for Ugandan small shops, simple photo-backed listing management, dependable direct contact, stable shop links/QRs, clear availability/prices and honest trust/safety guidance. Build density and trust in one launch market before expanding geography.
+
+References for competitor feature checks:
+- Jiji Uganda buyer/seller flow and safety guidance: https://jiji.ug/faq/26 and https://jiji.ug/about.html
+- WhatsApp Business catalog features: https://whatsappbusiness.com/products/business-app-features/
+- WhatsApp catalog details: https://faq.whatsapp.com/405903568419894/?helpref=uf_share
+- Google Core Web Vitals thresholds: https://support.google.com/webmasters/answer/9205520?hl=en
+
+
+
+## Product vision and competitive learning backlog (living requirements)
+
+**Product principle:** Mudaala should help ordinary local shopkeepers sell and be discovered online without needing technical expertise or expensive infrastructure. Prefer features that make a small shop easier to find, trust, understand, share and contact. Revisit these requirements as customer research provides stronger evidence; when a better approach supersedes one, replace the old requirement rather than keeping contradictory duplicates.
+
+### Buyer discovery and trust
+
+- [ ] Make product discovery dependable: useful search, category/location filters, sensible relevance, fast mobile browsing, and clear empty/error states.
+- [ ] Keep listing information honest and current: genuine product photos, price, availability/stock where relevant, and clear seller/shop identity.
+- [ ] Make seller contact explicit and reliable: correct phone/WhatsApp destinations, accessible on mobile, with clear fallback/error behavior.
+- [ ] Provide a straightforward way to report suspicious listings or shops; define a moderation queue, audit trail and response process before promising moderation SLAs.
+- [ ] Show trust signals only when their meaning is true and explainable. Never display “verified” merely because a shop has an account or profile photo.
+
+### Shareable shop catalogues and seasonal collections
+
+- [ ] Treat a shop's public catalogue and stable share link/QR as a core product capability, not a decorative add-on.
+- [ ] Explore named collections within a shop catalogue, such as “Christmas outfits”, “Back to School”, “New arrivals” or “Wedding collection”, with shareable collection links where practical.
+- [ ] Explore a collection landing-page layout inspired by fashion storefronts: one prominent hero/cover image and a clear grid of the products in that collection. Keep the existing shop design intact until a prototype is validated with shopkeepers and buyers.
+- [ ] Preserve the simple all-products shop view for shops that do not create collections; a collection feature must not make ordinary shops harder to use.
+- [ ] Validate the collection creation, product assignment, mobile rendering, image persistence, public sharing and QR journey before calling the feature complete.
+
+### Product interest, likes and merchant insights — discovery stage, not an implementation decision
+
+- [ ] Decide whether product likes/favourites should be public, private to the customer, or replaced/augmented by a “notify the shop” interest action. Do not assume likes are the best signal without customer research.
+- [ ] If implemented, define whether a customer can like without an account, whether likes are visible to other buyers, how to prevent repeated/fake engagement, and how a shopkeeper is notified without spamming them.
+- [ ] Distinguish interest signals from actual purchases. Never describe likes as sales or proof that a manufacturer’s product is being bought.
+- [ ] Define privacy-conscious merchant insights from meaningful events (views, contacts, saved/liked products and eventual purchases if supported). Give manufacturers or advertisers access only when consent, product-market fit and privacy controls justify it.
+- [ ] Consider in-app messaging/lead tracking only after defining the buyer/seller problem it solves, notification permissions, abuse reporting, retention and support burden. Reliable call/WhatsApp contact remains the current low-friction baseline.
+
+### Business verification — future milestone, not a current launch blocker
+
+- [ ] Keep the current onboarding low-friction while the pilot validates value. Do not require formal business-registration/tax documents from every early pilot seller without a clear operational/legal reason.
+- [ ] Plan a future business-verification tier for an appropriate later stage (target to reassess by the end of 2027, not a committed release date). Determine which documents establish registration and tax status in Uganda, who reviews them, how documents are protected/retained/deleted, how disputes and expired documents are handled, and what the badge actually guarantees.
+- [ ] Until that process exists, use neutral account/profile labels and never imply that Mudaala has verified a shop's registration or tax compliance.
+- [ ] Separate “profile complete”, “phone confirmed”, “business documents reviewed” and any future trust tier so customers are not misled by a single ambiguous badge.
+
+### Evidence and replacement rule
+
+For each new idea, record: customer problem, evidence/source, intended user, smallest test, privacy/safety impact, success measure and status (idea / validated / building / shipped / measured). An idea stays in discovery until the team has evidence it improves the real shopkeeper or buyer journey. When research contradicts an older assumption, replace the old checklist item and note why; do not accumulate incompatible requirements.
+

@@ -7,6 +7,7 @@ on:
     # If a commit also changes application/configuration code, deployment runs.
     paths-ignore:
       - '.github/workflows/**'
+      - 'prisma/migrations/**'
       - 'scripts/test-api.ts'
       - '**/*.md'
   workflow_dispatch:
@@ -99,6 +100,42 @@ jobs:
               if (health.ok !== true || health.app !== "up" || health.database !== "up") {
                 process.exit(1);
               }
+            });
+          '
+
+      - name: Smoke test public Browse and shop-name search
+        if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          set -euo pipefail
+          listings_body="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 --retry-connrefused "$APP_URL/api/listings?page=1&pageSize=10")"
+          printf '%s' "$listings_body" | node -e '
+            let raw = "";
+            process.stdin.on("data", chunk => raw += chunk);
+            process.stdin.on("end", () => {
+              let payload;
+              try { payload = JSON.parse(raw); } catch { console.error("Browse returned invalid JSON"); process.exit(1); }
+              if (!Array.isArray(payload.items) || typeof payload.total !== "number") {
+                console.error("Browse response is missing its expected items/total shape");
+                process.exit(1);
+              }
+              console.log(JSON.stringify({ browse: "ok", items: payload.items.length, total: payload.total }));
+            });
+          '
+
+          shops_body="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 --retry-connrefused --get --data-urlencode 'q=gras' "$APP_URL/api/shops/search")"
+          printf '%s' "$shops_body" | node -e '
+            let raw = "";
+            process.stdin.on("data", chunk => raw += chunk);
+            process.stdin.on("end", () => {
+              let payload;
+              try { payload = JSON.parse(raw); } catch { console.error("Shop search returned invalid JSON"); process.exit(1); }
+              if (!Array.isArray(payload.shops)) {
+                console.error("Shop search response is missing its shops array");
+                process.exit(1);
+              }
+              console.log(JSON.stringify({ shopSearch: "ok", matches: payload.shops.length }));
             });
           '
 
