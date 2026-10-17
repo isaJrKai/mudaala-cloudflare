@@ -54,9 +54,11 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 
 - [x] Founder manually tested the live product and confirmed it works (2026-10-17).
 - [x] Founder manually tested the product/photo flow and shop-owner journey and confirmed both work (2026-10-17). This is founder-reported live verification; it is not being misrepresented as an automated test artifact.
-- [x] Confirmed PR #87 remains open and its current head is `d2b1478e13245022e495a9e6c350b5f6dce8cf4d`.
-- [ ] Trigger a fresh PR validation run against the current head (the available GitHub connection exposes no workflow-dispatch action; rerunning the old failed job would only check the old SHA).
-- [ ] Read the new browser diagnostic from the failed listing-publish journey.
+- [x] Confirmed PR #87 remains open. Manual validation run #204 on commit `d2b1478e13245022e495a9e6c350b5f6dce8cf4d` failed in the browser listing-publish journey, not Knip; audit, Prisma, Worker build, rate-limit prototype, database policy/role checks, API/photo tests, and scheduled-maintenance tests passed.
+- [x] Root failure isolated to `scripts/test-browser-journeys.cjs`: the browser test waited 20 seconds for `POST /api/listings` and timed out. Existing diagnostic catch did not emit, likely because the promise rejection was unhandled while Playwright was still waiting on the Publish click.
+- [x] Test-only diagnostic fix committed to PR branch: `bdfb9616d7a8c7eed42116b54ec79909db150831`; response-wait rejection is handled immediately, Publish click is bounded to 6 seconds, and field/browser diagnostics are emitted if no request occurs. No product code changed and nothing was deployed.
+- [ ] Trigger a fresh manual workflow run on the updated branch head `bdfb9616d7a8c7eed42116b54ec79909db150831`.
+- [ ] Read the new browser diagnostic and fix the actual cause if the listing request is still not made.
 - [ ] Fix the root cause in the existing form/test; do not weaken the test or bypass validation.
 - [ ] Verify saved-search create → list → reload → apply → delete → reload.
 - [ ] Verify listing create → detail → edit → save → delete.
