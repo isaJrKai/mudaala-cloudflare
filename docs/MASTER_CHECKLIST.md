@@ -123,6 +123,8 @@ Copilot's 91% score is not a measured readiness score: the audit does not define
 
 ### Verified gaps / next actions
 
+- **PR #106 database reuse reconciliation:** the current `src/lib/db.ts` on `main` and on `fix/worker-db-reuse-no-video` have the same content (SHA `98b72e99ceb4690a01c20a5df8d7a854e5805392`). The reuse fix is already in main commit `a9b2d5b0e6c3e66e35eac9756ba0499d317ca21f` and is running in production version `e19f1b62-b3fb-49a4-83fb-d6ecb2cc8747`. Do not merge PR #106 as a second code change; retain its context until its stale checklist diff is reconciled, then close/supersede it to avoid conflicting release records.
+
 - **P0 database privilege:** production Hyperdrive still uses the powerful `postgres` role. The Data API policy for `CategoryInterest` is being added on `fix/category-interest-deny-policy`; the restricted production runtime-role cutover remains separate and not yet done.
 - **P0 reliability:** CPU reuse fix is deployed and no `exceededCpu` events were recorded in the checked post-release window. Two public GET requests returned HTTP 500 shortly after deploy; investigate before calling production stable.
 - **P1 customer journey:** existing browser tests do not cover the complete public journey from Browse → listing detail → call/WhatsApp contact, nor a full shop link/QR open. Add deterministic coverage using seeded disposable records; avoid destructive production tests.
