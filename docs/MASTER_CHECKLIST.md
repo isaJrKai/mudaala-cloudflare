@@ -1,6 +1,6 @@
 # Mudaala — Master Project Checklist
 
-**Last reconciled:** 2026-10-17 (UTC+3)  
+**Last reconciled:** 2026-10-17 (UTC+3; post-release production telemetry checked)  
 **Production app:** https://mudaala-cloudflare.kaisoisaac.workers.dev  
 **Repository:** https://github.com/isaJrKai/mudaala-cloudflare
 
@@ -21,11 +21,11 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 
 | Priority | Workstream | Status | Evidence / next action |
 |---|---|---|---|
-| P0 | PR #87 — end-to-end journey and silent action failures | **Blocked by browser CI failure** | Saved-search browser journey passed on commit ff8fbaff. Listing lifecycle journey timed out waiting for POST /api/listings at publish. Diagnostic commits 5dc8848b and d2b1478e now print validation/form state plus browser console and page errors if publish makes no API request. The current PR head is d2b1478e, but no workflow run is associated with the latest head despite reopening the PR. A temporary verification-only PR #103 was opened and closed because it also did not trigger Actions; no duplicate code was merged. The prior failure on ff8fbaff timed out waiting for POST /api/listings. Static review confirms the form uses the shared schema; the scripted inputs (category key, kg unit, Kampala district, valid-looking UG phone and required text) match the form's current options. This narrows the static review but does not prove browser state or identify the root cause because the new diagnostics have not run. The available GitHub connection can read workflow state and rerun old jobs, but does not expose a workflow-dispatch action; rerunning the old job would test the old SHA, not d2b1478e. A fresh run of `Validate Mudaala pull requests` against the current head is still required before fixing the observed cause. Do not merge/deploy until required CI is green. [PR #87](https://github.com/isaJrKai/mudaala-cloudflare/pull/87) |
+| P0 | PR #87 reconciliation / saved-search and listing concurrency | **Merged and deployed; production smoke evidence positive** | Stale PR #87 was superseded by [PR #104](https://github.com/isaJrKai/mudaala-cloudflare/pull/104), which passed required CI and merged as `9d8ded6c826249526a9f729b850f38d0e064d095`. Cloudflare shows version `4945a9f4-6e0c-442c-9ce9-0f46de22ad88` serving 100% traffic from 2026-10-17 11:11 UTC. Production health returned HTTP 200 with database connection logs; sampled Browse requests on the new version returned HTTP 200. Continue observing for recurrence; this is not a zero-risk guarantee. |
 | P0 | Shop creation / first-run onboarding | **User reports fixed; production verification pending** | Test a fresh account through sign-in, shop creation, save, refresh, product publish and public shop URL. |
-| P0 | Photo upload and persistence | **Public photo delivery passed; fresh authenticated upload still unverified** | Production live verification workflow passed on 2026-10-16 16:31 UTC: existing listing photos rendered in-browser (3 images) and the admin shop cover photo was persisted and publicly served. This proves existing media delivery, not a new upload. Cloudflare logs show the last `/api/upload` 500/503 events were on Oct 10, before the current Worker version; no upload attempts were found in the last 7 days after that date. Next: authenticate, upload a fresh profile/listing photo, save, reload/new session, and verify durable storage and public rendering. Absence of recent failures is not proof of upload success. Never accept local /uploads as durable production storage. |
+| P0 | Photo upload and persistence | **Recent upload + public delivery observed; post-release fresh upload still needs confirmation** | Supabase Storage logs show successful S3 uploads (HTTP 200) on Oct 16 15:52 UTC and Oct 17 06:01 UTC; the Worker returned `/api/upload` HTTP 201 at 06:01 UTC. The resulting public WebP was served with HTTP 200 after the Oct 17 11:11 UTC release, and profile/listing API reads returned 200. No `/api/upload` request has appeared in telemetry after the latest deployment, so a fresh authenticated write on version `4945a9f4-6e0c-442c-9ce9-0f46de22ad88` remains unverified. Next: confirm a fresh profile and listing photo upload, save, reload/new session, and public rendering. Never accept local `/uploads` as durable production storage. |
 | P0 | Account isolation and database least privilege | **Direct API protections verified; Worker runtime role still unverified** | Live Supabase read-only inspection on 2026-10-16: Security Advisor returned no security lints; all 13 public application tables have RLS enabled; `anon` and `authenticated` have no table grants; deny-all policies cover those roles. The production Worker has `DATABASE_URL` and `HYPERDRIVE` bindings, but the secret values and actual runtime database identity were not inspected. Verify the Worker uses an appropriately restricted runtime role and run cross-account checks safely. CI on PR #87's prior head also passed disposable-Postgres least-privilege and account-isolation tests; that is not proof of the production runtime role. |
-| P1 | Scheduled maintenance origin | **Origin fix is on main; scheduled execution not yet confirmed** | The PR #63 change is already on `main` in commit `fb9e0ba7` (same two-file change); closed the duplicate open PR without merging. Production Worker was redeployed after that commit. Cloudflare logs show a scheduled event at `2026-10-17T03:00:30Z` on version `a9d7a94d-7f04-4c81-9c40-c1404a41ff4a` with outcome `ok`, but no explicit `mudaala_scheduled_sweep_completed` log was found. The only `/api/cron/sweep` request events in the last 72 hours returned 403 on older versions (Oct 15/16); none appeared at the latest scheduled timestamp. Completion remains unproven and needs deeper verification. [Commit](https://github.com/isaJrKai/mudaala-cloudflare/commit/fb9e0ba7dd5c82a1887bd3da33b61ca5330a752d) |
+| P1 | Scheduled maintenance origin | **Successful scheduled sweep verified** | The origin fix is on `main` in commit `fb9e0ba7`. Cloudflare telemetry for the scheduled run at `2026-10-17T03:00:30Z` recorded outcome `ok`; the sweep endpoint completed with HTTP 200. It processed zero expired listings, zero expiring notifications, and zero price snapshots because none were due. This verifies execution, not behavior when records are due. |
 | P1 | PR #89 — Worker DB reuse + video media | **Draft; not for production** | Requires CI, reviewed additive videoUrl schema migration, configured durable media storage, and authenticated upload → save → refresh → playback verification. Keep separate from photo bug fixes. [PR #89](https://github.com/isaJrKai/mudaala-cloudflare/pull/89) |
 | P1 | Public customer journey | **End-to-end verification pending** | Browse real listings → open detail → contact via call/WhatsApp → shop link/QR. Verify mobile layout and slow connection. |
 | P1 | Admin badge and permissions | **Live verification pending** | Verify authorized admin response includes shop.isAdmin: true and UI badge renders correctly; verify ordinary users cannot gain admin privileges. |
@@ -43,38 +43,33 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 - Read-only SQL recheck: 13 public base tables, all 13 have RLS enabled. The inspection connection ran as `postgres`, so this does not identify the Worker runtime role; that gap remains open.
 - RLS: enabled on all 13 public application tables.
 - Direct Data API access: `anon` and `authenticated` have no table grants; deny-all policies exist on the application tables.
-- Cloudflare Worker: active deployment reported at 2026-10-16T16:22:31Z (version `a9d7a94d-7f04-4c81-9c40-c1404a41ff4a`, 100% traffic); no Cloudflare Observability issues were returned for the Worker query.
-- Worker secret values were not read. Presence of storage-related bindings does not prove a fresh photo upload succeeds.
+- Cloudflare Worker: active deployment `4945a9f4-6e0c-442c-9ce9-0f46de22ad88` serving 100% traffic from 2026-10-17 11:11 UTC. In the post-release sample through 12:09 UTC, health returned HTTP 200, 17 Browse HTTP requests returned 200, and no Worker `error`-level or `exceededCpu` events were found. The previous version had six Browse `503 / exceededCpu` events plus one HTTP 500 in the inspected pre-release window; these were not observed in the post-release sample. Continue monitoring rather than treating the short sample as a permanent guarantee.
+- Worker secret values were not read. Production telemetry verifies successful uploads before the latest release and public image delivery after it; a fresh authenticated upload after the latest release remains pending.
 - Production live smoke workflow passed on 2026-10-16 16:31 UTC: health, anonymous auth, public listing detail, shop-name search, admin flag, persisted cover-photo delivery, and browser rendering of three existing listing photos. This still does not prove a fresh authenticated upload succeeds.
 - These read-only checks did not change production data or settings.
 
 ## Immediate execution queue
 
-### 1. Unblock PR #87
+### 1. Reconcile saved-search and listing lifecycle work
 
-- [x] Founder manually tested the live product and confirmed it works (2026-10-17).
-- [x] Founder manually tested the product/photo flow and shop-owner journey and confirmed both work (2026-10-17). This is founder-reported live verification; it is not being misrepresented as an automated test artifact.
-- [x] Confirmed PR #87 remains open. Manual validation run #204 on commit `d2b1478e13245022e495a9e6c350b5f6dce8cf4d` failed in the browser listing-publish journey, not Knip; audit, Prisma, Worker build, rate-limit prototype, database policy/role checks, API/photo tests, and scheduled-maintenance tests passed.
-- [x] Root failure isolated to `scripts/test-browser-journeys.cjs`: the browser test waited 20 seconds for `POST /api/listings` and timed out. Existing diagnostic catch did not emit, likely because the promise rejection was unhandled while Playwright was still waiting on the Publish click.
-- [x] Test-only diagnostic fix committed to PR branch: `bdfb9616d7a8c7eed42116b54ec79909db150831`; response-wait rejection is handled immediately, Publish click is bounded to 6 seconds, and field/browser diagnostics are emitted if no request occurs. No product code changed and nothing was deployed.
-- [ ] Trigger a fresh manual workflow run on the updated branch head `bdfb9616d7a8c7eed42116b54ec79909db150831`.
-- [ ] Read the new browser diagnostic and fix the actual cause if the listing request is still not made.
-- [ ] Fix the root cause in the existing form/test; do not weaken the test or bypass validation.
-- [ ] Verify saved-search create → list → reload → apply → delete → reload.
-- [ ] Verify listing create → detail → edit → save → delete.
-- [ ] Verify mobile cart open/close and navigation to Post.
-- [ ] Ensure the other API, security, type-check, lint and build steps remain green.
-- [ ] Merge only after the required checks pass; then verify the deployed Worker.
+- [x] Superseded stale PR #87 with [PR #104](https://github.com/isaJrKai/mudaala-cloudflare/pull/104), based on current `main` and preserving current database, photo-storage and mobile fixes.
+- [x] Required CI passed before merge; PR #104 merged as `9d8ded6c826249526a9f729b850f38d0e064d095`.
+- [x] Verified Cloudflare production version `4945a9f4-6e0c-442c-9ce9-0f46de22ad88` is serving 100% traffic.
+- [x] Post-release health telemetry: `/api/health` returned HTTP 200 and `[startup-db] connected` was recorded.
+- [x] Post-release Browse telemetry: 17 sampled `/api/listings` HTTP requests returned 200; no `error`-level or `exceededCpu` events were found for the new version in the checked window.
+- [ ] Continue monitoring because intermittent errors can recur outside the sampled window.
 
 ### 2. Confirm scheduled maintenance execution
 
-- [ ] Inspect Cloudflare Worker observability for the scheduled invocation at 03:00 UTC and confirm a successful `mudaala_scheduled_sweep_completed` event.
-- [ ] If the event failed or is missing, inspect the scheduled handler's HTTP response and error before changing configuration again.
+- [x] Cloudflare scheduled invocation at `2026-10-17T03:00:30Z` completed with outcome `ok` and HTTP 200.
+- [x] Zero expired listings, expiring notifications and price snapshots were processed; no records were due, so due-record behavior remains untested.
 
 ### 3. Confirm the live shop and photo journey
 
 - [x] Founder reports the live product and shop-owner journey were manually tested successfully (2026-10-17).
-- [x] Founder reports the photo/product flow was tested successfully (2026-10-17).
+- [x] Independent Supabase Storage logs show successful S3 uploads at `2026-10-16T15:52:10Z` and `2026-10-17T06:01:23Z` (HTTP 200), paired with Worker `/api/upload` HTTP 201 at `2026-10-17T06:01:23Z`.
+- [x] The stored public image was fetched from Supabase Storage with HTTP 200 after the latest Worker release; profile/listing API reads also returned 200.
+- [ ] Run one fresh authenticated profile photo upload and one fresh listing photo upload after release, then reload and verify both persist and render publicly.
 - [ ] Independently capture reproducible test evidence for account isolation and public contact actions; do not ask the founder to repeat already-completed tests unless a specific failure requires it.
 
 ### 4. Security release gate
