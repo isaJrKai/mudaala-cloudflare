@@ -265,7 +265,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
             take: PHOTO_BOOST_SCAN_CAP,
             select: rankingSelect,
           })
-        : Promise.resolve([] as typeof all),
+        : Promise.resolve([] as Array<Pick<Listing, 'id' | 'photos' | 'refreshedAt' | 'title' | 'description' | 'category' | 'area' | 'county'>>),
     ])
 
     // Match normalized seller text in a capped recent window, then merge it
