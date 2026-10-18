@@ -134,8 +134,8 @@ function PriceLead({ listing, large }: { listing: Listing; large?: boolean }) {
   const percentOff = discountPercent(listing)
   if (listing.type === 'OFFER') {
     return (
-      <div className="mt-1 inline-flex max-w-full flex-wrap items-baseline gap-x-2 rounded-md bg-primary/5 px-2 py-1 ring-1 ring-inset ring-primary/10">
-        <p className={cn('font-bold leading-none text-primary tabular-nums', large ? 'text-lg' : 'text-base')}>
+      <div className="mt-1.5 inline-flex max-w-full flex-wrap items-baseline gap-x-2 rounded-lg border border-primary/25 border-l-4 border-l-primary/70 bg-primary/10 px-3 py-2 shadow-sm">
+        <p className={cn('font-extrabold leading-none text-primary tabular-nums', large ? 'text-lg' : 'text-base')}>
           {formatPrice(listing.price, listing.unit ? unitLabel(listing.unit) : null, listing.currency)}
           {listing.priceNegotiable && listing.price !== null ? (
             <span className="ml-1 text-xs font-normal text-muted-foreground">{copy.common.negotiableShort}</span>
@@ -193,7 +193,7 @@ export function ListingCard({ listing, onOpen, actions, showStatus, onOpenShop, 
   const whatsappNumber = listing.contactWhatsapp ?? (listing.type === 'OFFER' ? listing.contactPhone : null)
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card transition-colors duration-200 hover:border-primary/35 hover:bg-secondary/10">
+    <div className="overflow-hidden rounded-lg border border-border bg-card transition-[border-color,background-color,box-shadow] duration-200 hover:border-primary/55 hover:bg-primary/[0.03] hover:shadow-md">
       <button type="button" onClick={() => onOpen(listing.id)} className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" aria-label={copy.card.openAria(listing.title)}>
         <div className="flex gap-3 p-2.5">
           {/* Photo - small, on the side, its own 1px border and 8px radius */}
@@ -297,7 +297,7 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
   const [added, flashAdded] = useAddedFlash()
 
   return (
-    <div className="group flex h-full flex-col overflow-hidden rounded-lg border bg-card transition-colors duration-200 hover:border-primary/35 hover:bg-secondary/10">
+    <div className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card transition-[border-color,background-color,box-shadow] duration-200 hover:border-primary/55 hover:bg-primary/[0.03] hover:shadow-md">
       <div className="flex flex-1 sm:block">
         {/* Photo: a bordered 96px tile beside the text on phones, the card's
             full-width top on desktop. No zoom-on-hover - the picture sells,
