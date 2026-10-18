@@ -202,3 +202,33 @@ References for competitor feature checks:
 
 For each new idea, record: customer problem, evidence/source, intended user, smallest test, privacy/safety impact, success measure and status (idea / validated / building / shipped / measured). An idea stays in discovery until the team has evidence it improves the real shopkeeper or buyer journey. When research contradicts an older assumption, replace the old checklist item and note why; do not accumulate incompatible requirements.
 
+
+## Security follow-up — phone verification, admin boundary and secret exposure (2026-10-18)
+
+### Phone verification — implementation required; do not deploy until SMS is configured
+
+- [ ] Registration currently creates a normal account and 30-day session after phone-format and uniqueness checks, without proving control of the phone. Tracked in [issue #57](https://github.com/isaJrKai/mudaala-cloudflare/issues/57).
+- [ ] Implement pending-registration state and an additive nullable verification timestamp/field. Define a backwards-compatible policy for legacy accounts; never silently label existing numbers as verified.
+- [ ] Use the existing src/lib/sms.ts provider abstraction. OTPs must be single-use, short-lived, keyed-hashed, atomically attempt-limited, resend-invalidated, and rate-limited per phone and IP through the shared production limiter. Responses must not enumerate accounts; never log OTPs or full phone numbers.
+- [ ] CI must use a fake/console provider and disposable PostgreSQL only; no real SMS, production account creation, or customer record mutations in tests.
+- [ ] **Deployment blocker found by read-only audit:** active Worker secret bindings include ADMIN_USER_IDS, ADMIN_PHONES, CRON_SECRET, and SETTINGS_ENCRYPTION_KEY, but do not include AT_API_KEY or AT_USERNAME, which the production Africa's Talking provider requires. Configure these via the approved secret workflow before enabling live SMS. Do not write or expose secret values in this checklist.
+- [ ] Review additive migration and rollback path, then deploy only after CI passes and provider delivery is safely verified.
+
+### Admin authorization — source/config evidence positive; live boundary test still open
+
+- [x] src/lib/admin.ts uses ADMIN_USER_IDS as the production allowlist; production fails closed if it is missing/empty. ADMIN_PHONES fallback is development/test only.
+- [x] Read-only Cloudflare Worker settings confirm ADMIN_USER_IDS and ADMIN_PHONES are secret-text bindings; secret values were not read.
+- [ ] Test intended admin allowed and ordinary user denied against production using disposable identities only. Do not create, edit, or repurpose customer accounts.
+
+### Scheduled job authorization — source/config evidence positive; restricted-role end-to-end check open
+
+- [x] src/app/api/cron/sweep/route.ts requires x-cron-secret to match CRON_SECRET using constant-time digest comparison and returns 503 when unconfigured.
+- [x] Read-only Worker settings show CRON_SECRET as a secret-text binding and the active schedule as 0 3 * * * UTC. Do not manually invoke the production sweep just to generate test evidence; it performs real writes.
+- [ ] Verify the next scheduled run under the restricted runtime role from logs and confirm authorization behavior using safe tests; never manually trigger the production write path without a reviewed procedure.
+
+### Secret-exposure audit — configuration checked; bundle/log scan still open
+
+- [x] Active Worker settings expose the names/types of secret bindings only; no secret values were retrieved. Sensitive DB, storage, admin, cron and settings-encryption values are secret-text bindings, not plain-text Worker vars.
+- [ ] Scan the built client artifacts and application logging paths for accidental secret inclusion; verify only intentionally public values use NEXT_PUBLIC_*. Do not print secrets in logs, CI output or audit artifacts.
+
+**Safety boundary:** this audit made no production configuration changes, did not retrieve secret values, and did not mutate production data. Source/config inspection is not a substitute for live authorization tests.
