@@ -56,7 +56,7 @@ function ListingPhoto({ listing, className }: { listing: Listing; className?: st
         onError={(event) => {
           // Older photos and browsers that could not create a thumbnail remain
           // visible: retry the original once instead of leaving a broken tile.
-          if (event.currentTarget.src !== original) event.currentTarget.src = original
+          if (event.currentTarget.src.includes('.thumb.webp')) event.currentTarget.src = original
         }}
       />
     )
