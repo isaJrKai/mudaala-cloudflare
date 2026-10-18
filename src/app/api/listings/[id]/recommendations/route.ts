@@ -1,6 +1,5 @@
 import { route, jsonOk } from '@/lib/api'
 import { db } from '@/lib/db'
-import { expireOverdueListings } from '@/lib/listings'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -49,8 +48,6 @@ function priceSimilarity(a: number | null, b: number | null, sameCurrency: boole
 export async function GET(_request: Request, { params }: Params) {
   return route(async () => {
     const { id } = await params
-    await expireOverdueListings()
-
     const current = await db.listing.findUnique({
       where: { id },
       select: {
@@ -67,17 +64,19 @@ export async function GET(_request: Request, { params }: Params) {
         country: true,
         status: true,
         isSeed: true,
+        expiresAt: true,
       },
     })
 
     // Never recommend from an unavailable, hidden, or fixture listing.
-    if (!current || current.status !== 'ACTIVE' || current.type !== 'OFFER' || current.isSeed) {
+    if (!current || current.status !== 'ACTIVE' || current.expiresAt <= new Date() || current.type !== 'OFFER' || current.isSeed) {
       return jsonOk({ items: [] })
     }
 
     const candidates = await db.listing.findMany({
       where: {
         status: 'ACTIVE',
+        expiresAt: { gt: new Date() },
         type: 'OFFER',
         isSeed: false,
         id: { not: current.id },
