@@ -193,7 +193,7 @@ export function ListingCard({ listing, onOpen, actions, showStatus, onOpenShop, 
   const whatsappNumber = listing.contactWhatsapp ?? (listing.type === 'OFFER' ? listing.contactPhone : null)
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card transition-[border-color,background-color,box-shadow] duration-200 hover:border-primary/55 hover:bg-primary/[0.03] hover:shadow-md">
+    <div className="overflow-hidden rounded-lg border border-border bg-card transition-[border-color,background-color,box-shadow] duration-200 hover:border-primary/55 hover:bg-primary/[0.03] hover:shadow-md">
       <button type="button" onClick={() => onOpen(listing.id)} className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" aria-label={copy.card.openAria(listing.title)}>
         <div className="flex gap-3 p-2.5">
           {/* Photo - small, on the side, its own 1px border and 8px radius */}
@@ -297,7 +297,7 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
   const [added, flashAdded] = useAddedFlash()
 
   return (
-    <div className="group flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-[border-color,background-color,box-shadow] duration-200 hover:border-primary/55 hover:bg-primary/[0.03] hover:shadow-md">
+    <div className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card transition-[border-color,background-color,box-shadow] duration-200 hover:border-primary/55 hover:bg-primary/[0.03] hover:shadow-md">
       <div className="flex flex-1 sm:block">
         {/* Photo: a bordered 96px tile beside the text on phones, the card's
             full-width top on desktop. No zoom-on-hover - the picture sells,
