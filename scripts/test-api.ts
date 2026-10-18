@@ -973,6 +973,22 @@ async function main() {
     const stillIntact = await call('GET', `/api/listings/${createdListingId}`)
     ok('listing unchanged after attack attempts', stillIntact.json.listing.title === validListing.title)
 
+    // A legitimate owner must not be able to transfer ownership by smuggling
+    // another account's id into an otherwise valid listing update.
+    const transferAttempt = await call('PATCH', `/api/listings/${createdListingId}`, {
+      userId: bob.user!.id,
+    }, alice)
+    const ownerAfterTransfer = await db.listing.findUnique({
+      where: { id: createdListingId },
+      select: { userId: true },
+    })
+    ok(
+      'listing ownership cannot be reassigned through PATCH userId',
+      (transferAttempt.status === 200 || transferAttempt.status === 400)
+        && ownerAfterTransfer?.userId === alice.user!.id,
+      `status=${transferAttempt.status}, owner preserved=${ownerAfterTransfer?.userId === alice.user!.id}`,
+    )
+
     const raceListing = await call('POST', '/api/listings', { ...validListing, title: 'Concurrent listing removal test' }, bob)
     const raceId = raceListing.json?.listing?.id as string
     const raceResults = await Promise.all([
