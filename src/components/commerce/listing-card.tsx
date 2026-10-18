@@ -134,7 +134,7 @@ function PriceLead({ listing, large }: { listing: Listing; large?: boolean }) {
   const percentOff = discountPercent(listing)
   if (listing.type === 'OFFER') {
     return (
-      <div className="mt-1 flex flex-wrap items-baseline gap-x-2">
+      <div className="mt-1 inline-flex max-w-full flex-wrap items-baseline gap-x-2 rounded-md bg-primary/5 px-2 py-1 ring-1 ring-inset ring-primary/10">
         <p className={cn('font-bold leading-none text-primary tabular-nums', large ? 'text-lg' : 'text-base')}>
           {formatPrice(listing.price, listing.unit ? unitLabel(listing.unit) : null, listing.currency)}
           {listing.priceNegotiable && listing.price !== null ? (
@@ -193,8 +193,8 @@ export function ListingCard({ listing, onOpen, actions, showStatus, onOpenShop, 
   const whatsappNumber = listing.contactWhatsapp ?? (listing.type === 'OFFER' ? listing.contactPhone : null)
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
-      <button type="button" onClick={() => onOpen(listing.id)} className="w-full text-left" aria-label={copy.card.openAria(listing.title)}>
+    <div className="overflow-hidden rounded-lg border bg-card transition-colors duration-200 hover:border-primary/35 hover:bg-secondary/10">
+      <button type="button" onClick={() => onOpen(listing.id)} className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" aria-label={copy.card.openAria(listing.title)}>
         <div className="flex gap-3 p-2.5">
           {/* Photo - small, on the side, its own 1px border and 8px radius */}
           <div className="relative size-24 shrink-0 overflow-hidden rounded-lg border bg-secondary sm:size-28">
@@ -297,14 +297,14 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
   const [added, flashAdded] = useAddedFlash()
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-lg border bg-card">
+    <div className="group flex h-full flex-col overflow-hidden rounded-lg border bg-card transition-colors duration-200 hover:border-primary/35 hover:bg-secondary/10">
       <div className="flex flex-1 sm:block">
         {/* Photo: a bordered 96px tile beside the text on phones, the card's
             full-width top on desktop. No zoom-on-hover - the picture sells,
             it does not perform. */}
         <div className="relative m-2.5 size-24 shrink-0 overflow-hidden rounded-lg border bg-secondary sm:mx-0 sm:mb-0 sm:mt-0 sm:size-auto sm:aspect-[4/3] sm:w-full sm:rounded-none sm:border-0 sm:border-b">
           <ListingPhoto listing={listing} />
-          <button type="button" onClick={() => onOpen(listing.id)} className="absolute inset-0 z-0" aria-label={copy.card.openAria(listing.title)} />
+          <button type="button" onClick={() => onOpen(listing.id)} className="absolute inset-0 z-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" aria-label={copy.card.openAria(listing.title)} />
           <span className="pointer-events-none absolute left-1 top-1 z-10 sm:left-1.5 sm:top-1.5">
             <TypeBadge type={listing.type} />
           </span>
@@ -343,7 +343,7 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
           ) : null}
         </div>
 
-        <button type="button" onClick={() => onOpen(listing.id)} className="min-w-0 flex-1 text-left sm:w-full sm:flex-none" aria-label={copy.card.openAria(listing.title)}>
+        <button type="button" onClick={() => onOpen(listing.id)} className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:w-full sm:flex-none" aria-label={copy.card.openAria(listing.title)}>
           {/* pr-2.5 on the row so long titles stop at the card edge; on
               desktop the padding wraps all sides evenly. */}
           <div className="py-2.5 pr-2.5 sm:p-2.5">
