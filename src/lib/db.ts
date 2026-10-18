@@ -16,21 +16,14 @@ function runtimeDatabaseUrl(): string {
     // Local Node.js and build-time checks run outside the Worker request context.
   }
 
+  // Production must never silently fall back to a build-time DATABASE_URL.
+  // The Worker runtime is expected to provide Hyperdrive; local Node/CI tests
+  // are the only supported fallback environments.
+  if (process.env.NODE_ENV === 'production' && process.env.CI !== 'true') {
+    throw new Error('Cloudflare HYPERDRIVE binding is unavailable in production')
+  }
   const value = process.env.DATABASE_URL
   if (!value) throw new Error('Cloudflare HYPERDRIVE or DATABASE_URL is required to initialize Prisma')
-
-  // Never silently connect a deployed Worker to the placeholder localhost URL
-  // injected only to build the bundle. Local/CI test databases remain supported.
-  if (process.env.NODE_ENV === 'production' && process.env.CI !== 'true') {
-    try {
-      const url = new URL(value)
-      if (url.hostname === '127.0.0.1' || url.hostname === 'localhost') {
-        throw new Error('Cloudflare HYPERDRIVE is unavailable; refusing the build-only localhost database URL')
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('build-only localhost')) throw error
-    }
-  }
   return value
 }
 
