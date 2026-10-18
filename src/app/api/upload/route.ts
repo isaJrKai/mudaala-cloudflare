@@ -158,12 +158,34 @@ export async function POST(request: Request) {
     // The storage layer derives Content-Type from the detected magic bytes.
     const original = new Uint8Array(await file.arrayBuffer())
     const input = Buffer.from(stripImageMetadata(original, detectedType))
+    const storage = chooseStorage()
     let url: string
     try {
-      url = await chooseStorage().save(input, detectedType)
+      url = await storage.save(input, detectedType)
     } catch (err) {
       console.error('[upload] storage write failed:', err)
       throw new ApiError(502, 'The photo could not be stored right now. Please try again')
+    }
+
+    // Thumbnail creation is best-effort: older clients and browsers without
+    // WebP encoding remain compatible, while new uploads get a fast feed image.
+    const thumbnailFile = form?.get('thumbnail')
+    if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
+      if (thumbnailFile.size > 250 * 1024) {
+        throw new ApiError(413, 'The small photo preview is too large - please choose the photo again')
+      }
+      const thumbnailHead = new Uint8Array(await thumbnailFile.slice(0, 12).arrayBuffer())
+      if (sniffImage(thumbnailHead) !== 'webp') {
+        throw new ApiError(400, 'The small photo preview must be WebP')
+      }
+      try {
+        const thumbnailBytes = new Uint8Array(await thumbnailFile.arrayBuffer())
+        await storage.saveThumbnail(url, Buffer.from(stripImageMetadata(thumbnailBytes, 'webp')))
+      } catch (err) {
+        // The original is still valid and stored; never lose a seller's photo
+        // because an optional rendition failed. The feed falls back gracefully.
+        console.error('[upload] thumbnail write failed:', err)
+      }
     }
 
     return jsonOk({ url }, 201)
