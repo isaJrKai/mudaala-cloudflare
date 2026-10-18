@@ -20,6 +20,7 @@ import { MapPin, Navigation, Package, Store } from 'lucide-react'
 import { ShowNumber } from '@/components/commerce/show-number'
 import { StatusBadge, TypeBadge } from '@/components/commerce/badges'
 import { ShareAdRow } from '@/components/commerce/share-row'
+import { RelatedListings } from '@/components/commerce/related-listings'
 import { SafetyCard } from '@/components/commerce/safety-card'
 import { ReportButton } from '@/components/commerce/report-button'
 import { Button } from '@/components/ui/button'
@@ -397,6 +398,7 @@ export default async function AdPage({ params }: Params) {
         <section className="rounded-lg border bg-card p-4 sm:p-5" aria-label={copy.listing.shareAria}>
           <ShareAdRow title={listing.title} url={canonicalUrl} priceLabel={priceLabel} />
         </section>
+        {listing.type === 'OFFER' ? <RelatedListings listingId={listing.id} linkPrefix="/l/" /> : null}
       </main>
 
       <footer className="border-t px-4 py-4 text-center text-xs text-muted-foreground">

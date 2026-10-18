@@ -15,10 +15,10 @@ import {
   ArrowDownUp,
   Bell,
   Bookmark,
-  CalendarClock,
   MapPin,
   Phone,
   RefreshCw,
+  PlusCircle,
   Search,
   Tag,
   TrendingDown,
@@ -95,11 +95,7 @@ export function HomeDashboard() {
     return (
       <div className="space-y-4" aria-busy>
         <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-lg" />
-          ))}
-        </div>
+        <Skeleton className="h-24 rounded-lg" />
         <Skeleton className="h-40 rounded-lg" />
       </div>
     )
@@ -110,8 +106,11 @@ export function HomeDashboard() {
       <div className="mx-auto max-w-xl py-10 text-center">
         <h1 className="text-2xl font-bold tracking-tight text-primary">{copy.home.welcomeTitle}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{copy.home.welcomeSub}</p>
-        <div className="mt-5 flex items-center justify-center gap-2">
-          <Button onClick={() => setAuthOpen(true)}>{copy.home.signIn}</Button>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          <Button onClick={() => setAuthOpen(true)}>
+            <PlusCircle className="size-4" aria-hidden /> Post an Ad
+          </Button>
+          <Button variant="outline" onClick={() => setAuthOpen(true)}>{copy.home.signIn}</Button>
           <Button variant="outline" onClick={() => useAppStore.getState().navigate({ name: 'browse' })}>
             <Search className="size-4" aria-hidden />
             {copy.home.browseMarket}
@@ -165,42 +164,11 @@ function SignedInHome() {
     return (
       <div className="space-y-4" aria-busy="true" aria-label="Loading your dashboard">
         <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-lg" />
-          ))}
-        </div>
+        <Skeleton className="h-24 rounded-lg" />
         <Skeleton className="h-40 rounded-lg" />
       </div>
     )
   }
-
-  const stats = [
-    {
-      label: copy.home.statSavedSearches,
-      value: String(data.stats.savedSearches),
-      icon: <Bookmark aria-hidden />,
-      go: { name: 'saved' } as const,
-    },
-    {
-      label: copy.home.statActiveListings,
-      value: String(data.stats.activeListings),
-      icon: <Tag aria-hidden />,
-      go: { name: 'my-listings' } as const,
-    },
-    {
-      label: copy.home.statNewMatches,
-      value: String(data.stats.newMatches),
-      icon: <Bell aria-hidden />,
-      go: { name: 'notifications' } as const,
-    },
-    {
-      label: copy.home.statLastUpdated,
-      value: data.stats.lastUpdatedAt ? timeAgo(data.stats.lastUpdatedAt) : copy.home.statNotYet,
-      icon: <CalendarClock aria-hidden />,
-      go: { name: 'my-listings' } as const,
-    },
-  ]
 
   return (
     <div className="space-y-6">
@@ -220,23 +188,27 @@ function SignedInHome() {
         />
       ) : null}
 
-      <section aria-label="Your numbers" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <button
-            key={stat.label}
-            type="button"
-            onClick={() => navigate(stat.go)}
-            className="rounded-lg border bg-card p-4 text-left transition-colors hover:border-input/80 hover:bg-accent/40"
-          >
-            <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary [&_svg]:size-4">
-              {stat.icon}
-            </span>
-            <span className="mt-2 block text-2xl font-bold leading-none tracking-tight tabular-nums">
-              {stat.value}
-            </span>
-            <span className="mt-1 block text-xs text-muted-foreground">{stat.label}</span>
-          </button>
-        ))}
+      <section
+        aria-label="Post an ad"
+        className="flex flex-col gap-4 rounded-lg bg-secondary/60 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+      >
+        <div className="flex items-center gap-4">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-card text-primary">
+            <PlusCircle className="size-6" aria-hidden />
+          </span>
+          <div>
+            <h2 className="text-lg font-bold tracking-tight">Have something to sell?</h2>
+            <p className="mt-1 max-w-lg text-sm text-muted-foreground">
+              Reach customers by posting your product or service on Mudaala.
+            </p>
+          </div>
+        </div>
+        <Button
+          className="h-11 w-full gap-2 sm:w-auto"
+          onClick={() => navigate({ name: 'publish' })}
+        >
+          <PlusCircle className="size-4" aria-hidden /> Post an Ad
+        </Button>
       </section>
 
       <BestOffers location={data.location} />
