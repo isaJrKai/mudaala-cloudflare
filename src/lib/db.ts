@@ -1,52 +1,94 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
-function runtimeDatabaseUrl() {
+type RequestDatabaseScope = { client?: PrismaClient }
+const requestDatabaseScope = new AsyncLocalStorage<RequestDatabaseScope>()
+let cachedLocalPrisma: PrismaClient | undefined
+
+function runtimeDatabaseUrl(): string {
   try {
     const { env } = getCloudflareContext()
     const hyperdrive = env.HYPERDRIVE as { connectionString?: string } | undefined
     if (hyperdrive?.connectionString) return hyperdrive.connectionString
   } catch {
-    // Fall back to the normal environment for local Node.js/dev execution.
+    // Local Node.js and build-time checks run outside the Worker request context.
   }
+
   const value = process.env.DATABASE_URL
-  if (!value) return value
-  try {
-    const url = new URL(value)
-    if (url.port === '6543' && url.hostname.endsWith('.pooler.supabase.com')) {
-      url.port = '5432'
-      url.searchParams.delete('pgbouncer')
-      return url.toString()
+  if (!value) throw new Error('Cloudflare HYPERDRIVE or DATABASE_URL is required to initialize Prisma')
+
+  // Never silently connect a deployed Worker to the placeholder localhost URL
+  // injected only to build the bundle. Local/CI test databases remain supported.
+  if (process.env.NODE_ENV === 'production' && process.env.CI !== 'true') {
+    try {
+      const url = new URL(value)
+      if (url.hostname === '127.0.0.1' || url.hostname === 'localhost') {
+        throw new Error('Cloudflare HYPERDRIVE is unavailable; refusing the build-only localhost database URL')
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('build-only localhost')) throw error
     }
-  } catch {}
+  }
   return value
 }
 
-// Reuse Prisma within a Worker isolate. Recreating a Prisma client and pg
-// adapter for every model access is expensive and can exhaust the Worker's CPU
-// budget during multi-step operations (for example account deletion). Hyperdrive
-// provides upstream pooling; keep one adapter/client per isolate and connection.
-let cachedPrisma: PrismaClient | undefined
-let cachedConnectionString: string | undefined
-
-function getPrisma(): PrismaClient {
+function createPrisma(): PrismaClient {
   const connectionString = runtimeDatabaseUrl()
-  if (!connectionString) throw new Error('DATABASE_URL or Cloudflare HYPERDRIVE is required to initialize Prisma')
-
-  if (cachedPrisma && cachedConnectionString === connectionString) {
-    return cachedPrisma
-  }
-
-  const adapter = new PrismaPg({ connectionString })
-  const client = new PrismaClient({
+  // Hyperdrive owns the shared, cross-isolate database pool. This client-side
+  // pool exists only for one request, so keep it small and fail fast if a
+  // connection cannot be acquired rather than letting the Worker hang.
+  const adapter = new PrismaPg({
+    connectionString,
+    max: 5,
+    connectionTimeoutMillis: 5_000,
+  })
+  return new PrismaClient({
     adapter,
     log: process.env.PRISMA_LOG_QUERIES === '1' || process.env.PRISMA_LOG_QUERIES === 'true'
       ? ['query'] : ['error'],
   })
-  cachedConnectionString = connectionString
-  cachedPrisma = client
-  return client
+}
+
+/**
+ * Run one request with one Prisma client. Cloudflare Workers do not preserve
+ * driver pools safely across invocations; Hyperdrive keeps the upstream pool
+ * warm, so create the client in the request context and close it before the
+ * invocation ends. AsyncLocalStorage lets every db.* call in that request
+ * reuse the same client without sharing it with concurrent requests.
+ */
+export async function withRequestDb<T>(handler: () => Promise<T>): Promise<T> {
+  return requestDatabaseScope.run({}, async () => {
+    try {
+      return await handler()
+    } finally {
+      const client = requestDatabaseScope.getStore()?.client
+      if (client) {
+        try {
+          await client.$disconnect()
+        } catch (error) {
+          console.error('[db] request-scoped Prisma disconnect failed:', error instanceof Error ? error.message : 'unknown error')
+        }
+      }
+    }
+  })
+}
+
+function getPrisma(): PrismaClient {
+  const scope = requestDatabaseScope.getStore()
+  if (scope) {
+    if (!scope.client) scope.client = createPrisma()
+    return scope.client
+  }
+
+  // Direct database access outside an HTTP request is used by local tooling
+  // and seed/test scripts only. Never keep a production Worker pool globally.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Database access must run inside withRequestDb() in production')
+  }
+  if (!cachedLocalPrisma) cachedLocalPrisma = createPrisma()
+  return cachedLocalPrisma
 }
 
 export const db = new Proxy({} as PrismaClient, {
