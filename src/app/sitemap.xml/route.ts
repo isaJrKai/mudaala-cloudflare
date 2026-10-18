@@ -7,7 +7,7 @@
 // overflow, /sitemap.xml becomes a sitemapindex pointing at the pages.
 // robots.txt keeps pointing at /sitemap.xml either way.
 
-import { db } from '@/lib/db'
+import { db, withRequestDb } from '@/lib/db'
 import { siteUrl } from '@/lib/site'
 
 export const dynamic = 'force-dynamic'
@@ -37,6 +37,7 @@ function urlEntry(loc: string, lastmod: Date | undefined, priority: string): str
 }
 
 export async function GET(request: Request) {
+  return withRequestDb(async () => {
   const raw = new URL(request.url).searchParams.get('page')
 
   // PLACEHOLDER RULE - seed listings are development fixtures, never real
@@ -108,4 +109,5 @@ export async function GET(request: Request) {
   }
 
   return xml(`${xmlHeader()}\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`)
+  })
 }

@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { ZodError, type ZodType } from 'zod'
 import { fieldErrors } from './validation'
 import { getSessionUser } from './auth'
+import { withRequestDb } from './db'
 import { bearerAuthEnabled } from './env-flags'
 import type { User } from '@prisma/client'
 
@@ -30,7 +31,7 @@ export function jsonOk<T>(data: T, status = 200): NextResponse {
 
 // Wrap a route handler so thrown ApiErrors become clean JSON responses.
 export function route(handler: () => Promise<NextResponse>): Promise<NextResponse> {
-  return handler().catch((err: unknown) => {
+  return withRequestDb(handler).catch((err: unknown) => {
     if (err instanceof ApiError) {
       return jsonError(err.status, err.message, err.fields)
     }

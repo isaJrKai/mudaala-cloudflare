@@ -12,7 +12,7 @@ import { cache } from 'react'
 import { Clock, MapPin } from 'lucide-react'
 import { ShareAdRow } from '@/components/commerce/share-row'
 import { ReportButton } from '@/components/commerce/report-button'
-import { db } from '@/lib/db'
+import { db, withRequestDb } from '@/lib/db'
 import { expireOverdueListings } from '@/lib/listings'
 import { normalizeShopCode } from '@/lib/format'
 import { siteUrl } from '@/lib/site'
@@ -71,6 +71,7 @@ function shopImage(shop: ShopRow): string | undefined {
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  return withRequestDb(async () => {
   const { code } = await params
   const shop = await loadShop(code)
   if (!shop) {
@@ -104,9 +105,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       ...(image ? { images: [image] } : {}),
     },
   }
+  })
 }
 
 export default async function ShopPage({ params }: Params) {
+  return withRequestDb(async () => {
   const { code } = await params
   const shop = await loadShop(code)
   if (!shop) notFound()
@@ -234,4 +237,5 @@ export default async function ShopPage({ params }: Params) {
       <SiteFooter />
     </div>
   )
+  })
 }
