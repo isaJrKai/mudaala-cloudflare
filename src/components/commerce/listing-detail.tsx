@@ -24,6 +24,7 @@ import {
 } from '@/lib/format'
 import { categoryLabel, unitLabel, countryDef } from '@/lib/constants'
 import { ShareAdRow } from './share-row'
+import { RelatedListings } from './related-listings'
 import { SafetyCard } from './safety-card'
 import { ReportButton } from './report-button'
 import { PlaceholderTile } from './placeholder-tile'
@@ -379,6 +380,8 @@ export function ListingDetail({ id }: { id: string }) {
         ) : null}
         {listing.user.profile?.hours ? <p className="mt-1 text-sm text-muted-foreground">{copy.listing.hours(listing.user.profile.hours)}</p> : null}
       </section>
+
+      {listing.type === 'OFFER' ? <RelatedListings listingId={listing.id} /> : null}
     </div>
   )
 }
