@@ -198,43 +198,39 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
   const textFallbackWhere: Prisma.ListingWhereInput = { ...where }
   delete textFallbackWhere.AND
 
-  // "Photos sell": within the same recency band (ads refreshed on the same
-  // day), ads WITH a photo rank slightly higher than ads without. Recency
-  // stays the primary order - a 2-day-old ad never jumps a 5-hour-old one;
-  // the boost only decides inside the band. Implemented like the 'nearest'
-  // sort: fetch a capped window in freshness order, re-rank in memory, slice
-  // the page - so pagination stays honest (nearest-shop-on-page-1 logic,
-  // same trade-off, same cap).
+  // Plain Browse and filter pages use true database pagination: only fetch the
+  // requested page plus the total count. Do not scan hundreds of listings just
+  // to rank an ordinary feed page; that adds database work and can stall Worker
+  // requests as the catalogue grows.
+  if ((effectiveSort === 'newest' || effectiveSort === undefined) && !searchText) {
+    const pageStart = (page - 1) * pageSize
+    const [pageRows, total] = await Promise.all([
+      db.listing.findMany({
+        where,
+        orderBy: [orderBy],
+        skip: pageStart,
+        take: pageSize,
+        include: SHOP_OWNER_INCLUDE,
+      }),
+      db.listing.count({ where }),
+    ])
+    return {
+      items: pageRows.map(serializeListing),
+      total,
+      page,
+      pageSize,
+      pageCount: Math.max(1, Math.ceil(total / pageSize)),
+    }
+  }
+
+  // Text search uses a bounded ranking window to preserve relevance and
+  // Unicode-normalized fallback. Candidate scans select only ranking fields;
+  // full listing and seller details are fetched for the returned page.
   if (effectiveSort === 'newest' || effectiveSort === undefined) {
     const PHOTO_BOOST_SCAN_CAP = 500
     const BAND_MS = 24 * 60 * 60 * 1000
     const now = Date.now()
     const pageStart = (page - 1) * pageSize
-
-    // The photo/relevance ranking window is deliberately capped. Once a
-    // browse page starts beyond that window, continue with database ordering
-    // instead of returning an empty page while total/pageCount advertise more.
-    // For unfiltered browse, the first 500 rows contain the same IDs as the
-    // database's freshness order; photo boost only reorders within that window.
-    if (!searchText && pageStart >= PHOTO_BOOST_SCAN_CAP) {
-      const [pageRows, total] = await Promise.all([
-        db.listing.findMany({
-          where,
-          orderBy: [orderBy],
-          skip: pageStart,
-          take: pageSize,
-          include: SHOP_OWNER_INCLUDE,
-        }),
-        db.listing.count({ where }),
-      ])
-      return {
-        items: pageRows.map(serializeListing),
-        total,
-        page,
-        pageSize,
-        pageCount: Math.max(1, Math.ceil(total / pageSize)),
-      }
-    }
 
     // Ranking needs only these compact fields for the candidate window.
     // Fetch full listing + seller details only for the page we will return.
@@ -307,20 +303,6 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
       (a.hasPhoto === b.hasPhoto ? a.index - b.index : a.hasPhoto ? -1 : 1),
     )
     let pageIds = ranked.slice(pageStart, pageStart + pageSize).map((entry) => entry.row.id)
-
-    // A page can straddle the cap when pageSize does not divide 500 (e.g.
-    // page 17 at 30 rows/page). Fill only that page's overflow from the next
-    // database-ordered rows so there are no gaps or duplicates at the boundary.
-    if (!searchText && total > PHOTO_BOOST_SCAN_CAP && pageStart < PHOTO_BOOST_SCAN_CAP && pageStart + pageSize > PHOTO_BOOST_SCAN_CAP) {
-      const overflowRows = await db.listing.findMany({
-        where,
-        orderBy: [orderBy],
-        skip: PHOTO_BOOST_SCAN_CAP,
-        take: pageStart + pageSize - PHOTO_BOOST_SCAN_CAP,
-        select: { id: true },
-      })
-      pageIds = [...pageIds, ...overflowRows.map((row) => row.id)]
-    }
 
     // Only the current page needs the seller join and full fields used by cards.
     // Restore the ranker's exact order after the indexed ID lookup.
