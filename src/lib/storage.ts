@@ -22,7 +22,7 @@ export interface PhotoStorage {
   /** Human-readable provider name for logs and health reporting. */
   readonly name: string
   /** Persist one validated photo; resolves with its PUBLIC url. */
-  save(data: Buffer, extension: string): Promise<string>
+  save(data: Buffer, extension: string, hasThumbnail?: boolean): Promise<string>
   /** Persist a WebP feed thumbnail beside its original, using a predictable sibling key. */
   saveThumbnail(originalUrl: string, data: Buffer): Promise<void>
   /** Delete one stored photo by its public URL. A URL this provider does not
@@ -40,8 +40,8 @@ const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads')
 export class LocalDiskStorage implements PhotoStorage {
   readonly name = 'local-disk'
 
-  async save(data: Buffer, extension: string): Promise<string> {
-    const name = `${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}.${extension}`
+  async save(data: Buffer, extension: string, hasThumbnail = false): Promise<string> {
+    const name = `${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}${hasThumbnail ? '-t' : ''}.${extension}`
     await fs.mkdir(UPLOAD_DIR, { recursive: true })
     await fs.writeFile(path.join(UPLOAD_DIR, name), data)
     return `/uploads/${name}`
@@ -180,8 +180,8 @@ export class S3Storage implements PhotoStorage {
       throw new Error('S3 put failed')
     }
   }
-  async save(data: Buffer, extension: string): Promise<string> {
-    const key = `photos/${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}.${extension}`
+  async save(data: Buffer, extension: string, hasThumbnail = false): Promise<string> {
+    const key = `photos/${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}${hasThumbnail ? '-t' : ''}.${extension}`
     const contentType = extension === 'jpg' ? 'image/jpeg' : extension === 'png' ? 'image/png' : 'image/webp'
     await this.put(key, data, contentType)
     return this.publicUrlFor(key)
