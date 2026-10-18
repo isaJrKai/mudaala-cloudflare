@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { apiGet } from '@/lib/client'
 import { categoryLabel, unitLabel } from '@/lib/constants'
 import { formatPrice } from '@/lib/format'
@@ -31,14 +31,26 @@ export function RelatedListings({
   /** Public ad pages use /l/{id}; the in-app view uses the hash route. */
   linkPrefix?: string
 }) {
-  const query = useQuery({
-    queryKey: ['related-listings', listingId],
-    queryFn: () => apiGet<{ items: RecommendationItem[] }>(`/api/listings/${listingId}/recommendations`),
-    staleTime: 60_000,
-    retry: 1,
-  })
+  const [items, setItems] = useState<RecommendationItem[]>([])
+  const [loading, setLoading] = useState(true)
 
-  if (query.isLoading) {
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    apiGet<{ items: RecommendationItem[] }>(`/api/listings/${listingId}/recommendations`)
+      .then((response) => {
+        if (active) setItems(response.items)
+      })
+      .catch(() => {
+        if (active) setItems([])
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => { active = false }
+  }, [listingId])
+
+  if (loading) {
     return (
       <section aria-label="Finding related products" className="space-y-3">
         <Skeleton className="h-6 w-44" />
@@ -51,7 +63,7 @@ export function RelatedListings({
 
   // No weak filler: if the live catalogue has no genuinely related items,
   // the section stays absent rather than pretending unrelated stock fits.
-  if (!query.isSuccess || query.data.items.length === 0) return null
+  if (items.length === 0) return null
 
   return (
     <section aria-label="You may also like" className="space-y-3">
@@ -62,7 +74,7 @@ export function RelatedListings({
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {query.data.items.map((item) => {
+        {items.map((item) => {
           const photo = item.photos[0]
           const thumbnail = photo ? listingThumbnailUrl(photo) : null
           const location = [item.area, item.county].filter(Boolean).join(', ')
