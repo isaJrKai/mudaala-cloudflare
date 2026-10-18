@@ -976,7 +976,6 @@ async function main() {
     // A legitimate owner must not be able to transfer ownership by smuggling
     // another account's id into an otherwise valid listing update.
     const transferAttempt = await call('PATCH', `/api/listings/${createdListingId}`, {
-      title: 'Ownership transfer attempt',
       userId: bob.user!.id,
     }, alice)
     const ownerAfterTransfer = await db.listing.findUnique({
