@@ -192,16 +192,11 @@ function SignedInHome() {
         aria-label="Post an ad"
         className="flex flex-col gap-4 rounded-lg bg-secondary/60 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6"
       >
-        <div className="flex items-center gap-4">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-card text-primary">
-            <PlusCircle className="size-6" aria-hidden />
-          </span>
-          <div>
-            <h2 className="text-lg font-bold tracking-tight">Have something to sell?</h2>
-            <p className="mt-1 max-w-lg text-sm text-muted-foreground">
-              Reach customers by posting your product or service on Mudaala.
-            </p>
-          </div>
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold tracking-tight">Have something to sell?</h2>
+          <p className="mt-1 max-w-lg text-sm text-muted-foreground">
+            Reach customers by posting your product or service on Mudaala.
+          </p>
         </div>
         <Button
           className="h-11 w-full gap-2 sm:w-auto"
