@@ -6,7 +6,7 @@
 export function listingThumbnailUrl(originalUrl: string): string {
   try {
     const parsed = new URL(originalUrl, 'https://mudaala.invalid')
-    const match = parsed.pathname.match(/^(.*\/)?([0-9a-f]{8}-[0-9a-f]{16})\.(?:jpg|jpeg|png|webp)$/i)
+    const match = parsed.pathname.match(/^(.*\/)?([0-9a-f]{8}-[0-9a-f]{16}-t)\.(?:jpg|jpeg|png|webp)$/i)
     if (!match) return originalUrl
     parsed.pathname = `${match[1] ?? ''}${match[2]}.thumb.webp`
     return /^https?:\/\//i.test(originalUrl)
