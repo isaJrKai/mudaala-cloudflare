@@ -70,7 +70,7 @@ export function RelatedListings({
       <div>
         <h2 className="text-lg font-bold tracking-tight">You may also like</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Matched by product details, style, price and category—not category alone.
+          Matched by product details, style, price and category, not category alone.
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
