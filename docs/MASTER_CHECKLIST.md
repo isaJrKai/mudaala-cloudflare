@@ -1,6 +1,6 @@
 # Mudaala — Master Project Checklist
 
-**Last reconciled:** 2026-10-18 (UTC+3; request-scoped Prisma clients, direct Browse pagination, and PR #116 home CTA/sharing/related products deployed; legacy photo thumbnail backfill remains pending)  
+**Last reconciled:** 2026-10-18 (UTC+3; PR #120 merged after disposable-PostgreSQL security CI passed; restricted-runtime Hyperdrive cutover and smoke evidence reconciled; legacy photo thumbnail backfill remains pending)  
 **Production app:** https://mudaala-cloudflare.kaisoisaac.workers.dev  
 **Repository:** https://github.com/isaJrKai/mudaala-cloudflare
 
@@ -74,18 +74,18 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 - [x] Independent Supabase Storage logs show successful S3 uploads at `2026-10-16T15:52:10Z` and `2026-10-17T06:01:23Z` (HTTP 200), paired with Worker `/api/upload` HTTP 201 at `2026-10-17T06:01:23Z`.
 - [x] The stored public image was fetched from Supabase Storage with HTTP 200 after the latest Worker release; profile/listing API reads also returned 200.
 - [x] Photo upload status reconciled with current app: user confirms profile/listing photo uploads work. Reopen only if a new reproducible failure appears.
-- [ ] Independently capture reproducible test evidence for account isolation and public contact actions; do not ask the founder to repeat already-completed tests unless a specific failure requires it.
+- [x] Account-isolation and ownership-boundary regression tests run successfully in disposable PostgreSQL under the restricted runtime role in [PR #120 validation run](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39121952598); this is CI evidence, not a live production account test. [ ] Public contact actions still need safe end-to-end verification.
 
 ### 4. Security release gate
 
 - [x] Inspect production database role, grants, RLS policies and direct Data API exposure (read-only, 2026-10-17).
-- [x] Read-only investigation confirmed the configured production Hyperdrive database user maps to the powerful `postgres` role; the role has `BYPASSRLS` and schema `CREATE` privilege. This is a confirmed gap, not a completed fix.
+- [x] Historical read-only investigation confirmed the previous Hyperdrive connection used the powerful `postgres` role (`BYPASSRLS` and schema `CREATE`). This gap was addressed by the restricted-runtime cutover below; retain the old config only for rollback.
 - [x] Recheck the `CategoryInterest` Data API policy: `category_interest_deny_direct_api_clients` already denies all rows for `anon` and `authenticated` (`USING false`, `WITH CHECK false`). The policy name differs from the common name; no production policy change is needed. CI is being changed to validate policy behavior/table coverage rather than demand identical policy names.
-- [ ] Review [runtime-role migration fix PR](https://github.com/isaJrKai/mudaala-cloudflare/pull/109) and pass CI using the exact production migration in disposable PostgreSQL.
+- [x] [Runtime-role migration fix PR #109](https://github.com/isaJrKai/mudaala-cloudflare/pull/109) passed required CI in disposable PostgreSQL; production role flags/grants/RLS coverage were checked read-only.
 - [x] Apply the corrected additive migration and verify 13 runtime policies, 52 table grants, no elevated role flags, and no schema `CREATE` (2026-10-17). The role was subsequently enabled for login so Hyperdrive can use it; read-only SQL confirms `rolcanlogin=true` and no membership in `postgres`.
-- [ ] Provision a runtime credential through the approved secret workflow, then create a separate Hyperdrive configuration and prove health, Browse, shop search, authenticated owner operations, photos and cron authorization before switching production traffic. No credential or Hyperdrive change has been made.
-- [ ] Keep the old Hyperdrive configuration available for rollback; after cutover, verify the Worker connects as `mudaala_runtime` and has no elevated role flags.
-- [ ] Test owner/admin boundaries with separate test accounts without modifying real customer records.
+- [x] Provisioned the restricted `mudaala_runtime` credential through the approved secret workflow and created Hyperdrive config `mudaala-runtime-db` (ID `2bdd2812396f49dc8d048a6a821d7313`); PR #110 switched the Worker binding and merged as `adf955f2b58a6d11e78764c3a963fcc301180640`. Production deployment run [39076114442](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39076114442) passed deployment, live health/database, Browse, shop search and shared rate-limiter smoke checks. Authenticated owner/admin operations, photos and cron authorization still require separate production-safe verification.
+- [x] Old `postgres` Hyperdrive config remains available for rollback; active binding metadata in `wrangler.jsonc` points to `mudaala-runtime-db` / `mudaala_runtime`, and read-only SQL confirms the role has no elevated flags, no `BYPASSRLS`, no schema `CREATE`, and no membership in `postgres`. [ ] Directly observe `current_user` from a live Worker database session where feasible; config metadata and smoke success are strong but indirect evidence.
+- [x] CI owner-boundary tests use disposable accounts/database: non-owner edit/delete/refresh denied, anonymous edit denied, owner edit allowed, and `PATCH userId` cannot reassign listing ownership. PR #120 merged as `718a6b6207d9d8c902531b211b390d7c2b1ac2e0`; validation run [39121952598](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39121952598) passed, including the API/account-isolation suite under `mudaala_runtime`. [ ] Live owner/admin boundary verification using disposable accounts remains open; do not use or mutate customer records.
 - [ ] Verify secrets are not exposed to client bundles or logs.
 - [ ] Record production evidence and a rollback plan before any security migration/policy change.
 
