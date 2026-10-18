@@ -100,6 +100,38 @@ export function ShareAdRow({ title, url, priceLabel, label = copy.listing.shareA
           </button>
         ) : null}
       </div>
+      <div className="mt-3 flex flex-wrap gap-2" aria-label="Share this ad on social media">
+        <a
+          href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="press rounded-md border bg-card px-3 py-2 text-xs font-medium hover:bg-accent/50"
+        >
+          Facebook
+        </a>
+        <a
+          href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(url)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="press rounded-md border bg-card px-3 py-2 text-xs font-medium hover:bg-accent/50"
+        >
+          X
+        </a>
+        <a
+          href={`https://www.pinterest.com/pin/create/button/?url=${encodeURIComponent(url)}&description=${encodeURIComponent(shareText)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="press rounded-md border bg-card px-3 py-2 text-xs font-medium hover:bg-accent/50"
+        >
+          Pinterest
+        </a>
+        <a
+          href={`mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(`${shareText}\\n${url}`)}`}
+          className="press rounded-md border bg-card px-3 py-2 text-xs font-medium hover:bg-accent/50"
+        >
+          Email
+        </a>
+      </div>
       <p className="mt-1.5 truncate text-xs text-muted-foreground" title={url}>
         {url}
       </p>
