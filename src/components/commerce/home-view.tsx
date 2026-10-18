@@ -95,11 +95,7 @@ export function HomeDashboard() {
     return (
       <div className="space-y-4" aria-busy>
         <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-lg" />
-          ))}
-        </div>
+        <Skeleton className="h-24 rounded-lg" />
         <Skeleton className="h-40 rounded-lg" />
       </div>
     )
@@ -168,11 +164,7 @@ function SignedInHome() {
     return (
       <div className="space-y-4" aria-busy="true" aria-label="Loading your dashboard">
         <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-lg" />
-          ))}
-        </div>
+        <Skeleton className="h-24 rounded-lg" />
         <Skeleton className="h-40 rounded-lg" />
       </div>
     )
