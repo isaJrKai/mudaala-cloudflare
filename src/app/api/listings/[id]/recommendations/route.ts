@@ -69,7 +69,7 @@ export async function GET(_request: Request, { params }: Params) {
     })
 
     // Never recommend from an unavailable, hidden, or fixture listing.
-    if (!current || current.status !== 'ACTIVE' || current.expiresAt <= new Date() || current.type !== 'OFFER' || current.isSeed) {
+    if (!current || current.status !== 'ACTIVE' || current.expiresAt.getTime() <= Date.now() || current.type !== 'OFFER' || current.isSeed) {
       return jsonOk({ items: [] })
     }
 
