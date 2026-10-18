@@ -103,6 +103,58 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number):
     }, type, quality)
   })
 }
+
+ // Generate a tiny feed rendition in the browser. This avoids requiring a native
+ // image library inside Cloudflare Workers and keeps full-size photos untouched.
+ async function prepareThumbnail(file: File): Promise<File | null> {
+   let bitmap: ImageBitmap | null = null
+   let objectUrl: string | null = null
+   try {
+     let source: CanvasImageSource
+     let width = 0
+     let height = 0
+     if (typeof createImageBitmap === 'function') {
+       try {
+         bitmap = await createImageBitmap(file)
+         source = bitmap
+         width = bitmap.width
+         height = bitmap.height
+       } catch {
+         objectUrl = URL.createObjectURL(file)
+         const image = await loadImage(objectUrl)
+         source = image
+         width = image.naturalWidth
+         height = image.naturalHeight
+       }
+     } else {
+       objectUrl = URL.createObjectURL(file)
+       const image = await loadImage(objectUrl)
+       source = image
+       width = image.naturalWidth
+       height = image.naturalHeight
+     }
+     if (!width || !height) return null
+     const scale = Math.min(1, 360 / Math.max(width, height))
+     const canvas = document.createElement('canvas')
+     canvas.width = Math.max(1, Math.round(width * scale))
+     canvas.height = Math.max(1, Math.round(height * scale))
+     const context = canvas.getContext('2d')
+     if (!context) return null
+     context.drawImage(source, 0, 0, canvas.width, canvas.height)
+     const blob = await canvasToBlob(canvas, 'image/webp', 0.72).catch(() => null)
+     // If this browser cannot encode WebP, keep the upload working; the UI can
+     // safely fall back to the original photo instead of saving a bad thumbnail.
+     if (!blob || blob.type !== 'image/webp') return null
+     const stem = file.name.replace(/\.[^.]+$/, '') || 'photo'
+     return new File([blob], `${stem}.thumb.webp`, { type: 'image/webp', lastModified: Date.now() })
+   } catch {
+     return null
+   } finally {
+     bitmap?.close()
+     if (objectUrl) URL.revokeObjectURL(objectUrl)
+   }
+ }
+
 interface PhotoPickerProps {
   value: string[]
   onChange: (photos: string[]) => void
@@ -129,8 +181,10 @@ export function PhotoPicker({ value, onChange, max = 4, single = false, cover = 
     setBusy(true)
     try {
       const prepared = await preparePhoto(file)
+      const thumbnail = await prepareThumbnail(prepared)
       const body = new FormData()
       body.append('file', prepared)
+      if (thumbnail) body.append('thumbnail', thumbnail)
       const res = await apiFetch<{ url: string }>('/api/upload', { method: 'POST', body })
       onChange(single ? [res.url] : [...value, res.url].slice(0, max))
     } catch (err) {

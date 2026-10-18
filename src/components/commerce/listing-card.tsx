@@ -20,6 +20,7 @@ import { useAddedFlash } from './basket-view'
 import { LOVED_CAP, isLoved, toggleLoved, useLovedIds } from '@/lib/loved'
 import { useToast } from '@/hooks/use-toast'
 import type { Listing, ListingShopOwner } from '@/lib/client'
+import { listingThumbnailUrl } from '@/lib/image'
 import { cn } from '@/lib/utils'
 
 interface ListingCardProps {
@@ -43,7 +44,22 @@ interface ListingCardProps {
 // inside it.
 function ListingPhoto({ listing, className }: { listing: Listing; className?: string }) {
   if (listing.photos.length > 0) {
-    return <img src={listing.photos[0]} alt="" loading="lazy" className={cn('size-full object-cover', className)} />
+    const original = listing.photos[0]
+    const thumbnail = listingThumbnailUrl(original)
+    return (
+      <img
+        src={thumbnail}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className={cn('size-full object-cover', className)}
+        onError={(event) => {
+          // Older photos and browsers that could not create a thumbnail remain
+          // visible: retry the original once instead of leaving a broken tile.
+          if (event.currentTarget.src.includes('.thumb.webp')) event.currentTarget.src = original
+        }}
+      />
+    )
   }
   // PLACEHOLDER RULE - no photo yet: the neutral tile (flat grey, category
   // name, small camera icon), never a stock or illustrated stand-in.

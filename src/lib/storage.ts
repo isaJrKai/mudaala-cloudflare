@@ -22,7 +22,9 @@ export interface PhotoStorage {
   /** Human-readable provider name for logs and health reporting. */
   readonly name: string
   /** Persist one validated photo; resolves with its PUBLIC url. */
-  save(data: Buffer, extension: string): Promise<string>
+  save(data: Buffer, extension: string, hasThumbnail?: boolean): Promise<string>
+  /** Persist a WebP feed thumbnail beside its original, using a predictable sibling key. */
+  saveThumbnail(originalUrl: string, data: Buffer): Promise<void>
   /** Delete one stored photo by its public URL. A URL this provider does not
    *  own resolves quietly; an already-deleted object too - deletion is
    *  idempotent because account deletion must never fail on a missing file. */
@@ -38,11 +40,19 @@ const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads')
 export class LocalDiskStorage implements PhotoStorage {
   readonly name = 'local-disk'
 
-  async save(data: Buffer, extension: string): Promise<string> {
-    const name = `${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}.${extension}`
+  async save(data: Buffer, extension: string, hasThumbnail = false): Promise<string> {
+    const name = `${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}${hasThumbnail ? '-t' : ''}.${extension}`
     await fs.mkdir(UPLOAD_DIR, { recursive: true })
     await fs.writeFile(path.join(UPLOAD_DIR, name), data)
     return `/uploads/${name}`
+  }
+
+  async saveThumbnail(originalUrl: string, data: Buffer): Promise<void> {
+    if (!originalUrl.startsWith('/uploads/')) throw new Error('Thumbnail URL is not a local upload')
+    const name = originalUrl.slice('/uploads/'.length)
+    if (!name || name.includes('/') || name.includes('..')) throw new Error('Invalid local photo URL')
+    const stem = name.replace(/\.[^.]+$/, '')
+    await fs.writeFile(path.join(UPLOAD_DIR, `${stem}.thumb.webp`), data)
   }
 
   async remove(url: string): Promise<void> {
@@ -52,6 +62,8 @@ export class LocalDiskStorage implements PhotoStorage {
     const name = url.split('/').pop() ?? ''
     if (!name || name.includes('..') || name.includes('/') || !url.startsWith('/uploads/')) return
     await fs.rm(path.join(UPLOAD_DIR, name), { force: true })
+    const stem = name.replace(/\.[^.]+$/, '')
+    await fs.rm(path.join(UPLOAD_DIR, `${stem}.thumb.webp`), { force: true })
   }
 }
 
@@ -148,13 +160,19 @@ export class S3Storage implements PhotoStorage {
   }
 
   /** PUT one object; exported so the one-off URL-migration script reuses it. */
-  async put(objectKey: string, data: Buffer, contentType = 'image/webp'): Promise<void> {
+  async put(
+    objectKey: string,
+    data: Buffer,
+    contentType = 'image/webp',
+    cacheControl = 'public, max-age=31536000, immutable',
+  ): Promise<void> {
     try {
       await this.client.send(new PutObjectCommand({
         Bucket: this.env.bucket,
         Key: objectKey,
         Body: data,
         ContentType: contentType,
+        CacheControl: cacheControl,
       }))
     } catch (error) {
       const detail = error instanceof Error ? error.message.replace(/[\r\n]+/g, ' ').slice(0, 500) : 'unknown S3 error'
@@ -162,11 +180,18 @@ export class S3Storage implements PhotoStorage {
       throw new Error('S3 put failed')
     }
   }
-  async save(data: Buffer, extension: string): Promise<string> {
-    const key = `photos/${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}.${extension}`
+  async save(data: Buffer, extension: string, hasThumbnail = false): Promise<string> {
+    const key = `photos/${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}${hasThumbnail ? '-t' : ''}.${extension}`
     const contentType = extension === 'jpg' ? 'image/jpeg' : extension === 'png' ? 'image/png' : 'image/webp'
     await this.put(key, data, contentType)
     return this.publicUrlFor(key)
+  }
+
+  async saveThumbnail(originalUrl: string, data: Buffer): Promise<void> {
+    const key = this.objectKeyFor(originalUrl)
+    if (!key) throw new Error('Thumbnail URL is not owned by this storage provider')
+    const thumbnailKey = key.replace(/\.[^.]+$/, '.thumb.webp')
+    await this.put(thumbnailKey, data, 'image/webp')
   }
 
   async remove(url: string): Promise<void> {
@@ -176,6 +201,11 @@ export class S3Storage implements PhotoStorage {
       await this.client.send(new DeleteObjectCommand({
         Bucket: this.env.bucket,
         Key: key,
+      }))
+      // Thumbnails are immutable siblings of uploaded originals.
+      await this.client.send(new DeleteObjectCommand({
+        Bucket: this.env.bucket,
+        Key: key.replace(/\.[^.]+$/, '.thumb.webp'),
       }))
     } catch (error) {
       const detail = error instanceof Error ? error.message.replace(/[\r\n]+/g, ' ').slice(0, 500) : 'unknown S3 error'

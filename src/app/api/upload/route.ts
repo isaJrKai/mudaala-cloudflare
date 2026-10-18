@@ -152,18 +152,42 @@ export async function POST(request: Request) {
       throw new ApiError(400, 'That file is not a JPEG, PNG or WebP image')
     }
 
-    // Cloudflare Workers cannot run sharp's native binaries, and canvas
-    // image APIs are not part of the documented Workers runtime. Keep the
-    // upload compatible by storing the validated original raster image.
-    // The storage layer derives Content-Type from the detected magic bytes.
+    // Cloudflare Workers cannot run sharp's native binaries, so the browser
+    // supplies a small WebP rendition while this route preserves the original.
+    // Validate both files before writing either one to avoid orphaned uploads.
+    const thumbnailFile = form?.get('thumbnail')
+    let thumbnailInput: Buffer | null = null
+    if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
+      if (thumbnailFile.size > 250 * 1024) {
+        throw new ApiError(413, 'The small photo preview is too large - please choose the photo again')
+      }
+      const thumbnailHead = new Uint8Array(await thumbnailFile.slice(0, 12).arrayBuffer())
+      if (sniffImage(thumbnailHead) !== 'webp') {
+        throw new ApiError(400, 'The small photo preview must be WebP')
+      }
+      const thumbnailBytes = new Uint8Array(await thumbnailFile.arrayBuffer())
+      thumbnailInput = Buffer.from(stripImageMetadata(thumbnailBytes, 'webp'))
+    }
+
     const original = new Uint8Array(await file.arrayBuffer())
     const input = Buffer.from(stripImageMetadata(original, detectedType))
+    const storage = chooseStorage()
     let url: string
     try {
-      url = await chooseStorage().save(input, detectedType)
+      url = await storage.save(input, detectedType, thumbnailInput !== null)
     } catch (err) {
       console.error('[upload] storage write failed:', err)
       throw new ApiError(502, 'The photo could not be stored right now. Please try again')
+    }
+
+    if (thumbnailInput) {
+      try {
+        await storage.saveThumbnail(url, thumbnailInput)
+      } catch (err) {
+        // The original is still valid and stored; never lose a seller's photo
+        // because an optional rendition failed. The feed falls back gracefully.
+        console.error('[upload] thumbnail write failed:', err)
+      }
     }
 
     return jsonOk({ url }, 201)
