@@ -236,12 +236,26 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
       }
     }
 
+    // Ranking needs only these compact fields for the candidate window.
+    // Fetch full listing + seller details only for the page we will return.
+    // This avoids joining/serializing hundreds of complete listings on every
+    // Browse request while preserving the existing ranking and Unicode fallback.
+    const rankingSelect = {
+      id: true,
+      photos: true,
+      refreshedAt: true,
+      title: true,
+      description: true,
+      category: true,
+      area: true,
+      county: true,
+    } as const
     const [all, total, fallbackCandidates] = await Promise.all([
       db.listing.findMany({
         where,
         orderBy: [orderBy],
         take: PHOTO_BOOST_SCAN_CAP,
-        include: SHOP_OWNER_INCLUDE,
+        select: rankingSelect,
       }),
       db.listing.count({ where }),
       searchText
@@ -249,9 +263,9 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
             where: textFallbackWhere,
             orderBy: [orderBy],
             take: PHOTO_BOOST_SCAN_CAP,
-            include: SHOP_OWNER_INCLUDE,
+            select: rankingSelect,
           })
-        : Promise.resolve([] as ListingWithShop[]),
+        : Promise.resolve([] as Array<Pick<Listing, 'id' | 'photos' | 'refreshedAt' | 'title' | 'description' | 'category' | 'area' | 'county'>>),
     ])
 
     // Match normalized seller text in a capped recent window, then merge it
@@ -292,7 +306,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
       a.band - b.band ||
       (a.hasPhoto === b.hasPhoto ? a.index - b.index : a.hasPhoto ? -1 : 1),
     )
-    let pageRows = ranked.slice(pageStart, pageStart + pageSize).map((entry) => entry.row)
+    let pageIds = ranked.slice(pageStart, pageStart + pageSize).map((entry) => entry.row.id)
 
     // A page can straddle the cap when pageSize does not divide 500 (e.g.
     // page 17 at 30 rows/page). Fill only that page's overflow from the next
@@ -303,13 +317,26 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
         orderBy: [orderBy],
         skip: PHOTO_BOOST_SCAN_CAP,
         take: pageStart + pageSize - PHOTO_BOOST_SCAN_CAP,
-        include: SHOP_OWNER_INCLUDE,
+        select: { id: true },
       })
-      pageRows = [...pageRows, ...overflowRows]
+      pageIds = [...pageIds, ...overflowRows.map((row) => row.id)]
     }
 
+    // Only the current page needs the seller join and full fields used by cards.
+    // Restore the ranker's exact order after the indexed ID lookup.
+    const fullRows = pageIds.length
+      ? await db.listing.findMany({
+          where: { id: { in: pageIds } },
+          include: SHOP_OWNER_INCLUDE,
+        })
+      : []
+    const fullRowsById = new Map(fullRows.map((row) => [row.id, row]))
+
     return {
-      items: pageRows.map(serializeListing),
+      items: pageIds.flatMap((id) => {
+        const row = fullRowsById.get(id)
+        return row ? [serializeListing(row)] : []
+      }),
       total: adjustedTotal,
       page,
       pageSize,
