@@ -24,7 +24,7 @@ import { SafetyCard } from '@/components/commerce/safety-card'
 import { ReportButton } from '@/components/commerce/report-button'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { db } from '@/lib/db'
+import { db, withRequestDb } from '@/lib/db'
 import {
   loadAdRow,
   photosOf,
@@ -65,6 +65,7 @@ const loadAd = cache(async (param: string) => {
 })
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  return withRequestDb(async () => {
   const { id } = await params
   const listing = await loadAdRow(id)
 
@@ -112,6 +113,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       images: [shareImage],
     },
   }
+  })
 }
 
 // The market-check chip: the cron sweep records a daily median asking price
@@ -151,6 +153,7 @@ function Sparkline({ values, className }: { values: number[]; className?: string
 }
 
 export default async function AdPage({ params }: Params) {
+  return withRequestDb(async () => {
   const { id } = await params
   const listing = await loadAd(id)
   const canonicalUrl = `${siteUrl}/l/${listing.id}`
@@ -170,7 +173,7 @@ export default async function AdPage({ params }: Params) {
 
   // Same fire-and-forget counter the API detail uses; crawlers included,
   // because a view is a view whoever asked.
-  db.listing.update({ where: { id: listing.id }, data: { viewCount: { increment: 1 } } }).catch(() => undefined)
+  await db.listing.update({ where: { id: listing.id }, data: { viewCount: { increment: 1 } } }).catch(() => undefined)
 
   // Structured data: OFFERs get full Product + Offer markup so Google can
   // surface price and availability. REQUESTs get none - a "wanted" ad is
@@ -410,4 +413,5 @@ export default async function AdPage({ params }: Params) {
       {jsonLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} /> : null}
     </div>
   )
+  })
 }
