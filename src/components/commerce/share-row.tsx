@@ -126,7 +126,7 @@ export function ShareAdRow({ title, url, priceLabel, label = copy.listing.shareA
           Pinterest
         </a>
         <a
-          href={`mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(`${shareText}\\n${url}`)}`}
+          href={`mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(`${shareText}\n${url}`)}`}
           className="press rounded-md border bg-card px-3 py-2 text-xs font-medium hover:bg-accent/50"
         >
           Email
