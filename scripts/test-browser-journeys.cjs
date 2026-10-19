@@ -164,12 +164,39 @@ async function verifySavedSearch(browser) {
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.getByText(searchName, { exact: true }).waitFor({ state: 'detached', timeout });
 
+    // Opening-hours schedules must work through a real phone-width browser,
+    // persist through the profile API, and restore their selected values.
+    await page.goto(base + '/#/account', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.locator('#bp-hours-mode').waitFor({ state: 'visible', timeout });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('#bp-hours-mode').selectOption('daily');
+    await page.locator('#bp-hours-open').fill('08:30');
+    await page.locator('#bp-hours-close').fill('18:00');
+    const profileSavePromise = page.waitForResponse((response) => {
+      return response.request().method() === 'PUT' && new URL(response.url()).pathname === '/api/profile';
+    }, { timeout });
+    await page.getByRole('button', { name: 'Save shop', exact: true }).click();
+    const profileSave = await profileSavePromise;
+    const profileSaveBody = await profileSave.text();
+    if (!profileSave.ok()) {
+      throw new Error('Opening-hours profile save failed: HTTP ' + profileSave.status() + ' ' + profileSaveBody.slice(0, 400));
+    }
+    await page.getByText('Shop saved', { exact: true }).waitFor({ state: 'visible', timeout });
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.locator('#bp-hours-mode').waitFor({ state: 'visible', timeout });
+    if (await page.locator('#bp-hours-mode').inputValue() !== 'daily' ||
+        await page.locator('#bp-hours-open').inputValue() !== '08:30' ||
+        await page.locator('#bp-hours-close').inputValue() !== '18:00') {
+      throw new Error('Opening-hours schedule did not restore after reload');
+    }
+
     console.log(JSON.stringify({
       savedSearchUI: 'pass',
       create: 'visible in Saved searches',
       reload: 'record persisted',
       apply: 'returned to Browse',
       remove: 'absent after reload',
+      openingHours: 'daily schedule saved and restored on a 390px viewport',
     }, null, 2));
   } finally {
     await context.close();
