@@ -257,7 +257,7 @@ jobs:
               const form = new FormData();
               form.append('file', new Blob([png], { type: 'image/png' }), 'audit-photo.png');
               const uploaded = await api('/api/upload', { method: 'POST', cookie: owner.cookie, form });
-              if (uploaded.status !== 200 || typeof uploaded.json?.url !== 'string' || !uploaded.json.url.startsWith('https://')) {
+              if (uploaded.status !== 201 || typeof uploaded.json?.url !== 'string' || !uploaded.json.url.startsWith('https://')) {
                 throw new Error('Authenticated production photo upload failed with HTTP ' + uploaded.status);
               }
               const photoUrl = uploaded.json.url;
