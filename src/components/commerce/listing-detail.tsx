@@ -61,12 +61,12 @@ function PhotoGallery({ listing }: { listing: ListingDetailT }) {
         aria-label={copy.listing.photosOfAria(listing.title)}
       >
         {listing.photos.map((photo, i) => (
-          <div key={photo} className="relative h-56 w-[88%] shrink-0 snap-center overflow-hidden rounded-lg border sm:h-80">
+          <div key={photo} className="relative h-56 w-[88%] shrink-0 snap-center overflow-hidden rounded-lg border bg-secondary sm:h-80">
             <img
               src={photo}
               alt={copy.listing.photoAlt(listing.title, i, listing.photos.length)}
               loading={i === 0 ? 'eager' : 'lazy'}
-              className="size-full object-cover"
+              className="size-full object-contain"
             />
           </div>
         ))}
