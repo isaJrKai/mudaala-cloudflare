@@ -38,7 +38,7 @@ export function RelatedListings({
   })
   const items = data?.items ?? []
 
-  if (loading) {
+  if (isLoading) {
     return (
       <section aria-label="Finding related products" className="space-y-3">
         <Skeleton className="h-6 w-44" />
