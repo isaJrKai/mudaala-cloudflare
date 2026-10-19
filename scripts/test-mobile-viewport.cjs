@@ -39,9 +39,7 @@ async function inspectBrowse(browser, width) {
       };
       const selectors = [
         'main', '.mudaala-page', '.mudaala-page--browse',
-        'main article', 'main button', 'main input', 'main select',
-        'main textarea', 'main [role="search"]', 'main [role="searchbox"]',
-        'main [class*="grid"]'
+        'main *'
       ];
       const checked = new Set();
       const elements = [];
@@ -50,6 +48,9 @@ async function inspectBrowse(browser, width) {
           if (checked.has(element) || !visible(element)) continue;
           checked.add(element);
           const rect = element.getBoundingClientRect();
+          const style = getComputedStyle(element);
+          const horizontalScroller = /(auto|scroll)/.test(style.overflowX) &&
+            element.scrollWidth > element.clientWidth + 1;
           elements.push({
             selector,
             tag: element.tagName.toLowerCase(),
@@ -58,7 +59,11 @@ async function inspectBrowse(browser, width) {
             left: Math.round(rect.left * 100) / 100,
             right: Math.round(rect.right * 100) / 100,
             width: Math.round(rect.width * 100) / 100,
-            position: getComputedStyle(element).position,
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+            internalOverflow: !horizontalScroller && element.scrollWidth > element.clientWidth + 1,
+            horizontalScroller,
+            position: style.position,
             inHorizontalScroller: hasHorizontalScrollAncestor(element),
           });
         }
@@ -80,7 +85,12 @@ async function inspectBrowse(browser, width) {
 
     const offenders = result.elements.filter(element =>
       !element.inHorizontalScroller &&
-      (element.right > result.viewportWidth + tolerance || element.left < -tolerance)
+      (element.right > result.viewportWidth + tolerance ||
+        element.left < -tolerance ||
+        element.internalOverflow)
+    ).sort((a, b) =>
+      Number(b.internalOverflow) - Number(a.internalOverflow) ||
+      (b.scrollWidth - b.clientWidth) - (a.scrollWidth - a.clientWidth)
     );
     const shellOverflow = result.mainScrollWidth !== null &&
       result.mainScrollWidth > result.mainClientWidth + tolerance;
