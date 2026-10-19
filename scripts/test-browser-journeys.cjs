@@ -328,7 +328,7 @@ async function verifyListingLifecycle(browser) {
 
     // The public share page must use the same uncropped, arrow-based gallery.
     const listingHash = new URL(page.url()).hash;
-    const publicListingId = listingHash.match(/^#\\/listing\\/([^/?#]+)/)?.[1];
+    const publicListingId = listingHash.match(/^#\/listing\/([^/?#]+)/)?.[1];
     if (!publicListingId) throw new Error('Could not read the published listing id from the app URL: ' + listingHash);
     await page.goto(base + '/l/' + encodeURIComponent(publicListingId), { waitUntil: 'domcontentloaded', timeout: 60000 });
     const publicGallery = page.locator('[aria-roledescription="carousel"]');
