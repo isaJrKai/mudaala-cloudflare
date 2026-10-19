@@ -61,7 +61,9 @@ async function inspectBrowse(browser, width) {
             width: Math.round(rect.width * 100) / 100,
             clientWidth: element.clientWidth,
             scrollWidth: element.scrollWidth,
-            internalOverflow: !horizontalScroller && element.scrollWidth > element.clientWidth + 1,
+            overflowX: style.overflowX,
+            internalOverflow: !horizontalScroller && style.overflowX === 'visible' &&
+              element.scrollWidth > element.clientWidth + 1,
             horizontalScroller,
             position: style.position,
             inHorizontalScroller: hasHorizontalScrollAncestor(element),
@@ -88,17 +90,19 @@ async function inspectBrowse(browser, width) {
       (element.right > result.viewportWidth + tolerance ||
         element.left < -tolerance ||
         element.internalOverflow)
-    ).sort((a, b) =>
-      Number(b.internalOverflow) - Number(a.internalOverflow) ||
-      (b.scrollWidth - b.clientWidth) - (a.scrollWidth - a.clientWidth)
-    );
+    ).sort((a, b) => {
+      const aOutside = a.right > result.viewportWidth + tolerance || a.left < -tolerance;
+      const bOutside = b.right > result.viewportWidth + tolerance || b.left < -tolerance;
+      return Number(bOutside) - Number(aOutside) ||
+        (b.scrollWidth - b.clientWidth) - (a.scrollWidth - a.clientWidth);
+    });
     const shellOverflow = result.mainScrollWidth !== null &&
       result.mainScrollWidth > result.mainClientWidth + tolerance;
     if (offenders.length || shellOverflow) {
       throw new Error(JSON.stringify({
         viewport: width,
         shellOverflow,
-        offenders: offenders.slice(0, 30),
+        offenders: offenders.slice(0, 50),
         document: {
           clientWidth: result.documentClientWidth,
           scrollWidth: result.documentScrollWidth,
