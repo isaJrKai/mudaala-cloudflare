@@ -186,7 +186,7 @@ References for competitor feature checks:
 
 ### Product interest, likes and merchant insights — discovery stage, not an implementation decision
 
-- [ ] Decide whether product likes/favourites should be public, private to the customer, or replaced/augmented by a “notify the shop” interest action. Do not assume likes are the best signal without customer research.
+- [ ] Decide whether product likes/favourites should be public, private to the customer, or replaced/augmented by a “notify the shop” interest action. Do not assume likes are the best signal without customer research. Implementation backlog: [#128 — notify sellers when a buyer likes their listing](https://github.com/isaJrKai/mudaala-cloudflare/issues/128); defer until P0 reliability and database-privilege gates close.
 - [ ] If implemented, define whether a customer can like without an account, whether likes are visible to other buyers, how to prevent repeated/fake engagement, and how a shopkeeper is notified without spamming them.
 - [ ] Distinguish interest signals from actual purchases. Never describe likes as sales or proof that a manufacturer’s product is being bought.
 - [ ] Define privacy-conscious merchant insights from meaningful events (views, contacts, saved/liked products and eventual purchases if supported). Give manufacturers or advertisers access only when consent, product-market fit and privacy controls justify it.
