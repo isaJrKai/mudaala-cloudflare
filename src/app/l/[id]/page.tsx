@@ -212,7 +212,12 @@ export default async function AdPage({ params }: Params) {
           href={`/#/listing/${listing.id}`}
           className="text-sm font-medium text-primary underline-offset-2 hover:underline"
         >
-          Open in the        {/* Large, uncropped product images with the same arrow-based viewer as the in-app detail page. */}
+          Open in the app
+        </a>
+      </header>
+
+      <main className="space-y-4 px-4 py-4">
+        {/* Large, uncropped product images with the same arrow-based viewer as the in-app detail page. */}
         {photos.length > 0 ? (
           <PublicPhotoGallery photos={photos} title={listing.title} />
         ) : (
