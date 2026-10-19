@@ -39,6 +39,12 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Run ESLint across the repository
+        run: npm run lint
+
+      - name: Audit dependency vulnerabilities
+        run: npm audit --audit-level=high
+
       - name: Audit unused files, exports, and dependencies (Knip)
         run: npx --yes knip@5 --reporter compact
         continue-on-error: true # Audit findings are triaged before removal; don't hide build/security test results.
