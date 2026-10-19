@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { apiGet } from '@/lib/client'
 import { categoryLabel, unitLabel } from '@/lib/constants'
 import { formatPrice } from '@/lib/format'
@@ -31,14 +31,34 @@ export function RelatedListings({
   /** Public ad pages use /l/{id}; the in-app view uses the hash route. */
   linkPrefix?: string
 }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ['listing-recommendations', listingId],
-    queryFn: () => apiGet<{ items: RecommendationItem[] }>(`/api/listings/${listingId}/recommendations`),
-    staleTime: 60_000,
-  })
-  const items = data?.items ?? []
+  const [items, setItems] = useState<RecommendationItem[]>([])
+  const [loading, setLoading] = useState(true)
 
-  if (isLoading) {
+  useEffect(() => {
+    let active = true
+    // Defer the reset out of the effect's synchronous body. This component
+    // also renders on the standalone public listing page, outside the app's
+    // React Query provider, so keep this fetch provider-independent.
+    queueMicrotask(() => {
+      if (active) {
+        setLoading(true)
+        setItems([])
+      }
+    })
+    apiGet<{ items: RecommendationItem[] }>(`/api/listings/${listingId}/recommendations`)
+      .then((response) => {
+        if (active) setItems(response.items)
+      })
+      .catch(() => {
+        if (active) setItems([])
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => { active = false }
+  }, [listingId])
+
+  if (loading) {
     return (
       <section aria-label="Finding related products" className="space-y-3">
         <Skeleton className="h-6 w-44" />
