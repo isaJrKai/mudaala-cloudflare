@@ -388,6 +388,9 @@ async function verifyListingLifecycle(browser) {
     await page.goBack({ waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.getByRole('button', { name: 'Show number', exact: true }).waitFor({ state: 'visible', timeout });
 
+    // The gallery journey deliberately switches to a phone viewport. Restore
+    // desktop width before testing the featured-shop rail, which is hidden on phones.
+    await page.setViewportSize({ width: 1365, height: 900 });
     // At desktop widths the featured-shop rail provides a scannable QR code
     // for the same named shop. Verify the SVG is present and labelled accessibly.
     await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
