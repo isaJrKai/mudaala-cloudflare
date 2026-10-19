@@ -18,6 +18,7 @@ import { notFound, permanentRedirect } from 'next/navigation'
 import { cache } from 'react'
 import { MapPin, Navigation, Package, Store } from 'lucide-react'
 import { ShowNumber } from '@/components/commerce/show-number'
+import { PublicPhotoGallery } from '@/components/commerce/public-photo-gallery'
 import { StatusBadge, TypeBadge } from '@/components/commerce/badges'
 import { ShareAdRow } from '@/components/commerce/share-row'
 import { RelatedListings } from '@/components/commerce/related-listings'
@@ -211,32 +212,9 @@ export default async function AdPage({ params }: Params) {
           href={`/#/listing/${listing.id}`}
           className="text-sm font-medium text-primary underline-offset-2 hover:underline"
         >
-          Open in the app
-        </a>
-      </header>
-
-      <main className="space-y-4 px-4 py-4">
-        {/* Photos - scroll-snap gallery, server-rendered, no JS needed */}
+          Open in the        {/* Large, uncropped product images with the same arrow-based viewer as the in-app detail page. */}
         {photos.length > 0 ? (
-          <div className="relative">
-            <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto scrollbar-slim p-1" aria-label={`Photos of ${listing.title}`}>
-              {photos.map((photo, i) => (
-                <div key={photo} className="relative h-56 w-[88%] shrink-0 snap-center overflow-hidden rounded-md border sm:h-80">
-                  <img
-                    src={photo}
-                    alt={`${listing.title} - photo ${i + 1} of ${photos.length}`}
-                    loading={i === 0 ? 'eager' : 'lazy'}
-                    className="size-full object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-            {photos.length > 1 ? (
-              <span className="absolute right-4 top-4 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
-                {photos.length} photos · swipe
-              </span>
-            ) : null}
-          </div>
+          <PublicPhotoGallery photos={photos} title={listing.title} />
         ) : (
           // PLACEHOLDER RULE - neutral tile: flat grey, category name, a
           // small camera icon. Inline markup keeps the page JS-free.
