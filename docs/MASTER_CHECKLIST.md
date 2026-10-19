@@ -236,3 +236,20 @@ For each new idea, record: customer problem, evidence/source, intended user, sma
 - [ ] Continue monitoring Worker error telemetry after the current deploy; successful live smoke and a short quiet log window are not a permanent reliability guarantee.
 - [ ] Plan a safe additive backfill for the 4 active legacy photo URLs that do not have thumbnail objects; preserve all originals and customer listings.
 - [ ] Keep video, collections, likes and other feature expansion frozen until P0 gates are closed. No new product schema or destructive production changes were made in this session.
+## Security follow-up — phone verification (reconciled 2026-10-20)
+
+### Registration phone ownership — do not enable verification until SMS delivery is configured
+
+- [ ] Registration currently normalizes and uniqueness-checks a phone number, then creates the account and session without proving phone ownership. Track implementation in [issue #57](https://github.com/isaJrKai/mudaala-cloudflare/issues/57).
+- [x] Read-only Cloudflare Worker settings inspection confirmed secret binding names/types only; no secret values were read. The active Worker currently has `ADMIN_USER_IDS`, `ADMIN_PHONES`, `CRON_SECRET`, `SETTINGS_ENCRYPTION_KEY`, and storage/database secret bindings, but **does not have `AT_API_KEY` or `AT_USERNAME`**, which the existing production Africa's Talking provider requires. `AT_SENDER_ID` is optional in the provider code.
+- [ ] Implement pending-registration state and an additive nullable phone-verification timestamp/field, with a reviewed backwards-compatible policy for existing accounts. Never silently mark legacy phone numbers verified.
+- [ ] OTP requirements: single-use, short-lived, keyed-hashed storage, atomic attempt limits, resend invalidation, per-phone and per-IP rate limits through the shared limiter, non-enumerating responses, and no OTP or full phone number in logs.
+- [ ] Test with the console/fake provider and disposable PostgreSQL only. Do not send real SMS or create/mutate production accounts during CI.
+- [ ] Configure Africa's Talking credentials through the approved secret workflow and verify delivery safely before enabling/deploying phone verification. Do not put secret values in source, logs, PR comments or this checklist.
+
+### Scheduled maintenance authorization
+
+- [x] Live verifier rejects an invalid `x-cron-secret` with HTTP 403; source uses a constant-time digest comparison and returns 503 when the secret is unconfigured.
+- [x] PR validation tests scheduled maintenance authorization/idempotency under the restricted runtime role in disposable PostgreSQL.
+- [ ] Verify the next real scheduled run's outcome in telemetry; do not manually trigger the production sweep merely to generate evidence because it can modify real listings/notifications/snapshots.
+
