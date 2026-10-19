@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
+import { prismaQueryLoggingEnabled } from '@/lib/env-flags'
 
 type RequestDatabaseScope = { client?: PrismaClient }
 const requestDatabaseScope = new AsyncLocalStorage<RequestDatabaseScope>()
@@ -39,8 +40,7 @@ function createPrisma(): PrismaClient {
   })
   return new PrismaClient({
     adapter,
-    log: process.env.PRISMA_LOG_QUERIES === '1' || process.env.PRISMA_LOG_QUERIES === 'true'
-      ? ['query'] : ['error'],
+    log: prismaQueryLoggingEnabled() ? ['query'] : ['error'],
   })
 }
 

@@ -26,7 +26,7 @@ import { createHash } from 'node:crypto'
 import { SUPPORT_EMAIL, TERMS_VERSION } from '../src/lib/constants'
 import { route, jsonOk } from '../src/lib/api'
 // Pure-function units under test (no next/* imports - safe outside a request).
-import { bearerAuthEnabled } from '../src/lib/env-flags'
+import { bearerAuthEnabled, prismaQueryLoggingEnabled } from '../src/lib/env-flags'
 import { validateEnv } from '../src/lib/env'
 import { isAdminIdentity } from '../src/lib/admin'
 import { chooseStorage, readStorageEnv, S3Storage, signS3Put } from '../src/lib/storage'
@@ -611,6 +611,15 @@ async function main() {
     ok(
       'public shop returns persisted coverPhotoUrl after a fresh request',
       publicShopAfterSave.status === 200 && publicShopAfterSave.json?.shop?.coverPhotoUrl === (photoUrl ?? null),
+    )
+
+    const legacySeller = await call('GET', `/api/sellers/${alice.user!.id}`)
+    const legacyProfile = legacySeller.json?.profile
+    const privateProfileKeys = ['id', 'userId', 'verified', 'isSeed', 'createdAt', 'updatedAt']
+    ok(
+      'legacy public seller endpoint returns a profile without internal metadata',
+      legacySeller.status === 200 && legacyProfile?.businessName === `Alice Test Shop ${RUN_TAG}` &&
+        privateProfileKeys.every((key) => !Object.prototype.hasOwnProperty.call(legacyProfile, key)),
     )
 
     // Shop-name search is a separate public endpoint. It must find a shop when
@@ -2044,6 +2053,8 @@ async function main() {
     ok('15.3 bearer gate: "0"/"false" → off', gate({ ALLOW_BEARER_AUTH: '0' }) === false && gate({ ALLOW_BEARER_AUTH: 'false' }) === false)
     ok('15.4 bearer gate: legacy AUTH_BEARER_FALLBACK=1 still works', gate({ AUTH_BEARER_FALLBACK: '1' }) === true)
     ok('15.5 bearer gate: ALLOW_BEARER_AUTH overrides the legacy alias off', gate({ ALLOW_BEARER_AUTH: '0', AUTH_BEARER_FALLBACK: '1' }) === false)
+    ok('15.5a SQL query logging stays disabled in production even if the flag is enabled', !prismaQueryLoggingEnabled({ NODE_ENV: 'production', PRISMA_LOG_QUERIES: '1' }))
+    ok('15.5b SQL query logging can be explicitly enabled outside production', prismaQueryLoggingEnabled({ NODE_ENV: 'development', PRISMA_LOG_QUERIES: 'true' }))
 
     const dev = validateEnv({ NODE_ENV: 'development', DATABASE_URL: 'file:./db/x.db' })
     ok('15.6 env validation: minimal dev env passes (ok, no errors)', dev.ok && dev.errors.length === 0)

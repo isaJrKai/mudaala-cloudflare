@@ -17,7 +17,7 @@ export function PwaInstallPrompt() {
   useEffect(() => {
     const standalone = window.matchMedia('(display-mode: standalone)').matches ||
       (navigator as Navigator & { standalone?: boolean }).standalone === true
-    setInstalled(standalone)
+    const installStateFrame = window.requestAnimationFrame(() => setInstalled(standalone))
 
     const onBeforeInstall = (event: Event) => {
       event.preventDefault()
@@ -32,6 +32,7 @@ export function PwaInstallPrompt() {
     window.addEventListener('beforeinstallprompt', onBeforeInstall)
     window.addEventListener('appinstalled', onInstalled)
     return () => {
+      window.cancelAnimationFrame(installStateFrame)
       window.removeEventListener('beforeinstallprompt', onBeforeInstall)
       window.removeEventListener('appinstalled', onInstalled)
     }

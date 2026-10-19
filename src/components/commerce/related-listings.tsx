@@ -36,7 +36,15 @@ export function RelatedListings({
 
   useEffect(() => {
     let active = true
-    setLoading(true)
+    // Defer the reset out of the effect's synchronous body. This component
+    // also renders on the standalone public listing page, outside the app's
+    // React Query provider, so keep this fetch provider-independent.
+    queueMicrotask(() => {
+      if (active) {
+        setLoading(true)
+        setItems([])
+      }
+    })
     apiGet<{ items: RecommendationItem[] }>(`/api/listings/${listingId}/recommendations`)
       .then((response) => {
         if (active) setItems(response.items)

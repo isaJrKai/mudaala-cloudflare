@@ -39,6 +39,16 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Run ESLint across the repository
+        run: npm run lint
+
+      - name: Audit production dependency vulnerabilities (blocking)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Report development-toolchain advisories (tracked in issue #132)
+        run: npm audit --omit=prod --audit-level=high
+        continue-on-error: true
+
       - name: Audit unused files, exports, and dependencies (Knip)
         run: npx --yes knip@5 --reporter compact
         continue-on-error: true # Audit findings are triaged before removal; don't hide build/security test results.
@@ -59,6 +69,9 @@ jobs:
           CRON_SECRET: build-only-placeholder
           SETTINGS_ENCRYPTION_KEY: build-only-placeholder-key-32chars
           ADMIN_PHONES: "+256700000000"
+
+      - name: Scan client bundle for high-confidence secret patterns
+        run: node scripts/check-client-bundle-secrets.mjs
 
       - name: Verify photo storage configuration fails closed in production
         run: npx tsx scripts/test-photo-storage-config.ts

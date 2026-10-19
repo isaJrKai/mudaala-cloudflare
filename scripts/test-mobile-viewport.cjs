@@ -3,8 +3,6 @@
  * Intentional horizontal carousels (such as category chips) are excluded from
  * per-element bounds checks; the page shell and ordinary content must fit.
  */
-const { chromium } = require('/tmp/mudaala-browser-test/node_modules/playwright');
-
 const base = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 const widths = [320, 360, 375, 390, 414, 640];
 const height = 844;
@@ -130,6 +128,7 @@ async function inspectBrowse(browser, width) {
 }
 
 (async () => {
+  const { chromium } = await import('/tmp/mudaala-browser-test/node_modules/playwright/index.mjs');
   const browser = await chromium.launch({ headless: true });
   try {
     for (const width of widths) await inspectBrowse(browser, width);

@@ -5,8 +5,6 @@
  *
  * Runs only against the disposable CI PostgreSQL database and local Next server.
  */
-const { chromium } = require('/tmp/mudaala-browser-test/node_modules/playwright');
-
 const base = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 const timeout = 20000;
 
@@ -496,6 +494,7 @@ async function verifyMobileCart(browser) {
 }
 
 (async () => {
+  const { chromium } = await import('/tmp/mudaala-browser-test/node_modules/playwright/index.mjs');
   const browser = await chromium.launch({ headless: true });
   try {
     await verifySavedSearch(browser);

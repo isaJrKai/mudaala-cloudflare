@@ -19,7 +19,29 @@ export async function GET(_request: NextRequest, { params }: Params) {
     })
     if (!seller) throw new ApiError(404, 'This shop does not exist')
 
-    const profile = await db.businessProfile.findUnique({ where: { userId: id } })
+    // This legacy public endpoint must not spread the full profile row. Keep its
+    // public storefront fields, but never serialize internal ownership,
+    // verification, seed, or database bookkeeping fields.
+    const profile = await db.businessProfile.findUnique({
+      where: { userId: id },
+      select: {
+        businessName: true,
+        photoUrl: true,
+        coverPhotoUrl: true,
+        category: true,
+        description: true,
+        county: true,
+        area: true,
+        websiteUrl: true,
+        phone: true,
+        whatsapp: true,
+        hours: true,
+        shopCode: true,
+        momoMerchantCode: true,
+        momoNetwork: true,
+        momoMerchantName: true,
+      },
+    })
 
     const listings = await db.listing.findMany({
       where: { userId: id, status: 'ACTIVE' },
