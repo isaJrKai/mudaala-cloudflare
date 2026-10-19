@@ -11,3 +11,13 @@ export function bearerAuthEnabled(env: Record<string, string | undefined> = proc
   const raw = (env.ALLOW_BEARER_AUTH ?? env.AUTH_BEARER_FALLBACK ?? '').trim().toLowerCase()
   return raw === '1' || raw === 'true'
 }
+
+
+// SQL query events can include bound values (including account or security data).
+// Allow detailed query logging only in development/test; production always logs
+// errors only, even if a stale environment flag is accidentally enabled.
+export function prismaQueryLoggingEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  if (env.NODE_ENV === 'production') return false
+  const raw = (env.PRISMA_LOG_QUERIES ?? '').trim().toLowerCase()
+  return raw === '1' || raw === 'true'
+}
