@@ -541,3 +541,43 @@ svg.mango-stroke { stroke: currentColor; }
   border-color: #18543F !important;
 }
 .whatsapp-brand svg { color: currentColor; }
+
+
+/*
+ * Mobile viewport containment.
+ * Decorative orbit art may extend beyond its canvas on desktop, but it must
+ * never make a phone's document wider than the device. Keep the shell and
+ * content column shrinkable, and let long user-provided labels wrap instead
+ * of forcing cards wider than the viewport.
+ */
+@media (max-width: 640px) {
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  main {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .mudaala-page {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .mudaala-page--browse {
+    --orbit-right: -3rem;
+  }
+
+  .mudaala-page--listing,
+  .mudaala-page--shop {
+    --orbit-right: -3rem;
+  }
+
+  main :where(h1, h2, h3, p, a, button, span) {
+    overflow-wrap: anywhere;
+  }
+}
