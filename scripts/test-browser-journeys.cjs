@@ -324,6 +324,20 @@ async function verifyListingLifecycle(browser) {
     await page.getByRole('button', { name: 'Next product photo' }).click();
     await page.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
 
+    // The public share page must use the same uncropped, arrow-based gallery.
+    const listingHash = new URL(page.url()).hash;
+    const publicListingId = listingHash.match(/^#\\/listing\\/([^/?#]+)/)?.[1];
+    if (!publicListingId) throw new Error('Could not read the published listing id from the app URL: ' + listingHash);
+    await page.goto(base + '/l/' + encodeURIComponent(publicListingId), { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const publicGallery = page.locator('[aria-roledescription="carousel"]');
+    await publicGallery.waitFor({ state: 'visible', timeout });
+    await page.getByRole('button', { name: 'Next product photo' }).click();
+    await page.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
+    const publicPhotoFit = await publicGallery.locator('img').first().evaluate((img) => getComputedStyle(img).objectFit);
+    if (publicPhotoFit !== 'contain') throw new Error('Public product gallery must show the whole photo; object-fit was ' + publicPhotoFit);
+    await page.getByRole('button', { name: 'Previous product photo' }).click();
+    await page.getByText('1 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
+
     await page.goto(base + '/#/my-listings', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.getByRole('heading', { name: /my listings/i }).waitFor({ state: 'visible', timeout });
     const listingCard = () => page.locator('div.overflow-hidden.rounded-lg.border.bg-card').filter({ hasText: editedTitle });
