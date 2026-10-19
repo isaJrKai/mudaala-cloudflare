@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { DAYS_OF_WEEK } from '@/lib/opening-hours'
 
 type ScheduleMode = 'text' | 'daily' | 'weekdays' | 'weekends' | 'selected'
@@ -69,12 +70,14 @@ function parseSchedule(value: string): { mode: ScheduleMode; days: string[]; sta
 
 export function OpeningHoursEditor({ value, onChange }: OpeningHoursEditorProps) {
   const parsed = parseSchedule(value)
-  const mode = parsed?.mode ?? 'text'
+  const [modeOverride, setModeOverride] = useState<ScheduleMode | null>(null)
+  const mode = modeOverride ?? parsed?.mode ?? 'text'
   const days = parsed?.days ?? WEEKDAYS
   const start = parsed?.start ?? '09:00'
   const end = parsed?.end ?? '17:00'
 
   function chooseMode(nextMode: ScheduleMode) {
+    setModeOverride(nextMode)
     if (nextMode === 'text') return
     const nextDays = nextMode === 'daily'
       ? ALL_DAYS
