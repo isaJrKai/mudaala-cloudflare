@@ -216,3 +216,9 @@ jobs:
         run: node scripts/test-browser-journeys.cjs
         env:
           APP_URL: http://localhost:3000
+
+
+      - name: Check Browse for horizontal overflow on mobile viewports
+        run: node scripts/test-mobile-viewport.cjs
+        env:
+          APP_URL: http://localhost:3000
