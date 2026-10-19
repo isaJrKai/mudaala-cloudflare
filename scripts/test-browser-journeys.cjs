@@ -205,6 +205,28 @@ async function verifyListingLifecycle(browser) {
       throw new Error('Could not create listing-lifecycle account: HTTP ' + registration.status() + ' ' + (await registration.text()).slice(0, 200));
     }
 
+    // Give this disposable seller a named shop so the public Browse rail can
+    // render its QR code. This uses the same profile API as the seller form.
+    const profileSave = await context.request.put(base + '/api/profile', {
+      data: {
+        businessName: 'Browser Lifecycle Shop',
+        photoUrl: null,
+        coverPhotoUrl: null,
+        category: null,
+        description: 'Temporary browser regression fixture for public shop QR rendering.',
+        county: null,
+        area: null,
+        phone,
+        whatsapp: null,
+        hours: null,
+      },
+      headers: { origin: base, referer: base + '/' },
+      timeout,
+    });
+    if (profileSave.status() !== 200) {
+      throw new Error('Could not create disposable named shop profile: HTTP ' + profileSave.status());
+    }
+
     const profileResponsePromise = page.waitForResponse((response) => {
       return new URL(response.url()).pathname === '/api/profile';
     }, { timeout });
@@ -365,6 +387,24 @@ async function verifyListingLifecycle(browser) {
     await page.waitForFunction(() => window.location.hash.startsWith('#/shop/'), null, { timeout });
     await page.goBack({ waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.getByRole('button', { name: 'Show number', exact: true }).waitFor({ state: 'visible', timeout });
+
+    // The gallery journey deliberately switches to a phone viewport. Restore
+    // desktop width before testing the featured-shop rail, which is hidden on phones.
+    await page.setViewportSize({ width: 1365, height: 900 });
+    // At desktop widths the featured-shop rail provides a scannable QR code
+    // for the same named shop. Verify the SVG is present and labelled accessibly.
+    await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const featuredShop = page.locator('aside[aria-label="Featured shop from your results"]');
+    await featuredShop.waitFor({ state: 'visible', timeout });
+    const shopQr = featuredShop.getByRole('img', { name: "QR code for Browser Lifecycle Shop's shop" });
+    await shopQr.waitFor({ state: 'visible', timeout });
+    const qrShape = await shopQr.evaluate((svg) => ({
+      viewBox: svg.getAttribute('viewBox'),
+      hasPath: Boolean(svg.querySelector('path')),
+    }));
+    if (!qrShape.viewBox || !qrShape.hasPath) {
+      throw new Error('Featured shop QR did not render a scannable SVG: ' + JSON.stringify(qrShape));
+    }
 
     await page.goto(base + '/#/my-listings', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.getByRole('heading', { name: /my listings/i }).waitFor({ state: 'visible', timeout });
