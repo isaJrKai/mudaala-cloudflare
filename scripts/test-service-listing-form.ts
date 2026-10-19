@@ -9,7 +9,7 @@ const formSource = readFileSync(
   'utf8',
 )
 const sharedHelperCalls = formSource.match(
-  /listingFormCategoryFields\(form\.category, oldPriceRaw, form\.unit, quantityRaw, priceRaw, form\.priceNegotiable\)/g,
+  /listingFormCategoryFields\(form\.category, oldPriceRaw, selectedUnit, quantityRaw, priceRaw, form\.priceNegotiable\)/g,
 ) ?? []
 
 assert.equal(
