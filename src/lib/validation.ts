@@ -140,7 +140,7 @@ const photoUrlSchema = z
   })
 
 const unitSchema = z.string().trim().min(1, 'Enter a unit name').max(20, 'Unit names must be 20 characters or fewer')
-  .regex(/^[\\p{L}\\p{N}][\\p{L}\\p{N} .\\/-]*$/u, 'Use letters, numbers, spaces or hyphens for the unit name')
+  .regex(/^[\p{L}\p{N}][\p{L}\p{N} .\/-]*$/u, 'Use letters, numbers, spaces or hyphens for the unit name')
 
 const quantitySchema = z
   .number({ message: 'Quantity must be a number' })
