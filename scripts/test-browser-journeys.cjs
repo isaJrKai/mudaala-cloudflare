@@ -457,9 +457,12 @@ async function verifyOpeningHoursSchedule(browser) {
     const reloadProfile = await reloadProfilePromise;
     if (!reloadProfile.ok()) throw new Error('Reloading opening-hours profile failed: HTTP ' + reloadProfile.status());
     await page.waitForFunction((value) => document.querySelector('#bp-hours')?.value === value, expectedHours, { timeout });
-    const rehydratedBuilder = page.getByRole('group', { name: 'Weekly opening schedule' });
-    await rehydratedBuilder.getByRole('checkbox', { name: 'Monday' }).waitFor({ state: 'checked', timeout });
-    await rehydratedBuilder.getByRole('checkbox', { name: 'Wednesday' }).waitFor({ state: 'checked', timeout });
+    await page.waitForFunction(() => {
+      const monday = document.querySelector('input[aria-label="Monday"]')
+      const wednesday = document.querySelector('input[aria-label="Wednesday"]')
+      return monday instanceof HTMLInputElement && monday.checked &&
+        wednesday instanceof HTMLInputElement && wednesday.checked
+    }, null, { timeout });
 
     console.log(JSON.stringify({
       openingHours: 'pass (Daily preset and individual days)',
