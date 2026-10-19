@@ -313,8 +313,8 @@ async function main() {
     const badCategory = await call('POST', '/api/listings', { ...validListing, category: 'not-a-category' }, alice)
     ok('create with unknown category → 400', badCategory.status === 400)
 
-    const badUnit = await call('POST', '/api/listings', { ...validListing, unit: 'truckload' }, alice)
-    ok('create with unknown unit → 400', badUnit.status === 400)
+    const badUnit = await call('POST', '/api/listings', { ...validListing, unit: 'bottle<script>' }, alice)
+    ok('create with malformed custom unit → 400', badUnit.status === 400)
 
     const negPrice = await call('POST', '/api/listings', { ...validListing, price: -5 }, alice)
     ok('create with negative price → 400', negPrice.status === 400)
@@ -380,6 +380,37 @@ async function main() {
     }, fragranceOwner)
     phoneOnlyListingId = phoneOnly.json?.listing?.id ?? ''
     ok('create phone-only fixture for multi-intent precision (201)', phoneOnly.status === 201 && Boolean(phoneOnlyListingId))
+
+    const bottledJuice = await call('POST', '/api/listings', {
+      ...validListing,
+      title: 'Fresh bottled juice',
+      description: 'Fresh fruit juice prepared daily and sold by the bottle.',
+      category: 'prepared-food-drinks',
+      price: 1000,
+      unit: 'bottle',
+      quantity: 12,
+    }, fragranceOwner)
+    const bottledJuiceId = bottledJuice.json?.listing?.id ?? ''
+    ok('prepared food and drinks category accepts a bottle unit (201)', bottledJuice.status === 201 && Boolean(bottledJuiceId) && bottledJuice.json?.listing?.category === 'prepared-food-drinks' && bottledJuice.json?.listing?.unit === 'bottle')
+
+    const customServing = await call('POST', '/api/listings', {
+      ...validListing,
+      title: 'Fresh juice serving',
+      description: 'Fresh juice sold by a serving for customers who want a cup.',
+      category: 'prepared-food-drinks',
+      price: 1500,
+      unit: ' serving ',
+      quantity: 8,
+    }, fragranceOwner)
+    const customServingId = customServing.json?.listing?.id ?? ''
+    ok('custom sale unit is accepted and normalized (201)', customServing.status === 201 && Boolean(customServingId) && customServing.json?.listing?.unit === 'serving')
+
+    const customServingRead = customServingId ? await call('GET', `/api/listings/${customServingId}`) : { status: 0, json: null }
+    ok('custom unit persists on a fresh listing read', customServingRead.status === 200 && customServingRead.json?.listing?.unit === 'serving')
+    const customUnitFilter = await call('GET', '/api/listings?unit=serving')
+    ok('custom unit remains usable in listing filters', customUnitFilter.status === 200 && customUnitFilter.json.items.some((listing: any) => listing.id === customServingId))
+    const preparedCategoryFilter = await call('GET', '/api/listings?category=prepared-food-drinks')
+    ok('prepared food and drinks category remains filterable', preparedCategoryFilter.status === 200 && preparedCategoryFilter.json.items.some((listing: any) => listing.id === bottledJuiceId))
 
     const mismatch = await call('POST', '/api/listings', { ...validListing, county: 'Nairobi' }, alice)
     ok('location outside Uganda → 400 (country/location match enforced)', mismatch.status === 400)
