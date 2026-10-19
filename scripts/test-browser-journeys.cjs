@@ -381,6 +381,96 @@ async function verifyListingLifecycle(browser) {
   }
 }
 
+async function verifyOpeningHoursSchedule(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  const phone = uniquePhone();
+  const expectedHours = 'Mon, Wed, 8:30 am - 6:00 pm';
+
+  try {
+    const registration = await context.request.post(base + '/api/auth/register', {
+      data: {
+        phone,
+        name: 'Browser Opening Hours Tester',
+        password: 'password321',
+        country: 'UG',
+        acceptTerms: true,
+      },
+      headers: { origin: base, referer: base + '/' },
+      timeout,
+    });
+    if (registration.status() !== 201) {
+      throw new Error('Could not create disposable opening-hours account: HTTP ' + registration.status());
+    }
+
+    const profileResponsePromise = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.pathname === '/api/profile' && response.request().method() === 'GET';
+    }, { timeout });
+    await page.goto(base + '/#/account', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.getByRole('button', { name: /Browser Opening Hours Tester/ }).waitFor({ state: 'visible', timeout });
+    const profileResponse = await profileResponsePromise;
+    if (!profileResponse.ok()) throw new Error('Opening-hours profile request failed: HTTP ' + profileResponse.status());
+
+    const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
+    if (await shopSetupDialog.isVisible().catch(() => false)) {
+      await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
+      await shopSetupDialog.waitFor({ state: 'hidden', timeout });
+    }
+
+    const builder = page.getByRole('group', { name: 'Weekly opening schedule' });
+    await builder.waitFor({ state: 'visible', timeout });
+    await builder.getByRole('button', { name: 'Daily', exact: true }).click();
+    await page.locator('#bp-open-time').fill('08:30');
+    await page.locator('#bp-close-time').fill('18:00');
+    await builder.getByRole('button', { name: 'Use this schedule' }).click();
+    await page.waitForFunction(() => document.querySelector('#bp-hours')?.value === 'Daily, 8:30 am - 6:00 pm', null, { timeout });
+
+    // Verify individual days remain selectable on a narrow phone viewport.
+    await builder.getByRole('button', { name: 'Clear days', exact: true }).click();
+    await builder.getByRole('checkbox', { name: 'Monday' }).check();
+    await builder.getByRole('checkbox', { name: 'Wednesday' }).check();
+    await builder.getByRole('button', { name: 'Use this schedule' }).click();
+    await page.waitForFunction((value) => document.querySelector('#bp-hours')?.value === value, expectedHours, { timeout });
+
+    const mobileSize = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      page: document.documentElement.scrollWidth,
+    }));
+    if (mobileSize.page > mobileSize.viewport + 1) {
+      throw new Error('Opening-hours schedule introduced mobile horizontal overflow: ' + JSON.stringify(mobileSize));
+    }
+
+    const saveResponsePromise = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.pathname === '/api/profile' && response.request().method() === 'PUT';
+    }, { timeout });
+    await page.getByRole('button', { name: 'Save shop', exact: true }).click();
+    const saveResponse = await saveResponsePromise;
+    if (!saveResponse.ok()) throw new Error('Saving opening-hours schedule failed: HTTP ' + saveResponse.status());
+
+    const reloadProfilePromise = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.pathname === '/api/profile' && response.request().method() === 'GET';
+    }, { timeout });
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+    const reloadProfile = await reloadProfilePromise;
+    if (!reloadProfile.ok()) throw new Error('Reloading opening-hours profile failed: HTTP ' + reloadProfile.status());
+    await page.waitForFunction((value) => document.querySelector('#bp-hours')?.value === value, expectedHours, { timeout });
+    const rehydratedBuilder = page.getByRole('group', { name: 'Weekly opening schedule' });
+    await rehydratedBuilder.getByRole('checkbox', { name: 'Monday' }).waitFor({ state: 'checked', timeout });
+    await rehydratedBuilder.getByRole('checkbox', { name: 'Wednesday' }).waitFor({ state: 'checked', timeout });
+
+    console.log(JSON.stringify({
+      openingHours: 'pass (Daily preset and individual days)',
+      persistence: 'pass (saved and restored after a fresh page load)',
+      mobile: 'pass (390px viewport, no horizontal overflow)',
+    }, null, 2));
+  } finally {
+    await context.close();
+  }
+}
+
 async function verifyMobileCart(browser) {
   // Exercise the real mobile layout at a narrow CSS viewport with touch input.
   // Chromium's isMobile device emulation in CI produced a mismatched layout
@@ -500,6 +590,7 @@ async function verifyMobileCart(browser) {
   try {
     await verifySavedSearch(browser);
     await verifyListingLifecycle(browser);
+    await verifyOpeningHoursSchedule(browser);
     await verifyMobileCart(browser);
   } finally {
     await browser.close();
