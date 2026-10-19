@@ -351,6 +351,17 @@ export function PhotoPicker({ value, onChange, max = 4, single = false, cover = 
             {label ?? `Up to ${max} photos. Real photos get more calls.`}
             {value.length > 0 ? ` (${value.length}/${max})` : ''}
           </p>
+          <div className="mt-3 rounded-md border bg-accent/30 p-3" role="note" aria-label="Tips for better listing photos">
+            <p className="text-sm font-semibold text-foreground">Tips for better photos</p>
+            <ul className="mt-1.5 list-disc space-y-1 pl-4 text-xs leading-relaxed text-muted-foreground">
+              <li>Use daylight or bright, even lighting.</li>
+              <li>Show the whole item and keep it in focus.</li>
+              <li>Choose a simple background and keep other things out of the way.</li>
+              <li>Add different angles or close-ups of important details.</li>
+              <li>For food, show the actual portion. For used items, show any wear honestly.</li>
+            </ul>
+            <p className="mt-2 text-xs text-muted-foreground">Take the photo straight from your phone. Mudaala keeps the seller's real photo; it does not add a fake background.</p>
+          </div>
         </div>
       )}
     </div>
