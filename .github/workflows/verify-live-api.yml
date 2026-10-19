@@ -181,7 +181,7 @@ jobs:
           node <<'NODE'
           const base = process.env.APP_URL.replace(/\/$/, '');
           const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZr8AAAAASUVORK5CYII=', 'base64');
-          const passwordFor = () => 'MudaalaAudit!' + Math.random().toString(36).slice(2, 14) + 'A9';
+          const passwordFor = () => 'Q7!' + Math.random().toString(36).slice(2, 14) + 'zR';
           const phoneFor = () => '+2567' + String(Math.floor(10000000 + Math.random() * 89999999));
           const owner = { phone: phoneFor(), password: passwordFor(), cookie: null };
           const stranger = { phone: phoneFor(), password: passwordFor(), cookie: null };
