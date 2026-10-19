@@ -568,13 +568,13 @@ svg.mango-stroke { stroke: currentColor; }
     max-width: 100%;
   }
 
-  .mudaala-page--browse {
-    --orbit-right: -3rem;
-  }
-
+  .mudaala-page--browse,
   .mudaala-page--listing,
   .mudaala-page--shop {
-    --orbit-right: -3rem;
+    /* Keep the decorative ring inside the page shell on narrow phones.
+       A negative offset increases the shell's intrinsic scroll width even
+       when the document itself clips horizontal paint. */
+    --orbit-right: 0;
   }
 
   main :where(h1, h2, h3, p, a, button, span) {
