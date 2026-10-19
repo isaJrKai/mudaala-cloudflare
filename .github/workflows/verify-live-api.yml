@@ -308,10 +308,19 @@ jobs:
                 throw new Error('Uploaded production photo was not publicly retrievable after save/re-read');
               }
 
+              // Exercise the real public contact-reveal API against the
+              // disposable listing. Compare values without printing any phone.
+              const publicContact = await api('/api/listings/' + encodeURIComponent(listingId) + '/contact');
+              if (publicContact.status !== 200 || publicContact.json?.phone !== owner.phone ||
+                  publicContact.json?.whatsapp !== owner.phone) {
+                throw new Error('Disposable listing public contact reveal returned an unexpected response');
+              }
+
               console.log(JSON.stringify({
                 productionOwnerBoundary: 'pass (non-owner edit/delete denied; owner edit allowed)',
                 adminBoundary: 'pass (anonymous 401; ordinary user 403)',
                 photoPersistence: 'pass (authenticated upload -> listing save -> fresh read -> image fetch)',
+                publicContactReveal: 'pass (telephone and WhatsApp matched disposable seller; values not logged)',
                 cleanup: 'disposable accounts will be removed in finally',
               }, null, 2));
             } finally {
