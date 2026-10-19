@@ -233,6 +233,14 @@ async function verifyListingLifecycle(browser) {
     await page.getByRole('option', { name: /^Kampala$/i }).click();
     await page.locator('#p-phone').fill(phone);
 
+    const photoTips = page.getByRole('note', { name: 'Tips for better listing photos' });
+    await photoTips.waitFor({ state: 'visible', timeout });
+    for (const tip of ['bright, even lighting', 'Show the whole item', 'simple background', 'different angles']) {
+      if (!(await photoTips.innerText()).toLowerCase().includes(tip.toLowerCase())) {
+        throw new Error('Listing photo guidance is missing the tip: ' + tip);
+      }
+    }
+
     // Upload two tiny, valid PNG fixtures through the actual photo picker so
     // this journey covers durable URL assignment and the product gallery.
     const galleryInput = page.locator('input[type="file"][accept="image/*"]:not([capture])');
