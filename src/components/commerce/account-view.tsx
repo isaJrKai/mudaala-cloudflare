@@ -29,6 +29,7 @@ import { useAppStore } from '@/lib/store'
 import { useSession, useSignOut } from '@/hooks/use-session'
 import { formatPhonePretty } from '@/lib/format'
 import { PhotoPicker } from './photo-picker'
+import { OpeningHoursEditor } from './opening-hours-editor'
 import { ListingListSkeleton } from './skeletons'
 import { ErrorState } from './listings-browse'
 
@@ -607,8 +608,8 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
           {errors.area ? <p role="alert" className="text-sm text-destructive">{errors.area}</p> : null}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="bp-hours">Opening hours</Label>
-          <Input id="bp-hours" value={form.hours} onChange={(e) => set('hours', e.target.value)} maxLength={120} placeholder="e.g. Mon-Sat, 7am-6pm" />
+          <Label htmlFor="bp-hours-mode">Opening hours</Label>
+          <OpeningHoursEditor value={form.hours} onChange={(value) => set('hours', value)} />
           {errors.hours ? <p role="alert" className="text-sm text-destructive">{errors.hours}</p> : null}
         </div>
       </div>
