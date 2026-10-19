@@ -16,7 +16,8 @@ async function inspectBrowse(browser, width) {
 
   try {
     await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.waitForTimeout(900);
+    await page.locator('main h1, main h2').first().waitFor({ state: 'visible', timeout: 15000 });
+    await page.waitForTimeout(300);
 
     const result = await page.evaluate(() => {
       const viewportWidth = document.documentElement.clientWidth;
