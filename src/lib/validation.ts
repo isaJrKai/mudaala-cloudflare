@@ -3,7 +3,7 @@
 // Never duplicate these rules elsewhere.
 
 import { z } from 'zod'
-import { CATEGORY_KEYS, LISTING_TYPES, UNIT_KEYS, COUNTRY_KEYS, CURRENCY_KEYS, ALLOWED_STATUS_TRANSITIONS, REPORT_REASONS, type ListingStatus } from './constants'
+import { CATEGORY_KEYS, LISTING_TYPES, COUNTRY_KEYS, CURRENCY_KEYS, ALLOWED_STATUS_TRANSITIONS, REPORT_REASONS, type ListingStatus } from './constants'
 
 // Uganda phone normalization. Accepted inputs: 07XX XXX XXX, 7XXXXXXXX,
 // +2567XXXXXXXX, 2567XXXXXXXX...
