@@ -233,6 +233,16 @@ async function verifyListingLifecycle(browser) {
     await page.getByRole('option', { name: /^Kampala$/i }).click();
     await page.locator('#p-phone').fill(phone);
 
+    // Upload two tiny, valid PNG fixtures through the actual photo picker so
+    // this journey covers durable URL assignment and the product gallery.
+    const galleryInput = page.locator('input[type="file"][accept="image/*"]:not([capture])');
+    const photoOne = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZr8AAAAASUVORK5CYII=', 'base64');
+    const photoTwo = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64');
+    await galleryInput.setInputFiles({ name: 'listing-photo-one.png', mimeType: 'image/png', buffer: photoOne });
+    await page.waitForFunction(() => document.querySelectorAll('img[alt="Listing photo"]').length >= 1, null, { timeout });
+    await galleryInput.setInputFiles({ name: 'listing-photo-two.png', mimeType: 'image/png', buffer: photoTwo });
+    await page.waitForFunction(() => document.querySelectorAll('img[alt="Listing photo"]').length >= 2, null, { timeout });
+
     // Attach rejection handling immediately: otherwise the response wait can
     // time out while Playwright is still waiting for the Publish button click,
     // causing Node to report an unhandled rejection before diagnostics run.
@@ -286,6 +296,27 @@ async function verifyListingLifecycle(browser) {
     }
     await page.waitForFunction(() => window.location.hash.startsWith('#/listing/'), null, { timeout });
     await page.getByText(title, { exact: true }).waitFor({ state: 'visible', timeout });
+
+    const gallery = page.locator('[aria-roledescription="carousel"]');
+    await gallery.waitFor({ state: 'visible', timeout });
+    await page.getByRole('button', { name: 'Next product photo' }).click();
+    await page.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
+    await page.getByRole('button', { name: 'Previous product photo' }).click();
+    await page.getByText('1 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
+
+    // Recheck the gallery controls at a phone width, and ensure the page itself
+    // does not gain horizontal overflow while the image is shown.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(100);
+    const mobileGallery = await page.evaluate(() => ({
+      viewportWidth: document.documentElement.clientWidth,
+      pageWidth: document.documentElement.scrollWidth,
+    }));
+    if (mobileGallery.pageWidth > mobileGallery.viewportWidth + 1) {
+      throw new Error('Listing photo gallery introduced mobile horizontal overflow: ' + JSON.stringify(mobileGallery));
+    }
+    await page.getByRole('button', { name: 'Next product photo' }).click();
+    await page.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
 
     await page.goto(base + '/#/my-listings', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.getByRole('heading', { name: /my listings/i }).waitFor({ state: 'visible', timeout });
