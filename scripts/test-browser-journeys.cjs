@@ -230,6 +230,7 @@ async function verifyListingLifecycle(browser) {
     await page.locator('#p-county').click();
     await page.getByRole('option', { name: /^Kampala$/i }).click();
     await page.locator('#p-phone').fill(phone);
+    await page.locator('#p-wa').fill(phone);
 
     const photoTips = page.getByRole('note', { name: 'Tips for better listing photos' });
     await photoTips.waitFor({ state: 'visible', timeout });
@@ -337,6 +338,33 @@ async function verifyListingLifecycle(browser) {
     if (publicPhotoFit !== 'contain') throw new Error('Public product gallery must show the whole photo; object-fit was ' + publicPhotoFit);
     await page.getByRole('button', { name: 'Previous product photo' }).click();
     await page.getByText('1 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
+
+    // Verify the real buyer contact action reveals the number only on demand,
+    // then exposes working telephone and WhatsApp destinations.
+    const contactResponsePromise = page.waitForResponse((response) => {
+      return new URL(response.url()).pathname === '/api/listings/' + encodeURIComponent(publicListingId) + '/contact';
+    }, { timeout });
+    await page.getByRole('button', { name: 'Show number', exact: true }).click();
+    const contactResponse = await contactResponsePromise;
+    if (!contactResponse.ok()) throw new Error('Public contact reveal failed: HTTP ' + contactResponse.status());
+    const callLink = page.getByRole('link', { name: /^Call / });
+    await callLink.waitFor({ state: 'visible', timeout });
+    const callHref = await callLink.getAttribute('href');
+    if (!callHref?.startsWith('tel:')) throw new Error('Public Call action did not produce a tel: link');
+    const whatsappLink = page.getByRole('link', { name: 'WhatsApp', exact: true });
+    await whatsappLink.waitFor({ state: 'visible', timeout });
+    const whatsappHref = await whatsappLink.getAttribute('href');
+    if (!whatsappHref?.startsWith('https://wa.me/')) throw new Error('Public WhatsApp action did not produce a wa.me link');
+
+    // The shop link must lead to the actual shop route, not a dead button.
+    // Use the stable destination contract rather than localized accessible copy.
+    const shopLink = page.locator('a[href^="/#/shop/"]');
+    const shopHref = await shopLink.getAttribute('href');
+    if (!shopHref || !/^\/#\/shop\/[^/]+$/.test(shopHref)) throw new Error('Public shop link is malformed: ' + shopHref);
+    await shopLink.click();
+    await page.waitForFunction(() => window.location.hash.startsWith('#/shop/'), null, { timeout });
+    await page.goBack({ waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.getByRole('button', { name: 'Show number', exact: true }).waitFor({ state: 'visible', timeout });
 
     await page.goto(base + '/#/my-listings', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.getByRole('heading', { name: /my listings/i }).waitFor({ state: 'visible', timeout });
