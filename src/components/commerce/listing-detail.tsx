@@ -4,8 +4,9 @@
 // who is selling (the named shop), how much, where (with directions for
 // pickup), and direct contact. No login needed for any of it.
 
+import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Check, MapPin, Navigation, Package, Phone, Plus, Store } from 'lucide-react'
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, MapPin, Navigation, Package, Phone, Plus, Store } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/commerce/brand-icons'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -41,6 +42,9 @@ import { useSession } from '@/hooks/use-session'
 import { Camera } from 'lucide-react'
 
 function PhotoGallery({ listing }: { listing: ListingDetailT }) {
+  const galleryRef = useRef<HTMLDivElement>(null)
+  const [activeIndex, setActiveIndex] = useState(0)
+
   if (listing.photos.length === 0) {
     // PLACEHOLDER RULE - no photo yet: the neutral tile (flat grey, category
     // name, small camera icon), never a stock or illustrated stand-in.
@@ -54,14 +58,30 @@ function PhotoGallery({ listing }: { listing: ListingDetailT }) {
       </div>
     )
   }
+
+  function movePhoto(direction: -1 | 1) {
+    const gallery = galleryRef.current
+    if (!gallery) return
+    const nextIndex = Math.min(listing.photos.length - 1, Math.max(0, activeIndex + direction))
+    gallery.scrollTo({ left: nextIndex * gallery.clientWidth, behavior: 'smooth' })
+  }
+
   return (
-    <div className="relative">
+    <section className="relative" aria-label={copy.listing.photosOfAria(listing.title)}>
       <div
-        className="flex snap-x snap-mandatory gap-2 overflow-x-auto scrollbar-slim p-2"
-        aria-label={copy.listing.photosOfAria(listing.title)}
+        ref={galleryRef}
+        className="flex h-[min(70vh,560px)] min-h-72 snap-x snap-mandatory overflow-x-auto scroll-smooth scrollbar-slim bg-background"
+        role="region"
+        aria-roledescription="carousel"
+        onScroll={(event) => {
+          const gallery = event.currentTarget
+          if (gallery.clientWidth > 0) {
+            setActiveIndex(Math.min(listing.photos.length - 1, Math.max(0, Math.round(gallery.scrollLeft / gallery.clientWidth))))
+          }
+        }}
       >
         {listing.photos.map((photo, i) => (
-          <div key={photo} className="relative h-56 w-[88%] shrink-0 snap-center overflow-hidden rounded-lg border bg-secondary sm:h-80">
+          <div key={photo} className="flex h-full w-full shrink-0 snap-center items-center justify-center">
             <img
               src={photo}
               alt={copy.listing.photoAlt(listing.title, i, listing.photos.length)}
@@ -71,12 +91,37 @@ function PhotoGallery({ listing }: { listing: ListingDetailT }) {
           </div>
         ))}
       </div>
+
       {listing.photos.length > 1 ? (
-        <span className="absolute right-3 top-3 rounded bg-black/70 px-2 py-0.5 text-xs font-medium text-white">
-          {copy.listing.photoSwipe(listing.photos.length)}
-        </span>
+        <>
+          <button
+            type="button"
+            onClick={() => movePhoto(-1)}
+            disabled={activeIndex === 0}
+            aria-label="Previous product photo"
+            className="absolute left-3 top-1/2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full border bg-card/95 text-foreground shadow-sm transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-35"
+          >
+            <ChevronLeft className="size-5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={() => movePhoto(1)}
+            disabled={activeIndex === listing.photos.length - 1}
+            aria-label="Next product photo"
+            className="absolute right-3 top-1/2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full border bg-card/95 text-foreground shadow-sm transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-35"
+          >
+            <ChevronRight className="size-5" aria-hidden />
+          </button>
+          <span
+            className="absolute bottom-3 right-3 rounded-full bg-black/75 px-2.5 py-1 text-xs font-medium text-white"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {activeIndex + 1} / {listing.photos.length}
+          </span>
+        </>
       ) : null}
-    </div>
+    </section>
   )
 }
 
