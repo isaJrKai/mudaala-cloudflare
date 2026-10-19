@@ -357,7 +357,8 @@ async function verifyListingLifecycle(browser) {
     if (!whatsappHref?.startsWith('https://wa.me/')) throw new Error('Public WhatsApp action did not produce a wa.me link');
 
     // The shop link must lead to the actual shop route, not a dead button.
-    const shopLink = page.getByRole('link', { name: /^Visit shop:/ });
+    // Use the stable destination contract rather than localized accessible copy.
+    const shopLink = page.locator('a[href^="/#/shop/"]');
     const shopHref = await shopLink.getAttribute('href');
     if (!shopHref || !/^\/#\/shop\/[^/]+$/.test(shopHref)) throw new Error('Public shop link is malformed: ' + shopHref);
     await shopLink.click();
