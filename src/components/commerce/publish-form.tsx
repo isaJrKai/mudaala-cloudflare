@@ -324,7 +324,8 @@ export function PublishForm() {
           </Field>
           ) : null}
           {form.category !== 'services' ? (
-          <Field label={copy.publish.per} htmlFor="p-unit" error={form.unit === CUSTOM_UNIT_VALUE ? undefined : errors.unit}>
+          <>
+          <Field label={copy.publish.per} htmlFor="p-unit" error={form.unit === CUSTOM_UNIT_VALUE ? undefined : errors.unit} hint={form.category === 'prepared-food-drinks' ? 'Price is for one selected unit; quantity is how many you have.' : 'Choose what one price refers to, or use Custom unit.'}>
             <Select value={form.unit} onValueChange={(value) => {
               set('unit', value)
               if (value !== CUSTOM_UNIT_VALUE) setCustomUnit('')
@@ -357,6 +358,7 @@ export function PublishForm() {
               />
             </Field>
           ) : null}
+          </>
           ) : null}
         </div>
         <label className="mt-3 flex items-center gap-2 text-sm">
@@ -669,7 +671,8 @@ export function EditListingForm({ id }: { id: string }) {
         </Field>
         ) : null}
         {form.category !== 'services' ? (
-        <Field label="Per" htmlFor="e-unit" error={form.unit === CUSTOM_UNIT_VALUE ? undefined : errors.unit}>
+        <>
+        <Field label="Per" htmlFor="e-unit" error={form.unit === CUSTOM_UNIT_VALUE ? undefined : errors.unit} hint={form.category === 'prepared-food-drinks' ? 'Price is for one selected unit; quantity is how many you have.' : 'Choose what one price refers to, or use Custom unit.'}>
           <Select value={form.unit} onValueChange={(value) => {
             set('unit', value)
             if (value !== CUSTOM_UNIT_VALUE) setCustomUnit('')
@@ -702,6 +705,7 @@ export function EditListingForm({ id }: { id: string }) {
             />
           </Field>
         ) : null}
+        </>
         ) : null}
       </div>
       <label className="flex items-center gap-2 text-sm">
