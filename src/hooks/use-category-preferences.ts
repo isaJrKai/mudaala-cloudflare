@@ -40,12 +40,15 @@ export function useCategoryPreferences() {
 
   useEffect(() => {
     let active = true
-    setInterests([])
-    setLoadedFor(null)
     if (isLoading) return () => { active = false }
     if (!userId) {
-      setInterests(readGuestInterests())
-      setLoadedFor('guest')
+      // localStorage is external state. Defer the state update to a microtask
+      // so the effect does not synchronously trigger a cascading render.
+      queueMicrotask(() => {
+        if (!active) return
+        setInterests(readGuestInterests())
+        setLoadedFor('guest')
+      })
       return () => { active = false }
     }
     // Server-side memory is authoritative for signed-in users and is always
@@ -64,7 +67,7 @@ export function useCategoryPreferences() {
     return () => { active = false }
   }, [userId, isLoading])
 
-  const activeInterests = loadedFor === (userId ?? 'guest') ? interests : []
+  const activeInterests = !isLoading && loadedFor === (userId ?? 'guest') ? interests : []
 
   const orderedCategories = useMemo(() => {
     const scores = new Map(activeInterests.map((interest) => [interest.category, effectiveScore(interest)]))
