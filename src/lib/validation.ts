@@ -139,6 +139,9 @@ const photoUrlSchema = z
     message: 'Invalid photo link',
   })
 
+const unitSchema = z.string().trim().min(1, 'Enter a unit name').max(20, 'Unit names must be 20 characters or fewer')
+  .regex(/^[\\p{L}\\p{N}][\\p{L}\\p{N} .\\/-]*$/u, 'Use letters, numbers, spaces or hyphens for the unit name')
+
 const quantitySchema = z
   .number({ message: 'Quantity must be a number' })
   .min(0.001, 'Quantity must be greater than zero')
@@ -159,7 +162,7 @@ const listingBaseSchema = z.object({
   compareAtPrice: priceSchema.nullable().optional(),
   currency: z.enum(CURRENCY_KEYS as [string, ...string[]]).optional(),
   priceNegotiable: z.boolean().default(false),
-  unit: z.enum(UNIT_KEYS as [string, ...string[]]).nullable(),
+  unit: unitSchema.nullable(),
   quantity: quantitySchema.nullable(),
   country: z.enum(COUNTRY_KEYS as [string, ...string[]]).optional(),
   county: z.string({ message: 'Choose your district or region' }).trim().min(1, 'Choose your district or region').max(30),
@@ -216,7 +219,7 @@ export const listingQuerySchema = z.object({
   county: z.string().trim().max(30).optional(),
   minPrice: z.number().min(0).max(100_000_000).optional(),
   maxPrice: z.number().min(0).max(100_000_000).optional(),
-  unit: z.string().trim().max(20).optional(),
+  unit: unitSchema.nullable().optional(),
   sort: z.enum(['newest', 'price_asc', 'price_desc', 'nearest']).optional(),
   // Buyer's position for sort=nearest ("Near me"). Never persisted - it only
   // shapes the ordering of one response.
