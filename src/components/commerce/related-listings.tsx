@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { apiGet } from '@/lib/client'
 import { categoryLabel, unitLabel } from '@/lib/constants'
 import { formatPrice } from '@/lib/format'
@@ -31,24 +31,12 @@ export function RelatedListings({
   /** Public ad pages use /l/{id}; the in-app view uses the hash route. */
   linkPrefix?: string
 }) {
-  const [items, setItems] = useState<RecommendationItem[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let active = true
-    setLoading(true)
-    apiGet<{ items: RecommendationItem[] }>(`/api/listings/${listingId}/recommendations`)
-      .then((response) => {
-        if (active) setItems(response.items)
-      })
-      .catch(() => {
-        if (active) setItems([])
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
-    return () => { active = false }
-  }, [listingId])
+  const { data, isLoading } = useQuery({
+    queryKey: ['listing-recommendations', listingId],
+    queryFn: () => apiGet<{ items: RecommendationItem[] }>(`/api/listings/${listingId}/recommendations`),
+    staleTime: 60_000,
+  })
+  const items = data?.items ?? []
 
   if (loading) {
     return (
