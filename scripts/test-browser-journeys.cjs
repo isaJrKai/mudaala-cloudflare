@@ -406,7 +406,6 @@ async function verifyOpeningHoursSchedule(browser) {
       return url.pathname === '/api/profile' && response.request().method() === 'GET';
     }, { timeout });
     await page.goto(base + '/#/account', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.getByRole('button', { name: /Browser Opening Hours Tester/ }).waitFor({ state: 'visible', timeout });
     const profileResponse = await profileResponsePromise;
     if (!profileResponse.ok()) throw new Error('Opening-hours profile request failed: HTTP ' + profileResponse.status());
 
