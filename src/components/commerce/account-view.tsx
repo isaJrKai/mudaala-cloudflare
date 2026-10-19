@@ -32,6 +32,83 @@ import { PhotoPicker } from './photo-picker'
 import { ListingListSkeleton } from './skeletons'
 import { ErrorState } from './listings-browse'
 
+const WEEK_DAYS = [
+  { value: 'Mon', label: 'Monday' },
+  { value: 'Tue', label: 'Tuesday' },
+  { value: 'Wed', label: 'Wednesday' },
+  { value: 'Thu', label: 'Thursday' },
+  { value: 'Fri', label: 'Friday' },
+  { value: 'Sat', label: 'Saturday' },
+  { value: 'Sun', label: 'Sunday' },
+] as const
+
+function formatScheduleTime(value: string): string {
+  const [hourText, minuteText] = value.split(':')
+  const hour = Number(hourText)
+  const minute = Number(minuteText)
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return value
+  const period = hour >= 12 ? 'pm' : 'am'
+  return `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${period}`
+}
+
+function formatScheduleDays(days: string[]): string {
+  const ordered = WEEK_DAYS.map((day) => day.value).filter((day) => days.includes(day))
+  if (ordered.length === 7) return 'Daily'
+  if (ordered.join(',') === 'Mon,Tue,Wed,Thu,Fri') return 'Weekdays'
+  if (ordered.join(',') === 'Mon,Tue,Wed,Thu,Fri,Sat') return 'Mon-Sat'
+
+  const groups: string[][] = []
+  for (const day of ordered) {
+    const dayIndex = WEEK_DAYS.findIndex((option) => option.value === day)
+    const lastGroup = groups[groups.length - 1]
+    const previousIndex = lastGroup ? WEEK_DAYS.findIndex((option) => option.value === lastGroup[lastGroup.length - 1]) : -2
+    if (lastGroup && dayIndex === previousIndex + 1) lastGroup.push(day)
+    else groups.push([day])
+  }
+  return groups.map((group) => group.length >= 3
+    ? `${group[0]}-${group[group.length - 1]}`
+    : group.join(', ')).join(', ')
+}
+
+function parseScheduleDays(label: string): string[] | null {
+  if (label === 'Daily') return WEEK_DAYS.map((day) => day.value)
+  if (label === 'Weekdays') return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+  if (label === 'Mon-Sat') return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+  const selected = new Set<string>()
+  for (const part of label.split(',').map((value) => value.trim())) {
+    const range = part.match(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)-(Mon|Tue|Wed|Thu|Fri|Sat|Sun)$/)
+    if (range) {
+      const start = WEEK_DAYS.findIndex((day) => day.value === range[1])
+      const end = WEEK_DAYS.findIndex((day) => day.value === range[2])
+      if (start < 0 || end < start) return null
+      for (let index = start; index <= end; index++) selected.add(WEEK_DAYS[index].value)
+    } else if (WEEK_DAYS.some((day) => day.value === part)) selected.add(part)
+    else return null
+  }
+  return selected.size ? WEEK_DAYS.map((day) => day.value).filter((day) => selected.has(day)) : null
+}
+
+function parseScheduleTime(label: string): string | null {
+  const match = label.match(/^(\d{1,2}):(\d{2}) (am|pm)$/i)
+  if (!match) return null
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null
+  let normalizedHour = hour % 12
+  if (match[3].toLowerCase() === 'pm') normalizedHour += 12
+  return `${String(normalizedHour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+function parseOpeningHoursSchedule(value: string): { days: string[]; opening: string; closing: string } | null {
+  const match = value.match(/^(.+), (\d{1,2}:\d{2} (?:am|pm)) - (\d{1,2}:\d{2} (?:am|pm))$/i)
+  if (!match) return null
+  const days = parseScheduleDays(match[1])
+  const opening = parseScheduleTime(match[2])
+  const closing = parseScheduleTime(match[3])
+  return days && opening && closing ? { days, opening, closing } : null
+}
+
 interface ProfileFormState {
   businessName: string
   photoUrl: string
@@ -329,6 +406,10 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
     momoName: '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [scheduleDays, setScheduleDays] = useState<string[]>([])
+  const [openingTime, setOpeningTime] = useState('09:00')
+  const [closingTime, setClosingTime] = useState('17:00')
+  const [hoursScheduleError, setHoursScheduleError] = useState('')
   const [busy, setBusy] = useState(false)
   const [hydrated, setHydrated] = useState(false)
   const [codeCopied, setCodeCopied] = useState(false)
@@ -356,6 +437,12 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
         momoCode: p?.momoMerchantCode ?? '',
         momoName: p?.momoMerchantName ?? '',
       })
+      const savedSchedule = parseOpeningHoursSchedule(p?.hours ?? '')
+      if (savedSchedule) {
+        setScheduleDays(savedSchedule.days)
+        setOpeningTime(savedSchedule.opening)
+        setClosingTime(savedSchedule.closing)
+      }
       setHydrated(true)
     }
   }, [data, hydrated, user])
@@ -411,6 +498,28 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
       delete next[key]
       return next
     })
+  }
+
+  function chooseScheduleDays(days: string[]) {
+    setScheduleDays(WEEK_DAYS.map((day) => day.value).filter((day) => days.includes(day)))
+    setHoursScheduleError('')
+  }
+
+  function toggleScheduleDay(day: string) {
+    setScheduleDays((current) => current.includes(day)
+      ? current.filter((value) => value !== day)
+      : WEEK_DAYS.map((option) => option.value).filter((value) => value === day || current.includes(value)))
+    setHoursScheduleError('')
+  }
+
+  function applyOpeningHoursSchedule() {
+    if (scheduleDays.length === 0 || !openingTime || !closingTime) {
+      setHoursScheduleError('Choose at least one day, an opening time, and a closing time.')
+      return
+    }
+    const dayLabel = formatScheduleDays(scheduleDays)
+    set('hours', `${dayLabel}, ${formatScheduleTime(openingTime)} - ${formatScheduleTime(closingTime)}`)
+    setHoursScheduleError('')
   }
 
   // Radix Select fires onValueChange('') during hydration whenever the
@@ -608,8 +717,58 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="bp-hours">Opening hours</Label>
-          <Input id="bp-hours" value={form.hours} onChange={(e) => set('hours', e.target.value)} maxLength={120} placeholder="e.g. Mon-Sat, 7am-6pm" />
+          <Input
+            id="bp-hours"
+            value={form.hours}
+            onChange={(event) => {
+              set('hours', event.target.value)
+              setHoursScheduleError('')
+            }}
+            maxLength={120}
+            placeholder="e.g. Mon-Sat, 7am-6pm"
+          />
           {errors.hours ? <p role="alert" className="text-sm text-destructive">{errors.hours}</p> : null}
+          <p className="text-xs text-muted-foreground">Type your own hours or build a weekly schedule below. Buyers see this on your shop page.</p>
+
+          <fieldset className="mt-3 rounded-md border bg-secondary/20 p-3" aria-label="Weekly opening schedule">
+            <legend className="px-1 text-sm font-semibold">Build a weekly schedule</legend>
+            <p className="text-xs text-muted-foreground">Choose a quick option or select the exact days your shop is open.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={() => chooseScheduleDays(WEEK_DAYS.map((day) => day.value))}>Daily</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => chooseScheduleDays(['Mon', 'Tue', 'Wed', 'Thu', 'Fri'])}>Weekdays</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => chooseScheduleDays(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'])}>Mon-Sat</Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => chooseScheduleDays([])}>Clear days</Button>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {WEEK_DAYS.map((day) => (
+                <label key={day.value} className="flex min-h-10 items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    aria-label={day.label}
+                    checked={scheduleDays.includes(day.value)}
+                    onChange={() => toggleScheduleDay(day.value)}
+                    className="size-4 shrink-0 accent-primary"
+                  />
+                  <span>{day.label}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="bp-open-time">Opening time</Label>
+                <Input id="bp-open-time" type="time" value={openingTime} onChange={(event) => { setOpeningTime(event.target.value); setHoursScheduleError('') }} />
+              </div>
+              <div>
+                <Label htmlFor="bp-close-time">Closing time</Label>
+                <Input id="bp-close-time" type="time" value={closingTime} onChange={(event) => { setClosingTime(event.target.value); setHoursScheduleError('') }} />
+              </div>
+            </div>
+
+            {hoursScheduleError ? <p className="mt-2 text-sm text-destructive" role="alert">{hoursScheduleError}</p> : null}
+            <Button type="button" variant="secondary" className="mt-3 w-full sm:w-auto" onClick={applyOpeningHoursSchedule}>Use this schedule</Button>
+          </fieldset>
         </div>
       </div>
 
