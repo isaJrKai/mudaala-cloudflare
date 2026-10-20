@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 type Product = { id: string; name: string; sku: string | null; unit: string; currency: string; sellingPrice: number; costPrice: number | null; stockOnHand: number; trackInventory: boolean; archived: boolean }
-type Sale = { id: string; status: string; channel: string; currency: string; soldAt: string; notes: string | null; revenue: number; grossProfit: number | null; items: { productName: string; quantity: number; unit: string; unitPrice: number }[] }\ntype BusinessAnalytics = { period: string; since: string; sales: { currency: string; completedSales: number; recordedRevenue: number; estimatedGrossProfit: number | null; saleLines: number; linesWithKnownCost: number; costCoverage: number | null }[]; listingViews: number; listingCount: number; activeBusinessProducts: number; inventoryTrackedProducts: number }
+type Sale = { id: string; status: string; channel: string; currency: string; soldAt: string; notes: string | null; revenue: number; grossProfit: number | null; items: { productName: string; quantity: number; unit: string; unitPrice: number }[] }
+type BusinessAnalytics = { period: string; since: string; sales: { currency: string; completedSales: number; recordedRevenue: number; estimatedGrossProfit: number | null; saleLines: number; linesWithKnownCost: number; costCoverage: number | null }[]; listingViews: number; listingCount: number; activeBusinessProducts: number; inventoryTrackedProducts: number }
 const ugx = (amount: number) => new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(amount)
 
 export function BusinessRecordsPanel() {
@@ -32,10 +33,12 @@ export function BusinessRecordsPanel() {
   const [error, setError] = useState('')
 
   const productsQuery = useQuery({ queryKey: ['business-products'], queryFn: () => apiGet<{ products: Product[] }>('/api/my/business-products'), staleTime: 15000 })
-  const salesQuery = useQuery({ queryKey: ['business-sales'], queryFn: () => apiGet<{ sales: Sale[] }>('/api/my/sales?limit=20'), staleTime: 15000 })\n  const analyticsQuery = useQuery({ queryKey: ['business-analytics'], queryFn: () => apiGet<BusinessAnalytics>('/api/my/business-analytics?period=30d'), staleTime: 30000 })
+  const salesQuery = useQuery({ queryKey: ['business-sales'], queryFn: () => apiGet<{ sales: Sale[] }>('/api/my/sales?limit=20'), staleTime: 15000 })
+  const analyticsQuery = useQuery({ queryKey: ['business-analytics'], queryFn: () => apiGet<BusinessAnalytics>('/api/my/business-analytics?period=30d'), staleTime: 30000 })
   const products = productsQuery.data?.products ?? []
   const active = useMemo(() => products.filter((p) => !p.archived), [products])
-  const selected = active.find((p) => p.id === productId) ?? active[0]\n  const salesSummary = analyticsQuery.data?.sales.find((row) => row.currency === 'UGX')
+  const selected = active.find((p) => p.id === productId) ?? active[0]
+  const salesSummary = analyticsQuery.data?.sales.find((row) => row.currency === 'UGX')
   const refresh = async () => { await Promise.all([qc.invalidateQueries({ queryKey: ['business-products'] }), qc.invalidateQueries({ queryKey: ['business-sales'] }), qc.invalidateQueries({ queryKey: ['business-analytics'] })]) }
 
   const createProduct = useMutation({
@@ -80,7 +83,7 @@ export function BusinessRecordsPanel() {
       </div>
     </div>
     {error ? <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">{error}</div> : null}
-    {(productsQuery.isError || salesQuery.isError || analyticsQuery.isError) ? <div role="alert" className="rounded-md border p-3 text-sm">Some records could not be loaded. <Button variant="link" onClick={() => { void productsQuery.refetch(); void salesQuery.refetch() }}>Retry</Button></div> : null}
+    {(productsQuery.isError || salesQuery.isError || analyticsQuery.isError) ? <div role="alert" className="rounded-md border p-3 text-sm">Some records could not be loaded. <Button variant="link" onClick={() => { void productsQuery.refetch(); void salesQuery.refetch(); void analyticsQuery.refetch() }}>Retry</Button></div> : null}
 
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Business performance for the last 30 days">
       <Card><CardContent className="pt-5"><p className="text-sm text-muted-foreground">Recorded revenue · 30 days</p><p className="mt-1 text-2xl font-bold tabular-nums">{ugx(salesSummary?.recordedRevenue ?? 0)}</p><p className="mt-1 text-xs text-muted-foreground">Completed sales you recorded</p></CardContent></Card>
