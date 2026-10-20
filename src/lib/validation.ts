@@ -1,3 +1,4 @@
+// Mudaala validation schemas; marketplace content rules live here.
 // Mudaala - shared validation schemas (zod).
 // Used by BOTH the API routes (integrity boundary) and the forms (usability).
 // Never duplicate these rules elsewhere.
