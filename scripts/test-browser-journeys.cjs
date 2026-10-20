@@ -391,13 +391,20 @@ async function verifyListingLifecycle(browser) {
     // The gallery journey deliberately switches to a phone viewport. Restore
     // desktop width before testing the featured-shop rail, which is hidden on phones.
     await page.setViewportSize({ width: 1365, height: 900 });
-    // At desktop widths the featured-shop rail provides a scannable QR code
-    // for the same named shop. Verify the SVG is present and labelled accessibly.
+    // At desktop widths the featured-shop rail rotates among eligible shops
+    // represented by current public results. Do not hard-code which shop wins:
+    // the global 30-minute rotation bucket can legitimately select another.
+    // Verify the chosen shop's accessible label matches the card heading and
+    // that the QR SVG renders; the pure rotation policy has separate tests.
     await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
     const featuredShop = page.locator('aside[aria-label="Featured shop from your results"]');
     await featuredShop.waitFor({ state: 'visible', timeout });
-    const shopQr = featuredShop.getByRole('img', { name: "QR code for Browser Lifecycle Shop's shop" });
+    const shopQr = featuredShop.getByRole('img', { name: /^QR code for .+'s shop$/ });
     await shopQr.waitFor({ state: 'visible', timeout });
+    const qrLabel = await shopQr.getAttribute('aria-label');
+    const featuredShopName = qrLabel?.replace(/^QR code for (.*)'s shop$/, '$1');
+    if (!featuredShopName) throw new Error('Featured shop QR has no shop-specific accessible label');
+    await featuredShop.getByRole('heading', { name: featuredShopName, exact: true }).waitFor({ state: 'visible', timeout });
     const qrShape = await shopQr.evaluate((svg) => ({
       viewBox: svg.getAttribute('viewBox'),
       hasPath: Boolean(svg.querySelector('path')),
