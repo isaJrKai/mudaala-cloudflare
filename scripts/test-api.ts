@@ -1267,6 +1267,15 @@ async function main() {
         !('accounts' in (adminAnalytics.json ?? {})),
     )
 
+    const adminPage = await fetch(`${BASE}/admin`, { headers: { cookie: admin.cookie } })
+    const adminPageHtml = await adminPage.text()
+    ok(
+      'configured admin page renders and links back to the main account',
+      adminPage.status === 200 &&
+        adminPageHtml.includes('Mudaala admin') &&
+        adminPageHtml.includes('Back to my account'),
+    )
+
     const saved = await call(
       'PUT',
       '/api/settings/postgres',
