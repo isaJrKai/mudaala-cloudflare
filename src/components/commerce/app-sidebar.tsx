@@ -16,6 +16,7 @@ import {
   Bookmark,
   Bell,
   Store,
+  BriefcaseBusiness,
   Settings,
   Leaf,
   ScanLine,
@@ -75,6 +76,7 @@ export function AppSidebar() {
       ),
       badge: unread,
     },
+    { name: 'business', label: copy.nav.myBusiness, icon: <BriefcaseBusiness aria-hidden /> },
     { name: 'account', label: copy.nav.account, icon: <Store aria-hidden /> },
     { name: 'settings', label: copy.nav.settings, icon: <Settings aria-hidden /> },
   ]
