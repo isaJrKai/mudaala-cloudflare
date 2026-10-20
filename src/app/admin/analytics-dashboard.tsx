@@ -202,7 +202,7 @@ function PlatformHealth() {
         </div>
         <div className="rounded-md border p-3">
           <p className="text-xs text-muted-foreground">Last check</p>
-          <p className="mt-1 text-sm font-medium">{health?.time ? new Date(health.time).toLocaleString() : '—'}</p>
+          <p className="mt-1 text-sm font-medium">{health?.time ? new Date(health.time).toLocaleString() : 'Not checked'}</p>
         </div>
       </div>
       {error ? <p role="status" className="mt-3 text-xs text-destructive">{error}</p> : null}
