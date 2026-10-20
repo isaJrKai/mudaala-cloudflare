@@ -52,3 +52,21 @@ ALTER TABLE "StockMovement" ADD CONSTRAINT "StockMovement_listingId_fkey"
   FOREIGN KEY ("listingId") REFERENCES "Listing"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "StockMovement" ADD CONSTRAINT "StockMovement_saleId_fkey"
   FOREIGN KEY ("saleId") REFERENCES "BusinessSale"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- New tables follow the existing Supabase Data API deny-by-default posture.
+ALTER TABLE public."BusinessSale" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."StockMovement" ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY deny_direct_api_clients ON public."BusinessSale"
+  FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+CREATE POLICY deny_direct_api_clients ON public."StockMovement"
+  FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+
+-- The Worker uses the restricted server-side role; ownership is enforced in API routes.
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."BusinessSale" TO mudaala_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."StockMovement" TO mudaala_runtime;
+
+CREATE POLICY mudaala_runtime_access ON public."BusinessSale"
+  FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
+CREATE POLICY mudaala_runtime_access ON public."StockMovement"
+  FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
