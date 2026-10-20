@@ -258,6 +258,9 @@ export const businessSaleCreateSchema = z.object({
 }).refine((v) => Boolean(v.listingId) || Boolean(v.productTitle?.trim()), {
   message: 'Choose a listed product or enter a product name',
   path: ['productTitle'],
+}).refine((v) => Boolean(v.listingId) || Boolean(v.unit?.trim()), {
+  message: 'Enter the unit for this product, such as bottle, piece, cup or pack',
+  path: ['unit'],
 })
 
 export const businessSaleVoidSchema = z.object({
@@ -277,6 +280,9 @@ export const stockMovementCreateSchema = z.object({
 }).refine((v) => Boolean(v.listingId) || Boolean(v.productTitle?.trim()), {
   message: 'Choose a listed product or enter a product name',
   path: ['productTitle'],
+}).refine((v) => Boolean(v.listingId) || Boolean(v.unit?.trim()), {
+  message: 'Enter the unit for this product, such as bottle, piece, cup or pack',
+  path: ['unit'],
 }).refine((v) => !['OPENING_BALANCE', 'RESTOCK', 'RETURN'].includes(v.reason) || v.quantityDelta > 0, {
   message: 'This movement must add stock',
   path: ['quantityDelta'],
