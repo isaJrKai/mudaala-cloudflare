@@ -31,7 +31,7 @@ export async function POST(request: Request, context: Context) {
     }
 
     const ip = getClientIp(request)
-    const verdict = await hit(`listing-engagement:ip:${ip}`, MAX_EVENTS_PER_IP_PER_HOUR, EVENT_WINDOW_MS)
+    const verdict = await hit(`public-engagement:ip:${ip}`, MAX_EVENTS_PER_IP_PER_HOUR, EVENT_WINDOW_MS)
     if (!verdict.ok) throw new ApiError(429, 'Too many interactions. Please try again later.')
 
     await recordListingDailyEvent({
