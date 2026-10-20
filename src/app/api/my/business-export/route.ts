@@ -6,7 +6,7 @@ function cell(value: unknown): string {
   if (value === null || value === undefined) return ''
   let text = value instanceof Date ? value.toISOString() : String(value)
   // Prevent spreadsheet formula injection for exported user-controlled text.
-  if (/^[=+@\t\r]/.test(text) || /^-[=+@]/.test(text)) text = `'${text}`
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`
   return `"${text.replace(/"/g, '""')}"`
 }
 
