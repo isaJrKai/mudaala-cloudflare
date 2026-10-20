@@ -9,9 +9,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // Render is a long-running IPv4 backend. Use Supabase Session Pooler (5432)
-  // for Prisma runtime connections. Transaction mode (6543) is intended for
-  // short-lived/serverless workloads.
+  // Cloudflare Workers connect through the configured Hyperdrive binding.
   url       = env("DIRECT_URL")
   directUrl = env("DIRECT_URL")
 }
@@ -47,6 +45,8 @@ model User {
   followingShops ShopFollow[] @relation("Follower")
   shopFollowers ShopFollow[] @relation("ShopOwner")
   categoryInterests CategoryInterest[]
+  businessSales    BusinessSale[]
+  stockMovements   StockMovement[]
 }
 
 model Session {
@@ -147,6 +147,9 @@ model Listing {
   @@index([county, status])
   @@index([userId, status])
   @@index([expiresAt])
+
+  businessSales BusinessSale[]
+  stockMovements StockMovement[]
 }
 
 model SavedSearch {
@@ -199,6 +202,59 @@ model PasswordReset {
   createdAt DateTime  @default(now())
 
   @@index([userId, usedAt, expiresAt])
+}
+
+// A shopkeeper's manual sales ledger. These are explicitly recorded transactions,
+ // not inferred from listing views or status changes. Amounts use Decimal so
+ // repeated additions do not accumulate binary floating-point rounding errors.
+model BusinessSale {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId     String?
+  listing       Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  productTitle  String   // immutable snapshot; survives listing edits/deletion
+  quantity      Decimal  @db.Decimal(14, 3)
+  unit          String?
+  unitPrice     Decimal  @db.Decimal(14, 2)
+  unitCost      Decimal? @db.Decimal(14, 2) // null means unknown, never assumed zero
+  currency      String   @default("UGX")
+  channel       String   @default("IN_PERSON") // IN_PERSON | PHONE | WHATSAPP | MUDAALA | OTHER
+  note          String?
+  occurredAt    DateTime @default(now())
+  status        String   @default("COMPLETED") // COMPLETED | VOIDED
+  voidedAt      DateTime?
+  voidReason    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  stockMovement StockMovement?
+
+  @@index([userId, occurredAt])
+  @@index([userId, status, occurredAt])
+  @@index([listingId])
+}
+
+// Append-only stock ledger. Positive deltas add stock; negative deltas remove
+// stock. Corrections should be represented by a compensating movement rather
+// than deleting history. Listing.quantity is intentionally not repurposed.
+model StockMovement {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId     String?
+  listing       Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  saleId        String?  @unique
+  sale          BusinessSale? @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  productTitle  String   // immutable snapshot for exports and historical records
+  quantityDelta Decimal  @db.Decimal(14, 3) // positive adds; negative removes
+  unit          String?
+  reason        String   // OPENING_BALANCE | RESTOCK | SALE | RETURN | ADJUSTMENT | DAMAGED | LOST | CORRECTION
+  note          String?
+  occurredAt    DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@index([userId, occurredAt])
+  @@index([userId, listingId, occurredAt])
 }
 
 // A buyer's flag on an ad or a shop. Guests can report (identified by IP);
