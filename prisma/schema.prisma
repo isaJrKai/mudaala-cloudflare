@@ -50,6 +50,7 @@ model User {
   businessProducts BusinessProduct[]
   sales           Sale[]
   stockMovements  StockMovement[]
+  listingDailyAnalytics ListingDailyAnalytics[]
 }
 
 model Session {
@@ -152,6 +153,28 @@ model Listing {
   @@index([expiresAt])
 
   businessProducts BusinessProduct[]
+  dailyAnalytics ListingDailyAnalytics[]
+}
+
+model ListingDailyAnalytics {
+  id            String   @id @default(cuid())
+  listingId     String?
+  listing       Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  ownerId       String
+  owner         User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  listingTitle  String   // snapshot remains useful if the listing is removed
+  day           String   // local Uganda calendar date: YYYY-MM-DD
+  views         Int      @default(0)
+  callClicks    Int      @default(0)
+  whatsappClicks Int     @default(0)
+  shareClicks   Int      @default(0)
+  saveClicks    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([listingId, day])
+  @@index([ownerId, day])
+  @@index([ownerId, listingId, day])
 }
 
 model SavedSearch {
