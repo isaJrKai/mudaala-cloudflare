@@ -6,9 +6,11 @@ const BATCH_SIZE = 500
 const MAX_EXPORT_ROWS = 25_000
 
 function csvCell(value: string | number | null | undefined): string {
-  let text = value === null || value === undefined ? '' : String(value)
-  // Prevent spreadsheet formula injection in user-controlled text cells.
-  if (/^[=+@\t\r]/.test(text) || /^-/.test(text)) text = `'${text}`
+  if (value === null || value === undefined) return '""'
+  // Numeric cells remain numeric (including negative stock movements).
+  // Escape formula-like user-controlled text to prevent spreadsheet injection.
+  let text = String(value)
+  if (typeof value === 'string' && (/^[=+@\t\r]/.test(text) || /^-/.test(text))) text = `'${text}`
   return `"${text.replace(/"/g, '""')}"`
 }
 function csv(rows: Array<Array<string | number | null | undefined>>): string {
