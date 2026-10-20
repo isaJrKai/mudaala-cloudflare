@@ -10,14 +10,13 @@ CREATE TABLE "ListingDailyAnalytics" (
   "callClicks" INTEGER NOT NULL DEFAULT 0,
   "whatsappClicks" INTEGER NOT NULL DEFAULT 0,
   "shareClicks" INTEGER NOT NULL DEFAULT 0,
-  "saveClicks" INTEGER NOT NULL DEFAULT 0,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "ListingDailyAnalytics_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "ListingDailyAnalytics_day_format_check" CHECK ("day" ~ '^\d{4}-\d{2}-\d{2}$'),
   CONSTRAINT "ListingDailyAnalytics_counts_nonnegative_check" CHECK (
     "views" >= 0 AND "callClicks" >= 0 AND "whatsappClicks" >= 0 AND
-    "shareClicks" >= 0 AND "saveClicks" >= 0
+    "shareClicks" >= 0
   )
 );
 
