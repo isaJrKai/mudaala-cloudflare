@@ -309,8 +309,8 @@ For each new idea, record: customer problem, evidence/source, intended user, sma
 
 ### Deployment and follow-up still open
 
-- [ ] Confirm the post-PR #155 deployment workflow succeeds and Cloudflare shows a new Worker version serving 100% traffic before claiming the business-record APIs are live.
-- [ ] Run post-deploy API/privacy/photo and shop/search verification against the new version; inspect bounded telemetry for errors. No production data was manually seeded or mutated during implementation.
+- [x] Cloudflare confirms post-PR #155 deployment `0ca8fc48-e72c-4a59-87ad-68414b824cd0`; Worker version `c8674e9b-5a0e-4168-a941-0b16d276468d` (version 149) serves 100% traffic from 2026-10-20 16:26:47 UTC. This confirms deployment, but is not a substitute for live API verification.
+- [ ] Confirm the deployment workflow and run post-deploy API/privacy/photo and shop/search verification against version 149; inspect bounded telemetry for errors. Direct live-route verification was not available through the current connected inspection path. No production data was manually seeded or mutated during implementation.
 - [ ] Test My Business with a real signed-in founder account and on a physical phone, including product creation, opening stock, sale recording, stock decrement/restock, low-stock alerts, void/reversal, CSV download, and navigation. The connected session cannot confirm the founder's signed-in browser.
 - [ ] Next product work: link existing public listings into the business catalogue without reinterpreting listing quantity, add listing/shop view and contact-click event instrumentation with privacy-safe aggregation, and improve multi-item sales workflows.
 - [ ] Then build promotions (discounts, bundles, collections), followed by market analytics using privacy-protected aggregate data.
