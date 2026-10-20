@@ -1,6 +1,6 @@
 # Mudaala — Master Project Checklist
 
-**Last reconciled:** 2026-10-20 (UTC+3; current deployment and live search/API/privacy/photo/admin/contact checks passed; local browser suite verifies public contact links, shop navigation and featured-shop QR SVG; current Worker version has no 5xx/exceededCpu in the first 72-second sample; physical-phone layout/QR verification, the unpatched development-only `braces` advisory, phone verification configuration, scheduled sweep confirmation, and backup-restore drill remain open)  
+**Last reconciled:** 2026-10-20 (UTC+3; PR #147 merged and deployed in Worker version 144 at 100% traffic; deployment, live API/privacy/photo/admin/contact, and shop/search workflows passed on commit `fbf005f55b8774935303e49352cbd7eb8919c38c`; read-only telemetry from 04:59:30–05:15 UTC returned zero error-level events and zero `[startup-db]` events; next scheduled sweep, physical-phone layout/QR verification, the unpatched development-only `braces` advisory, phone verification configuration, and backup-restore drill remain open)  
 **Production app:** https://mudaala-cloudflare.kaisoisaac.workers.dev  
 **Repository:** https://github.com/isaJrKai/mudaala-cloudflare
 
@@ -254,3 +254,17 @@ For each new idea, record: customer problem, evidence/source, intended user, sma
 - [x] PR validation tests scheduled maintenance authorization/idempotency under the restricted runtime role in disposable PostgreSQL.
 - [ ] Verify the next real scheduled run's outcome in telemetry; do not manually trigger the production sweep merely to generate evidence because it can modify real listings/notifications/snapshots.
 
+## Execution record — 2026-10-20 post-PR #147 deployment
+
+### Completed and evidenced
+
+- [x] PR [#147](https://github.com/isaJrKai/mudaala-cloudflare/pull/147) merged as `fbf005f55b8774935303e49352cbd7eb8919c38c`; `src/instrumentation.ts` no longer performs a startup-only database query outside `withRequestDb()`.
+- [x] Deployment workflow [39372342814](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39372342814) passed on the exact merge commit. Cloudflare confirms deployment `1aae8e14-a7a0-4b3a-97d3-adbeaa026d95` and Worker version `a7edaddb-46d8-4fee-b831-29b22f8439ec` (version 144) serving 100% traffic from 2026-10-20 04:59:25 UTC.
+- [x] Post-deploy live verification passed on the same commit: [API/privacy/photos run 39372487411](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39372487411) and [shop/product search run 39372487359](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39372487359).
+- [x] Read-only Cloudflare telemetry for 2026-10-20 04:59:30–05:15 UTC returned zero error-level events and zero `[startup-db]` events. The prior startup probe error was logged on version `4577326d-9ab8-44fe-aad5-a078abea82fa` before version 144 became active. This is a bounded observation window, not a guarantee of zero future errors.
+
+### Still open
+
+- [ ] Verify the next real scheduled sweep on the updated Worker (cron `0 3 * * *` UTC; next expected run 2026-10-21 03:00 UTC). Do not invoke the production sweep manually; it can write real listing, notification and price-snapshot data.
+- [ ] Continue monitoring post-deploy 5xx/CPU telemetry over a longer window.
+- [ ] Physical-phone layout/QR check, safe backup-restore drill, phone-verification provider setup, and development-only `braces` advisory remain open as listed above.
