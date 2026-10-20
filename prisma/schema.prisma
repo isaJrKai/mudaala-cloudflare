@@ -190,7 +190,6 @@ model ShopDailyAnalytics {
   updatedAt      DateTime @updatedAt
 
   @@unique([ownerId, day])
-  @@index([ownerId, day])
 }
 
 model SavedSearch {
