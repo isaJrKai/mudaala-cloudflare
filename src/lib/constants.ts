@@ -150,6 +150,7 @@ interface CategoryDef {
 
 // Categories reflect real local-commerce goods (scrap, produce, groceries...).
 export const CATEGORIES: CategoryDef[] = [
+  { key: 'prepared-food-drinks', label: 'Prepared Food & Drinks', examples: 'juice, tea, cakes, mandazi, chapati, Rolex, snacks' },
   { key: 'scrap-recyclables', label: 'Scrap & Recyclables', examples: 'copper, brass, aluminium, plastics, cartons' },
   { key: 'food-groceries', label: 'Food & Groceries', examples: 'flour, cooking oil, sugar, rice' },
   { key: 'farm-produce', label: 'Farm Produce', examples: 'maize, beans, vegetables, eggs, milk' },
@@ -187,14 +188,35 @@ export const UNITS: UnitDef[] = [
   { key: 'crate', label: 'crate' },
   { key: 'bale', label: 'bale' },
   { key: 'litre', label: 'litre' },
+  { key: 'bottle', label: 'bottle' },
+  { key: 'cup', label: 'cup' },
   { key: 'piece', label: 'piece' },
+  { key: 'slice', label: 'slice' },
+  { key: 'plate', label: 'plate' },
+  { key: 'pack', label: 'pack' },
   { key: 'dozen', label: 'dozen' },
+  { key: 'batch', label: 'batch' },
   { key: 'roll', label: 'roll' },
   { key: 'bunch', label: 'bunch' },
   { key: 'trip', label: 'trip' },
 ]
 
 export const UNIT_KEYS = UNITS.map((u) => u.key)
+
+// Keep the full unit list available, but put the most useful measures first
+// for Ugandan prepared-food and drinks sellers. A seller can still choose any
+// unit or enter a short custom one.
+const PREPARED_FOOD_UNIT_ORDER = ['bottle', 'cup', 'piece', 'slice', 'plate', 'pack', 'dozen', 'batch']
+
+export function unitOptionsForCategory(category: string): UnitDef[] {
+  if (category !== 'prepared-food-drinks') return UNITS
+  return [
+    ...PREPARED_FOOD_UNIT_ORDER
+      .map((key) => UNITS.find((unit) => unit.key === key))
+      .filter((unit): unit is UnitDef => Boolean(unit)),
+    ...UNITS.filter((unit) => !PREPARED_FOOD_UNIT_ORDER.includes(unit.key)),
+  ]
+}
 
 export function unitLabel(key: string): string {
   return UNITS.find((u) => u.key === key)?.label ?? key

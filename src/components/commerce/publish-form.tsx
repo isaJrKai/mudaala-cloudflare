@@ -14,7 +14,7 @@ import { apiPost, apiPatch, apiGet } from '@/lib/client'
 import type { Listing, SessionUser } from '@/lib/client'
 import { listingCreateSchema, fieldErrors } from '@/lib/validation'
 import { listingFormCategoryFields } from '@/lib/listing-form-fields'
-import { CATEGORIES, UNITS, CURRENCIES, countryDef, currencyDef } from '@/lib/constants'
+import { CATEGORIES, UNIT_KEYS, CURRENCIES, countryDef, currencyDef, unitOptionsForCategory } from '@/lib/constants'
 import { useAppStore } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { ErrorState } from './listings-browse'
@@ -40,6 +40,8 @@ interface FormState {
   contactWhatsapp: string
   photos: string[]
 }
+
+const CUSTOM_UNIT_VALUE = '__custom__'
 
 const EMPTY_FORM: FormState = {
   type: 'OFFER',
@@ -69,7 +71,9 @@ export function PublishForm() {
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [customUnit, setCustomUnit] = useState('')
   const [busy, setBusy] = useState(false)
+  const unitOptions = useMemo(() => unitOptionsForCategory(form.category), [form.category])
 
   useEffect(() => {
     if (user) {
@@ -116,7 +120,8 @@ export function PublishForm() {
     const priceRaw = form.price.trim()
     const oldPriceRaw = form.compareAtPrice.trim()
     const quantityRaw = form.quantity.trim()
-    const stockFields = listingFormCategoryFields(form.category, oldPriceRaw, form.unit, quantityRaw, priceRaw, form.priceNegotiable)
+    const selectedUnit = form.unit === CUSTOM_UNIT_VALUE ? (customUnit.trim() || 'none') : form.unit
+    const stockFields = listingFormCategoryFields(form.category, oldPriceRaw, selectedUnit, quantityRaw, priceRaw, form.priceNegotiable)
     return {
       type: form.type,
       title: form.title,
@@ -319,20 +324,41 @@ export function PublishForm() {
           </Field>
           ) : null}
           {form.category !== 'services' ? (
-          <Field label={copy.publish.per} htmlFor="p-unit" error={errors.unit}>
-            <Select value={form.unit} onValueChange={(v) => set('unit', v)}>
+          <>
+          <Field label={copy.publish.per} htmlFor="p-unit" error={form.unit === CUSTOM_UNIT_VALUE ? undefined : errors.unit} hint={form.category === 'prepared-food-drinks' ? 'Price is for one selected unit; quantity is how many you have.' : 'Choose what one price refers to, or use Custom unit.'}>
+            <Select value={form.unit} onValueChange={(value) => {
+              set('unit', value)
+              if (value !== CUSTOM_UNIT_VALUE) setCustomUnit('')
+            }}>
               <SelectTrigger id="p-unit" aria-invalid={Boolean(errors.unit)}>
                 <SelectValue placeholder={copy.publish.unitPlaceholder} />
               </SelectTrigger>
               <SelectContent>
-                {UNITS.map((u) => (
-                  <SelectItem key={u.key} value={u.key}>
-                    per {u.label}
+                <SelectItem value="none">Not applicable</SelectItem>
+                {unitOptions.map((unit) => (
+                  <SelectItem key={unit.key} value={unit.key}>
+                    per {unit.label}
                   </SelectItem>
                 ))}
+                <SelectItem value={CUSTOM_UNIT_VALUE}>Custom unit</SelectItem>
               </SelectContent>
             </Select>
           </Field>
+          {form.unit === CUSTOM_UNIT_VALUE ? (
+            <Field label="Custom unit name" htmlFor="p-custom-unit" error={errors.unit} hint="Use a short name, such as serving or bundle.">
+              <Input
+                id="p-custom-unit"
+                value={customUnit}
+                onChange={(event) => {
+                  setCustomUnit(event.target.value)
+                  set('unit', CUSTOM_UNIT_VALUE)
+                }}
+                maxLength={20}
+                placeholder="e.g. serving"
+              />
+            </Field>
+          ) : null}
+          </>
           ) : null}
         </div>
         <label className="mt-3 flex items-center gap-2 text-sm">
@@ -458,12 +484,14 @@ export function EditListingForm({ id }: { id: string }) {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [customUnit, setCustomUnit] = useState('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     apiGet<{ listing: Listing }>(`/api/listings/${id}`)
       .then(({ listing }) => {
         setLoaded(listing)
+        setCustomUnit(listing.unit && !UNIT_KEYS.includes(listing.unit) ? listing.unit : '')
         setForm({
           type: listing.type,
           title: listing.title,
@@ -473,7 +501,7 @@ export function EditListingForm({ id }: { id: string }) {
           compareAtPrice: listing.compareAtPrice === null || listing.compareAtPrice === undefined ? '' : String(listing.compareAtPrice),
           currency: listing.currency ?? 'UGX',
           priceNegotiable: listing.priceNegotiable,
-          unit: listing.unit ?? 'none',
+          unit: listing.unit === null ? 'none' : UNIT_KEYS.includes(listing.unit) ? listing.unit : CUSTOM_UNIT_VALUE,
           quantity: listing.quantity === null ? '' : String(listing.quantity),
           county: listing.county,
           area: listing.area ?? '',
@@ -485,7 +513,7 @@ export function EditListingForm({ id }: { id: string }) {
       .catch((err) => setLoadError(err instanceof Error ? err.message : 'Could not load listing'))
   }, [id])
 
-  const unitOptions = useMemo(() => UNITS, [])
+  const unitOptions = useMemo(() => unitOptionsForCategory(form.category), [form.category])
 
   if (loadError) {
     return <ErrorState message={loadError} onRetry={() => window.location.reload()} />
@@ -524,7 +552,8 @@ export function EditListingForm({ id }: { id: string }) {
     const priceRaw = form.price.trim()
     const oldPriceRaw = form.compareAtPrice.trim()
     const quantityRaw = form.quantity.trim()
-    const stockFields = listingFormCategoryFields(form.category, oldPriceRaw, form.unit, quantityRaw, priceRaw, form.priceNegotiable)
+    const selectedUnit = form.unit === CUSTOM_UNIT_VALUE ? (customUnit.trim() || 'none') : form.unit
+    const stockFields = listingFormCategoryFields(form.category, oldPriceRaw, selectedUnit, quantityRaw, priceRaw, form.priceNegotiable)
     const payload = {
       title: form.title,
       description: form.description,
@@ -642,20 +671,41 @@ export function EditListingForm({ id }: { id: string }) {
         </Field>
         ) : null}
         {form.category !== 'services' ? (
-        <Field label="Per" htmlFor="e-unit" error={errors.unit}>
-          <Select value={form.unit} onValueChange={(v) => set('unit', v)}>
-            <SelectTrigger id="e-unit">
+        <>
+        <Field label="Per" htmlFor="e-unit" error={form.unit === CUSTOM_UNIT_VALUE ? undefined : errors.unit} hint={form.category === 'prepared-food-drinks' ? 'Price is for one selected unit; quantity is how many you have.' : 'Choose what one price refers to, or use Custom unit.'}>
+          <Select value={form.unit} onValueChange={(value) => {
+            set('unit', value)
+            if (value !== CUSTOM_UNIT_VALUE) setCustomUnit('')
+          }}>
+            <SelectTrigger id="e-unit" aria-invalid={Boolean(errors.unit)}>
               <SelectValue placeholder="Unit" />
             </SelectTrigger>
             <SelectContent>
-              {unitOptions.map((u) => (
-                <SelectItem key={u.key} value={u.key}>
-                  per {u.label}
+              <SelectItem value="none">Not applicable</SelectItem>
+              {unitOptions.map((unit) => (
+                <SelectItem key={unit.key} value={unit.key}>
+                  per {unit.label}
                 </SelectItem>
               ))}
+              <SelectItem value={CUSTOM_UNIT_VALUE}>Custom unit</SelectItem>
             </SelectContent>
           </Select>
         </Field>
+        {form.unit === CUSTOM_UNIT_VALUE ? (
+          <Field label="Custom unit name" htmlFor="e-custom-unit" error={errors.unit} hint="Use a short name, such as serving or bundle.">
+            <Input
+              id="e-custom-unit"
+              value={customUnit}
+              onChange={(event) => {
+                setCustomUnit(event.target.value)
+                set('unit', CUSTOM_UNIT_VALUE)
+              }}
+              maxLength={20}
+              placeholder="e.g. serving"
+            />
+          </Field>
+        ) : null}
+        </>
         ) : null}
       </div>
       <label className="flex items-center gap-2 text-sm">
