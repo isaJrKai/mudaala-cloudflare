@@ -53,6 +53,12 @@ export function countryPhoneMessage(country: CountryKey): string {
 // Shared untransformed phone string for schemas that carry an explicit country
 // (register / listings) - the route normalizes after parsing so the error can
 // name the right country.
+const MARKETPLACE_EMOJI_PATTERN = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]|[#*0-9]\uFE0F?\u20E3/u
+
+export function containsMarketplaceEmoji(value: string): boolean {
+  return MARKETPLACE_EMOJI_PATTERN.test(value)
+}
+
 const rawPhone = z.string().trim().min(1, 'Phone number is required').max(20, 'Phone number is too long')
 
 export const registerSchema = z.object({
