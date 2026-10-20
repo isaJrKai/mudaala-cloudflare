@@ -126,6 +126,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."StockMovement", public."SaleItem", public."Sale", public."BusinessProduct", public."ListingDailyAnalytics", public."ShopDailyAnalytics" CASCADE;'
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020000000_business_records_foundation/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020190000_listing_daily_analytics/migration.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020200000_business_records_rls/migration.sql
           policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(DISTINCT tablename) FROM pg_policies WHERE schemaname='public' AND tablename IN ('AppSetting','AuditLog','BusinessProfile','BusinessProduct','CategoryInterest','Listing','ListingDailyAnalytics','Notification','PasswordReset','PriceSnapshot','Report','Sale','SaleItem','SavedSearch','Session','ShopDailyAnalytics','ShopFollow','StockMovement','User') AND 'anon'=ANY(roles) AND 'authenticated'=ANY(roles) AND qual='false' AND with_check='false'")
           if [ "$policy_count" != "19" ]; then
             echo "Expected deny-all Data API policies on all 19 application tables, found $policy_count tables"
