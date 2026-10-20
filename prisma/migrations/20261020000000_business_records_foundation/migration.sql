@@ -77,7 +77,7 @@ ALTER TABLE "Sale" ADD CONSTRAINT "Sale_userId_fkey"
 ALTER TABLE "SaleItem" ADD CONSTRAINT "SaleItem_saleId_fkey"
   FOREIGN KEY ("saleId") REFERENCES "Sale"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "SaleItem" ADD CONSTRAINT "SaleItem_productId_fkey"
-  FOREIGN KEY ("productId") REFERENCES "BusinessProduct"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  FOREIGN KEY ("productId") REFERENCES "BusinessProduct"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "StockMovement" ADD CONSTRAINT "StockMovement_userId_fkey"
   FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "StockMovement" ADD CONSTRAINT "StockMovement_productId_fkey"
