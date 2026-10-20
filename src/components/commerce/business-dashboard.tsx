@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   ArrowRight,
   BarChart3,
+  Camera,
   Eye,
   Package,
   PlusCircle,
@@ -226,6 +227,23 @@ export function BusinessDashboard() {
             </CardContent>
           </Card>
 
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Camera className="size-4" aria-hidden /> Take photos buyers can trust</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <ul className="list-disc space-y-1.5 pl-4 text-sm text-muted-foreground">
+                <li>Use daylight and a simple background.</li>
+                <li>Show the whole item; add a close-up for important details.</li>
+                <li>For food and drinks, show the real portion and state the unit, such as per cup, bottle or piece.</li>
+                <li>For used items, show wear honestly. Avoid filters that change the product's colour.</li>
+              </ul>
+              <p className="text-xs text-muted-foreground">When posting, take a photo with your phone or choose one from your gallery. Mudaala resizes photos and removes embedded location metadata before upload.</p>
+              <Button variant="outline" size="sm" className="w-full" onClick={() => navigate({ name: 'publish' })}>
+                <Camera className="mr-2 size-4" aria-hidden /> Post with a photo
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
