@@ -1,6 +1,6 @@
 'use client'
 
-import { Home, Search, Plus, Tag, Bell } from 'lucide-react'
+import { Home, Search, Plus, Tag, Bell, BriefcaseBusiness } from 'lucide-react'
 import { useAppStore, type ViewName } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { useBellShake } from '@/hooks/use-bell-shake'
@@ -30,7 +30,7 @@ export function BottomNav() {
     { name: 'home', label: copy.nav.home, icon: <Home aria-hidden /> },
     { name: 'browse', label: copy.nav.browse, icon: <Search aria-hidden /> },
     { name: 'publish', label: copy.nav.post, icon: <Plus aria-hidden /> },
-    { name: 'my-listings', label: copy.nav.myListings, icon: <Tag aria-hidden /> },
+    { name: 'business', label: copy.nav.myBusiness, icon: <BriefcaseBusiness aria-hidden /> },
     { name: 'notifications', label: copy.nav.notifications, icon: <Bell aria-hidden />, badge: unread },
   ]
 

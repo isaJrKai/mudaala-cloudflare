@@ -6,6 +6,7 @@ import { AppHeader } from './app-header'
 import { BottomNav } from './bottom-nav'
 import { AuthDialog } from './auth-dialog'
 import { HomeDashboard } from './home-view'
+import { BusinessDashboard } from './business-dashboard'
 import { ListingsBrowse } from './listings-browse'
 import { ListingDetail } from './listing-detail'
 import { ShopView } from './shop-view'
@@ -41,6 +42,8 @@ function CurrentViewContent() {
   switch (view.name) {
     case 'home':
       return <HomeDashboard />
+    case 'business':
+      return <BusinessDashboard />
     case 'listing':
       return view.id ? <ListingDetail id={view.id} /> : <ListingsBrowse />
     case 'shop':
