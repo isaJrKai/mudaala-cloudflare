@@ -1,12 +1,14 @@
-import { route, jsonOk, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
+import { saleVoidSchema } from '@/lib/business-records'
 import { db } from '@/lib/db'
 
 type Context = { params: Promise<{ id: string }> }
 
-export async function POST(_request: Request, context: Context) {
+export async function POST(request: Request, context: Context) {
   return route(async () => {
     const user = await requireUser()
     const { id } = await context.params
+    const { reason } = await parseBody(request, saleVoidSchema)
 
     const result = await db.$transaction(async (tx) => {
       const sale = await tx.sale.findFirst({
@@ -42,7 +44,7 @@ export async function POST(_request: Request, context: Context) {
 
       const updated = await tx.sale.updateMany({
         where: { id: sale.id, userId: user.id, status: 'COMPLETED' },
-        data: { status: 'VOIDED', notes: sale.notes ? `${sale.notes}\nVoided by seller` : 'Voided by seller' },
+        data: { status: 'VOIDED', notes: sale.notes ? `${sale.notes}\nVoided: ${reason}` : `Voided: ${reason}` },
       })
       if (updated.count !== 1) throw new ApiError(409, 'This sale has already been changed')
       return { id: sale.id, status: 'VOIDED' }
