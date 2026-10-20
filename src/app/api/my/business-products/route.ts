@@ -36,32 +36,32 @@ export async function POST(request: Request) {
     let product
     try {
       product = await db.$transaction(async (tx) => {
-      const created = await tx.businessProduct.create({
-        data: {
-          userId: user.id,
-          name: data.name,
-          sku: data.sku?.trim() || null,
-          unit: data.unit,
-          currency: data.currency,
-          sellingPrice: data.sellingPrice.toFixed(2),
-          costPrice: data.costPrice == null ? null : data.costPrice.toFixed(2),
-          stockOnHand: data.openingStock.toFixed(3),
-          trackInventory: data.trackInventory,
-        },
-      })
-      if (data.openingStock > 0) {
-        await tx.stockMovement.create({
+        const created = await tx.businessProduct.create({
           data: {
             userId: user.id,
-            productId: created.id,
-            type: 'OPENING',
-            quantityDelta: data.openingStock.toFixed(3),
-            note: 'Opening stock recorded when product was created',
+            name: data.name,
+            sku: data.sku?.trim() || null,
+            unit: data.unit,
+            currency: data.currency,
+            sellingPrice: data.sellingPrice.toFixed(2),
+            costPrice: data.costPrice == null ? null : data.costPrice.toFixed(2),
+            stockOnHand: data.openingStock.toFixed(3),
+            trackInventory: data.trackInventory,
           },
         })
+        if (data.openingStock > 0) {
+          await tx.stockMovement.create({
+            data: { userId: user.id, productId: created.id, type: 'OPENING', quantityDelta: data.openingStock.toFixed(3), note: 'Opening stock recorded when product was created' },
+          })
+        }
+        return created
+      })
+    } catch (error) {
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
+        throw new ApiError(409, 'That SKU is already used by another product in your business')
       }
-      return created
-    })
+      throw error
+    }
     return jsonOk({ product: serializeProduct(product) }, 201)
   })
 }
