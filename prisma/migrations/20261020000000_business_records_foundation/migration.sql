@@ -10,6 +10,7 @@ CREATE TABLE "BusinessProduct" (
   "sellingPrice" DECIMAL(14,2) NOT NULL,
   "costPrice" DECIMAL(14,2),
   "stockOnHand" DECIMAL(14,3) NOT NULL DEFAULT 0,
+  "reorderLevel" DECIMAL(14,3) NOT NULL DEFAULT 0,
   "trackInventory" BOOLEAN NOT NULL DEFAULT true,
   "archived" BOOLEAN NOT NULL DEFAULT false,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -73,6 +74,7 @@ CREATE INDEX "StockMovement_saleId_idx" ON "StockMovement"("saleId");
 ALTER TABLE "BusinessProduct" ADD CONSTRAINT "BusinessProduct_sellingPrice_nonnegative" CHECK ("sellingPrice" >= 0);
 ALTER TABLE "BusinessProduct" ADD CONSTRAINT "BusinessProduct_costPrice_nonnegative" CHECK ("costPrice" IS NULL OR "costPrice" >= 0);
 ALTER TABLE "BusinessProduct" ADD CONSTRAINT "BusinessProduct_stockOnHand_nonnegative" CHECK ("stockOnHand" >= 0);
+ALTER TABLE "BusinessProduct" ADD CONSTRAINT "BusinessProduct_reorderLevel_nonnegative" CHECK ("reorderLevel" >= 0);
 ALTER TABLE "BusinessProduct" ADD CONSTRAINT "BusinessProduct_currency_UGX" CHECK ("currency" = 'UGX');
 ALTER TABLE "Sale" ADD CONSTRAINT "Sale_status_valid" CHECK ("status" IN ('COMPLETED', 'VOIDED'));
 ALTER TABLE "Sale" ADD CONSTRAINT "Sale_channel_valid" CHECK ("channel" IN ('MUDAALA', 'WHATSAPP', 'PHONE', 'IN_PERSON', 'OTHER'));
