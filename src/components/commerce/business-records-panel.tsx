@@ -25,6 +25,7 @@ export function BusinessRecordsPanel() {
   const [track, setTrack] = useState(true)
   const [productId, setProductId] = useState('')
   const [saleQty, setSaleQty] = useState('1')
+  const [saleRequestKey, setSaleRequestKey] = useState('')
   const [salePrice, setSalePrice] = useState('')
   const [channel, setChannel] = useState('IN_PERSON')
   const [stockProductId, setStockProductId] = useState('')
@@ -47,11 +48,11 @@ export function BusinessRecordsPanel() {
     onError: (e) => setError(e instanceof Error ? e.message : 'Could not save product'),
   })
   const recordSale = useMutation({
-    mutationFn: () => {
+    mutationFn: (idempotencyKey: string) => {
       if (!selected) throw new Error('Add a product before recording a sale')
-      return apiPost('/api/my/sales', { channel, items: [{ productId: selected.id, quantity: Number(saleQty), ...(salePrice.trim() ? { unitPrice: Number(salePrice) } : {}) }] })
+      return apiPost('/api/my/sales', { idempotencyKey, channel, items: [{ productId: selected.id, quantity: Number(saleQty), ...(salePrice.trim() ? { unitPrice: Number(salePrice) } : {}) }] })
     },
-    onSuccess: async () => { setSaleQty('1'); setSalePrice(''); setError(''); await refresh() },
+    onSuccess: async () => { setSaleQty('1'); setSalePrice(''); setSaleRequestKey(''); setError(''); await refresh() },
     onError: (e) => setError(e instanceof Error ? e.message : 'Could not record sale'),
   })
   const restock = useMutation({
@@ -70,7 +71,7 @@ export function BusinessRecordsPanel() {
     onError: (e) => setError(e instanceof Error ? e.message : 'Could not archive product'),
   })
   const submitProduct = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); setError(''); createProduct.mutate() }
-  const submitSale = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); setError(''); recordSale.mutate() }
+  const submitSale = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); setError(''); const key = saleRequestKey || crypto.randomUUID(); setSaleRequestKey(key); recordSale.mutate(key) }
   const submitStock = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); setError(''); restock.mutate() }
 
   return <section className="space-y-5" aria-labelledby="business-records-title">
