@@ -294,7 +294,7 @@ For each new idea, record: customer problem, evidence/source, intended user, sma
 
 - [x] Read-only Supabase project inspection reports project `Mudaala` as `ACTIVE_HEALTHY` on PostgreSQL 17.11.0.002. Its only listed development branch is the default `main` branch with `with_data=false`; it is not a suitable data-backed restore drill target.
 - [x] Supabase security advisors returned zero lints at 2026-10-20 05:19 UTC.
-- [x] Supabase performance advisors returned five informational unused-index findings on `Report`, `AuditLog`, and `PriceSnapshot` indexes. No index was dropped or changed; unused-index advisories are not sufficient evidence to remove indexes from security/audit and scheduled maintenance paths without query-plan and workload review.
+- [x] Supabase security advisor returned zero lints after the business-record and engagement migrations. Performance advisor currently reports 12 informational unused-index findings: the prior `Report`, `AuditLog`, and `PriceSnapshot` indexes plus indexes on the newly introduced business/analytics tables that have not yet accumulated production workload. No index was dropped or changed; review query plans after real use before considering removals.
 - [ ] Backup readiness remains open: the organization is Free tier, so confirm/export a logical database backup with the Supabase CLI, store it off-site, and complete a disposable local PostgreSQL restore. No paid branch/project is necessary for the initial drill; no restore target was created and no production data was changed.
 
 ## My Business workspace and records — 2026-10-20
