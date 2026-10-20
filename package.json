@@ -7,6 +7,7 @@
     "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/ && (cp -r content .next/standalone/ 2>/dev/null || true)",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
+    "test:content-policy": "bun test src/lib/validation.content-policy.test.ts",
     "db:push": "node scripts/guard-local-db.mjs && prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
