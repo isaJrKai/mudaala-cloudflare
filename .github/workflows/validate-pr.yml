@@ -108,16 +108,31 @@ jobs:
         run: |
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE ROLE anon NOLOGIN;'
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE ROLE authenticated NOLOGIN;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $body$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mudaala_runtime') THEN
+              CREATE ROLE mudaala_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+            END IF;
+          END
+          $body$;
+          SQL
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261014110000_deny_direct_data_api_access/migration.sql
-          # Production already has this deny-all policy under its established name.
-          # Recreate that production policy in the disposable schema; don't add a duplicate migration.
+          # CategoryInterest was added after the original deny-policy migration.
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE POLICY category_interest_deny_direct_api_clients ON public."CategoryInterest" FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);'
-          policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(DISTINCT tablename) FROM pg_policies WHERE schemaname='public' AND tablename IN ('AppSetting','AuditLog','BusinessProfile','CategoryInterest','Listing','Notification','PasswordReset','PriceSnapshot','Report','SavedSearch','Session','ShopFollow','User') AND 'anon'=ANY(roles) AND 'authenticated'=ANY(roles) AND qual='false' AND with_check='false'")
-          if [ "$policy_count" != "13" ]; then
-            echo "Expected deny-all Data API policies on all 13 application tables, found $policy_count tables"
+          # db:push above creates the current schema. Drop only the additive
+          # business tables, then execute their real SQL migrations so CI tests
+          # the exact RLS/grant SQL that will run on a fresh production upgrade.
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."StockMovement", public."SaleItem", public."Sale", public."BusinessProduct", public."ListingDailyAnalytics", public."ShopDailyAnalytics" CASCADE;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020000000_business_records_foundation/migration.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020190000_listing_daily_analytics/migration.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020200000_business_records_rls/migration.sql
+          policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(DISTINCT tablename) FROM pg_policies WHERE schemaname='public' AND tablename IN ('AppSetting','AuditLog','BusinessProfile','BusinessProduct','CategoryInterest','Listing','ListingDailyAnalytics','Notification','PasswordReset','PriceSnapshot','Report','Sale','SaleItem','SavedSearch','Session','ShopDailyAnalytics','ShopFollow','StockMovement','User') AND 'anon'=ANY(roles) AND 'authenticated'=ANY(roles) AND qual='false' AND with_check='false'")
+          if [ "$policy_count" != "19" ]; then
+            echo "Expected deny-all Data API policies on all 19 application tables, found $policy_count tables"
             exit 1
           fi
-          grant_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('AppSetting','AuditLog','BusinessProfile','CategoryInterest','Listing','Notification','PasswordReset','PriceSnapshot','Report','SavedSearch','Session','ShopFollow','User') AND grantee IN ('anon','authenticated') AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          grant_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('AppSetting','AuditLog','BusinessProfile','BusinessProduct','CategoryInterest','Listing','ListingDailyAnalytics','Notification','PasswordReset','PriceSnapshot','Report','Sale','SaleItem','SavedSearch','Session','ShopDailyAnalytics','ShopFollow','StockMovement','User') AND grantee IN ('anon','authenticated') AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
           if [ "$grant_count" != "0" ]; then
             echo "Expected no direct Data API table grants, found $grant_count"
             exit 1

@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 
 type Product = { id: string; name: string; sku: string | null; unit: string; currency: string; sellingPrice: number; costPrice: number | null; stockOnHand: number; reorderLevel: number; trackInventory: boolean; archived: boolean }
 type Sale = { id: string; status: string; channel: string; currency: string; soldAt: string; notes: string | null; revenue: number; grossProfit: number | null; items: { productName: string; quantity: number; unit: string; unitPrice: number }[] }
-type BusinessAnalytics = { period: string; since: string; sales: { currency: string; completedSales: number; recordedRevenue: number; estimatedGrossProfit: number | null; saleLines: number; linesWithKnownCost: number; costCoverage: number | null }[]; listingViews: number; listingCount: number; activeBusinessProducts: number; inventoryTrackedProducts: number }
+type BusinessAnalytics = { period: string; since: string; sales: { currency: string; completedSales: number; recordedRevenue: number; estimatedGrossProfit: number | null; saleLines: number; linesWithKnownCost: number; costCoverage: number | null }[]; listingViews: number; listingCount: number; engagement: { views: number; callClicks: number; whatsappClicks: number; shareClicks: number; contactClicks: number; topListings: { listingId: string; title: string; views: number; callClicks: number; whatsappClicks: number; shareClicks: number }[]; definitions: Record<string, string> }; shopEngagement: { views: number; callClicks: number; whatsappClicks: number; shareClicks: number; contactClicks: number }; activeBusinessProducts: number; inventoryTrackedProducts: number }
 const ugx = (amount: number) => new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(amount)
 
 export function BusinessRecordsPanel() {
@@ -99,8 +99,42 @@ export function BusinessRecordsPanel() {
       <Card><CardContent className="pt-5"><p className="text-sm text-muted-foreground">Recorded revenue · 30 days</p><p className="mt-1 text-2xl font-bold tabular-nums">{ugx(salesSummary?.recordedRevenue ?? 0)}</p><p className="mt-1 text-xs text-muted-foreground">Completed sales you recorded</p></CardContent></Card>
       <Card><CardContent className="pt-5"><p className="text-sm text-muted-foreground">Completed sales · 30 days</p><p className="mt-1 text-2xl font-bold tabular-nums">{salesSummary?.completedSales ?? 0}</p><p className="mt-1 text-xs text-muted-foreground">Voided records excluded</p></CardContent></Card>
       <Card><CardContent className="pt-5"><p className="text-sm text-muted-foreground">Estimated gross profit</p><p className="mt-1 text-2xl font-bold tabular-nums">{salesSummary?.estimatedGrossProfit == null ? 'Unknown' : ugx(salesSummary.estimatedGrossProfit)}</p><p className="mt-1 text-xs text-muted-foreground">{salesSummary && salesSummary.costCoverage !== null ? Math.round(salesSummary.costCoverage * 100) + '% of sale lines have cost data' : 'Add product costs to estimate profit'}</p></CardContent></Card>
-      <Card><CardContent className="pt-5"><p className="text-sm text-muted-foreground">Recorded listing views</p><p className="mt-1 text-2xl font-bold tabular-nums">{(analyticsQuery.data?.listingViews ?? 0).toLocaleString()}</p><p className="mt-1 text-xs text-muted-foreground">All-time views, not unique reach</p></CardContent></Card>
+      <Card><CardContent className="pt-5"><p className="text-sm text-muted-foreground">Listing views · 30 days</p><p className="mt-1 text-2xl font-bold tabular-nums">{(analyticsQuery.data?.engagement.views ?? 0).toLocaleString()}</p><p className="mt-1 text-xs text-muted-foreground">Page loads, not unique people reached</p></CardContent></Card>
+      <Card><CardContent className="pt-5"><p className="text-sm text-muted-foreground">Call clicks · 30 days</p><p className="mt-1 text-2xl font-bold tabular-nums">{(analyticsQuery.data?.engagement.callClicks ?? 0).toLocaleString()}</p><p className="mt-1 text-xs text-muted-foreground">Call-link taps, not connected calls</p></CardContent></Card>
+      <Card><CardContent className="pt-5"><p className="text-sm text-muted-foreground">WhatsApp clicks · 30 days</p><p className="mt-1 text-2xl font-bold tabular-nums">{(analyticsQuery.data?.engagement.whatsappClicks ?? 0).toLocaleString()}</p><p className="mt-1 text-xs text-muted-foreground">Taps, not confirmed messages</p></CardContent></Card>
+      <Card><CardContent className="pt-5"><p className="text-sm text-muted-foreground">Share clicks · 30 days</p><p className="mt-1 text-2xl font-bold tabular-nums">{(analyticsQuery.data?.engagement.shareClicks ?? 0).toLocaleString()}</p><p className="mt-1 text-xs text-muted-foreground">Share actions, not delivered links</p></CardContent></Card>
     </div>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>Products getting attention · 30 days</CardTitle>
+        <p className="text-sm text-muted-foreground">Ranked by recorded product-page views. Clicks show interest, not sales.</p>
+      </CardHeader>
+      <CardContent>
+        {(analyticsQuery.data?.engagement.topListings ?? []).length === 0 ? (
+          <p className="rounded-md border border-dashed p-5 text-sm text-muted-foreground">No listing engagement has been recorded in this period yet. Public views and Call, WhatsApp and share taps will appear here as customers interact with your listings.</p>
+        ) : (
+          <div className="divide-y">
+            {analyticsQuery.data!.engagement.topListings.map((item) => (
+              <div key={item.listingId} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center">
+                <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">{item.views.toLocaleString()} views</p></div>
+                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground"><span>Call: {item.callClicks}</span><span>WhatsApp: {item.whatsappClicks}</span><span>Shares: {item.shareClicks}</span></div>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="mt-3 text-xs text-muted-foreground">Mudaala counts button taps and page loads. It does not claim unique reach, completed calls/messages, or sales from these events.</p>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader><CardTitle>Shop page performance · 30 days</CardTitle><p className="text-sm text-muted-foreground">See how often customers open your shop and use its contact or sharing actions.</p></CardHeader>
+      <CardContent className="grid gap-4 sm:grid-cols-3">
+        <div><p className="text-sm text-muted-foreground">Shop views</p><p className="mt-1 text-2xl font-bold tabular-nums">{(analyticsQuery.data?.shopEngagement.views ?? 0).toLocaleString()}</p><p className="text-xs text-muted-foreground">Page loads, not unique people</p></div>
+        <div><p className="text-sm text-muted-foreground">Contact clicks</p><p className="mt-1 text-2xl font-bold tabular-nums">{(analyticsQuery.data?.shopEngagement.contactClicks ?? 0).toLocaleString()}</p><p className="text-xs text-muted-foreground">Call + WhatsApp taps</p></div>
+        <div><p className="text-sm text-muted-foreground">Share clicks</p><p className="mt-1 text-2xl font-bold tabular-nums">{(analyticsQuery.data?.shopEngagement.shareClicks ?? 0).toLocaleString()}</p><p className="text-xs text-muted-foreground">Actions, not delivered links</p></div>
+      </CardContent>
+    </Card>
 
     <div className="grid gap-4 xl:grid-cols-2">
       <Card><CardHeader><CardTitle className="flex items-center gap-2"><PackagePlus className="size-5" aria-hidden /> Add a product</CardTitle></CardHeader><CardContent>

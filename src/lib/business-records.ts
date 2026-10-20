@@ -60,3 +60,7 @@ export const saleCreateSchema = z.object({
 export const saleVoidSchema = z.object({
   reason: z.string().trim().min(3).max(300),
 })
+
+export const listingEngagementSchema = z.object({
+  event: z.enum(['CALL_CLICK', 'WHATSAPP_CLICK', 'SHARE_CLICK']),
+})

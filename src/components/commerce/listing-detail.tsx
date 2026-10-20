@@ -10,7 +10,7 @@ import { ArrowLeft, Check, ChevronLeft, ChevronRight, MapPin, Navigation, Packag
 import { WhatsAppIcon } from '@/components/commerce/brand-icons'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { apiGet } from '@/lib/client'
+import { apiFetch, apiGet } from '@/lib/client'
 import type { ListingDetail as ListingDetailT } from '@/lib/client'
 import {
   formatPrice,
@@ -142,6 +142,15 @@ export function ListingDetail({ id }: { id: string }) {
   // only runs client-side), so no SSR guard is needed in practice.
   const listing = data?.listing
   const shareUrl = listing ? `${window.location.origin}/l/${listing.id}` : null
+  const trackEngagement = (event: 'CALL_CLICK' | 'WHATSAPP_CLICK' | 'SHARE_CLICK') => {
+    if (!listing) return
+    // keepalive lets the aggregate request finish when tel:/WhatsApp opens another app.
+    void apiFetch(`/api/listings/${encodeURIComponent(listing.id)}/engagement`, {
+      method: 'POST',
+      body: JSON.stringify({ event }),
+      keepalive: true,
+    }).catch(() => undefined)
+  }
 
   if (isLoading) {
     return (
@@ -344,7 +353,7 @@ export function ListingDetail({ id }: { id: string }) {
           </div>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <Button asChild className="mudaala-money-cta press h-11 flex-1 text-[15px]">
-              <a href={telLink(listing.contactPhone)} aria-label={`Call ${formatPhonePretty(listing.contactPhone)}`}>
+              <a href={telLink(listing.contactPhone)} aria-label={`Call ${formatPhonePretty(listing.contactPhone)}`} onClick={() => trackEngagement('CALL_CLICK')}>
                 <Phone className="size-4" aria-hidden /> {copy.common.call}
               </a>
             </Button>
@@ -354,7 +363,7 @@ export function ListingDetail({ id }: { id: string }) {
                 variant="outline"
                 className="whatsapp-brand press h-11 flex-1 text-[15px]"
               >
-                <a href={whatsappLink(whatsapp, listing.title, listing.type)} target="_blank" rel="noopener noreferrer">
+                <a href={whatsappLink(whatsapp, listing.title, listing.type)} target="_blank" rel="noopener noreferrer" onClick={() => trackEngagement('WHATSAPP_CLICK')}>
                   <WhatsAppIcon className="size-4" aria-hidden /> {copy.common.whatsapp}
                 </a>
               </Button>
@@ -382,7 +391,7 @@ export function ListingDetail({ id }: { id: string }) {
           price and the shop, not a dead app fragment. */}
       {shareUrl ? (
         <section className="rounded-lg border bg-card p-4 sm:p-5" aria-label={copy.listing.shareAria}>
-          <ShareAdRow title={listing.title} url={shareUrl} priceLabel={sharePriceLabel} />
+          <ShareAdRow title={listing.title} url={shareUrl} priceLabel={sharePriceLabel} onShare={() => trackEngagement('SHARE_CLICK')} />
         </section>
       ) : null}
 

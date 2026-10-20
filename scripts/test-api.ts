@@ -3132,6 +3132,68 @@ async function main() {
     ok('21a.17 exports use CSV content type and preserve void history', exportProducts.headers.get('content-type')?.includes('text/csv') === true && exportSales.headers.get('content-type')?.includes('text/csv') === true && exportStock.headers.get('content-type')?.includes('text/csv') === true && productsCsv.includes('Business ledger test product') && salesCsv.includes('VOIDED') && stockCsv.includes('RESTOCK'))
   }
 
+  console.log('\n== 21b. Privacy-safe listing and shop engagement analytics ==')
+  {
+    const engagementSeller: Jar = { cookie: '' }
+    const engagementViewer: Jar = { cookie: '' }
+    await register(engagementSeller, uniquePhone(), 'Engagement Seller', 'quiet-harbor-33')
+    await register(engagementViewer, uniquePhone(), 'Engagement Viewer', 'quiet-harbor-34')
+
+    const created = await call('POST', '/api/listings', {
+      ...validListing,
+      title: `Engagement analytics fixture ${RUN_TAG}`,
+      description: 'Disposable listing used to verify aggregated views and interaction counters.',
+    }, engagementSeller)
+    const listingId = created.json?.listing?.id as string | undefined
+    ok('21b.1 create a disposable active listing for engagement tests', created.status === 201 && Boolean(listingId))
+
+    if (listingId && engagementSeller.user?.id) {
+      await call('GET', `/api/listings/${listingId}`, undefined, engagementSeller)
+      const ownerView = await db.listing.findUnique({ where: { id: listingId }, select: { viewCount: true } })
+      ok('21b.2 owner preview does not inflate listing views', ownerView?.viewCount === 0)
+
+      const publicView = await call('GET', `/api/listings/${listingId}`, undefined, engagementViewer)
+      const viewerCount = await db.listing.findUnique({ where: { id: listingId }, select: { viewCount: true } })
+      ok('21b.3 public listing detail increments the all-time view counter', publicView.status === 200 && viewerCount?.viewCount === 1)
+
+      const callClick = await call('POST', `/api/listings/${listingId}/engagement`, { event: 'CALL_CLICK' }, engagementViewer)
+      const whatsappClick = await call('POST', `/api/listings/${listingId}/engagement`, { event: 'WHATSAPP_CLICK' }, engagementViewer)
+      const shareClick = await call('POST', `/api/listings/${listingId}/engagement`, { event: 'SHARE_CLICK' }, engagementViewer)
+      ok('21b.4 listing Call, WhatsApp and share actions are accepted', callClick.status === 200 && callClick.json?.recorded === true && whatsappClick.status === 200 && whatsappClick.json?.recorded === true && shareClick.status === 200 && shareClick.json?.recorded === true)
+
+      const ownerClick = await call('POST', `/api/listings/${listingId}/engagement`, { event: 'CALL_CLICK' }, engagementSeller)
+      ok('21b.5 owner interactions are ignored in customer analytics', ownerClick.status === 200 && ownerClick.json?.recorded === false)
+
+      const shopId = engagementSeller.user.id
+      const shopView = await call('GET', `/api/shops/${shopId}`, undefined, engagementViewer)
+      const shopCall = await call('POST', `/api/shops/${shopId}/engagement`, { event: 'CALL_CLICK' }, engagementViewer)
+      const shopWhatsApp = await call('POST', `/api/shops/${shopId}/engagement`, { event: 'WHATSAPP_CLICK' }, engagementViewer)
+      const shopShare = await call('POST', `/api/shops/${shopId}/engagement`, { event: 'SHARE_CLICK' }, engagementViewer)
+      ok('21b.6 public shop views and contact/share actions are recorded', shopView.status === 200 && shopCall.status === 200 && shopCall.json?.recorded === true && shopWhatsApp.status === 200 && shopWhatsApp.json?.recorded === true && shopShare.status === 200 && shopShare.json?.recorded === true)
+
+      const analytics = await call('GET', '/api/my/business-analytics?period=7d', undefined, engagementSeller)
+      const eventListing = analytics.json?.engagement?.topListings?.find((item: any) => item.listingId === listingId)
+      ok('21b.7 seller analytics aggregate listing views and click actions by period', analytics.status === 200 && analytics.json?.engagement?.views === 1 && analytics.json?.engagement?.callClicks === 1 && analytics.json?.engagement?.whatsappClicks === 1 && analytics.json?.engagement?.shareClicks === 1 && eventListing?.views === 1)
+      ok('21b.8 seller analytics aggregate shop profile performance', analytics.status === 200 && analytics.json?.shopEngagement?.views === 1 && analytics.json?.shopEngagement?.callClicks === 1 && analytics.json?.shopEngagement?.whatsappClicks === 1 && analytics.json?.shopEngagement?.shareClicks === 1)
+
+      const otherAnalytics = await call('GET', '/api/my/business-analytics?period=7d', undefined, engagementViewer)
+      ok('21b.9 another account cannot see the seller engagement aggregates', otherAnalytics.status === 200 && otherAnalytics.json?.engagement?.views === 0 && otherAnalytics.json?.shopEngagement?.views === 0 && !(otherAnalytics.json?.engagement?.topListings ?? []).some((item: any) => item.listingId === listingId))
+      ok('21b.10 analytics response does not expose viewer identifiers or IP addresses', !JSON.stringify(analytics.json).includes('viewerIp') && !JSON.stringify(analytics.json).includes('visitorId') && !JSON.stringify(analytics.json).includes('phone'))
+    } else {
+      for (const label of [
+        '21b.2 owner preview does not inflate listing views',
+        '21b.3 public listing detail increments the all-time view counter',
+        '21b.4 listing Call, WhatsApp and share actions are accepted',
+        '21b.5 owner interactions are ignored in customer analytics',
+        '21b.6 public shop views and contact/share actions are recorded',
+        '21b.7 seller analytics aggregate listing views and click actions by period',
+        '21b.8 seller analytics aggregate shop profile performance',
+        '21b.9 another account cannot see the seller engagement aggregates',
+        '21b.10 analytics response does not expose viewer identifiers or IP addresses',
+      ]) ok(label, false, 'engagement listing fixture could not be created')
+    }
+  }
+
   console.log(`\n== 22. Hermetic sweep - this run leaves no fixtures behind ==`)
   {
     const ids = [...createdUserIds]
