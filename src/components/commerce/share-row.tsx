@@ -21,9 +21,10 @@ interface ShareAdRowProps {
   // What is being shared, for the sentence: "Check this ad on Mudaala" vs
   // "Check this shop on Mudaala".
   noun?: string
+  onShare?: () => void
 }
 
-export function ShareAdRow({ title, url, priceLabel, label = copy.listing.shareAria, noun = 'ad' }: ShareAdRowProps) {
+export function ShareAdRow({ title, url, priceLabel, label = copy.listing.shareAria, noun = 'ad', onShare }: ShareAdRowProps) {
   const [copied, setCopied] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => {
@@ -33,7 +34,8 @@ export function ShareAdRow({ title, url, priceLabel, label = copy.listing.shareA
   const shareText = `Check this ${noun} on Mudaala: ${title}${priceLabel ? ` (${priceLabel})` : ''}`
   const waHref = `https://wa.me/?text=${encodeURIComponent(`${shareText}\n${url}`)}`
 
-  async function copyLink() {
+  async function copyLink(track = true) {
+    if (track) onShare?.()
     try {
       await navigator.clipboard.writeText(url)
       setCopied(true)
@@ -49,6 +51,7 @@ export function ShareAdRow({ title, url, priceLabel, label = copy.listing.shareA
   // with WhatsApp installed): lets the buyer pick ANY channel, WhatsApp
   // still pre-installed as the explicit first button.
   async function nativeShare() {
+    onShare?.()
     if (typeof navigator !== 'undefined' && 'share' in navigator) {
       try {
         await navigator.share({ title, text: shareText, url })
@@ -56,7 +59,7 @@ export function ShareAdRow({ title, url, priceLabel, label = copy.listing.shareA
         // User dismissed the sheet - not an error.
       }
     } else {
-      void copyLink()
+      void copyLink(false)
     }
   }
 
@@ -66,6 +69,7 @@ export function ShareAdRow({ title, url, priceLabel, label = copy.listing.shareA
       <div className="mt-2 flex gap-2">
         <a
           href={waHref}
+          onClick={onShare}
           target="_blank"
           rel="noopener noreferrer"
           className="whatsapp-brand press flex h-10 flex-1 items-center justify-center gap-1.5 rounded-md border text-[14px] font-semibold"
@@ -75,7 +79,7 @@ export function ShareAdRow({ title, url, priceLabel, label = copy.listing.shareA
         </a>
         <button
           type="button"
-          onClick={copyLink}
+          onClick={() => { void copyLink() }}
           className="press flex h-10 flex-1 items-center justify-center gap-1.5 rounded-md border bg-card text-[14px] font-medium hover:bg-accent/50"
           aria-label="Copy ad link"
         >
@@ -103,6 +107,7 @@ export function ShareAdRow({ title, url, priceLabel, label = copy.listing.shareA
       <div className="mt-3 flex flex-wrap gap-2" aria-label="Share this ad on social media">
         <a
           href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`}
+          onClick={onShare}
           target="_blank"
           rel="noopener noreferrer"
           className="press rounded-md border bg-card px-3 py-2 text-xs font-medium hover:bg-accent/50"
@@ -111,6 +116,7 @@ export function ShareAdRow({ title, url, priceLabel, label = copy.listing.shareA
         </a>
         <a
           href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(url)}`}
+          onClick={onShare}
           target="_blank"
           rel="noopener noreferrer"
           className="press rounded-md border bg-card px-3 py-2 text-xs font-medium hover:bg-accent/50"
@@ -119,6 +125,7 @@ export function ShareAdRow({ title, url, priceLabel, label = copy.listing.shareA
         </a>
         <a
           href={`https://www.pinterest.com/pin/create/button/?url=${encodeURIComponent(url)}&description=${encodeURIComponent(shareText)}`}
+          onClick={onShare}
           target="_blank"
           rel="noopener noreferrer"
           className="press rounded-md border bg-card px-3 py-2 text-xs font-medium hover:bg-accent/50"
@@ -127,6 +134,7 @@ export function ShareAdRow({ title, url, priceLabel, label = copy.listing.shareA
         </a>
         <a
           href={`mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(`${shareText}\n${url}`)}`}
+          onClick={onShare}
           className="press rounded-md border bg-card px-3 py-2 text-xs font-medium hover:bg-accent/50"
         >
           Email
