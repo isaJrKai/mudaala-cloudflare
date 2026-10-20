@@ -260,6 +260,10 @@ export const businessSaleCreateSchema = z.object({
   path: ['productTitle'],
 })
 
+export const businessSaleVoidSchema = z.object({
+  reason: z.string().trim().min(3, 'Explain why this sale is being voided').max(300, 'Keep the reason under 300 characters'),
+})
+
 export const stockMovementCreateSchema = z.object({
   listingId: z.string().trim().min(1).max(64).optional().nullable(),
   productTitle: z.string().trim().min(1).max(120).optional(),
