@@ -83,8 +83,8 @@ export function SettingsView() {
         </div>
       </Section>
 
-      <Section icon={<Store className="size-4" aria-hidden />} title="Shop details" description="Your shop name, photos, location and public contacts already live in My business. Edit them there so there is only one source of truth.">
-        <Button variant="outline" onClick={() => navigate({ name: 'account' })}>Manage My business</Button>
+      <Section icon={<Store className="size-4" aria-hidden />} title="Shop profile" description="Your shop name, photos, location and public contacts are part of your account profile.">
+        <Button variant="outline" onClick={() => navigate({ name: 'account' })}>Manage shop profile</Button>
       </Section>
 
       <Section icon={<Bell className="size-4" aria-hidden />} title="Notifications" description="Manage saved searches and review alerts in their existing sections, with no duplicate controls.">
