@@ -33,7 +33,9 @@ export async function POST(request: Request) {
   return route(async () => {
     const user = await requireUser()
     const data = await parseBody(request, businessProductCreateSchema)
-    let product\n    try {\n      product = await db.$transaction(async (tx) => {
+    let product
+    try {
+      product = await db.$transaction(async (tx) => {
       const created = await tx.businessProduct.create({
         data: {
           userId: user.id,
