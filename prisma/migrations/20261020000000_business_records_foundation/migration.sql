@@ -68,6 +68,19 @@ CREATE INDEX "StockMovement_userId_createdAt_idx" ON "StockMovement"("userId", "
 CREATE INDEX "StockMovement_productId_createdAt_idx" ON "StockMovement"("productId", "createdAt");
 CREATE INDEX "StockMovement_saleId_idx" ON "StockMovement"("saleId");
 
+ALTER TABLE "BusinessProduct" ADD CONSTRAINT "BusinessProduct_sellingPrice_nonnegative" CHECK ("sellingPrice" >= 0);
+ALTER TABLE "BusinessProduct" ADD CONSTRAINT "BusinessProduct_costPrice_nonnegative" CHECK ("costPrice" IS NULL OR "costPrice" >= 0);
+ALTER TABLE "BusinessProduct" ADD CONSTRAINT "BusinessProduct_stockOnHand_nonnegative" CHECK ("stockOnHand" >= 0);
+ALTER TABLE "BusinessProduct" ADD CONSTRAINT "BusinessProduct_currency_UGX" CHECK ("currency" = 'UGX');
+ALTER TABLE "Sale" ADD CONSTRAINT "Sale_status_valid" CHECK ("status" IN ('COMPLETED', 'VOIDED'));
+ALTER TABLE "Sale" ADD CONSTRAINT "Sale_channel_valid" CHECK ("channel" IN ('MUDAALA', 'WHATSAPP', 'PHONE', 'IN_PERSON', 'OTHER'));
+ALTER TABLE "SaleItem" ADD CONSTRAINT "SaleItem_quantity_positive" CHECK ("quantity" > 0);
+ALTER TABLE "SaleItem" ADD CONSTRAINT "SaleItem_unitPrice_nonnegative" CHECK ("unitPrice" >= 0);
+ALTER TABLE "SaleItem" ADD CONSTRAINT "SaleItem_unitCost_nonnegative" CHECK ("unitCost" IS NULL OR "unitCost" >= 0);
+ALTER TABLE "SaleItem" ADD CONSTRAINT "SaleItem_lineTotal_nonnegative" CHECK ("lineTotal" >= 0);
+ALTER TABLE "StockMovement" ADD CONSTRAINT "StockMovement_type_valid" CHECK ("type" IN ('OPENING', 'RESTOCK', 'SALE', 'RETURN', 'ADJUSTMENT', 'DAMAGE', 'CORRECTION'));
+ALTER TABLE "StockMovement" ADD CONSTRAINT "StockMovement_quantityDelta_nonzero" CHECK ("quantityDelta" <> 0);
+
 ALTER TABLE "BusinessProduct" ADD CONSTRAINT "BusinessProduct_userId_fkey"
   FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "BusinessProduct" ADD CONSTRAINT "BusinessProduct_listingId_fkey"
