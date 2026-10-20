@@ -5,7 +5,7 @@ import { businessProductCreateSchema } from '@/lib/business-records'
 function serializeProduct(product: {
   id: string; name: string; sku: string | null; unit: string; currency: string
   sellingPrice: { toString(): string }; costPrice: { toString(): string } | null
-  stockOnHand: { toString(): string }; trackInventory: boolean; archived: boolean
+  stockOnHand: { toString(): string }; reorderLevel: { toString(): string }; trackInventory: boolean; archived: boolean
   createdAt: Date; updatedAt: Date
 }) {
   return {
@@ -13,6 +13,7 @@ function serializeProduct(product: {
     sellingPrice: Number(product.sellingPrice),
     costPrice: product.costPrice === null ? null : Number(product.costPrice),
     stockOnHand: Number(product.stockOnHand),
+    reorderLevel: Number(product.reorderLevel),
     createdAt: product.createdAt.toISOString(),
     updatedAt: product.updatedAt.toISOString(),
   }
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
             sellingPrice: data.sellingPrice.toFixed(2),
             costPrice: data.costPrice == null ? null : data.costPrice.toFixed(2),
             stockOnHand: data.openingStock.toFixed(3),
+            reorderLevel: data.reorderLevel.toFixed(3),
             trackInventory: data.trackInventory,
           },
         })
