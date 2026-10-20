@@ -332,6 +332,7 @@ model Sale {
   userId    String
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   status    String     @default("COMPLETED") // COMPLETED | VOIDED
+  idempotencyKey String?
   channel   String     @default("OTHER") // MUDAALA | WHATSAPP | PHONE | IN_PERSON | OTHER
   currency  String     @default("UGX")
   soldAt    DateTime   @default(now())
@@ -342,6 +343,7 @@ model Sale {
   items     SaleItem[]
   movements StockMovement[]
 
+  @@unique([userId, idempotencyKey])
   @@index([userId, soldAt])
   @@index([userId, status, soldAt])
 }
