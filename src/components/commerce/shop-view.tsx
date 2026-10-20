@@ -14,7 +14,7 @@ import { ArrowLeft, BadgeCheck, Check, Clock, Copy, ExternalLink, Eye, Leaf, Map
 import { WhatsAppIcon } from '@/components/commerce/brand-icons'
 import QRCode from 'react-qr-code'
 import { Button } from '@/components/ui/button'
-import { apiGet } from '@/lib/client'
+import { apiFetch, apiGet } from '@/lib/client'
 import type { ShopPage as ShopPageT, ListingShopOwner } from '@/lib/client'
 import { telLink, whatsappLink, formatPhonePretty } from '@/lib/format'
 import { useAppStore } from '@/lib/store'
@@ -81,6 +81,13 @@ export function ShopView({ id }: { id: string }) {
   }
 
   const { shop, listings } = data
+  const trackShopEngagement = (event: 'CALL_CLICK' | 'WHATSAPP_CLICK' | 'SHARE_CLICK') => {
+    void apiFetch(`/api/shops/${encodeURIComponent(shop.id)}/engagement`, {
+      method: 'POST',
+      body: JSON.stringify({ event }),
+      keepalive: true,
+    }).catch(() => undefined)
+  }
   const whatsappNumber = shop.whatsapp ?? shop.phone
   const doneCount = Object.values(shop.checklist).filter(Boolean).length
   const isOwner = !sessionLoading && user?.id === shop.id
@@ -302,7 +309,7 @@ export function ShopView({ id }: { id: string }) {
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button asChild className="press h-11 flex-1 text-[15px]">
-              <a href={telLink(shop.phone)} aria-label={`Call ${shop.name}`}>
+              <a href={telLink(shop.phone)} aria-label={`Call ${shop.name}`} onClick={() => trackShopEngagement('CALL_CLICK')}>
                 <Phone className="size-4" aria-hidden /> {copy.common.call}
               </a>
             </Button>
@@ -324,6 +331,7 @@ export function ShopView({ id }: { id: string }) {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={`WhatsApp ${shop.name}`}
+                  onClick={() => trackShopEngagement('WHATSAPP_CLICK')}
                 >
                   <WhatsAppIcon className="size-4" aria-hidden /> WhatsApp
                 </a>
@@ -372,6 +380,7 @@ export function ShopView({ id }: { id: string }) {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`Share ${shop.name} on WhatsApp`}
+                    onClick={() => trackShopEngagement('SHARE_CLICK')}
                   >
                     <Share2 className="size-3.5" aria-hidden /> Share
                   </a>
