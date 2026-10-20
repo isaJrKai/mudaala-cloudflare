@@ -1,4 +1,4 @@
-import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, parseBody, requireUser } from '@/lib/api'
 import { db } from '@/lib/db'
 import { businessProductCreateSchema } from '@/lib/business-records'
 
