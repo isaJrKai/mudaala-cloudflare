@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AppHeader } from './app-header'
 import { BottomNav } from './bottom-nav'
 import { AuthDialog } from './auth-dialog'
 import { HomeDashboard } from './home-view'
-import { BusinessDashboard } from './business-dashboard'
 import { ListingsBrowse } from './listings-browse'
 import { ListingDetail } from './listing-detail'
 import { ShopView } from './shop-view'
@@ -19,6 +18,10 @@ import { AccountView } from './account-view'
 import { SettingsView } from './settings-view'
 import { ShopFollowBar, FollowingView } from './shop-follow'
 import { useAppStore, hashToView, viewToHash } from '@/lib/store'
+
+// Keep the business-management surface out of the initial public marketplace
+// render. It is loaded only when the user opens My Business.
+const BusinessDashboard = lazy(() => import('./business-dashboard').then((module) => ({ default: module.BusinessDashboard })))
 
 function makeQueryClient() {
   return new QueryClient({
@@ -43,7 +46,11 @@ function CurrentViewContent() {
     case 'home':
       return <HomeDashboard />
     case 'business':
-      return <BusinessDashboard />
+      return (
+        <Suspense fallback={<div className="p-4 text-sm text-muted-foreground" role="status">Loading your business...</div>}>
+          <BusinessDashboard />
+        </Suspense>
+      )
     case 'listing':
       return view.id ? <ListingDetail id={view.id} /> : <ListingsBrowse />
     case 'shop':
