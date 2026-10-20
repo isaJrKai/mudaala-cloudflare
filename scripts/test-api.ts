@@ -1220,17 +1220,41 @@ async function main() {
     ok('admin analytics denies ordinary signed-in account → 403', sellerAnalytics.status === 403)
 
     const adminAnalytics = await call('GET', '/api/admin/analytics', undefined, admin)
-    const expectedMetricKeys = [
+    const expectedNumericMetricKeys = [
       'registeredAccounts', 'signupsToday', 'signupsLast7Days', 'signupsLast30Days',
-      'shopsCreated', 'activeListings', 'listingViews', 'shopFollows',
-      'accountsWithValidSessions', 'openReports',
+      'shopsCreated', 'activeListings', 'fulfilledListings', 'expiredListings',
+      'archivedListings', 'hiddenListings', 'activeOffers', 'activeRequests',
+      'listingViews', 'shopFollows', 'accountsWithValidSessions', 'openReports',
+      'listingsExpiringNext24Hours', 'savedSearches', 'unreadNotifications',
+      'openReportsOlderThan24Hours',
+    ].sort()
+    const expectedBreakdownKeys = [
+      'activeListingsByCategory', 'activeListingsByCounty',
+      'openReportsByReason', 'moderationActionsLast7Days',
     ].sort()
     const actualMetricKeys = Object.keys(adminAnalytics.json?.metrics ?? {}).sort()
+    const actualBreakdownKeys = expectedBreakdownKeys.filter((key) =>
+      Array.isArray(adminAnalytics.json?.metrics?.[key]),
+    ).sort()
     ok(
-      'admin analytics returns only the defined aggregate metrics',
+      'admin analytics returns the defined numeric aggregates and breakdowns',
       adminAnalytics.status === 200 &&
-        JSON.stringify(actualMetricKeys) === JSON.stringify(expectedMetricKeys) &&
-        expectedMetricKeys.every((key) => typeof adminAnalytics.json.metrics[key] === 'number'),
+        expectedNumericMetricKeys.every((key) => typeof adminAnalytics.json.metrics[key] === 'number') &&
+        expectedBreakdownKeys.every((key) => actualMetricKeys.includes(key)) &&
+        expectedNumericMetricKeys.every((key) => actualMetricKeys.includes(key)) &&
+        JSON.stringify(actualBreakdownKeys) === JSON.stringify(expectedBreakdownKeys),
+    )
+    ok(
+      'admin analytics suppresses small category/location groups and returns counts only',
+      adminAnalytics.status === 200 &&
+        adminAnalytics.json?.privacy === 'aggregate-only' &&
+        adminAnalytics.json?.privacyThreshold === 5 &&
+        ['activeListingsByCategory', 'activeListingsByCounty'].every((key) =>
+          adminAnalytics.json.metrics[key].every((item: any) => typeof item.label === 'string' && item.count >= 5),
+        ) &&
+        ['openReportsByReason', 'moderationActionsLast7Days'].every((key) =>
+          adminAnalytics.json.metrics[key].every((item: any) => typeof item.label === 'string' && typeof item.count === 'number'),
+        ),
     )
     ok(
       'admin analytics response contains no user-level identity or activity rows',
