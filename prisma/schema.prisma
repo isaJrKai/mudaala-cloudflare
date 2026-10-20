@@ -356,7 +356,7 @@ model SaleItem {
   saleId           String
   sale             Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
   productId        String
-  product          BusinessProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+  product          BusinessProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
   productName      String
   unit             String
   quantity         Decimal        @db.Decimal(14, 3)
@@ -377,7 +377,7 @@ model StockMovement {
   userId      String
   user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   productId   String
-  product     BusinessProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+  product     BusinessProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
   saleId      String?
   sale        Sale?           @relation(fields: [saleId], references: [id], onDelete: SetNull)
   type        String // OPENING | RESTOCK | SALE | RETURN | ADJUSTMENT | DAMAGE | CORRECTION
