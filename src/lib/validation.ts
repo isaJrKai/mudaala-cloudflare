@@ -238,6 +238,49 @@ export const profileLocationSchema = z
     path: ['lat'],
   })
 
+
+export const businessSaleCreateSchema = z.object({
+  listingId: z.string().trim().min(1).max(64).optional().nullable(),
+  productTitle: z.string().trim().min(1).max(120).optional(),
+  quantity: z.number().finite().positive().max(1_000_000)
+    .refine((v) => Math.round(v * 1000) === v * 1000, 'Quantity can have at most 3 decimal places'),
+  unit: z.string().trim().min(1).max(30).optional().nullable(),
+  unitPrice: z.number().finite().min(0).max(100_000_000)
+    .refine((v) => Math.round(v * 100) === v * 100, 'Price can have at most 2 decimal places'),
+  unitCost: z.number().finite().min(0).max(100_000_000)
+    .refine((v) => Math.round(v * 100) === v * 100, 'Cost can have at most 2 decimal places')
+    .optional().nullable(),
+  currency: z.enum(CURRENCY_KEYS).optional(),
+  channel: z.enum(['IN_PERSON', 'PHONE', 'WHATSAPP', 'MUDAALA', 'OTHER']).default('IN_PERSON'),
+  note: z.string().trim().max(500).optional().nullable(),
+  occurredAt: z.string().datetime().optional(),
+  adjustStock: z.boolean().default(false),
+}).refine((v) => Boolean(v.listingId) || Boolean(v.productTitle?.trim()), {
+  message: 'Choose a listed product or enter a product name',
+  path: ['productTitle'],
+})
+
+export const stockMovementCreateSchema = z.object({
+  listingId: z.string().trim().min(1).max(64).optional().nullable(),
+  productTitle: z.string().trim().min(1).max(120).optional(),
+  quantityDelta: z.number().finite().refine((v) => v !== 0, 'Quantity change cannot be zero')
+    .refine((v) => Math.abs(v) <= 1_000_000, 'Quantity change is too large')
+    .refine((v) => Math.round(v * 1000) === v * 1000, 'Quantity can have at most 3 decimal places'),
+  unit: z.string().trim().min(1).max(30).optional().nullable(),
+  reason: z.enum(['OPENING_BALANCE', 'RESTOCK', 'RETURN', 'ADJUSTMENT', 'DAMAGED', 'LOST', 'CORRECTION']),
+  note: z.string().trim().max(500).optional().nullable(),
+  occurredAt: z.string().datetime().optional(),
+}).refine((v) => Boolean(v.listingId) || Boolean(v.productTitle?.trim()), {
+  message: 'Choose a listed product or enter a product name',
+  path: ['productTitle'],
+}).refine((v) => !['OPENING_BALANCE', 'RESTOCK', 'RETURN'].includes(v.reason) || v.quantityDelta > 0, {
+  message: 'This movement must add stock',
+  path: ['quantityDelta'],
+}).refine((v) => !['DAMAGED', 'LOST'].includes(v.reason) || v.quantityDelta < 0, {
+  message: 'This movement must remove stock',
+  path: ['quantityDelta'],
+})
+
 export type ListingQuery = z.infer<typeof listingQuerySchema>
 
 export const savedSearchCreateSchema = z.object({
