@@ -267,7 +267,7 @@ For each new idea, record: customer problem, evidence/source, intended user, sma
 
 - [ ] Verify the next real scheduled sweep on the updated Worker (cron `0 3 * * *` UTC; next expected run 2026-10-21 03:00 UTC). Do not invoke the production sweep manually; it can write real listing, notification and price-snapshot data.
 - [ ] Continue monitoring post-deploy 5xx/CPU telemetry over a longer window.
-- [ ] Correlate two HTTP 404 responses on `PATCH` and `DELETE /api/listings/:id` at 05:00 UTC with the corresponding disposable smoke-test run before classifying them as expected; three additional `/favicon.ico` 404s appear to be a separate missing-icon request. These are not 5xx or Worker CPU failures, but the listing 404s remain unexplained.
+- [x] Correlated the two HTTP 404 responses on `PATCH` and `DELETE /api/listings/:id` at 05:00 UTC with live owner-isolation workflow [39372487411](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39372487411): the test explicitly expects a non-owner's edit/delete to return 404, then verifies owner edit succeeds; the workflow passed. These are expected authorization denials, not a defect. Three `/favicon.ico` 404s are separate, non-blocking missing-icon requests and are not 5xx/CPU failures.
 - [ ] Physical-phone layout/QR check, safe backup-restore drill, phone-verification provider setup, and development-only `braces` advisory remain open as listed above.
 
 ### Parallel closeout review — 2026-10-20
