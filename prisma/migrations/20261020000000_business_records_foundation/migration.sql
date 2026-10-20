@@ -21,6 +21,7 @@ CREATE TABLE "Sale" (
   "id" TEXT NOT NULL,
   "userId" TEXT NOT NULL,
   "status" TEXT NOT NULL DEFAULT 'COMPLETED',
+  "idempotencyKey" TEXT,
   "channel" TEXT NOT NULL DEFAULT 'OTHER',
   "currency" TEXT NOT NULL DEFAULT 'UGX',
   "soldAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -60,6 +61,7 @@ CREATE UNIQUE INDEX "BusinessProduct_listingId_key" ON "BusinessProduct"("listin
 CREATE UNIQUE INDEX "BusinessProduct_userId_sku_key" ON "BusinessProduct"("userId", "sku");
 CREATE INDEX "BusinessProduct_userId_archived_updatedAt_idx" ON "BusinessProduct"("userId", "archived", "updatedAt");
 CREATE INDEX "BusinessProduct_userId_name_idx" ON "BusinessProduct"("userId", "name");
+CREATE UNIQUE INDEX "Sale_userId_idempotencyKey_key" ON "Sale"("userId", "idempotencyKey");
 CREATE INDEX "Sale_userId_soldAt_idx" ON "Sale"("userId", "soldAt");
 CREATE INDEX "Sale_userId_status_soldAt_idx" ON "Sale"("userId", "status", "soldAt");
 CREATE INDEX "SaleItem_saleId_idx" ON "SaleItem"("saleId");
