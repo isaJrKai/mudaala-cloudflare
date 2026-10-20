@@ -1,4 +1,4 @@
-import { route, jsonOk, parseBody, requireUser } from '@/lib/api'
+import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { businessProductCreateSchema } from '@/lib/business-records'
 
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   return route(async () => {
     const user = await requireUser()
     const data = await parseBody(request, businessProductCreateSchema)
-    const product = await db.$transaction(async (tx) => {
+    let product\n    try {\n      product = await db.$transaction(async (tx) => {
       const created = await tx.businessProduct.create({
         data: {
           userId: user.id,
