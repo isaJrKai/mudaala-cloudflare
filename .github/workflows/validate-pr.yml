@@ -39,6 +39,12 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Set up Bun for content-policy tests
+        uses: oven-sh/setup-bun@v2
+
+      - name: Test marketplace content policy
+        run: npm run test:content-policy
+
       - name: Run ESLint across the repository
         run: npm run lint
 

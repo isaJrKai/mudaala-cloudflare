@@ -1,3 +1,4 @@
+// Mudaala validation schemas; marketplace content rules live here.
 // Mudaala - shared validation schemas (zod).
 // Used by BOTH the API routes (integrity boundary) and the forms (usability).
 // Never duplicate these rules elsewhere.
@@ -52,6 +53,12 @@ export function countryPhoneMessage(country: CountryKey): string {
 // Shared untransformed phone string for schemas that carry an explicit country
 // (register / listings) - the route normalizes after parsing so the error can
 // name the right country.
+const MARKETPLACE_EMOJI_PATTERN = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]|[#*0-9]\uFE0F?\u20E3/u
+
+export function containsMarketplaceEmoji(value: string): boolean {
+  return MARKETPLACE_EMOJI_PATTERN.test(value) || [...value].some((character) => { const point = character.codePointAt(0) ?? 0; return point >= 127462 && point <= 127487 })
+}
+
 const rawPhone = z.string().trim().min(1, 'Phone number is required').max(20, 'Phone number is too long')
 
 export const registerSchema = z.object({
@@ -150,8 +157,8 @@ const quantitySchema = z
 // every PATCH. Servers derive the country from the user/listing instead.
 const listingBaseSchema = z.object({
   type: z.enum(LISTING_TYPES, { message: 'Choose OFFER or REQUEST' }),
-  title: z.string().trim().min(4, 'Title must be at least 4 characters').max(120, 'Title must be 120 characters or fewer'),
-  description: z.string().trim().min(20, 'Describe what you offer or need (at least 20 characters)').max(2000, 'Description must be 2000 characters or fewer'),
+  title: z.string().trim().min(4, 'Title must be at least 4 characters').max(120, 'Title must be 120 characters or fewer').refine((value) => !containsMarketplaceEmoji(value), 'Remove emojis from the product title so buyers can find it easily.'),
+  description: z.string().trim().min(20, 'Describe what you offer or need (at least 20 characters)').max(2000, 'Description must be 2000 characters or fewer').refine((value) => !containsMarketplaceEmoji(value), 'Please remove emojis from the description and keep the product details in words.'),
   category: z.enum(CATEGORY_KEYS as [string, ...string[]], { message: 'Choose a category' }),
   price: priceSchema.nullable(),
   // Optional "was" price for discounts. Only meaningful alongside a current
@@ -271,7 +278,7 @@ export const momoMerchantNameSchema = z
 
 export const businessProfileSchema = z
   .object({
-    businessName: z.string().trim().min(2, 'Business name must be at least 2 characters').max(80, 'Business name is too long'),
+    businessName: z.string().trim().min(2, 'Business name must be at least 2 characters').max(80, 'Business name is too long').refine((value) => !containsMarketplaceEmoji(value), 'Remove emojis from your shop name. Use your business name as you want customers to find it.'),
     photoUrl: photoUrlSchema.nullable(),
     coverPhotoUrl: photoUrlSchema.nullable().optional(),
     websiteUrl: z.string().trim().max(2048, 'Website URL is too long').url('Enter a valid website URL').refine((value) => { try { return new URL(value).protocol === 'https:' } catch { return false } }, 'Website URL must start with https://').nullable().optional(),

@@ -346,3 +346,10 @@ For each new idea, record: customer problem, evidence/source, intended user, sma
 - [x] Supabase security advisor rechecked at 2026-10-20 17:42 UTC: **zero security lints**. Performance advisor reports **9 informational unused-index findings**; no indexes were dropped.
 - [x] The photo-guidance change is now deployed. It adds practical seller photo reminders in My Business and links to the existing listing flow. Public storefront, existing photos, QR codes, accounts, and download button were not modified by this change.
 - [ ] Still open and not safely completable from this deployment: logical backup + disposable local PostgreSQL restore drill; full verified-phone registration lifecycle and provider credentials; next scheduled sweep observation at 2026-10-21 03:00 UTC / 06:00 Uganda time (do not manually invoke); physical-phone tests for My Business, QR scan, call/WhatsApp; and the tracked development-toolchain advisory remediation in issue [#132](https://github.com/isaJrKai/mudaala-cloudflare/issues/132).
+
+
+## Product ethics and content policy — 2026-10-20
+
+- [ ] PR [#160](https://github.com/isaJrKai/mudaala-cloudflare/pull/160) adds `docs/PRODUCT_ETHICS_AND_CONTENT_STANDARDS.md`, shared emoji validation for shop names/listing titles/listing descriptions, and Bun tests. Do not mark implemented until required CI passes and the PR is merged/deployed and live behavior is verified.
+- [x] Read-only audit identified the exact shop profile `Annet cakes 🎂` (profile ID `cmvf4sxcf0001xt1mqtxgfe98`). Intended narrow correction is `Annet cakes`; retain its existing profile, owner, and both photo URLs.
+- [ ] The production database write to remove only the cake emoji was blocked by the connected database tool's safety check. The live record has **not** been changed; do not report it as fixed. Complete the same one-field correction through an approved database write path, then re-read the row and verify both image URLs remain unchanged.
