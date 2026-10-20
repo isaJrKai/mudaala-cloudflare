@@ -1,5 +1,6 @@
 import { route, jsonOk, requireUser, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
+import { ugandaCalendarDay } from '@/lib/listing-analytics'
 
 type SalesAggregate = {
   currency: string
@@ -18,6 +19,7 @@ export async function GET(request: Request) {
     const days = period === '7d' ? 7 : period === '30d' ? 30 : period === '90d' ? 90 : null
     if (days === null) throw new ApiError(400, 'Choose a 7d, 30d, or 90d reporting period')
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+    const sinceDay = ugandaCalendarDay(since)
 
     // Aggregate in PostgreSQL so the dashboard does not load an unbounded
     // sale-item history into a Worker. Only completed, seller-recorded sales
@@ -46,10 +48,45 @@ export async function GET(request: Request) {
       _sum: { viewCount: true },
       _count: { id: true },
     })
-    const [productCount, trackedProducts] = await Promise.all([
+    const [productCount, trackedProducts, engagement, topListingRows] = await Promise.all([
       db.businessProduct.count({ where: { userId: user.id, archived: false } }),
       db.businessProduct.count({ where: { userId: user.id, archived: false, trackInventory: true } }),
+      db.listingDailyAnalytics.aggregate({
+        where: { ownerId: user.id, day: { gte: sinceDay } },
+        _sum: { views: true, callClicks: true, whatsappClicks: true, shareClicks: true },
+      }),
+      db.listingDailyAnalytics.groupBy({
+        by: ['listingId'],
+        where: { ownerId: user.id, day: { gte: sinceDay }, listingId: { not: null } },
+        _sum: { views: true, callClicks: true, whatsappClicks: true, shareClicks: true },
+        orderBy: { _sum: { views: 'desc' } },
+        take: 5,
+      }),
     ])
+    const topListingIds = topListingRows.map((row) => row.listingId).filter((id): id is string => Boolean(id))
+    const topListingNames = topListingIds.length
+      ? await db.listing.findMany({ where: { id: { in: topListingIds }, userId: user.id }, select: { id: true, title: true } })
+      : []
+    const titleById = new Map(topListingNames.map((listing) => [listing.id, listing.title]))
+    const listingEngagement = {
+      views: engagement._sum.views ?? 0,
+      callClicks: engagement._sum.callClicks ?? 0,
+      whatsappClicks: engagement._sum.whatsappClicks ?? 0,
+      shareClicks: engagement._sum.shareClicks ?? 0,
+    }
+    const topListings = topListingRows.flatMap((row) => {
+      if (!row.listingId) return []
+      const title = titleById.get(row.listingId)
+      if (!title) return []
+      return [{
+        listingId: row.listingId,
+        title,
+        views: row._sum.views ?? 0,
+        callClicks: row._sum.callClicks ?? 0,
+        whatsappClicks: row._sum.whatsappClicks ?? 0,
+        shareClicks: row._sum.shareClicks ?? 0,
+      }]
+    })
 
     return jsonOk({
       period,
@@ -65,6 +102,18 @@ export async function GET(request: Request) {
       })),
       listingViews: listingStats._sum.viewCount ?? 0,
       listingCount: listingStats._count.id,
+      engagement: {
+        ...listingEngagement,
+        contactClicks: listingEngagement.callClicks + listingEngagement.whatsappClicks,
+        topListings,
+        definitions: {
+          views: 'Recorded public active listing-detail page loads in the selected Uganda-calendar period; not unique people reached or ad impressions.',
+          callClicks: 'Taps on a listing Call link; not proof a call connected.',
+          whatsappClicks: 'Taps on a listing WhatsApp link; not proof a message was sent.',
+          shareClicks: 'Taps on a listing share/copy action; not proof the link was delivered or opened.',
+          contactClicks: 'Call and WhatsApp button taps combined, not confirmed inquiries or sales.',
+        },
+      },
       activeBusinessProducts: productCount,
       inventoryTrackedProducts: trackedProducts,
       definitions: {
