@@ -226,9 +226,10 @@ export function BusinessDashboard() {
             </CardContent>
           </Card>
 
-          <BusinessRecordsPanel />
         </div>
       </section>
+
+      <BusinessRecordsPanel />
 
       <p className="text-xs text-muted-foreground">
         These figures come from your current listing records. They are not ad impressions, unique people reached, confirmed orders or profit.
