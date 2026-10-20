@@ -296,3 +296,24 @@ For each new idea, record: customer problem, evidence/source, intended user, sma
 - [x] Supabase security advisors returned zero lints at 2026-10-20 05:19 UTC.
 - [x] Supabase performance advisors returned five informational unused-index findings on `Report`, `AuditLog`, and `PriceSnapshot` indexes. No index was dropped or changed; unused-index advisories are not sufficient evidence to remove indexes from security/audit and scheduled maintenance paths without query-plan and workload review.
 - [ ] Backup readiness remains open: the organization is Free tier, so confirm/export a logical database backup with the Supabase CLI, store it off-site, and complete a disposable local PostgreSQL restore. No paid branch/project is necessary for the initial drill; no restore target was created and no production data was changed.
+
+## My Business workspace and records — 2026-10-20
+
+### Completed and verified in GitHub
+
+- [x] PR [#153](https://github.com/isaJrKai/mudaala-cloudflare/pull/153) merged as `9e55bb0a2f554f422d2952858c9c30c96d098fa9`. Added a dedicated My Business workspace, separated shop/account settings from the business overview, and showed listing views, active listings, fulfilled status (explicitly not verified sales), and listings expiring soon.
+- [x] Cloudflare deployment list showed deployment `f8516bc2-8f75-48c1-bc29-d8c1813e58aa`, Worker version `14ee9dd1-dbb5-4dbb-af4a-1caafd1b8d71` serving 100% traffic, created 2026-10-20 15:53:38 UTC. This is the latest observed deployment before PR #155; do not treat the new business-record APIs as live until a newer deployment and post-deploy checks are confirmed.
+- [x] PR [#155](https://github.com/isaJrKai/mudaala-cloudflare/pull/155) merged as `6717c11b2acfe58e631335d004168f67ee2a0f46`. Added business product, sale, sale-item snapshot and stock-movement models with an additive migration; owner-scoped product/stock/sales/analytics/export APIs; idempotent sale recording; transactional stock changes; auditable voids; configurable low-stock thresholds; and a My Business UI for recording completed sales and managing products/stock.
+- [x] Validation workflow [39456564703](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39456564703) passed; shop/listing/public regression and Worker build [39456564778](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39456564778) passed. The API suite reported 546 passed, 0 failed, including new ownership, stock consistency, idempotency, oversell prevention, profit calculations, voids, stock history and CSV export checks.
+- [x] Listing.quantity remains unchanged and is not silently treated as stock-on-hand. Views remain interest signals, not unique reach, confirmed orders, or profit. Profit remains unknown when cost data is incomplete and excludes operating expenses. CSV export is owner-scoped and guards spreadsheet formula injection.
+
+### Deployment and follow-up still open
+
+- [ ] Confirm the post-PR #155 deployment workflow succeeds and Cloudflare shows a new Worker version serving 100% traffic before claiming the business-record APIs are live.
+- [ ] Run post-deploy API/privacy/photo and shop/search verification against the new version; inspect bounded telemetry for errors. No production data was manually seeded or mutated during implementation.
+- [ ] Test My Business with a real signed-in founder account and on a physical phone, including product creation, opening stock, sale recording, stock decrement/restock, low-stock alerts, void/reversal, CSV download, and navigation. The connected session cannot confirm the founder's signed-in browser.
+- [ ] Next product work: link existing public listings into the business catalogue without reinterpreting listing quantity, add listing/shop view and contact-click event instrumentation with privacy-safe aggregation, and improve multi-item sales workflows.
+- [ ] Then build promotions (discounts, bundles, collections), followed by market analytics using privacy-protected aggregate data.
+- [ ] Prepare a provider-neutral AI-agent adapter with owner consent, scoped tools, audit logs and staged permissions. Do not deploy an autonomous agent or build a new model before the records, analytics and permission boundary are reliable. Evaluate Hermes Agent and alternatives separately before choosing an integration.
+- [ ] Keep seller phone verification as a separate release gate: Google or phone access for buyers; sellers must verify phone ownership before listing or opening a shop; safely link accounts; retain phone-based recovery. Provider setup and the app-side OTP lifecycle remain unfinished.
+
