@@ -320,3 +320,16 @@ For each new idea, record: customer problem, evidence/source, intended user, sma
 - [ ] Keep seller phone verification as a separate release gate: Google or phone access for buyers; sellers must verify phone ownership before listing or opening a shop; safely link accounts; retain phone-based recovery. Provider setup and the app-side OTP lifecycle remain unfinished.
 - [x] Closed duplicate parallel PR [#157](https://github.com/isaJrKai/mudaala-cloudflare/pull/157) without merging because it duplicated the stronger canonical implementation in PR #155; continue from the existing BusinessProduct/Sale/SaleItem schema and APIs.
 
+
+
+## End-to-end follow-up — 2026-10-20 (latest read-only checks)
+
+- [x] Cloudflare's latest Worker deployment record reports deployment `37dd0983-e3df-4e54-aa80-8c8298f39815`, version `00e1beeb-611b-450c-a025-2a436ff55b0c`, serving **100%** of traffic (observed at 2026-10-20 17:15 UTC).
+- [x] Cloudflare Workers Observability issue summary reports `activeIssues=0` and `activeOccurrences=0`. This is the current detected-issues summary, not a guarantee that no isolated request errors occurred; keep watching bounded telemetry.
+- [x] Supabase security advisor still reports **zero security lints**. The performance advisor currently reports **9 informational unused-index findings**; these include older moderation/price-snapshot indexes and some newer business-record indexes. No indexes were dropped; review actual query plans and workload before any removal.
+- [ ] Observe the next normal scheduled maintenance run at **2026-10-21 03:00 UTC (06:00 Uganda time)**. Do not manually trigger the production sweep.
+- [ ] Recovery gate remains open: complete a logical backup and restore to a disposable local PostgreSQL target. No production restore, reset, or data mutation is authorized or needed for this drill.
+- [ ] Phone-verification gate remains open: the active Worker lacks the required Africa's Talking `AT_API_KEY` and `AT_USERNAME` bindings. Keep seller phone verification disabled until credentials are configured through the approved secret workflow and the pending-registration/OTP lifecycle is tested end to end.
+- [ ] Physical-device checks remain manual: inspect My Business/listing layout, scan the live shop QR, and test the live call/WhatsApp actions on a real phone.
+- [ ] Photo-guidance improvement is proposed in [PR #159](https://github.com/isaJrKai/mudaala-cloudflare/pull/159); it is **not deployed** while required CI is pending. The existing photo picker already includes listing-photo tips; this PR adds a compact reminder to My Business and a direct link to posting.
+- [ ] Continue to leave the download button untouched. Existing accounts, listings, photos, shop data, and QR codes must remain intact.
