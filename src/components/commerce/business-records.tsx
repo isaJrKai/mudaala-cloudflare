@@ -53,6 +53,7 @@ export function BusinessRecords() {
   const [listingId, setListingId] = useState('')
   const [productTitle, setProductTitle] = useState('')
   const [quantity, setQuantity] = useState('1')
+  const [saleUnit, setSaleUnit] = useState('piece')
   const [unitPrice, setUnitPrice] = useState('')
   const [unitCost, setUnitCost] = useState('')
   const [channel, setChannel] = useState('IN_PERSON')
@@ -63,6 +64,7 @@ export function BusinessRecords() {
   const [stockListingId, setStockListingId] = useState('')
   const [stockTitle, setStockTitle] = useState('')
   const [stockDelta, setStockDelta] = useState('1')
+  const [stockUnit, setStockUnit] = useState('piece')
   const [stockReason, setStockReason] = useState('OPENING_BALANCE')
   const [stockNote, setStockNote] = useState('')
 
@@ -83,6 +85,7 @@ export function BusinessRecords() {
   })
 
   const listings = (listingsQuery.data?.listings ?? []).filter((item) => item.type === 'OFFER' && item.status !== 'ARCHIVED' && item.status !== 'HIDDEN')
+  const stockListings = listings.filter((item) => item.category !== 'services')
   const selectedListing = listings.find((item) => item.id === listingId)
   const selectedStockListing = listings.find((item) => item.id === stockListingId)
   const sales = salesQuery.data?.sales ?? []
@@ -125,7 +128,7 @@ export function BusinessRecords() {
       quantity: Number(quantity), unitPrice: Number(unitPrice), channel, adjustStock,
       ...(unitCost.trim() ? { unitCost: Number(unitCost) } : {}),
       ...(saleNote.trim() ? { note: saleNote.trim() } : {}),
-      ...(listingId ? { listingId } : { productTitle: productTitle.trim() }),
+      ...(listingId ? { listingId } : { productTitle: productTitle.trim(), unit: saleUnit.trim() }),
     }
     recordSale.mutate(payload)
   }
@@ -134,7 +137,7 @@ export function BusinessRecords() {
     recordStock.mutate({
       quantityDelta: Number(stockDelta), reason: stockReason,
       ...(stockNote.trim() ? { note: stockNote.trim() } : {}),
-      ...(stockListingId ? { listingId: stockListingId } : { productTitle: stockTitle.trim() }),
+      ...(stockListingId ? { listingId: stockListingId } : { productTitle: stockTitle.trim(), unit: stockUnit.trim() }),
     })
   }
 
@@ -161,12 +164,12 @@ export function BusinessRecords() {
                   <option value="">Enter a product not listed on Mudaala</option>
                   {listings.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
                 </SelectField>
-                {!listingId ? <Field label="Product name"><Input value={productTitle} onChange={(event) => setProductTitle(event.target.value)} required maxLength={120} placeholder="e.g. 500 ml passion juice" /></Field> : (
+                {!listingId ? <><Field label="Product name"><Input value={productTitle} onChange={(event) => setProductTitle(event.target.value)} required maxLength={120} placeholder="e.g. Passion juice" /></Field><Field label="Sold by"><Input value={saleUnit} onChange={(event) => setSaleUnit(event.target.value)} required maxLength={30} placeholder="bottle, cup, piece, pack…" /></Field></> : (
                   <p className="text-xs text-muted-foreground">Linked to your listing: {selectedListing?.title}. Historical sale names are saved as a snapshot.</p>
                 )}
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label={selectedListing?.unit ? `Quantity (${selectedListing.unit})` : 'Quantity'}><Input inputMode="decimal" type="number" min="0.001" max="1000000" step="0.001" required value={quantity} onChange={(event) => setQuantity(event.target.value)} /></Field>
-                  <Field label="Selling price per unit (UGX)"><Input inputMode="decimal" type="number" min="0" max="100000000" step="0.01" required value={unitPrice} onChange={(event) => setUnitPrice(event.target.value)} placeholder="e.g. 2500" /></Field>
+                  <Field label={selectedListing?.unit ? `Quantity (${selectedListing.unit})` : `Quantity (${saleUnit || 'unit'})`}><Input inputMode="decimal" type="number" min="0.001" max="1000000" step="0.001" required value={quantity} onChange={(event) => setQuantity(event.target.value)} /></Field>
+                  <Field label={`Selling price per ${selectedListing?.unit || saleUnit || 'unit'} (UGX)`}><Input inputMode="decimal" type="number" min="0" max="100000000" step="0.01" required value={unitPrice} onChange={(event) => setUnitPrice(event.target.value)} placeholder="e.g. 2500" /></Field>
                   <Field label="Cost per unit (optional)"><Input inputMode="decimal" type="number" min="0" max="100000000" step="0.01" value={unitCost} onChange={(event) => setUnitCost(event.target.value)} placeholder="Leave blank if unknown" /></Field>
                   <SelectField label="Where was it sold?" value={channel} onChange={setChannel}>
                     <option value="IN_PERSON">In person</option><option value="PHONE">Phone call</option><option value="WHATSAPP">WhatsApp</option><option value="MUDAALA">Through Mudaala</option><option value="OTHER">Other</option>
@@ -225,9 +228,9 @@ export function BusinessRecords() {
               <form className="space-y-4" onSubmit={submitStock}>
                 <SelectField label="Product or service" value={stockListingId} onChange={setStockListingId}>
                   <option value="">Enter a product not listed on Mudaala</option>
-                  {listings.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+                  {stockListings.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
                 </SelectField>
-                {!stockListingId ? <Field label="Product name"><Input value={stockTitle} onChange={(event) => setStockTitle(event.target.value)} required maxLength={120} placeholder="e.g. 500 ml passion juice" /></Field> : <p className="text-xs text-muted-foreground">Linked to your listing: {selectedStockListing?.title}</p>}
+                {!stockListingId ? <><Field label="Product name"><Input value={stockTitle} onChange={(event) => setStockTitle(event.target.value)} required maxLength={120} placeholder="e.g. Passion juice" /></Field><Field label="Stock unit"><Input value={stockUnit} onChange={(event) => setStockUnit(event.target.value)} required maxLength={30} placeholder="bottle, cup, piece, pack…" /></Field></> : <p className="text-xs text-muted-foreground">Linked to your listing: {selectedStockListing?.title}</p>}
                 <div className="grid grid-cols-2 gap-3">
                   <SelectField label="Reason" value={stockReason} onChange={setStockReason}>
                     <option value="OPENING_BALANCE">Opening stock</option><option value="RESTOCK">Restock</option><option value="RETURN">Customer return</option><option value="ADJUSTMENT">Correction</option><option value="DAMAGED">Damaged goods</option><option value="LOST">Lost goods</option><option value="CORRECTION">Other correction</option>
