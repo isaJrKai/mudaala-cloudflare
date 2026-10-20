@@ -194,8 +194,9 @@ export function BusinessRecords() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{sale.productTitle}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">{quantityLabel(sale.quantity, sale.unit)} · {sale.channel.toLowerCase().replace('_', ' ')} · {new Date(sale.occurredAt).toLocaleDateString('en-UG')}</p>
-                      {sale.status === 'VOIDED' ? <p className="text-xs text-destructive">Voided record</p> : null}
-                      {sale.unitCost === null && sale.status === 'COMPLETED' ? <p className="text-xs text-muted-foreground">Cost not entered; profit is unknown.</p> : null}
+                      {sale.status === 'VOIDED' ? <p className="text-xs text-destructive">Voided record. Excluded from recognized revenue.</p> : null}
+                      {sale.status === 'COMPLETED' && sale.unitCost === null ? <p className="text-xs text-muted-foreground">Cost not entered; profit is unknown.</p> : null}
+                      {sale.status === 'COMPLETED' && sale.unitCost !== null ? <p className="text-xs text-muted-foreground">Estimated gross profit: {money(sale.quantity * (sale.unitPrice - sale.unitCost), sale.currency)} before other expenses.</p> : null}
                       {sale.status === 'COMPLETED' && voidingSaleId === sale.id ? (
                         <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={(event) => { event.preventDefault(); if (voidReason.trim().length >= 3) voidSale.mutate({ id: sale.id, reason: voidReason.trim() }) }}>
                           <Input aria-label="Reason for voiding sale" value={voidReason} onChange={(event) => setVoidReason(event.target.value)} maxLength={300} minLength={3} required placeholder="Reason for correction" className="min-w-0 flex-1" />
