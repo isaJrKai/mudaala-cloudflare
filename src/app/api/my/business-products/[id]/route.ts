@@ -15,17 +15,23 @@ export async function PATCH(request: Request, context: Context) {
     let product
     try {
       product = await db.businessProduct.update({
-      where: { id },
-      data: {
-        ...(data.name !== undefined ? { name: data.name } : {}),
-        ...(data.sku !== undefined ? { sku: data.sku?.trim() || null } : {}),
-        ...(data.unit !== undefined ? { unit: data.unit } : {}),
-        ...(data.sellingPrice !== undefined ? { sellingPrice: data.sellingPrice.toFixed(2) } : {}),
-        ...(data.costPrice !== undefined ? { costPrice: data.costPrice === null ? null : data.costPrice.toFixed(2) } : {}),
-        ...(data.trackInventory !== undefined ? { trackInventory: data.trackInventory } : {}),
-        ...(data.archived !== undefined ? { archived: data.archived } : {}),
-      },
-    })
+        where: { id },
+        data: {
+          ...(data.name !== undefined ? { name: data.name } : {}),
+          ...(data.sku !== undefined ? { sku: data.sku?.trim() || null } : {}),
+          ...(data.unit !== undefined ? { unit: data.unit } : {}),
+          ...(data.sellingPrice !== undefined ? { sellingPrice: data.sellingPrice.toFixed(2) } : {}),
+          ...(data.costPrice !== undefined ? { costPrice: data.costPrice === null ? null : data.costPrice.toFixed(2) } : {}),
+          ...(data.trackInventory !== undefined ? { trackInventory: data.trackInventory } : {}),
+          ...(data.archived !== undefined ? { archived: data.archived } : {}),
+        },
+      })
+    } catch (error) {
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
+        throw new ApiError(409, 'That SKU is already used by another product in your business')
+      }
+      throw error
+    }
     return jsonOk({
       product: {
         ...product,
