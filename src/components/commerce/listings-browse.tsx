@@ -29,6 +29,7 @@ import { copy } from '@/lib/copy'
 import QRCode from 'react-qr-code'
 import { TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { chooseFeaturedShopId, eligibleFeaturedShopIds, FEATURED_SHOP_ROTATION_INTERVAL_MS } from '@/lib/featured-shop-rotation'
 
 // Two shops can legally share a name - when they appear in the SAME feed,
 // suffix each with their area so buyers tap the right one. The shop's own
@@ -518,12 +519,14 @@ function ShopNameSearchResults({ query, onOpenShop }: { query: string; onOpenSho
   )
 }
 
-// The featured-shop rail - desktop's right column turns the current results
-// into a doorway: one shop from whatever the buyer is looking at, its poster
-// code, its phone line. It follows the search the way a shop window follows
-// the street you're standing on. Hidden below lg - on the phone the feed IS
-// the page. A rectangle, not a curve: it is a card, and the restraint rule
-// keeps the signature off cards.
+// The featured-shop rail rotates through distinct shops represented in the
+// current public results. A shared 30-minute bucket makes the choice stable
+// during a window and predictable across refreshes, without user-level tracking.
+function subscribeToFeaturedShopRotation(onStoreChange: () => void) {
+  const timer = window.setInterval(onStoreChange, 60_000)
+  return () => window.clearInterval(timer)
+}
+
 function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
   // Same hydration-safe origin pattern as shop-view: '' during SSR, the real
   // origin after mount (a page's origin never changes while it is open).
@@ -532,12 +535,20 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
     () => window.location.origin,
     () => '',
   )
-  // First result with a named shop wins the rail.
-  const shopId = items.find((l) => l.user?.profile?.businessName)?.user?.id ?? null
+  // Use a server snapshot of zero to keep SSR and the first hydration render
+  // identical; after hydration the client advances to the current time bucket.
+  const rotationBucket = useSyncExternalStore(
+    subscribeToFeaturedShopRotation,
+    () => Math.floor(Date.now() / FEATURED_SHOP_ROTATION_INTERVAL_MS),
+    () => 0,
+  )
+  const eligibleShopIds = useMemo(() => eligibleFeaturedShopIds(items), [items])
+  const shopId = chooseFeaturedShopId(eligibleShopIds, rotationBucket)
   const shopQuery = useQuery({
     queryKey: ['featured-shop', shopId],
     enabled: Boolean(shopId),
     staleTime: 60_000,
+    retry: 1,
     queryFn: () => apiGet<ShopPageT>(`/api/shops/${shopId}`),
   })
   const shop = shopQuery.data?.shop ?? null
@@ -584,8 +595,21 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
             </a>
           </div>
         </div>
+      ) : shopId && shopQuery.isLoading ? (
+        <div className="h-64 animate-pulse rounded-lg border bg-muted/40" role="status" aria-label="Loading featured shop" />
+      ) : shopId && shopQuery.isError ? (
+        <div className="rounded-lg border bg-card p-4" role="status">
+          <p className="text-sm font-medium">{copy.browse.featuredShop}</p>
+          <p className="mt-1 text-sm text-muted-foreground">This shop could not be loaded just now.</p>
+          <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => { void shopQuery.refetch() }}>
+            Try again
+          </Button>
+        </div>
       ) : (
-        <div className="h-64 animate-pulse rounded-lg border bg-muted/40" aria-hidden />
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-sm font-medium">{copy.browse.featuredShop}</p>
+          <p className="mt-1 text-sm text-muted-foreground">No eligible shop appears in these results yet.</p>
+        </div>
       )}
     </aside>
   )
