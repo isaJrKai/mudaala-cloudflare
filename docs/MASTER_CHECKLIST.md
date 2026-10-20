@@ -279,3 +279,9 @@ For each new idea, record: customer problem, evidence/source, intended user, sma
 
 - [x] Extended the read-only telemetry window from the initial 15 minutes to 45 minutes after the version 144 deployment. Queries completed successfully; error-level events, HTTP 5xx events, `exceededCpu` outcomes and `[startup-db]` events all returned zero. An unfiltered sample contained real request traffic, with sampled requests returning HTTP 200 on the new version.
 - [ ] Continue observing a longer production window and verify the next scheduled sweep after it occurs. The sweep is not manually invoked.
+
+### Thumbnail backfill preparation — 2026-10-20
+
+- [x] Reviewed the existing upload and storage flow: the browser prepares a separate WebP thumbnail; the upload API stores it as a sibling `<stem>.thumb.webp` object. Original image storage is independent and a thumbnail-write failure intentionally leaves the original intact.
+- [x] Confirmed the four legacy thumbnail gaps should be handled as an additive storage-only operation. The proposed backfill must enumerate only active listing photo URLs with recognized immutable object names, skip objects whose thumbnail already exists, fetch and decode each original, create a bounded WebP rendition, and upload only the missing `.thumb.webp` object. It must not update listing rows, delete/replace originals, touch shop photos unless separately audited, or process seed fixtures. Produce a dry-run manifest and verify each thumbnail fetch before considering the task complete.
+- [ ] Before implementation or execution, validate the exact four source URLs and bucket ownership using read-only metadata, then test the proposed generator against disposable images. No production photo objects were written or deleted during this review.
