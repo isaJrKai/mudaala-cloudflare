@@ -19,15 +19,8 @@ export async function register() {
     }
   }
 
-  // Render is an IPv4-only long-running Node service. Prisma uses the
-  // Supabase Session Pooler from DIRECT_URL (port 5432) at runtime.
-  const { db } = await import('./lib/db')
-  try {
-    await db.$queryRaw`SELECT 1`
-    console.info('[startup-db] connected')
-  } catch (error) {
-    console.error('[startup-db] failed', {
-      error: error instanceof Error ? error.message : String(error),
-    })
-  }
+  // Do not probe the database from this startup hook. Cloudflare production
+  // database access must run inside withRequestDb() during a request, where
+  // the HYPERDRIVE binding is available. The request-scoped /api/health route
+  // performs the authoritative live database check instead.
 }
