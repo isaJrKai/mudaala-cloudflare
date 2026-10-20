@@ -39,3 +39,32 @@ CREATE POLICY deny_direct_api_clients ON public."ListingDailyAnalytics"
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."ListingDailyAnalytics" TO mudaala_runtime;
 CREATE POLICY mudaala_runtime_access ON public."ListingDailyAnalytics"
   FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
+
+-- Aggregate public shop-page visits and shop-level contact/share actions.
+CREATE TABLE "ShopDailyAnalytics" (
+  "id" TEXT NOT NULL,
+  "ownerId" TEXT NOT NULL,
+  "day" TEXT NOT NULL,
+  "views" INTEGER NOT NULL DEFAULT 0,
+  "callClicks" INTEGER NOT NULL DEFAULT 0,
+  "whatsappClicks" INTEGER NOT NULL DEFAULT 0,
+  "shareClicks" INTEGER NOT NULL DEFAULT 0,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "ShopDailyAnalytics_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "ShopDailyAnalytics_day_format_check" CHECK ("day" ~ '^\d{4}-\d{2}-\d{2}$'),
+  CONSTRAINT "ShopDailyAnalytics_counts_nonnegative_check" CHECK (
+    "views" >= 0 AND "callClicks" >= 0 AND "whatsappClicks" >= 0 AND "shareClicks" >= 0
+  )
+);
+
+CREATE UNIQUE INDEX "ShopDailyAnalytics_ownerId_day_key" ON "ShopDailyAnalytics"("ownerId", "day");
+ALTER TABLE "ShopDailyAnalytics" ADD CONSTRAINT "ShopDailyAnalytics_ownerId_fkey"
+  FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE public."ShopDailyAnalytics" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY deny_direct_api_clients ON public."ShopDailyAnalytics"
+  FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."ShopDailyAnalytics" TO mudaala_runtime;
+CREATE POLICY mudaala_runtime_access ON public."ShopDailyAnalytics"
+  FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
