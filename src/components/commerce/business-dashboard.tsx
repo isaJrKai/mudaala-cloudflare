@@ -20,6 +20,7 @@ import { useSession } from '@/hooks/use-session'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from './empty-state'
 import { ErrorState } from './listings-browse'
+import { BusinessRecords } from './business-records'
 
 function MetricCard({
   label,
@@ -237,8 +238,10 @@ export function BusinessDashboard() {
         </div>
       </section>
 
+      <BusinessRecords />
+
       <p className="text-xs text-muted-foreground">
-        These figures come from your current listing records. They are not ad impressions, unique people reached, confirmed orders or profit.
+        Listing views are interest signals, not unique people reached, ad impressions, confirmed orders or profit. Recorded sales and stock balances above come from records you enter.
       </p>
     </div>
   )
