@@ -6,6 +6,7 @@ import { expireOverdueListings, getOwnedListingOr404, sanitizePhotos, serializeL
 import { LISTING_ACTIVE_DAYS, countryDef, findProhibitedItem } from '@/lib/constants'
 import { getSessionUser } from '@/lib/auth'
 import { isAdminUser } from '@/lib/admin'
+import { recordListingDailyEvent } from '@/lib/listing-analytics'
 type Params = { params: Promise<{ id: string }> }
 
 // Public detail view. Also expires overdue listings so status is always truthful.
@@ -38,17 +39,31 @@ export async function GET(_request: NextRequest, { params }: Params) {
     })
     if (!listing) throw new ApiError(404, 'This listing does not exist or has been removed')
 
-    // Moderation: a HIDDEN listing is invisible to everyone except its owner
-    // (checking their appeal) and an admin (reviewing reports). The response
-    // is the same 404 as a missing ad - moderation state is never leaked.
+    // Resolve the viewer once so owner/admin previews do not inflate public
+    // engagement metrics. Moderation state is never leaked to unauthorized viewers.
+    const viewer = await getSessionUser()
     if (listing.status === 'HIDDEN') {
-      const viewer = await getSessionUser()
       const privileged = viewer && (viewer.id === listing.userId || isAdminUser(viewer))
       if (!privileged) throw new ApiError(404, 'This listing does not exist or has been removed')
     }
 
-    // Fire-and-forget view counter; failures never break the response.
-    db.listing.update({ where: { id }, data: { viewCount: { increment: 1 } } }).catch(() => undefined)
+    // Keep the legacy all-time counter and a daily aggregate in sync for public
+    // active listings. Wait for both writes to settle before the request-scoped
+    // database client is released; metric failures never break the listing page.
+    if (
+      listing.status === 'ACTIVE' &&
+      (!viewer || (viewer.id !== listing.userId && !isAdminUser(viewer)))
+    ) {
+      await Promise.allSettled([
+        db.listing.update({ where: { id }, data: { viewCount: { increment: 1 } } }),
+        recordListingDailyEvent({
+          listingId: listing.id,
+          ownerId: listing.userId,
+          listingTitle: listing.title,
+          event: 'VIEW',
+        }),
+      ])
+    }
 
     // Return only the public seller identity fields needed by the listing page.
     // Do not spread the full User or BusinessProfile rows into a public response:
