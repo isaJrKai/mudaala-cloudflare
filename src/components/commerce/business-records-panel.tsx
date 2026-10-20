@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 
 type Product = { id: string; name: string; sku: string | null; unit: string; currency: string; sellingPrice: number; costPrice: number | null; stockOnHand: number; reorderLevel: number; trackInventory: boolean; archived: boolean }
 type Sale = { id: string; status: string; channel: string; currency: string; soldAt: string; notes: string | null; revenue: number; grossProfit: number | null; items: { productName: string; quantity: number; unit: string; unitPrice: number }[] }
-type BusinessAnalytics = { period: string; since: string; sales: { currency: string; completedSales: number; recordedRevenue: number; estimatedGrossProfit: number | null; saleLines: number; linesWithKnownCost: number; costCoverage: number | null }[]; listingViews: number; listingCount: number; engagement: { views: number; callClicks: number; whatsappClicks: number; shareClicks: number; contactClicks: number; topListings: { listingId: string; title: string; views: number; callClicks: number; whatsappClicks: number; shareClicks: number }[]; definitions: Record<string, string> }; activeBusinessProducts: number; inventoryTrackedProducts: number }
+type BusinessAnalytics = { period: string; since: string; sales: { currency: string; completedSales: number; recordedRevenue: number; estimatedGrossProfit: number | null; saleLines: number; linesWithKnownCost: number; costCoverage: number | null }[]; listingViews: number; listingCount: number; engagement: { views: number; callClicks: number; whatsappClicks: number; shareClicks: number; contactClicks: number; topListings: { listingId: string; title: string; views: number; callClicks: number; whatsappClicks: number; shareClicks: number }[]; definitions: Record<string, string> }; shopEngagement: { views: number; callClicks: number; whatsappClicks: number; shareClicks: number; contactClicks: number }; activeBusinessProducts: number; inventoryTrackedProducts: number }
 const ugx = (amount: number) => new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(amount)
 
 export function BusinessRecordsPanel() {
@@ -124,6 +124,15 @@ export function BusinessRecordsPanel() {
           </div>
         )}
         <p className="mt-3 text-xs text-muted-foreground">Mudaala counts button taps and page loads. It does not claim unique reach, completed calls/messages, or sales from these events.</p>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader><CardTitle>Shop page performance · 30 days</CardTitle><p className="text-sm text-muted-foreground">See how often customers open your shop and use its contact or sharing actions.</p></CardHeader>
+      <CardContent className="grid gap-4 sm:grid-cols-3">
+        <div><p className="text-sm text-muted-foreground">Shop views</p><p className="mt-1 text-2xl font-bold tabular-nums">{(analyticsQuery.data?.shopEngagement.views ?? 0).toLocaleString()}</p><p className="text-xs text-muted-foreground">Page loads, not unique people</p></div>
+        <div><p className="text-sm text-muted-foreground">Contact clicks</p><p className="mt-1 text-2xl font-bold tabular-nums">{(analyticsQuery.data?.shopEngagement.contactClicks ?? 0).toLocaleString()}</p><p className="text-xs text-muted-foreground">Call + WhatsApp taps</p></div>
+        <div><p className="text-sm text-muted-foreground">Share clicks</p><p className="mt-1 text-2xl font-bold tabular-nums">{(analyticsQuery.data?.shopEngagement.shareClicks ?? 0).toLocaleString()}</p><p className="text-xs text-muted-foreground">Actions, not delivered links</p></div>
       </CardContent>
     </Card>
 
