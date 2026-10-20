@@ -50,3 +50,34 @@ export async function recordListingDailyEvent(input: {
     update,
   })
 }
+
+export type ShopEngagementEvent = 'SHOP_VIEW' | 'CALL_CLICK' | 'WHATSAPP_CLICK' | 'SHARE_CLICK'
+
+export async function recordShopDailyEvent(input: {
+  ownerId: string
+  event: ShopEngagementEvent
+  occurredAt?: Date
+}) {
+  const day = ugandaCalendarDay(input.occurredAt)
+  const base = {
+    ownerId: input.ownerId,
+    day,
+    views: input.event === 'SHOP_VIEW' ? 1 : 0,
+    callClicks: input.event === 'CALL_CLICK' ? 1 : 0,
+    whatsappClicks: input.event === 'WHATSAPP_CLICK' ? 1 : 0,
+    shareClicks: input.event === 'SHARE_CLICK' ? 1 : 0,
+  }
+  const update = input.event === 'SHOP_VIEW'
+    ? { views: { increment: 1 } }
+    : input.event === 'CALL_CLICK'
+      ? { callClicks: { increment: 1 } }
+      : input.event === 'WHATSAPP_CLICK'
+        ? { whatsappClicks: { increment: 1 } }
+        : { shareClicks: { increment: 1 } }
+
+  return db.shopDailyAnalytics.upsert({
+    where: { ownerId_day: { ownerId: input.ownerId, day } },
+    create: base,
+    update,
+  })
+}
