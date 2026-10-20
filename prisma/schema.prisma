@@ -311,6 +311,7 @@ model BusinessProduct {
   sellingPrice   Decimal  @db.Decimal(14, 2)
   costPrice      Decimal? @db.Decimal(14, 2)
   stockOnHand    Decimal  @default(0) @db.Decimal(14, 3)
+  reorderLevel   Decimal  @default(0) @db.Decimal(14, 3)
   trackInventory Boolean  @default(true)
   archived       Boolean  @default(false)
   createdAt      DateTime @default(now())
