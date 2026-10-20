@@ -23,6 +23,7 @@ export async function PATCH(request: Request, context: Context) {
           ...(data.sellingPrice !== undefined ? { sellingPrice: data.sellingPrice.toFixed(2) } : {}),
           ...(data.costPrice !== undefined ? { costPrice: data.costPrice === null ? null : data.costPrice.toFixed(2) } : {}),
           ...(data.trackInventory !== undefined ? { trackInventory: data.trackInventory } : {}),
+          ...(data.reorderLevel !== undefined ? { reorderLevel: data.reorderLevel.toFixed(3) } : {}),
           ...(data.archived !== undefined ? { archived: data.archived } : {}),
         },
       })
@@ -38,6 +39,7 @@ export async function PATCH(request: Request, context: Context) {
         sellingPrice: Number(product.sellingPrice),
         costPrice: product.costPrice === null ? null : Number(product.costPrice),
         stockOnHand: Number(product.stockOnHand),
+        reorderLevel: Number(product.reorderLevel),
         createdAt: product.createdAt.toISOString(),
         updatedAt: product.updatedAt.toISOString(),
       },
