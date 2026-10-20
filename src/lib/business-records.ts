@@ -4,6 +4,8 @@ const money = z.number().finite().min(0).max(100_000_000)
   .refine((value) => Math.round(value * 100) === value * 100, 'Money must have at most two decimal places')
 const quantity = z.number().finite().min(0.001).max(10_000_000)
   .refine((value) => Math.round(value * 1000) === value * 1000, 'Quantity must have at most three decimal places')
+const stockThreshold = z.number().finite().min(0).max(10_000_000)
+  .refine((value) => Math.round(value * 1000) === value * 1000, 'Quantity must have at most three decimal places')
 
 export const businessProductCreateSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -12,6 +14,7 @@ export const businessProductCreateSchema = z.object({
   currency: z.enum(['UGX']).default('UGX'),
   sellingPrice: money,
   costPrice: money.nullable().optional(),
+  reorderLevel: stockThreshold.default(0),
   openingStock: z.number().finite().min(0).max(10_000_000)
     .refine((value) => Math.round(value * 1000) === value * 1000, 'Quantity must have at most three decimal places')
     .default(0),
@@ -25,6 +28,7 @@ export const businessProductUpdateSchema = z.object({
   sellingPrice: money.optional(),
   costPrice: money.nullable().optional(),
   trackInventory: z.boolean().optional(),
+  reorderLevel: stockThreshold.optional(),
   archived: z.boolean().optional(),
 }).refine((value) => Object.keys(value).length > 0, 'Nothing to update')
 
