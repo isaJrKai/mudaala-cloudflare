@@ -48,7 +48,7 @@ export async function GET(request: Request) {
       _sum: { viewCount: true },
       _count: { id: true },
     })
-    const [productCount, trackedProducts, engagement, topListingRows] = await Promise.all([
+    const [productCount, trackedProducts, engagement, topListingRows, shopEngagement] = await Promise.all([
       db.businessProduct.count({ where: { userId: user.id, archived: false } }),
       db.businessProduct.count({ where: { userId: user.id, archived: false, trackInventory: true } }),
       db.listingDailyAnalytics.aggregate({
@@ -61,6 +61,10 @@ export async function GET(request: Request) {
         _sum: { views: true, callClicks: true, whatsappClicks: true, shareClicks: true },
         orderBy: { _sum: { views: 'desc' } },
         take: 5,
+      }),
+      db.shopDailyAnalytics.aggregate({
+        where: { ownerId: user.id, day: { gte: sinceDay } },
+        _sum: { views: true, callClicks: true, whatsappClicks: true, shareClicks: true },
       }),
     ])
     const topListingIds = topListingRows.map((row) => row.listingId).filter((id): id is string => Boolean(id))
@@ -113,6 +117,13 @@ export async function GET(request: Request) {
           shareClicks: 'Taps on a listing share/copy action; not proof the link was delivered or opened.',
           contactClicks: 'Call and WhatsApp button taps combined, not confirmed inquiries or sales.',
         },
+      },
+      shopEngagement: {
+        views: shopEngagement._sum.views ?? 0,
+        callClicks: shopEngagement._sum.callClicks ?? 0,
+        whatsappClicks: shopEngagement._sum.whatsappClicks ?? 0,
+        shareClicks: shopEngagement._sum.shareClicks ?? 0,
+        contactClicks: (shopEngagement._sum.callClicks ?? 0) + (shopEngagement._sum.whatsappClicks ?? 0),
       },
       activeBusinessProducts: productCount,
       inventoryTrackedProducts: trackedProducts,
