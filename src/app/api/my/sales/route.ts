@@ -50,75 +50,65 @@ export async function POST(request: Request) {
     const user = await requireUser()
     const data = await parseBody(request, saleCreateSchema)
     const productIds = data.items.map((item) => item.productId)
-
-    const sale = await db.$transaction(async (tx) => {
-      const products = await tx.businessProduct.findMany({
-        where: { userId: user.id, id: { in: productIds }, archived: false },
-      })
-      if (products.length !== productIds.length) {
-        throw new ApiError(400, 'One or more products are unavailable in your business catalogue')
-      }
-      const byId = new Map(products.map((product) => [product.id, product]))
-      const currencies = new Set(products.map((product) => product.currency))
-      if (currencies.size !== 1) throw new ApiError(400, 'Record separate sales for products in different currencies')
-
-      const currency = products[0]!.currency
-      const created = await tx.sale.create({
-        data: {
-          userId: user.id,
-          channel: data.channel,
-          currency,
-          soldAt: data.soldAt ? new Date(data.soldAt) : new Date(),
-          notes: data.notes?.trim() || null,
-        },
-      })
-
-      for (const item of data.items) {
-        const product = byId.get(item.productId)!
-        const quantity = item.quantity
-        const unitPrice = item.unitPrice ?? Number(product.sellingPrice)
-        const lineTotal = (Math.round(quantity * unitPrice * 100) / 100).toFixed(2)
-
-        if (product.trackInventory) {
-          const changed = await tx.businessProduct.updateMany({
-            where: { id: product.id, userId: user.id, stockOnHand: { gte: quantity.toFixed(3) } },
-            data: { stockOnHand: { decrement: quantity.toFixed(3) } },
-          })
-          if (changed.count !== 1) {
-            throw new ApiError(409, `Not enough recorded stock for ${product.name}. Update stock before recording this sale.`)
-          }
+    let result
+    try {
+      result = await db.$transaction(async (tx) => {
+        if (data.idempotencyKey) {
+          const previous = await tx.sale.findFirst({ where: { userId: user.id, idempotencyKey: data.idempotencyKey }, include: { items: true } })
+          if (previous) return { sale: previous, replayed: true }
         }
-
-        await tx.saleItem.create({
+        const products = await tx.businessProduct.findMany({ where: { userId: user.id, id: { in: productIds }, archived: false } })
+        if (products.length !== productIds.length) throw new ApiError(400, 'One or more products are unavailable in your business catalogue')
+        const byId = new Map(products.map((product) => [product.id, product]))
+        const currencies = new Set(products.map((product) => product.currency))
+        if (currencies.size !== 1) throw new ApiError(400, 'Record separate sales for products in different currencies')
+        const created = await tx.sale.create({
           data: {
-            saleId: created.id,
-            productId: product.id,
-            productName: product.name,
-            unit: product.unit,
-            quantity: quantity.toFixed(3),
-            unitPrice: unitPrice.toFixed(2),
-            unitCost: product.costPrice === null ? null : Number(product.costPrice).toFixed(2),
-            lineTotal,
+            userId: user.id,
+            idempotencyKey: data.idempotencyKey ?? null,
+            channel: data.channel,
+            currency: products[0]!.currency,
+            soldAt: data.soldAt ? new Date(data.soldAt) : new Date(),
+            notes: data.notes?.trim() || null,
           },
         })
-
-        if (product.trackInventory) {
-          await tx.stockMovement.create({
+        for (const item of data.items) {
+          const product = byId.get(item.productId)!
+          const quantity = item.quantity
+          const unitPrice = item.unitPrice ?? Number(product.sellingPrice)
+          const lineTotal = (Math.round(quantity * unitPrice * 100) / 100).toFixed(2)
+          if (product.trackInventory) {
+            const changed = await tx.businessProduct.updateMany({
+              where: { id: product.id, userId: user.id, archived: false, stockOnHand: { gte: quantity.toFixed(3) } },
+              data: { stockOnHand: { decrement: quantity.toFixed(3) } },
+            })
+            if (changed.count !== 1) throw new ApiError(409, 'Not enough recorded stock for ' + product.name + '. Update stock before recording this sale.')
+          }
+          await tx.saleItem.create({
             data: {
-              userId: user.id,
-              productId: product.id,
-              saleId: created.id,
-              type: 'SALE',
-              quantityDelta: (-quantity).toFixed(3),
-              note: `Recorded sale ${created.id}`,
+              saleId: created.id, productId: product.id, productName: product.name, unit: product.unit,
+              quantity: quantity.toFixed(3), unitPrice: unitPrice.toFixed(2),
+              unitCost: product.costPrice === null ? null : Number(product.costPrice).toFixed(2), lineTotal,
             },
           })
+          if (product.trackInventory) {
+            await tx.stockMovement.create({
+              data: { userId: user.id, productId: product.id, saleId: created.id, type: 'SALE', quantityDelta: (-quantity).toFixed(3), note: 'Recorded sale ' + created.id },
+            })
+          }
         }
+        const sale = await tx.sale.findUniqueOrThrow({ where: { id: created.id }, include: { items: true } })
+        return { sale, replayed: false }
+      })
+    } catch (error) {
+      // If two retries arrive together, the unique key allows only one to
+      // decrement stock. The losing request returns the winning record.
+      if (data.idempotencyKey && typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
+        const previous = await db.sale.findFirst({ where: { userId: user.id, idempotencyKey: data.idempotencyKey }, include: { items: true } })
+        if (previous) return jsonOk({ sale: serializeSale(previous), replayed: true })
       }
-
-      return tx.sale.findUniqueOrThrow({ where: { id: created.id }, include: { items: true } })
-    })
-
-    return jsonOk({ sale: serializeSale(sale) }, 201)
+      throw error
+    }
+    return jsonOk({ sale: serializeSale(result.sale), replayed: result.replayed }, result.replayed ? 200 : 201)
   })
 }
