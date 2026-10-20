@@ -3116,12 +3116,20 @@ async function main() {
     const afterNoStock = await db.businessProduct.findUnique({ where: { id: productId } })
     ok('21a.15 stock adjustment cannot make inventory negative', noStock.status === 409 && Number(afterNoStock?.stockOnHand) === 7)
 
-    const exportProducts = await call('GET', '/api/my/business-export?type=products', undefined, seller)
-    const exportSales = await call('GET', '/api/my/business-export?type=sales', undefined, seller)
-    const exportStock = await call('GET', '/api/my/business-export?type=stock', undefined, seller)
-    const privateExport = await call('GET', '/api/my/business-export?type=products', undefined, otherSeller)
-    ok('21a.16 business CSV exports are authenticated and owner-scoped', exportProducts.status === 200 && exportSales.status === 200 && exportStock.status === 200 && privateExport.status === 200 && !JSON.stringify(privateExport.json).includes('Business ledger test product'))
-    ok('21a.17 exports use CSV content type and preserve void history', exportProducts.status === 200 && exportSales.status === 200 && exportStock.status === 200)
+    const exportHeaders = { cookie: seller.cookie, ...(seller.token ? { authorization: 'Bearer ' + seller.token } : {}) }
+    const [exportProducts, exportSales, exportStock] = await Promise.all([
+      fetch(BASE + '/api/my/business-export?type=products', { headers: exportHeaders }),
+      fetch(BASE + '/api/my/business-export?type=sales', { headers: exportHeaders }),
+      fetch(BASE + '/api/my/business-export?type=stock', { headers: exportHeaders }),
+    ])
+    const [productsCsv, salesCsv, stockCsv] = await Promise.all([exportProducts.text(), exportSales.text(), exportStock.text()])
+    const privateExport = await fetch(BASE + '/api/my/business-export?type=products', {
+      headers: { cookie: otherSeller.cookie, ...(otherSeller.token ? { authorization: 'Bearer ' + otherSeller.token } : {}) },
+    })
+    const privateCsv = await privateExport.text()
+    const noAuthExport = await fetch(BASE + '/api/my/business-export?type=products')
+    ok('21a.16 business CSV exports are authenticated and owner-scoped', exportProducts.status === 200 && exportSales.status === 200 && exportStock.status === 200 && privateExport.status === 200 && !privateCsv.includes('Business ledger test product') && noAuthExport.status === 401)
+    ok('21a.17 exports use CSV content type and preserve void history', exportProducts.headers.get('content-type')?.includes('text/csv') === true && exportSales.headers.get('content-type')?.includes('text/csv') === true && exportStock.headers.get('content-type')?.includes('text/csv') === true && productsCsv.includes('Business ledger test product') && salesCsv.includes('VOIDED') && stockCsv.includes('RESTOCK'))
   }
 
   console.log(`\n== 22. Hermetic sweep - this run leaves no fixtures behind ==`)
