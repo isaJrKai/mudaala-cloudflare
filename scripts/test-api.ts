@@ -1232,6 +1232,7 @@ async function main() {
       'activeListingsByCategory', 'activeListingsByCounty',
       'openReportsByReason', 'moderationActionsLast7Days',
     ].sort()
+    expectedBreakdownKeys.sort()
     const actualMetricKeys = Object.keys(adminAnalytics.json?.metrics ?? {}).sort()
     const actualBreakdownKeys = expectedBreakdownKeys.filter((key) =>
       Array.isArray(adminAnalytics.json?.metrics?.[key]),
