@@ -47,6 +47,9 @@ model User {
   followingShops ShopFollow[] @relation("Follower")
   shopFollowers ShopFollow[] @relation("ShopOwner")
   categoryInterests CategoryInterest[]
+  businessProducts BusinessProduct[]
+  sales           Sale[]
+  stockMovements  StockMovement[]
 }
 
 model Session {
@@ -147,6 +150,8 @@ model Listing {
   @@index([county, status])
   @@index([userId, status])
   @@index([expiresAt])
+
+  businessProducts BusinessProduct[]
 }
 
 model SavedSearch {
@@ -288,4 +293,99 @@ model CategoryInterest {
 
   @@unique([userId, category])
   @@index([userId, score])
+}
+
+
+// A trader-managed catalogue entry. Listing.quantity is deliberately NOT
+// treated as stock-on-hand: inventory begins only when the trader records it.
+model BusinessProduct {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId      String?  @unique
+  listing        Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  name           String
+  sku            String?
+  unit           String   @default("piece")
+  currency       String   @default("UGX")
+  sellingPrice   Decimal  @db.Decimal(14, 2)
+  costPrice      Decimal? @db.Decimal(14, 2)
+  stockOnHand    Decimal  @default(0) @db.Decimal(14, 3)
+  reorderLevel   Decimal  @default(0) @db.Decimal(14, 3)
+  trackInventory Boolean  @default(true)
+  archived       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  saleItems      SaleItem[]
+  stockMovements StockMovement[]
+
+  @@unique([userId, sku])
+  @@index([userId, archived, updatedAt])
+  @@index([userId, name])
+}
+
+// Manually recorded transaction. It is a shop record, not a claim that
+// Mudaala processed payment. Voids retain their audit trail and never delete
+// historical items or stock movements.
+model Sale {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    String     @default("COMPLETED") // COMPLETED | VOIDED
+  idempotencyKey String?
+  channel   String     @default("OTHER") // MUDAALA | WHATSAPP | PHONE | IN_PERSON | OTHER
+  currency  String     @default("UGX")
+  soldAt    DateTime   @default(now())
+  notes     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  items     SaleItem[]
+  movements StockMovement[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, soldAt])
+  @@index([userId, status, soldAt])
+}
+
+// Snapshots keep past sales readable even if the product is later renamed or
+// repriced. A missing cost remains unknown; it is never silently treated as 0.
+model SaleItem {
+  id               String         @id @default(cuid())
+  saleId           String
+  sale             Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId        String
+  product          BusinessProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productName      String
+  unit             String
+  quantity         Decimal        @db.Decimal(14, 3)
+  unitPrice        Decimal        @db.Decimal(14, 2)
+  unitCost         Decimal?       @db.Decimal(14, 2)
+  lineTotal        Decimal        @db.Decimal(14, 2)
+  createdAt        DateTime       @default(now())
+
+  @@index([saleId])
+  @@index([productId, createdAt])
+}
+
+// Append-only stock history. Corrections and returns are new signed entries,
+// never edits to old movements. Stock balance updates and movement inserts
+// must happen in the same database transaction.
+model StockMovement {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId   String
+  product     BusinessProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  saleId      String?
+  sale        Sale?           @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  type        String // OPENING | RESTOCK | SALE | RETURN | ADJUSTMENT | DAMAGE | CORRECTION
+  quantityDelta Decimal       @db.Decimal(14, 3) // positive adds stock; negative removes stock
+  note        String?
+  createdAt   DateTime        @default(now())
+
+  @@index([userId, createdAt])
+  @@index([productId, createdAt])
+  @@index([saleId])
 }

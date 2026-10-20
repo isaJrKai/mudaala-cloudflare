@@ -22,7 +22,7 @@ import sharp from 'sharp'
 import path from 'node:path'
 import * as fs from 'node:fs'
 import { execSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { SUPPORT_EMAIL, TERMS_VERSION } from '../src/lib/constants'
 import { route, jsonOk } from '../src/lib/api'
 // Pure-function units under test (no next/* imports - safe outside a request).
@@ -3033,6 +3033,103 @@ async function main() {
       '21.7 the registered name is trimmed text, 2 to 60 characters',
       padded.success && padded.data.momoMerchantName === 'Ssalongo Ssemakula' && !nameTooShort.success && !nameTooLong.success,
     )
+  }
+
+  console.log('\n== 21a. My Business records, ownership and accounting truth ==')
+  {
+    const seller: Jar = { cookie: '' }
+    const otherSeller: Jar = { cookie: '' }
+    await register(seller, uniquePhone(), 'Business Seller', 'quiet-harbor-31')
+    await register(otherSeller, uniquePhone(), 'Other Seller', 'quiet-harbor-32')
+
+    const sku = 'BIZ-' + RUN_TAG
+    const productRes = await call('POST', '/api/my/business-products', {
+      name: 'Business ledger test product',
+      sku,
+      unit: 'piece',
+      currency: 'UGX',
+      sellingPrice: 50000,
+      costPrice: 30000,
+      openingStock: 5,
+      reorderLevel: 2,
+      trackInventory: true,
+    }, seller)
+    const productId = productRes.json?.product?.id ?? ''
+    ok('21a.1 create product captures opening stock and cost', productRes.status === 201 && productId !== '' && productRes.json?.product?.stockOnHand === 5 && productRes.json?.product?.costPrice === 30000 && productRes.json?.product?.reorderLevel === 2)
+
+    const sellerProducts = await call('GET', '/api/my/business-products', undefined, seller)
+    const otherProducts = await call('GET', '/api/my/business-products', undefined, otherSeller)
+    ok('21a.2 product catalogue is owner-scoped', sellerProducts.status === 200 && sellerProducts.json?.products?.some((p: any) => p.id === productId) && !otherProducts.json?.products?.some((p: any) => p.id === productId))
+
+    const otherEdit = await call('PATCH', '/api/my/business-products/' + productId, { sellingPrice: 1 }, otherSeller)
+    ok('21a.3 another account cannot edit the product', otherEdit.status === 404)
+
+    const duplicateSku = await call('POST', '/api/my/business-products', {
+      name: 'Duplicate SKU product', sku, unit: 'piece', currency: 'UGX',
+      sellingPrice: 1000, costPrice: null, openingStock: 0, reorderLevel: 0, trackInventory: true,
+    }, seller)
+    ok('21a.4 duplicate SKU returns a conflict', duplicateSku.status === 409)
+
+    const saleKey = randomUUID()
+    const saleBody = { idempotencyKey: saleKey, channel: 'IN_PERSON', items: [{ productId, quantity: 2, unitPrice: 50000 }] }
+    const saleRes = await call('POST', '/api/my/sales', saleBody, seller)
+    const saleId = saleRes.json?.sale?.id ?? ''
+    ok('21a.5 record completed sale captures revenue and estimated gross profit', saleRes.status === 201 && saleId !== '' && saleRes.json?.sale?.revenue === 100000 && saleRes.json?.sale?.grossProfit === 40000)
+    const afterSale = await db.businessProduct.findUnique({ where: { id: productId } })
+    ok('21a.6 sale and stock decrement commit together', Number(afterSale?.stockOnHand) === 3)
+
+    const replay = await call('POST', '/api/my/sales', saleBody, seller)
+    const afterReplay = await db.businessProduct.findUnique({ where: { id: productId } })
+    ok('21a.7 retry with same idempotency key does not duplicate sale or stock deduction', replay.status === 200 && replay.json?.replayed === true && replay.json?.sale?.id === saleId && Number(afterReplay?.stockOnHand) === 3)
+
+    const oversale = await call('POST', '/api/my/sales', {
+      idempotencyKey: randomUUID(), channel: 'WHATSAPP', items: [{ productId, quantity: 4 }],
+    }, seller)
+    const afterOversale = await db.businessProduct.findUnique({ where: { id: productId } })
+    ok('21a.8 sale cannot take tracked stock below zero', oversale.status === 409 && Number(afterOversale?.stockOnHand) === 3)
+
+    const otherSale = await call('POST', '/api/my/sales', {
+      idempotencyKey: randomUUID(), items: [{ productId, quantity: 1 }],
+    }, otherSeller)
+    ok('21a.9 another account cannot sell someone else product', otherSale.status === 400)
+
+    const analyticsBeforeVoid = await call('GET', '/api/my/business-analytics?period=30d', undefined, seller)
+    const summary = analyticsBeforeVoid.json?.sales?.find((row: any) => row.currency === 'UGX')
+    ok('21a.10 analytics separates recorded revenue from cost-based gross profit', analyticsBeforeVoid.status === 200 && summary?.recordedRevenue === 100000 && summary?.estimatedGrossProfit === 40000 && summary?.completedSales === 1)
+
+    const voidRes = await call('POST', '/api/my/sales/' + saleId + '/void', { reason: 'Recorded by mistake during test' }, seller)
+    const afterVoid = await db.businessProduct.findUnique({ where: { id: productId } })
+    ok('21a.11 void preserves sale and restores tracked stock', voidRes.status === 200 && Number(afterVoid?.stockOnHand) === 5)
+    const analyticsAfterVoid = await call('GET', '/api/my/business-analytics?period=30d', undefined, seller)
+    const voidSummary = analyticsAfterVoid.json?.sales?.find((row: any) => row.currency === 'UGX')
+    ok('21a.12 voided sales are excluded from active revenue', analyticsAfterVoid.status === 200 && (!voidSummary || (voidSummary.recordedRevenue === 0 && voidSummary.completedSales === 0)))
+
+    const restock = await call('POST', '/api/my/business-products/' + productId + '/stock', { type: 'RESTOCK', quantity: 2, note: 'Test delivery' }, seller)
+    const threshold = await call('PATCH', '/api/my/business-products/' + productId, { reorderLevel: 8 }, seller)
+    const afterRestock = await db.businessProduct.findUnique({ where: { id: productId } })
+    ok('21a.13 restock appends movement and threshold can be changed', restock.status === 201 && threshold.status === 200 && threshold.json?.product?.reorderLevel === 8 && Number(afterRestock?.stockOnHand) === 7)
+
+    const stockHistory = await call('GET', '/api/my/business-products/' + productId + '/stock', undefined, seller)
+    ok('21a.14 stock history includes opening, sale, reversal and restock', stockHistory.status === 200 && ['OPENING', 'SALE', 'CORRECTION', 'RESTOCK'].every((type) => stockHistory.json?.movements?.some((m: any) => m.type === type)))
+
+    const noStock = await call('POST', '/api/my/business-products/' + productId + '/stock', { type: 'ADJUSTMENT', direction: 'REMOVE', quantity: 99 }, seller)
+    const afterNoStock = await db.businessProduct.findUnique({ where: { id: productId } })
+    ok('21a.15 stock adjustment cannot make inventory negative', noStock.status === 409 && Number(afterNoStock?.stockOnHand) === 7)
+
+    const exportHeaders = { cookie: seller.cookie, ...(seller.token ? { authorization: 'Bearer ' + seller.token } : {}) }
+    const [exportProducts, exportSales, exportStock] = await Promise.all([
+      fetch(BASE + '/api/my/business-export?type=products', { headers: exportHeaders }),
+      fetch(BASE + '/api/my/business-export?type=sales', { headers: exportHeaders }),
+      fetch(BASE + '/api/my/business-export?type=stock', { headers: exportHeaders }),
+    ])
+    const [productsCsv, salesCsv, stockCsv] = await Promise.all([exportProducts.text(), exportSales.text(), exportStock.text()])
+    const privateExport = await fetch(BASE + '/api/my/business-export?type=products', {
+      headers: { cookie: otherSeller.cookie, ...(otherSeller.token ? { authorization: 'Bearer ' + otherSeller.token } : {}) },
+    })
+    const privateCsv = await privateExport.text()
+    const noAuthExport = await fetch(BASE + '/api/my/business-export?type=products')
+    ok('21a.16 business CSV exports are authenticated and owner-scoped', exportProducts.status === 200 && exportSales.status === 200 && exportStock.status === 200 && privateExport.status === 200 && !privateCsv.includes('Business ledger test product') && noAuthExport.status === 401)
+    ok('21a.17 exports use CSV content type and preserve void history', exportProducts.headers.get('content-type')?.includes('text/csv') === true && exportSales.headers.get('content-type')?.includes('text/csv') === true && exportStock.headers.get('content-type')?.includes('text/csv') === true && productsCsv.includes('Business ledger test product') && salesCsv.includes('VOIDED') && stockCsv.includes('RESTOCK'))
   }
 
   console.log(`\n== 22. Hermetic sweep - this run leaves no fixtures behind ==`)
