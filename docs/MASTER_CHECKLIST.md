@@ -333,3 +333,16 @@ For each new idea, record: customer problem, evidence/source, intended user, sma
 - [ ] Physical-device checks remain manual: inspect My Business/listing layout, scan the live shop QR, and test the live call/WhatsApp actions on a real phone.
 - [ ] Photo-guidance improvement is proposed in [PR #159](https://github.com/isaJrKai/mudaala-cloudflare/pull/159); it is **not deployed** while required CI is pending. The existing photo picker already includes listing-photo tips; this PR adds a compact reminder to My Business and a direct link to posting.
 - [ ] Continue to leave the download button untouched. Existing accounts, listings, photos, shop data, and QR codes must remain intact.
+
+
+## PR #159 deployment follow-up — 2026-10-20 17:42 UTC
+
+- [x] PR [#159](https://github.com/isaJrKai/mudaala-cloudflare/pull/159) is merged as `f6b005c487102dae78c50bd2b78f688fe2dae9dc`. Required PR validation [39464617820](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39464617820) passed.
+- [x] First post-merge deployment attempt [39466246068](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39466246068) hit a 20-second timeout in the invalid-login/shared-rate-limiter smoke test. The workflow automatically rolled back to Worker version `00e1beeb-611b-450c-a025-2a436ff55b0c`; post-rollback health returned `app=up`, `database=up`, `ok=true`. No evidence from that smoke check indicates customer records were changed.
+- [x] Re-ran only the failed deployment job (attempt 2). Deployment workflow [39466246068](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39466246068) completed successfully. Read-only app/database health and public Browse/shop-name-search smoke tests passed.
+- [x] Cloudflare deployment record now shows deployment `a7c787ed-9c25-41f5-9798-efef0ff1e8ab`, Worker version `4c108d09-004b-4031-96a8-5d04b1e4c539`, serving **100%** traffic, created at 2026-10-20 17:40:18 UTC.
+- [x] Post-deploy shop and product-search verification [39468139040](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39468139040) passed.
+- [x] Post-deploy live API, privacy-boundary and photo verification [39468138737](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39468138737) passed, including real-browser verification.
+- [x] Supabase security advisor rechecked at 2026-10-20 17:42 UTC: **zero security lints**. Performance advisor reports **9 informational unused-index findings**; no indexes were dropped.
+- [x] The photo-guidance change is now deployed. It adds practical seller photo reminders in My Business and links to the existing listing flow. Public storefront, existing photos, QR codes, accounts, and download button were not modified by this change.
+- [ ] Still open and not safely completable from this deployment: logical backup + disposable local PostgreSQL restore drill; full verified-phone registration lifecycle and provider credentials; next scheduled sweep observation at 2026-10-21 03:00 UTC / 06:00 Uganda time (do not manually invoke); physical-phone tests for My Business, QR scan, call/WhatsApp; and the tracked development-toolchain advisory remediation in issue [#132](https://github.com/isaJrKai/mudaala-cloudflare/issues/132).
