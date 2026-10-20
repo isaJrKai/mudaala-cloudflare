@@ -1232,7 +1232,7 @@ async function main() {
       'activeListingsByCategory', 'activeListingsByCounty',
       'openReportsByReason', 'moderationActionsLast7Days',
     ].sort()
-    expectedBreakdownKeys.sort()
+    const expectedAllMetricKeys = [...expectedNumericMetricKeys, ...expectedBreakdownKeys].sort()
     const actualMetricKeys = Object.keys(adminAnalytics.json?.metrics ?? {}).sort()
     const actualBreakdownKeys = expectedBreakdownKeys.filter((key) =>
       Array.isArray(adminAnalytics.json?.metrics?.[key]),
@@ -1240,6 +1240,7 @@ async function main() {
     ok(
       'admin analytics returns the defined numeric aggregates and breakdowns',
       adminAnalytics.status === 200 &&
+        JSON.stringify(actualMetricKeys) === JSON.stringify(expectedAllMetricKeys) &&
         expectedNumericMetricKeys.every((key) => typeof adminAnalytics.json.metrics[key] === 'number') &&
         expectedBreakdownKeys.every((key) => actualMetricKeys.includes(key)) &&
         expectedNumericMetricKeys.every((key) => actualMetricKeys.includes(key)) &&
