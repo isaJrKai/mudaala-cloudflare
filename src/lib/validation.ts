@@ -157,8 +157,8 @@ const quantitySchema = z
 // every PATCH. Servers derive the country from the user/listing instead.
 const listingBaseSchema = z.object({
   type: z.enum(LISTING_TYPES, { message: 'Choose OFFER or REQUEST' }),
-  title: z.string().trim().min(4, 'Title must be at least 4 characters').max(120, 'Title must be 120 characters or fewer'),
-  description: z.string().trim().min(20, 'Describe what you offer or need (at least 20 characters)').max(2000, 'Description must be 2000 characters or fewer'),
+  title: z.string().trim().min(4, 'Title must be at least 4 characters').max(120, 'Title must be 120 characters or fewer').refine((value) => !containsMarketplaceEmoji(value), 'Remove emojis from the product title so buyers can find it easily.'),
+  description: z.string().trim().min(20, 'Describe what you offer or need (at least 20 characters)').max(2000, 'Description must be 2000 characters or fewer').refine((value) => !containsMarketplaceEmoji(value), 'Please remove emojis from the description and keep the product details in words.'),
   category: z.enum(CATEGORY_KEYS as [string, ...string[]], { message: 'Choose a category' }),
   price: priceSchema.nullable(),
   // Optional "was" price for discounts. Only meaningful alongside a current
