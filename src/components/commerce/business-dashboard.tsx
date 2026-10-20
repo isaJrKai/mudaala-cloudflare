@@ -20,6 +20,7 @@ import { useSession } from '@/hooks/use-session'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from './empty-state'
 import { ErrorState } from './listings-browse'
+import { BusinessRecordsPanel } from './business-records-panel'
 
 function MetricCard({
   label,
@@ -225,15 +226,7 @@ export function BusinessDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader><CardTitle>Sales and stock records</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Mudaala does not yet record completed transactions or maintain a stock movement ledger. We will not label views or fulfilled listings as sales, or estimate profit without cost and transaction records.
-              </p>
-              <p className="text-sm font-medium">Next foundation: record sales, costs, stock changes and returns before showing sales totals or profit.</p>
-            </CardContent>
-          </Card>
+          <BusinessRecordsPanel />
         </div>
       </section>
 
