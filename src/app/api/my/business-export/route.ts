@@ -45,10 +45,10 @@ export async function GET(request: Request) {
         take: 10_000,
       })
       body = csv(
-        ['product_id', 'name', 'sku', 'unit', 'currency', 'selling_price', 'cost_price', 'stock_on_hand', 'inventory_tracked', 'archived', 'updated_at'],
+        ['product_id', 'name', 'sku', 'unit', 'currency', 'selling_price', 'cost_price', 'stock_on_hand', 'reorder_level', 'inventory_tracked', 'archived', 'updated_at'],
         products.map((product) => [
           product.id, product.name, product.sku, product.unit, product.currency, product.sellingPrice.toString(),
-          product.costPrice?.toString() ?? '', product.stockOnHand.toString(), product.trackInventory, product.archived, product.updatedAt,
+          product.costPrice?.toString() ?? '', product.stockOnHand.toString(), product.reorderLevel.toString(), product.trackInventory, product.archived, product.updatedAt,
         ]),
       )
       filename = 'mudaala-products.csv'
