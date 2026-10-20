@@ -33,7 +33,7 @@ export const stockMovementSchema = z.object({
   quantity: quantity,
   direction: z.enum(['ADD', 'REMOVE']).optional(),
   note: z.string().trim().max(300).optional().nullable(),
-}).refine((value) => value.type !== 'ADJUSTMENT' || value.direction !== undefined, {
+}).refine((value) => !['ADJUSTMENT', 'CORRECTION'].includes(value.type) || value.direction !== undefined, {
   message: 'Choose whether this adjustment adds or removes stock',
   path: ['direction'],
 })
