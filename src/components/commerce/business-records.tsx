@@ -58,6 +58,8 @@ export function BusinessRecords() {
   const [channel, setChannel] = useState('IN_PERSON')
   const [adjustStock, setAdjustStock] = useState(false)
   const [saleNote, setSaleNote] = useState('')
+  const [voidingSaleId, setVoidingSaleId] = useState<string | null>(null)
+  const [voidReason, setVoidReason] = useState('')
   const [stockListingId, setStockListingId] = useState('')
   const [stockTitle, setStockTitle] = useState('')
   const [stockDelta, setStockDelta] = useState('1')
@@ -93,6 +95,16 @@ export function BusinessRecords() {
     mutationFn: (payload: Record<string, unknown>) => apiFetch<{ sale: Sale }>('/api/my/business/sales', { method: 'POST', body: JSON.stringify(payload) }),
     onSuccess: async () => {
       setProductTitle(''); setQuantity('1'); setUnitPrice(''); setUnitCost(''); setSaleNote(''); setAdjustStock(false)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['business-sales'] }),
+        queryClient.invalidateQueries({ queryKey: ['business-stock'] }),
+      ])
+    },
+  })
+  const voidSale = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => apiFetch<{ sale: { id: string; status: string } }>(`/api/my/business/sales/${id}/void`, { method: 'POST', body: JSON.stringify({ reason }) }),
+    onSuccess: async () => {
+      setVoidingSaleId(null); setVoidReason('')
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['business-sales'] }),
         queryClient.invalidateQueries({ queryKey: ['business-stock'] }),
@@ -184,8 +196,19 @@ export function BusinessRecords() {
                       <p className="mt-0.5 text-xs text-muted-foreground">{quantityLabel(sale.quantity, sale.unit)} · {sale.channel.toLowerCase().replace('_', ' ')} · {new Date(sale.occurredAt).toLocaleDateString('en-UG')}</p>
                       {sale.status === 'VOIDED' ? <p className="text-xs text-destructive">Voided record</p> : null}
                       {sale.unitCost === null && sale.status === 'COMPLETED' ? <p className="text-xs text-muted-foreground">Cost not entered; profit is unknown.</p> : null}
+                      {sale.status === 'COMPLETED' && voidingSaleId === sale.id ? (
+                        <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={(event) => { event.preventDefault(); if (voidReason.trim().length >= 3) voidSale.mutate({ id: sale.id, reason: voidReason.trim() }) }}>
+                          <Input aria-label="Reason for voiding sale" value={voidReason} onChange={(event) => setVoidReason(event.target.value)} maxLength={300} minLength={3} required placeholder="Reason for correction" className="min-w-0 flex-1" />
+                          <Button type="submit" size="sm" variant="destructive" disabled={voidSale.isPending || voidReason.trim().length < 3}>{voidSale.isPending ? 'Voiding…' : 'Confirm'}</Button>
+                          <Button type="button" size="sm" variant="ghost" onClick={() => { setVoidingSaleId(null); setVoidReason('') }}>Cancel</Button>
+                        </form>
+                      ) : null}
+                      {voidSale.error instanceof Error && voidingSaleId === sale.id ? <p role="alert" className="text-xs text-destructive">{voidSale.error.message}</p> : null}
                     </div>
-                    <p className="shrink-0 text-sm font-semibold tabular-nums">{money(sale.quantity * sale.unitPrice, sale.currency)}</p>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-semibold tabular-nums">{money(sale.quantity * sale.unitPrice, sale.currency)}</p>
+                      {sale.status === 'COMPLETED' ? <Button type="button" size="sm" variant="ghost" className="mt-1 h-7 px-2 text-xs" onClick={() => { setVoidingSaleId(sale.id); setVoidReason(''); voidSale.reset() }}>Void</Button> : null}
+                    </div>
                   </div>)}
                 </div>
               )}
