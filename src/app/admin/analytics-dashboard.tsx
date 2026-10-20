@@ -138,6 +138,78 @@ function BreakdownPanel({ title, description, items, emptyLabel }: {
   )
 }
 
+type HealthSnapshot = {
+  ok: boolean
+  app: string
+  database: string
+  time: string
+}
+
+function PlatformHealth() {
+  const [health, setHealth] = useState<HealthSnapshot | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/health', { cache: 'no-store' })
+      const data = await response.json().catch(() => null) as HealthSnapshot | null
+      if (!data) throw new Error('Health response was not readable')
+      setHealth(data)
+      setError(response.ok && data.ok ? null : 'The latest check reported a service problem.')
+    } catch {
+      setError('Could not reach the health endpoint.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+    const timer = window.setInterval(() => { void load() }, 60_000)
+    return () => window.clearInterval(timer)
+  }, [load])
+
+  const appUp = health?.app === 'up'
+  const databaseUp = health?.database === 'up'
+
+  return (
+    <section className="mt-5 rounded-lg border bg-card p-4" aria-labelledby="platform-health-heading">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 id="platform-health-heading" className="text-sm font-semibold">Live service health</h3>
+          <p className="mt-1 text-xs text-muted-foreground">Direct application/database check, refreshed every minute. This is a current check, not an uptime guarantee.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void load()}
+          disabled={loading}
+          className="press inline-flex h-8 items-center gap-2 rounded-md border px-3 text-xs font-medium hover:bg-accent/50 disabled:opacity-60"
+        >
+          {loading ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <RefreshCw className="size-3.5" aria-hidden />}
+          Check now
+        </button>
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="rounded-md border p-3">
+          <p className="text-xs text-muted-foreground">Application</p>
+          <p className={`mt-1 text-sm font-semibold ${appUp ? 'text-emerald-700' : 'text-muted-foreground'}`}>{health ? (appUp ? 'Available' : 'Unavailable') : 'Not checked'}</p>
+        </div>
+        <div className="rounded-md border p-3">
+          <p className="text-xs text-muted-foreground">Database</p>
+          <p className={`mt-1 text-sm font-semibold ${databaseUp ? 'text-emerald-700' : health ? 'text-destructive' : 'text-muted-foreground'}`}>{health ? (databaseUp ? 'Connected' : 'Unavailable') : 'Not checked'}</p>
+        </div>
+        <div className="rounded-md border p-3">
+          <p className="text-xs text-muted-foreground">Last check</p>
+          <p className="mt-1 text-sm font-medium">{health?.time ? new Date(health.time).toLocaleString() : '—'}</p>
+        </div>
+      </div>
+      {error ? <p role="status" className="mt-3 text-xs text-destructive">{error}</p> : null}
+    </section>
+  )
+}
+
 export function AdminAnalytics() {
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [generatedAt, setGeneratedAt] = useState<string | null>(null)
@@ -186,6 +258,8 @@ export function AdminAnalytics() {
           Refresh
         </button>
       </div>
+
+      <PlatformHealth />
 
       {error ? (
         <p role="alert" className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>
