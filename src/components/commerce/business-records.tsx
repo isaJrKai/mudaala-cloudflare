@@ -185,7 +185,7 @@ export function BusinessRecords() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Recent recorded sales</CardTitle><p className="text-sm text-muted-foreground">{salesQuery.data?.total ?? 0} records in your ledger. Showing the latest page.</p></CardHeader>
+            <CardHeader className="flex flex-row items-start justify-between gap-3"><div><CardTitle>Recent recorded sales</CardTitle><p className="mt-1 text-sm text-muted-foreground">{salesQuery.data?.total ?? 0} records in your ledger. Showing the latest page.</p></div><Button type="button" variant="outline" size="sm" onClick={() => { window.location.href = '/api/my/business/export?type=sales' }}>Export CSV</Button></CardHeader>
             <CardContent>
               {salesQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading sales…</p> : salesError ? <p role="alert" className="text-sm text-destructive">{salesError}</p> : completedRecent.length === 0 ? <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">Your recorded sales will appear here. Sales made outside Mudaala count too, once you record them.</p> : (
                 <div className="divide-y">
@@ -244,7 +244,7 @@ export function BusinessRecords() {
 
           <div className="space-y-4">
             <Card>
-              <CardHeader><CardTitle>Current recorded stock</CardTitle><p className="text-sm text-muted-foreground">Calculated from your stock movement history, not from listing quantity.</p></CardHeader>
+              <CardHeader className="flex flex-row items-start justify-between gap-3"><div><CardTitle>Current recorded stock</CardTitle><p className="mt-1 text-sm text-muted-foreground">Calculated from your stock movement history, not from listing quantity.</p></div><Button type="button" variant="outline" size="sm" onClick={() => { window.location.href = '/api/my/business/export?type=stock' }}>Export CSV</Button></CardHeader>
               <CardContent>
                 {stockQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading stock…</p> : stockError ? <p role="alert" className="text-sm text-destructive">{stockError}</p> : balances.length === 0 ? <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">Start with an opening balance for each product you want to track.</p> : <div className="divide-y">
                   {balances.map((balance, index) => <div key={`${balance.listingId ?? 'custom'}-${balance.productTitle}-${balance.unit ?? ''}-${index}`} className="flex items-center gap-3 py-3">
