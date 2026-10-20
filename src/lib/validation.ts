@@ -278,7 +278,7 @@ export const momoMerchantNameSchema = z
 
 export const businessProfileSchema = z
   .object({
-    businessName: z.string().trim().min(2, 'Business name must be at least 2 characters').max(80, 'Business name is too long'),
+    businessName: z.string().trim().min(2, 'Business name must be at least 2 characters').max(80, 'Business name is too long').refine((value) => !containsMarketplaceEmoji(value), 'Remove emojis from your shop name. Use your business name as you want customers to find it.'),
     photoUrl: photoUrlSchema.nullable(),
     coverPhotoUrl: photoUrlSchema.nullable().optional(),
     websiteUrl: z.string().trim().max(2048, 'Website URL is too long').url('Enter a valid website URL').refine((value) => { try { return new URL(value).protocol === 'https:' } catch { return false } }, 'Website URL must start with https://').nullable().optional(),
