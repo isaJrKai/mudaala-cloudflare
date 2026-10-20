@@ -56,7 +56,7 @@ export function countryPhoneMessage(country: CountryKey): string {
 const MARKETPLACE_EMOJI_PATTERN = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]|[#*0-9]\uFE0F?\u20E3/u
 
 export function containsMarketplaceEmoji(value: string): boolean {
-  return MARKETPLACE_EMOJI_PATTERN.test(value)
+  return MARKETPLACE_EMOJI_PATTERN.test(value) || [...value].some((character) => { const point = character.codePointAt(0) ?? 0; return point >= 127462 && point <= 127487 })
 }
 
 const rawPhone = z.string().trim().min(1, 'Phone number is required').max(20, 'Phone number is too long')
