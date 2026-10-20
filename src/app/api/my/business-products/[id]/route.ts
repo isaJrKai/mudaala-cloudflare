@@ -12,7 +12,7 @@ export async function PATCH(request: Request, context: Context) {
     const existing = await db.businessProduct.findFirst({ where: { id, userId: user.id } })
     if (!existing) throw new ApiError(404, 'Product not found')
 
-    const product = await db.businessProduct.update({
+    let product\n    try {\n      product = await db.businessProduct.update({
       where: { id },
       data: {
         ...(data.name !== undefined ? { name: data.name } : {}),
