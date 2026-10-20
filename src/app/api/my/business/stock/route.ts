@@ -5,7 +5,7 @@ import { stockMovementCreateSchema } from '@/lib/validation'
 export async function GET() {
   return route(async () => {
     const user = await requireUser()
-    const [total, movements, balances] = await Promise.all([
+    const [total, movements, linkedBalances, customBalances] = await Promise.all([
       db.stockMovement.count({ where: { userId: user.id } }),
       db.stockMovement.findMany({
         where: { userId: user.id },
@@ -18,12 +18,39 @@ export async function GET() {
         },
       }),
       db.stockMovement.groupBy({
-        by: ['listingId', 'productTitle', 'unit'],
-        where: { userId: user.id },
+        by: ['listingId', 'unit'],
+        where: { userId: user.id, listingId: { not: null } },
+        _sum: { quantityDelta: true },
+        _count: { _all: true },
+      }),
+      db.stockMovement.groupBy({
+        by: ['productTitle', 'unit'],
+        where: { userId: user.id, listingId: null },
         _sum: { quantityDelta: true },
         _count: { _all: true },
       }),
     ])
+    const linkedIds = linkedBalances.map((balance) => balance.listingId).filter((id): id is string => Boolean(id))
+    const listingNames = linkedIds.length
+      ? await db.listing.findMany({ where: { id: { in: linkedIds }, userId: user.id }, select: { id: true, title: true } })
+      : []
+    const titleById = new Map(listingNames.map((listing) => [listing.id, listing.title]))
+    const balances = [
+      ...linkedBalances.map((balance) => ({
+        listingId: balance.listingId,
+        productTitle: (balance.listingId && titleById.get(balance.listingId)) || 'Deleted listing',
+        unit: balance.unit,
+        quantityOnHand: Number((balance._sum.quantityDelta ?? 0).toString()),
+        movementCount: balance._count._all,
+      })),
+      ...customBalances.map((balance) => ({
+        listingId: null,
+        productTitle: balance.productTitle,
+        unit: balance.unit,
+        quantityOnHand: Number((balance._sum.quantityDelta ?? 0).toString()),
+        movementCount: balance._count._all,
+      })),
+    ]
     return jsonOk({
       total,
       movements: movements.map((movement) => ({
@@ -32,13 +59,7 @@ export async function GET() {
         occurredAt: movement.occurredAt.toISOString(),
         createdAt: movement.createdAt.toISOString(),
       })),
-      balances: balances.map((balance) => ({
-        listingId: balance.listingId,
-        productTitle: balance.productTitle,
-        unit: balance.unit,
-        quantityOnHand: Number((balance._sum.quantityDelta ?? 0).toString()),
-        movementCount: balance._count._all,
-      })).sort((a, b) => a.productTitle.localeCompare(b.productTitle)),
+      balances: balances.sort((a, b) => a.productTitle.localeCompare(b.productTitle)),
     })
   })
 }
