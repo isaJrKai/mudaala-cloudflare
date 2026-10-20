@@ -3035,6 +3035,89 @@ async function main() {
     )
   }
 
+  console.log(`\n== 21.8 My Business sales, stock, ownership and exports ==`)
+  {
+    const noSalesAuth = await call('GET', '/api/my/business/sales')
+    const noStockAuth = await call('GET', '/api/my/business/stock')
+    const noExportAuth = await fetch(`${BASE}/api/my/business/export?type=sales`)
+    ok('21.8.1 sales ledger requires authentication', noSalesAuth.status === 401)
+    ok('21.8.2 stock ledger requires authentication', noStockAuth.status === 401)
+    ok('21.8.3 CSV export requires authentication', noExportAuth.status === 401)
+
+    const opening = await call('POST', '/api/my/business/stock', {
+      productTitle: `Test passion juice ${RUN_TAG}`,
+      unit: 'bottle',
+      quantityDelta: 10,
+      reason: 'OPENING_BALANCE',
+      note: 'ledger integration fixture',
+    }, alice)
+    ok('21.8.4 opening stock records an explicit unit and positive balance', opening.status === 201 && opening.json?.movement?.quantityDelta === 10)
+
+    const sale = await call('POST', '/api/my/business/sales', {
+      productTitle: `Test passion juice ${RUN_TAG}`,
+      unit: 'bottle',
+      quantity: 2,
+      unitPrice: 2500,
+      unitCost: 1500,
+      currency: 'UGX',
+      channel: 'WHATSAPP',
+      adjustStock: true,
+      note: 'ledger integration fixture',
+    }, alice)
+    const saleId = sale.json?.sale?.id as string | undefined
+    ok('21.8.5 completed sale stores quantity, selling price and known cost', sale.status === 201 && saleId && sale.json?.sale?.quantity === 2 && sale.json?.sale?.unitPrice === 2500 && sale.json?.sale?.unitCost === 1500)
+    ok('21.8.6 stock decrement is atomically linked to the sale', sale.status === 201 && sale.json?.sale?.stockMovement?.quantityDelta === -2)
+
+    const stockAfterSale = await call('GET', '/api/my/business/stock', undefined, alice)
+    const balanceAfterSale = (stockAfterSale.json?.balances ?? []).find((b: any) => b.productTitle === `Test passion juice ${RUN_TAG}` && b.unit === 'bottle')
+    ok('21.8.7 stock balance reflects opening stock minus the sale', stockAfterSale.status === 200 && balanceAfterSale?.quantityOnHand === 8)
+
+    const outsider: Jar = { cookie: '' }
+    await register(outsider, uniquePhone(), 'Ledger Outsider', 'quiet-harbor-32')
+    const outsiderSales = await call('GET', '/api/my/business/sales', undefined, outsider)
+    const outsiderStock = await call('GET', '/api/my/business/stock', undefined, outsider)
+    ok('21.8.8 another account cannot see this seller sales', outsiderSales.status === 200 && outsiderSales.json?.total === 0 && !(outsiderSales.json?.sales ?? []).some((s: any) => s.id === saleId))
+    ok('21.8.9 another account cannot see this seller stock', outsiderStock.status === 200 && !(outsiderStock.json?.balances ?? []).some((b: any) => b.productTitle === `Test passion juice ${RUN_TAG}`))
+
+    if (createdListingId) {
+      const crossOwner = await call('POST', '/api/my/business/sales', {
+        listingId: createdListingId, quantity: 1, unitPrice: 100, adjustStock: false,
+      }, outsider)
+      ok('21.8.10 cannot link a sale to another seller listing', crossOwner.status === 404)
+    } else {
+      ok('21.8.10 listing ownership fixture was created', false, 'createdListingId missing')
+    }
+
+    if (saleId) {
+      const voided = await call('POST', `/api/my/business/sales/${saleId}/void`, { reason: 'Integration test correction' }, alice)
+      ok('21.8.11 void preserves the sale with a reason', voided.status === 200 && voided.json?.sale?.status === 'VOIDED')
+      const doubleVoid = await call('POST', `/api/my/business/sales/${saleId}/void`, { reason: 'Duplicate correction' }, alice)
+      ok('21.8.12 double void is rejected', doubleVoid.status === 409)
+      const stockAfterVoid = await call('GET', '/api/my/business/stock', undefined, alice)
+      const balanceAfterVoid = (stockAfterVoid.json?.balances ?? []).find((b: any) => b.productTitle === `Test passion juice ${RUN_TAG}` && b.unit === 'bottle')
+      ok('21.8.13 void writes a compensating stock movement', stockAfterVoid.status === 200 && balanceAfterVoid?.quantityOnHand === 10)
+    } else {
+      ok('21.8.11 sale fixture exists for void test', false)
+      ok('21.8.12 sale fixture exists for duplicate-void test', false)
+      ok('21.8.13 sale fixture exists for stock reversal test', false)
+    }
+
+    const csvResponse = await fetch(`${BASE}/api/my/business/export?type=sales`, {
+      headers: { cookie: alice.cookie, ...(alice.token ? { authorization: `Bearer ${alice.token}` } : {}), 'cf-connecting-ip': autoEdgeIp() },
+    })
+    const csvText = await csvResponse.text()
+    ok('21.8.14 sales CSV export is private and contains ledger headers', csvResponse.status === 200 && csvResponse.headers.get('content-type')?.includes('text/csv') === true && csvText.includes('estimated_gross_profit') && csvText.includes(saleId ?? 'never-match'))
+    const stockCsv = await fetch(`${BASE}/api/my/business/export?type=stock`, {
+      headers: { cookie: alice.cookie, ...(alice.token ? { authorization: `Bearer ${alice.token}` } : {}), 'cf-connecting-ip': autoEdgeIp() },
+    })
+    ok('21.8.15 stock CSV export is available to its owner', stockCsv.status === 200 && (await stockCsv.text()).includes('quantity_delta'))
+
+    const missingUnit = await call('POST', '/api/my/business/sales', {
+      productTitle: 'Unitless test item', quantity: 1, unitPrice: 100,
+    }, alice)
+    ok('21.8.16 custom sales without a unit are rejected', missingUnit.status === 400 && missingUnit.json?.fields?.unit)
+  }
+
   console.log(`\n== 22. Hermetic sweep - this run leaves no fixtures behind ==`)
   {
     const ids = [...createdUserIds]
