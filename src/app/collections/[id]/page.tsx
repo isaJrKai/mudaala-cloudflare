@@ -66,7 +66,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   if (!data) return { title: 'Collection unavailable · Mudaala', robots: { index: false, follow: false } }
   const { collection, shop, items } = data
   const title = `${collection.title} · ${shop.name} · Mudaala`
-  const description = (collection.description?.trim() || `Explore ${items.length} available products from ${shop.name} on Mudaala.`).replace(/\\s+/g, ' ').slice(0, 200)
+  const description = (collection.description?.trim() || `Explore ${items.length} available products from ${shop.name} on Mudaala.`).replace(/\s+/g, ' ').slice(0, 200)
   const cover = collection.coverPhotoUrl && !collection.coverPhotoUrl.includes('/uploads/seed/')
     ? absolutePhoto(collection.coverPhotoUrl)
     : items.flatMap((item) => photosOf(item.listing.photos).filter((photo) => !photo.includes('/uploads/seed/'))).map(absolutePhoto)[0]
