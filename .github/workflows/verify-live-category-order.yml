@@ -83,7 +83,7 @@ jobs:
               if (!feedbackBox || !navBox || feedbackBox.y + feedbackBox.height > navBox.y) {
                 throw new Error('Mobile feedback button overlaps the primary bottom navigation');
               }
-              const installButton = page.getByRole('button', { name: /Get the app|Install Mudaala/ });
+              const installButton = page.getByRole('button', { name: /Get app|Get the app|Install Mudaala/ });
               if (await installButton.isVisible().catch(() => false)) {
                 const installBox = await installButton.boundingBox();
                 if (!installBox) throw new Error('Install prompt has no measurable button bounds');
@@ -95,6 +95,36 @@ jobs:
                   throw new Error('Mobile feedback button overlaps the PWA install action');
                 }
               }
+              // Also verify the floating controls at a narrow 320px phone width.
+              // This catches cropped prompts and overlaps that a 390px check misses.
+              await page.setViewportSize({ width: 320, height: 740 });
+              await page.waitForTimeout(100);
+              const narrowViewport = await page.evaluate(() => ({
+                width: document.documentElement.clientWidth,
+                scrollWidth: document.documentElement.scrollWidth,
+              }));
+              if (narrowViewport.scrollWidth > narrowViewport.width + 1) {
+                throw new Error('Narrow 320px viewport has horizontal overflow: ' + JSON.stringify(narrowViewport));
+              }
+              const narrowFeedback = await feedbackButton.boundingBox();
+              const narrowNav = await page.getByRole('navigation', { name: 'Primary' }).boundingBox();
+              const narrowInstall = await page.getByRole('button', { name: /Get app|Get the app|Install Mudaala/ }).boundingBox().catch(() => null);
+              if (!narrowFeedback || !narrowNav ||
+                  narrowFeedback.x < 0 || narrowFeedback.x + narrowFeedback.width > 320 ||
+                  narrowFeedback.y < 0 || narrowFeedback.y + narrowFeedback.height > narrowNav.y) {
+                throw new Error('Feedback action is cropped or overlaps mobile navigation at 320px');
+              }
+              if (narrowInstall && (narrowInstall.x < 0 || narrowInstall.x + narrowInstall.width > 320 ||
+                  narrowInstall.y < 0 || narrowInstall.y + narrowInstall.height > 740)) {
+                throw new Error('Install action is cropped at 320px: ' + JSON.stringify(narrowInstall));
+              }
+              if (narrowInstall && narrowFeedback.x < narrowInstall.x + narrowInstall.width &&
+                  narrowFeedback.x + narrowFeedback.width > narrowInstall.x &&
+                  narrowFeedback.y < narrowInstall.y + narrowInstall.height &&
+                  narrowFeedback.y + narrowFeedback.height > narrowInstall.y) {
+                throw new Error('Feedback and install actions overlap at 320px');
+              }
+              await page.setViewportSize({ width: 390, height: 844 });
               await feedbackButton.click();
               await page.getByRole('dialog', { name: 'Help us improve Mudaala' }).waitFor({ state: 'visible', timeout: 10000 });
               await page.getByRole('button', { name: 'Close feedback form' }).click();
