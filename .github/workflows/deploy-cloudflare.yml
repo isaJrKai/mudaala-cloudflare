@@ -3,10 +3,9 @@ name: Deploy Mudaala to Cloudflare Workers
 on:
   push:
     branches: [main]
-    # Test/workflow/documentation-only commits must not redeploy the Worker.
-    # If a commit also changes application/configuration code, deployment runs.
+    # Documentation, migrations, and API test harness-only commits do not redeploy.
+    # Workflow changes do trigger deployment so security/deploy-gate fixes can be verified.
     paths-ignore:
-      - '.github/workflows/**'
       - 'prisma/migrations/**'
       - 'scripts/test-api.ts'
       - '**/*.md'
@@ -60,7 +59,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: 7d45a3db16c2ce332bf146d34eb01687
         run: |
           set -euo pipefail
-          secrets_json="$(npx wrangler secret list --name mudaala-cloudflare --account-id "$CLOUDFLARE_ACCOUNT_ID" --format json)"
+          secrets_json="$(npx wrangler secret list --name mudaala-cloudflare --format json)"
           printf '%s' "$secrets_json" | node -e '
             let raw = "";
             process.stdin.on("data", chunk => raw += chunk);
