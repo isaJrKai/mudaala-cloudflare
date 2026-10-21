@@ -15,8 +15,6 @@ export async function GET(_request: Request, context: Context) {
         title: true,
         description: true,
         coverPhotoUrl: true,
-        startsAt: true,
-        endsAt: true,
         sortOrder: true,
         createdAt: true,
         updatedAt: true,
