@@ -818,7 +818,7 @@ async function verifyProductCollections(browser) {
     const sessionPayload = await sessionResponse.json();
     if (sessionPayload.user?.id !== userId) throw new Error('Collection UI browser session did not resolve to the registered seller');
     try {
-      await page.locator('main').getByRole('heading', { name: 'My business', exact: true }).waitFor({ state: 'visible', timeout });
+      await page.getByRole('heading', { name: 'Product collections', exact: true }).waitFor({ state: 'visible', timeout });
     } catch (error) {
       const diagnostic = await page.evaluate(() => ({
         url: window.location.href,
