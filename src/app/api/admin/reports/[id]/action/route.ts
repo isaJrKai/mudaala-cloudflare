@@ -28,6 +28,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         ? await db.listing.findUnique({ where: { id: report.targetId }, select: { id: true, userId: true, title: true, status: true } })
         : await db.businessProfile.findUnique({ where: { id: report.targetId }, select: { id: true, userId: true, businessName: true } })
       if (!target) throw new ApiError(404, 'The reported listing or shop no longer exists')
+      const targetLabel = 'title' in target ? target.title : target.businessName
 
       let confirmedViolationCount = 0
       await db.$transaction(async (tx) => {
@@ -75,7 +76,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
               userId: target.userId,
               type: 'POLICY_WARNING',
               title: 'Formal marketplace policy warning',
-              body: `Our moderators have confirmed ${confirmedViolationCount} policy violations on your account. A formal warning has been placed after moderator review. The latest confirmed case concerns: ${(policyCategory ?? report.reason).replaceAll('_', ' ').toLowerCase()}. Please follow Mudaala’s marketplace rules. Further confirmed violations may lead to account restrictions. If you believe this decision is wrong, appeal using “Report a bug / Send feedback” in the site footer and mention this warning.`,
+              body: `Our moderators have confirmed ${confirmedViolationCount} policy violations on your account. A formal warning has been placed after moderator review. The latest confirmed case concerns: ${(policyCategory ?? report.reason).replaceAll('_', ' ').toLowerCase()} on “${targetLabel}”. Please follow Mudaala’s marketplace rules. Further confirmed violations may lead to account restrictions. If you believe this decision is wrong, appeal using “Report a bug / Send feedback” in the site footer and mention this warning.`,
             },
           })
           await tx.policyViolation.update({ where: { reportId: report.id }, data: { warningSentAt: new Date() } })
