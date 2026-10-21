@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, Layers3, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Layers3, Plus, Trash2, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiFetch, apiGet, type Listing } from '@/lib/client'
@@ -28,6 +28,10 @@ export function ProductCollectionsManager() {
   const [description, setDescription] = useState('')
   const [coverPhotoUrl, setCoverPhotoUrl] = useState('')
   const [selectedListing, setSelectedListing] = useState<Record<string, string>>({})
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editCoverPhotoUrl, setEditCoverPhotoUrl] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -89,6 +93,25 @@ export function ProductCollectionsManager() {
     }, 'Collection created.')
   }
 
+  function beginEdit(collection: ProductCollection) {
+    setEditingId(collection.id)
+    setEditTitle(collection.title)
+    setEditDescription(collection.description ?? '')
+    setEditCoverPhotoUrl(collection.coverPhotoUrl ?? '')
+    setError('')
+    setMessage('')
+  }
+
+  function saveEdit(event: React.FormEvent<HTMLFormElement>, collectionId: string) {
+    event.preventDefault()
+    void perform(async () => {
+      await apiFetch('/api/my/collections/' + collectionId, {
+        method: 'PATCH',
+        body: JSON.stringify({ title: editTitle.trim(), description: editDescription.trim() || null, coverPhotoUrl: editCoverPhotoUrl.trim() || null }),
+      })
+      setEditingId(null)
+    }, 'Collection details saved.')
+  }
   async function reorderCollection(index: number, direction: -1 | 1) {
     const next = [...collections]
     const swap = index + direction
@@ -133,7 +156,7 @@ export function ProductCollectionsManager() {
             </label>
             <label className="space-y-1 text-sm font-medium sm:col-span-2">
               Cover photo URL (optional)
-              <input type="url" value={coverPhotoUrl} onChange={(event) => setCoverPhotoUrl(event.target.value)} placeholder="https://… or an uploaded /uploads/ image path" className="h-10 w-full rounded-md border bg-background px-3 font-normal" />
+              <input type="text" value={coverPhotoUrl} onChange={(event) => setCoverPhotoUrl(event.target.value)} placeholder="https://… or an uploaded /uploads/ image path" className="h-10 w-full rounded-md border bg-background px-3 font-normal" />
               <span className="block text-xs font-normal text-muted-foreground">Use a real image you are allowed to share. Photo upload integration can be added without changing your collections.</span>
             </label>
             <div className="sm:col-span-2">
@@ -170,7 +193,8 @@ export function ProductCollectionsManager() {
                   <p className="mt-1 text-xs text-muted-foreground">{collection.items.length} {collection.items.length === 1 ? 'product' : 'products'} · {collection.isActive ? 'Visible to buyers' : 'Hidden from buyers'}</p>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  <Button size="sm" variant="outline" disabled={busy || index === 0} aria-label={`Move ${collection.title} up`} onClick={() => void reorderCollection(index, -1)}><ArrowUp className="size-4" aria-hidden /></Button>
+                  <Button size="sm" variant="outline" disabled={busy || editingId === collection.id} onClick={() => beginEdit(collection)}><Pencil className="mr-1 size-3.5" aria-hidden />Edit</Button>
+                  <Button size="sm" variant="outline" disabled={busy || index === 0 || editingId === collection.id} aria-label={`Move ${collection.title} up`} onClick={() => void reorderCollection(index, -1)}><ArrowUp className="size-4" aria-hidden /></Button>
                   <Button size="sm" variant="outline" disabled={busy || index === collections.length - 1} aria-label={`Move ${collection.title} down`} onClick={() => void reorderCollection(index, 1)}><ArrowDown className="size-4" aria-hidden /></Button>
                   <Button size="sm" variant="outline" disabled={busy} onClick={() => void perform(() => apiFetch(`/api/my/collections/${collection.id}`, { method: 'PATCH', body: JSON.stringify({ isActive: !collection.isActive }) }), collection.isActive ? 'Collection hidden from buyers.' : 'Collection visible to buyers.')}>{collection.isActive ? 'Hide' : 'Publish'}</Button>
                   <Button size="sm" variant="destructive" disabled={busy} onClick={() => {
@@ -181,6 +205,14 @@ export function ProductCollectionsManager() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
+                {editingId === collection.id ? (
+                  <form className="grid gap-3 rounded-md border bg-muted/20 p-3" onSubmit={(event) => saveEdit(event, collection.id)}>
+                    <label className="space-y-1 text-sm font-medium">Collection name<input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} maxLength={80} required className="h-10 w-full rounded-md border bg-background px-3 font-normal" /></label>
+                    <label className="space-y-1 text-sm font-medium">Description<textarea value={editDescription} onChange={(event) => setEditDescription(event.target.value)} maxLength={500} rows={2} className="w-full rounded-md border bg-background px-3 py-2 font-normal" /></label>
+                    <label className="space-y-1 text-sm font-medium">Cover photo URL<input type="text" value={editCoverPhotoUrl} onChange={(event) => setEditCoverPhotoUrl(event.target.value)} placeholder="https://… or /uploads/…" className="h-10 w-full rounded-md border bg-background px-3 font-normal" /></label>
+                    <div className="flex flex-wrap gap-2"><Button type="submit" disabled={busy || !editTitle.trim()}>Save details</Button><Button type="button" variant="outline" disabled={busy} onClick={() => setEditingId(null)}><X className="mr-1 size-4" aria-hidden />Cancel</Button></div>
+                  </form>
+                ) : null}
                 {collection.items.length ? (
                   <ul className="divide-y rounded-md border">
                     {collection.items.map((item, itemIndex) => (
