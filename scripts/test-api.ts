@@ -720,6 +720,15 @@ async function main() {
     ok('old price below current price → 400 with field error',
       badDiscount.status === 400 && Boolean(badDiscount.json?.fields?.compareAtPrice))
 
+    const requestWithDiscount = await call('POST', '/api/listings', {
+      ...validListing,
+      type: 'REQUEST',
+      title: 'Request with forbidden old price',
+      compareAtPrice: 800,
+    }, alice)
+    ok('REQUEST cannot carry an old-price discount → 400 with field error',
+      requestWithDiscount.status === 400 && Boolean(requestWithDiscount.json?.fields?.compareAtPrice))
+
     const orphanDiscount = await call('POST', '/api/listings', {
       ...validListing,
       title: 'Old price without current price',
@@ -728,6 +737,19 @@ async function main() {
       compareAtPrice: 800,
     }, alice)
     ok('old price without a current price → 400', orphanDiscount.status === 400)
+
+    const requestListing = await call('POST', '/api/listings', {
+      ...validListing,
+      type: 'REQUEST',
+      title: 'Copper scrap wanted test',
+    }, alice)
+    ok('create REQUEST without an old price → 201',
+      requestListing.status === 201 && Boolean(requestListing.json?.listing?.id))
+    const requestDiscountPatch = requestListing.status === 201
+      ? await call('PATCH', `/api/listings/${requestListing.json.listing.id}`, { compareAtPrice: 800 }, alice)
+      : { status: 0, json: null }
+    ok('PATCH cannot add an old-price discount to a REQUEST → 400 with field error',
+      requestDiscountPatch.status === 400 && Boolean(requestDiscountPatch.json?.fields?.compareAtPrice))
 
     // PATCH: clear then set the discount against the merged record.
     const cleared = await call('PATCH', `/api/listings/${discount.json.listing.id}`, { compareAtPrice: null }, alice)
