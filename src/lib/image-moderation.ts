@@ -60,7 +60,11 @@ export async function moderateImageContent(
     if (!response.ok) return { status: 'unavailable', providerStatus: response.status }
     const payload = await response.json() as ModerationResponse
     const categories = payload.results?.[0]?.categories
-    if (!categories || typeof categories.sexual !== 'boolean') return { status: 'unavailable' }
+    // Treat a partial category payload as malformed. In particular, never
+    // interpret a missing sexual/minors result as a clean image.
+    if (!categories || typeof categories.sexual !== 'boolean' || typeof categories['sexual/minors'] !== 'boolean') {
+      return { status: 'unavailable' }
+    }
 
     if (categories['sexual/minors'] === true) return { status: 'blocked', category: 'sexual/minors' }
     if (categories.sexual === true) return { status: 'blocked', category: 'sexual' }
