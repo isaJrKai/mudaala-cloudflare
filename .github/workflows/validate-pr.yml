@@ -203,7 +203,13 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."PolicyViolation", public."Feedback" CASCADE;'
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261021090000_feedback_inbox/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261021100000_policy_violations/migration.sql
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "SELECT tablename, rowsecurity FROM pg_tables JOIN pg_class ON relname=tablename JOIN pg_namespace ON relnamespace=pg_namespace.oid WHERE schemaname='public' AND tablename IN ('Feedback','PolicyViolation');"
+          rls_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('Feedback','PolicyViolation') AND c.relrowsecurity")
+          policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename IN ('Feedback','PolicyViolation') AND policyname IN ('deny_direct_api_clients','mudaala_runtime_access')")
+          if [ "$rls_count" != "2" ] || [ "$policy_count" != "4" ]; then
+            echo "Expected RLS and both deny/runtime policies on Feedback and PolicyViolation; RLS=$rls_count policies=$policy_count"
+            exit 1
+          fi
+          echo "Feedback and policy-violation migration verified with RLS and deny/runtime policies."
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
