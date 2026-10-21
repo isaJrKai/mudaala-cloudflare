@@ -826,11 +826,6 @@ async function verifyProductCollections(browser) {
       }));
       throw new Error('My Business collection dashboard did not render: ' + JSON.stringify(diagnostic) + '; original: ' + String(error));
     }
-    const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
-    if (await shopSetupDialog.isVisible().catch(() => false)) {
-      await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
-      await shopSetupDialog.waitFor({ state: 'hidden', timeout });
-    }
 
     const collectionTitle = 'Browser collection ' + Date.now();
     await page.getByPlaceholder('e.g. Freshly baked today').fill(collectionTitle);
