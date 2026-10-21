@@ -40,7 +40,7 @@ export function FeedbackButton() {
           title,
           description,
           contact: contact.trim() || null,
-          pagePath: window.location.pathname,
+          pagePath: window.location.pathname + window.location.hash,
         }),
       })
       const payload = await response.json().catch(() => null)
