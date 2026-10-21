@@ -133,6 +133,17 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020000000_business_records_foundation/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020190000_listing_daily_analytics/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020200000_business_records_rls/migration.sql
+          # Exercise the exact additive collection migration against disposable PostgreSQL.
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."ProductCollectionItem", public."ProductCollection" CASCADE;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261021113000_product_collections/migration.sql
+          collection_rls_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('ProductCollection','ProductCollectionItem') AND c.relrowsecurity")
+          collection_policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename IN ('ProductCollection','ProductCollectionItem') AND policyname IN ('deny_direct_api_clients','mudaala_runtime_access')")
+          collection_runtime_grants=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('ProductCollection','ProductCollectionItem') AND grantee='mudaala_runtime' AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          if [ "$collection_rls_count" != "2" ] || [ "$collection_policy_count" != "4" ] || [ "$collection_runtime_grants" != "8" ]; then
+            echo "Collection migration security checks failed: RLS=$collection_rls_count policies=$collection_policy_count runtime_grants=$collection_runtime_grants"
+            exit 1
+          fi
+          echo "Product collection PostgreSQL migration passed: both tables have RLS, deny/runtime policies and least-privilege DML grants."
           policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(DISTINCT tablename) FROM pg_policies WHERE schemaname='public' AND tablename IN ('AppSetting','AuditLog','BusinessProfile','BusinessProduct','CategoryInterest','Listing','ListingDailyAnalytics','Notification','PasswordReset','PriceSnapshot','Report','Sale','SaleItem','SavedSearch','Session','ShopDailyAnalytics','ShopFollow','StockMovement','User') AND 'anon'=ANY(roles) AND 'authenticated'=ANY(roles) AND qual='false' AND with_check='false'")
           if [ "$policy_count" != "19" ]; then
             echo "Expected deny-all Data API policies on all 19 application tables, found $policy_count tables"
@@ -145,6 +156,39 @@ jobs:
           fi
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
+
+      - name: Validate SQLite product collection migration and constraints
+        run: |
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+
+          connection = sqlite3.connect(":memory:")
+          connection.execute("PRAGMA foreign_keys = ON")
+          connection.execute('CREATE TABLE "User" ("id" TEXT NOT NULL PRIMARY KEY)')
+          connection.execute('CREATE TABLE "Listing" ("id" TEXT NOT NULL PRIMARY KEY)')
+          migration = Path("prisma/migrations-sqlite/20261021113000_product_collections/migration.sql").read_text()
+          connection.executescript(migration)
+          connection.execute('INSERT INTO "User" ("id") VALUES (?)', ("owner-1",))
+          connection.execute('INSERT INTO "Listing" ("id") VALUES (?)', ("listing-1",))
+          connection.execute('INSERT INTO "ProductCollection" ("id","userId","title","updatedAt") VALUES (?,?,?,CURRENT_TIMESTAMP)', ("collection-1","owner-1","Seasonal picks"))
+          connection.execute('INSERT INTO "ProductCollectionItem" ("id","collectionId","listingId") VALUES (?,?,?)', ("item-1","collection-1","listing-1"))
+          for sql, params in [
+              ('INSERT INTO "ProductCollectionItem" ("id","collectionId","listingId") VALUES (?,?,?)', ("item-2","collection-1","listing-1")),
+              ('INSERT INTO "ProductCollection" ("id","userId","title","updatedAt") VALUES (?,?,?,CURRENT_TIMESTAMP)', ("bad-title","owner-1","","")),
+              ('INSERT INTO "ProductCollectionItem" ("id","collectionId","listingId") VALUES (?,?,?)', ("bad-fk","missing","listing-1")),
+          ]:
+              try:
+                  connection.execute(sql, params)
+              except sqlite3.IntegrityError:
+                  continue
+              raise SystemExit(f"Expected SQLite integrity constraint to reject: {sql}")
+          indexes = {row[1] for row in connection.execute('PRAGMA index_list("ProductCollectionItem")')}
+          if not indexes:
+              raise SystemExit("Expected collection-item indexes to be created")
+          print("SQLite collection migration passed: schema, indexes, foreign keys, title and duplicate-item constraints.")
+          PY
 
       - name: Seed development fixtures into disposable PostgreSQL
         run: npx tsx scripts/seed.ts
