@@ -83,6 +83,18 @@ jobs:
               if (!feedbackBox || !navBox || feedbackBox.y + feedbackBox.height > navBox.y) {
                 throw new Error('Mobile feedback button overlaps the primary bottom navigation');
               }
+              const installButton = page.getByRole('button', { name: /Get the app|Install Mudaala/ });
+              if (await installButton.isVisible().catch(() => false)) {
+                const installBox = await installButton.boundingBox();
+                if (!installBox) throw new Error('Install prompt has no measurable button bounds');
+                const overlapsInstall = feedbackBox.x < installBox.x + installBox.width &&
+                  feedbackBox.x + feedbackBox.width > installBox.x &&
+                  feedbackBox.y < installBox.y + installBox.height &&
+                  feedbackBox.y + feedbackBox.height > installBox.y;
+                if (overlapsInstall) {
+                  throw new Error('Mobile feedback button overlaps the PWA install action');
+                }
+              }
               await feedbackButton.click();
               await page.getByRole('dialog', { name: 'Help us improve Mudaala' }).waitFor({ state: 'visible', timeout: 10000 });
               await page.getByRole('button', { name: 'Close feedback form' }).click();
