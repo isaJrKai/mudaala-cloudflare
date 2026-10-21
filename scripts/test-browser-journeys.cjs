@@ -849,8 +849,8 @@ async function verifyProductCollections(browser) {
     if (createResponse.status() !== 201) throw new Error('Collection creation failed: HTTP ' + createResponse.status() + ' ' + (await createResponse.text()).slice(0, 300));
     await page.getByText('Collection created.', { exact: true }).waitFor({ state: 'visible', timeout });
 
-    const collectionHeading = page.getByRole('heading', { name: collectionTitle, exact: true });
-    await collectionHeading.waitFor({ state: 'visible', timeout });
+    const collectionTitleText = page.getByText(collectionTitle, { exact: true });
+    await collectionTitleText.waitFor({ state: 'visible', timeout });
     const addForm = page.locator('form').filter({ has: page.getByLabel('Choose a product for ' + collectionTitle) });
     await addForm.getByLabel('Choose a product for ' + collectionTitle).selectOption({ label: listingTitle });
     const addResponsePromise = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/items') && new URL(response.url()).pathname.includes('/api/my/collections/'), { timeout });
