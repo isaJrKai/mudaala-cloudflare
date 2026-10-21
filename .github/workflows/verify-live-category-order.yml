@@ -1,0 +1,107 @@
+name: Verify live category priority
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy Mudaala to Cloudflare Workers"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-category-order:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Install Playwright Chromium
+        run: |
+          npm install --prefix /tmp/mudaala-category-check playwright@1.56.1
+          /tmp/mudaala-category-check/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Verify production category order in a clean guest session
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          node <<'NODE'
+          const { chromium } = require('/tmp/mudaala-category-check/node_modules/playwright');
+          const base = process.env.APP_URL.replace(/\/$/, '');
+          const expected = [
+            'All',
+            'Clothes & Apparel',
+            'Phones & Electronics',
+            'Beauty & Personal Care',
+            'Food & Groceries',
+            'Services',
+          ];
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({
+              viewport: { width: 390, height: 844 },
+              deviceScaleFactor: 1,
+              hasTouch: true,
+            });
+            const page = await context.newPage();
+            try {
+              // Empty context means no saved guest interest can personalize order.
+              await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
+              const group = page.getByRole('group', { name: 'Filter by category' });
+              await group.waitFor({ state: 'visible', timeout: 30000 });
+              await page.getByRole('button', { name: 'Services', exact: true }).waitFor({ state: 'visible', timeout: 30000 });
+
+              const actual = await group.getByRole('button').allTextContents();
+              const normalized = actual.map((label) => label.trim().replace(/\s+/g, ' '));
+              const leading = normalized.slice(0, expected.length);
+              if (JSON.stringify(leading) !== JSON.stringify(expected)) {
+                throw new Error('Production category priority mismatch: expected ' + JSON.stringify(expected) + ', received ' + JSON.stringify(leading));
+              }
+
+              const viewport = await page.evaluate(() => ({
+                width: document.documentElement.clientWidth,
+                scrollWidth: document.documentElement.scrollWidth,
+              }));
+              if (viewport.scrollWidth > viewport.width + 1) {
+                throw new Error('Category priority check found page-level horizontal overflow on 390px viewport: ' + JSON.stringify(viewport));
+              }
+
+              // The category rail is intentionally horizontally scrollable; the
+              // document itself must not overflow. Confirm all category options
+              // remain available even when the rail extends beyond the viewport.
+              if (normalized.length < expected.length) {
+                throw new Error('Production category rail is missing expected category options');
+              }
+
+              // The persistent feedback action must remain clear of the fixed
+              // mobile navigation. Opening and closing the form is read-only.
+              const feedbackButton = page.getByRole('button', { name: 'Report a bug', exact: true });
+              await feedbackButton.waitFor({ state: 'visible', timeout: 10000 });
+              const feedbackBox = await feedbackButton.boundingBox();
+              const navBox = await page.getByRole('navigation', { name: 'Primary' }).boundingBox();
+              if (!feedbackBox || !navBox || feedbackBox.y + feedbackBox.height > navBox.y) {
+                throw new Error('Mobile feedback button overlaps the primary bottom navigation');
+              }
+              await feedbackButton.click();
+              await page.getByRole('dialog', { name: 'Help us improve Mudaala' }).waitFor({ state: 'visible', timeout: 10000 });
+              await page.getByRole('button', { name: 'Close feedback form' }).click();
+
+              console.log(JSON.stringify({
+                productionCategoryOrder: 'pass',
+                viewport390pxNoPageOverflow: 'pass',
+                feedbackButtonVisible: 'pass',
+                feedbackButtonClearOfBottomNavigation: 'pass',
+                feedbackFormOpenClose: 'pass',
+                leadingCategories: leading,
+                totalCategoryOptions: normalized.length,
+              }, null, 2));
+            } finally {
+              await context.close();
+              await browser.close();
+            }
+          })().catch((error) => {
+            console.error(error instanceof Error ? error.stack || error.message : String(error));
+            process.exit(1);
+          });
+          NODE
