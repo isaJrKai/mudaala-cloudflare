@@ -14,10 +14,12 @@ export async function GET(request: NextRequest) {
     const status = requested as typeof STATUSES[number]
     const feedback = await db.feedback.findMany({
       where: status === 'ALL' ? {} : { status },
-      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+      orderBy: { createdAt: 'desc' },
       take: 200,
       include: { reporter: { select: { name: true } } },
     })
+    const priorityRank: Record<string, number> = { URGENT: 3, HIGH: 2, NORMAL: 1 }
+    feedback.sort((a, b) => (priorityRank[b.priority] ?? 0) - (priorityRank[a.priority] ?? 0) || b.createdAt.getTime() - a.createdAt.getTime())
     return jsonOk({
       feedback: feedback.map((item) => ({
         id: item.id,
