@@ -169,6 +169,8 @@ model ProductCollection {
   title         String
   description   String?
   coverPhotoUrl String?
+  startsAt      DateTime?
+  endsAt        DateTime?
   isActive      Boolean  @default(true)
   sortOrder     Int      @default(0)
   createdAt     DateTime @default(now())
