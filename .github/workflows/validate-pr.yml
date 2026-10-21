@@ -137,6 +137,7 @@ jobs:
           # Exercise the exact additive collection migration against disposable PostgreSQL.
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."ProductCollectionItem", public."ProductCollection" CASCADE;'
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261021113000_product_collections/migration.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261021150000_collection_scheduling/migration.sql
           collection_rls_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('ProductCollection','ProductCollectionItem') AND c.relrowsecurity")
           collection_policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename IN ('ProductCollection','ProductCollectionItem') AND policyname IN ('deny_direct_api_clients','mudaala_runtime_access')")
           collection_runtime_grants=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('ProductCollection','ProductCollectionItem') AND grantee='mudaala_runtime' AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
