@@ -70,6 +70,11 @@ async function verifySavedSearch(browser) {
     // A brand-new account can legitimately receive the first-run Shop Setup
     // dialog. Dismiss it the same way a user can (not by bypassing the overlay)
     // before exercising the independent saved-search journey.
+    const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
+    if (await shopSetupDialog.isVisible().catch(() => false)) {
+      await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
+      await shopSetupDialog.waitFor({ state: 'hidden', timeout });
+    }
 
     // Give the saved search meaningful filters so Apply is verified as a
     // state-restoring action, not merely a navigation to Browse.
