@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, Layers3, Plus, Trash2, Pencil, X } from 'lucide-rea
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiFetch, apiGet, type Listing } from '@/lib/client'
+import { PhotoPicker } from './photo-picker'
 
 type CollectionItem = {
   id: string
@@ -154,11 +155,11 @@ export function ProductCollectionsManager() {
               Description (optional)
               <textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} rows={2} placeholder="Tell buyers what belongs in this collection." className="w-full rounded-md border bg-background px-3 py-2 font-normal" />
             </label>
-            <label className="space-y-1 text-sm font-medium sm:col-span-2">
-              Cover photo URL (optional)
-              <input type="text" value={coverPhotoUrl} onChange={(event) => setCoverPhotoUrl(event.target.value)} placeholder="https://… or an uploaded /uploads/ image path" className="h-10 w-full rounded-md border bg-background px-3 font-normal" />
-              <span className="block text-xs font-normal text-muted-foreground">Use a real image you are allowed to share. Photo upload integration can be added without changing your collections.</span>
-            </label>
+            <div className="space-y-1 text-sm font-medium sm:col-span-2">
+              <p>Cover photo (optional)</p>
+              <PhotoPicker value={coverPhotoUrl ? [coverPhotoUrl] : []} onChange={(photos) => setCoverPhotoUrl(photos[0] ?? '')} single cover label="Collection cover photo" />
+              <p className="text-xs font-normal text-muted-foreground">Take a photo with your phone or choose one from your gallery.</p>
+            </div>
             <div className="sm:col-span-2">
               <Button type="submit" disabled={busy}><Plus className="mr-2 size-4" aria-hidden />Create collection</Button>
             </div>
@@ -209,7 +210,7 @@ export function ProductCollectionsManager() {
                   <form className="grid gap-3 rounded-md border bg-muted/20 p-3" onSubmit={(event) => saveEdit(event, collection.id)}>
                     <label className="space-y-1 text-sm font-medium">Collection name<input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} maxLength={80} required className="h-10 w-full rounded-md border bg-background px-3 font-normal" /></label>
                     <label className="space-y-1 text-sm font-medium">Description<textarea value={editDescription} onChange={(event) => setEditDescription(event.target.value)} maxLength={500} rows={2} className="w-full rounded-md border bg-background px-3 py-2 font-normal" /></label>
-                    <label className="space-y-1 text-sm font-medium">Cover photo URL<input type="text" value={editCoverPhotoUrl} onChange={(event) => setEditCoverPhotoUrl(event.target.value)} placeholder="https://… or /uploads/…" className="h-10 w-full rounded-md border bg-background px-3 font-normal" /></label>
+                    <div className="space-y-1 text-sm font-medium"><p>Cover photo</p><PhotoPicker value={editCoverPhotoUrl ? [editCoverPhotoUrl] : []} onChange={(photos) => setEditCoverPhotoUrl(photos[0] ?? '')} single cover label="Collection cover photo" /></div>
                     <div className="flex flex-wrap gap-2"><Button type="submit" disabled={busy || !editTitle.trim()}>Save details</Button><Button type="button" variant="outline" disabled={busy} onClick={() => setEditingId(null)}><X className="mr-1 size-4" aria-hidden />Cancel</Button></div>
                   </form>
                 ) : null}
