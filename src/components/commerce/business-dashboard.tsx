@@ -22,6 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from './empty-state'
 import { ErrorState } from './listings-browse'
 import { BusinessRecordsPanel } from './business-records-panel'
+import { BusinessInsightsPanel } from './business-insights-panel'
 
 function MetricCard({
   label,
@@ -246,6 +247,8 @@ export function BusinessDashboard() {
           </Card>
         </div>
       </section>
+
+      <BusinessInsightsPanel />
 
       <BusinessRecordsPanel />
 

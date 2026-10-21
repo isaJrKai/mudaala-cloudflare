@@ -1,7 +1,9 @@
 /**
- * Browser-level checks for two high-value journeys:
- * 1) Saved search: create in Browse -> read after navigation/reload -> apply -> remove.
- * 2) Mobile cart: add a real public offer -> open/close cart -> reach Post while signed out.
+ * Browser-level checks for high-value user journeys:
+ * - Saved-search persistence across navigation and reload.
+ * - Listing lifecycle and opening-hours persistence.
+ * - Mobile cart interaction and navigation to Post while signed out.
+ * - Authenticated My Business insights, reporting-period switching and mobile layout.
  *
  * Runs only against the disposable CI PostgreSQL database and local Next server.
  */
@@ -674,6 +676,88 @@ async function verifyMobileCart(browser) {
   }
 }
 
+async function verifyBusinessInsights(browser) {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 1,
+    hasTouch: true,
+  });
+  const page = await context.newPage();
+  const phone = uniquePhone();
+
+  try {
+    const registration = await context.request.post(base + '/api/auth/register', {
+      data: {
+        phone,
+        name: 'Browser Business Insights Tester',
+        password: 'password321',
+        country: 'UG',
+        acceptTerms: true,
+      },
+      headers: { origin: base, referer: base + '/' },
+      timeout,
+    });
+    if (registration.status() !== 201) {
+      throw new Error('Could not create disposable business-insights account: HTTP ' + registration.status() + ' ' + (await registration.text()).slice(0, 200));
+    }
+
+    const sessionResponsePromise = page.waitForResponse((response) => {
+      return new URL(response.url()).pathname === '/api/auth/me' && response.request().method() === 'GET';
+    }, { timeout });
+    const profileResponsePromise = page.waitForResponse((response) => {
+      return new URL(response.url()).pathname === '/api/profile' && response.request().method() === 'GET';
+    }, { timeout });
+    const initialAnalyticsPromise = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.pathname === '/api/my/business-analytics' && url.searchParams.get('period') === '30d';
+    }, { timeout });
+    await page.goto(base + '/#/business', { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+    const sessionResponse = await sessionResponsePromise;
+    if (!sessionResponse.ok()) throw new Error('Business-insights session request failed: HTTP ' + sessionResponse.status());
+    const profileResponse = await profileResponsePromise;
+    if (!profileResponse.ok()) throw new Error('Business-insights profile request failed: HTTP ' + profileResponse.status());
+    const initialAnalytics = await initialAnalyticsPromise;
+    if (!initialAnalytics.ok()) throw new Error('Initial business-analytics request failed: HTTP ' + initialAnalytics.status());
+
+    const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
+    if (await shopSetupDialog.isVisible().catch(() => false)) {
+      await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
+      await shopSetupDialog.waitFor({ state: 'hidden', timeout });
+    }
+
+    await page.getByText('Business insights', { exact: true }).waitFor({ state: 'visible', timeout });
+    await page.getByText('Product views', { exact: true }).waitFor({ state: 'visible', timeout });
+    await page.getByRole('heading', { name: /Recorded sales/i }).waitFor({ state: 'visible', timeout });
+
+    const sevenDayAnalyticsPromise = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.pathname === '/api/my/business-analytics' && url.searchParams.get('period') === '7d';
+    }, { timeout });
+    await page.getByRole('button', { name: '7 days', exact: true }).click();
+    const sevenDayAnalytics = await sevenDayAnalyticsPromise;
+    if (!sevenDayAnalytics.ok()) throw new Error('7-day business-analytics request failed: HTTP ' + sevenDayAnalytics.status());
+    const payload = await sevenDayAnalytics.json();
+    if (payload.period !== '7d') throw new Error('Business-insights period switch returned an unexpected period');
+
+    const viewport = await page.evaluate(() => ({
+      width: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    if (viewport.scrollWidth > viewport.width + 1) {
+      throw new Error('Business insights overflows mobile viewport: ' + JSON.stringify(viewport));
+    }
+
+    console.log(JSON.stringify({
+      businessInsights: 'pass (authenticated My Business dashboard)',
+      analytics: 'pass (30-day load and 7-day period switch)',
+      mobile: 'pass (390px viewport, no horizontal overflow)',
+    }, null, 2));
+  } finally {
+    await context.close();
+  }
+}
+
 (async () => {
   const { chromium } = await import('/tmp/mudaala-browser-test/node_modules/playwright/index.mjs');
   const browser = await chromium.launch({ headless: true });
@@ -682,6 +766,7 @@ async function verifyMobileCart(browser) {
     await verifyListingLifecycle(browser);
     await verifyOpeningHoursSchedule(browser);
     await verifyMobileCart(browser);
+    await verifyBusinessInsights(browser);
   } finally {
     await browser.close();
   }
