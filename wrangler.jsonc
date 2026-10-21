@@ -8,6 +8,8 @@
     "nodejs_compat_populate_process_env"
   ],
   "keep_names": false,
+  // Keep non-sensitive runtime settings in vars. Configure OPENAI_MODERATION_API_KEY
+  // separately as a Cloudflare Worker secret; never commit its value here.
   "vars": {
     "RATE_LIMIT_REQUIRE_SHARED": "1",
     "APP_ORIGIN": "https://mudaala-cloudflare.kaisoisaac.workers.dev"
