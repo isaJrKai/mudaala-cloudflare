@@ -5,6 +5,7 @@ import { route, jsonOk, parseBody, ApiError } from '@/lib/api'
 import { requireAdmin } from '@/lib/admin'
 import { reportActionSchema } from '@/lib/validation'
 import { db } from '@/lib/db'
+import { shouldSendFormalPolicyWarning } from '@/lib/policy-violations'
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return route(async () => {
@@ -68,7 +69,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
         // Formal warning threshold is the fourth confirmed violation (>3).
         // Notification and warningSentAt are committed atomically with the strike.
-        if (confirmedViolationCount >= 4) {
+        if (shouldSendFormalPolicyWarning(confirmedViolationCount)) {
           await tx.notification.create({
             data: {
               userId: target.userId,
@@ -81,7 +82,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         }
       }, { isolationLevel: 'Serializable' })
 
-      return jsonOk({ ok: true, action, confirmedViolationCount, warningSent: confirmedViolationCount >= 4 })
+      return jsonOk({ ok: true, action, confirmedViolationCount, warningSent: shouldSendFormalPolicyWarning(confirmedViolationCount) })
     }
 
     if (action === 'REVERSE_VIOLATION') {
