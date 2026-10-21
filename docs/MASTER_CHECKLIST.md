@@ -6,6 +6,8 @@
 
 This is the canonical project checklist. Use it across Mudaala conversations instead of starting competing checklists. Individual chats can work on a task, but status changes belong here after evidence is available.
 
+**Founder-approved one-slice product roadmap:** [issue #163](https://github.com/isaJrKai/mudaala-cloudflare/issues/163) records the requested business-insights, collections, promotions/bundles, product-discovery, mixed-feed, follows, buyer/business modes, FYP, FYP reset and later analytics work, alongside outstanding release/security gates. Execute only the current slice in its listed order; update both this canonical board and issue #163 when evidence changes. Current slice is [PR #164](https://github.com/isaJrKai/mudaala-cloudflare/pull/164): trader insights plus collection schema/migration foundation. Its migrations must pass disposable PostgreSQL and SQLite checks before any merge/deploy; collection write APIs and ownership validation are a later slice, not implemented yet.
+
 ## Operating rules
 
 - **Execution freeze:** until the P0 reliability and database-privilege gates are closed, do not implement unrelated catalogue/collection layouts, trending products, likes/engagement, or video. Preserve the current public shop design. **Founder-approved exceptions (2026-10-18 and 2026-10-20):** PR #116 adds the home Post an Ad CTA, explicit social/email sharing, and content-based related products; the founder explicitly authorized My Business and trader-records work, implemented in PRs #153 and #155. This exception covers business records, inventory, sales, analytics, exports, promotions/collections and AI-ready architecture, not unrelated storefront redesign. Customer-specific taste learning remains future work until interaction signals and privacy/retention rules are designed.
@@ -238,7 +240,7 @@ For each new idea, record: customer problem, evidence/source, intended user, sma
 - [ ] Perform a documented backup-restore drill from a verified logical export into a disposable local PostgreSQL database (or another explicitly approved no-production target). The Supabase organization is on the Free plan, for which automated daily backups are not included; do not assume a dashboard backup exists. Do not reset or restore production.
 - [ ] Continue monitoring Worker error telemetry after the current deploy; successful live smoke and a short quiet log window are not a permanent reliability guarantee.
 - [ ] Plan a safe additive backfill for the 4 active legacy photo URLs that do not have thumbnail objects; preserve all originals and customer listings.
-- [ ] Keep video, collections, likes and other feature expansion frozen until P0 gates are closed. No new product schema or destructive production changes were made in this session.
+- [ ] Keep unrelated storefront redesign, video, likes and unapproved feature expansion frozen until P0 gates are closed. The founder-approved trader-insights/collection-foundation slice is tracked in [PR #164](https://github.com/isaJrKai/mudaala-cloudflare/pull/164) and [roadmap issue #163](https://github.com/isaJrKai/mudaala-cloudflare/issues/163); it remains unmerged until migration validation and release gates pass. Do not build collection write APIs or public collection layouts before the first slice is verified and the next slice is authorized by sequence.
 ## Security follow-up — phone verification (reconciled 2026-10-20)
 
 ### Registration phone ownership — do not enable verification until SMS delivery is configured
