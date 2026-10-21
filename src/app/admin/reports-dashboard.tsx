@@ -202,7 +202,7 @@ export function ReportsDashboard() {
                   </button>
                 </div>
               ) : null}
-              {r.status !== 'OPEN' && r.targetType === 'LISTING' && r.listing?.status === 'HIDDEN' ? (
+              {r.status !== 'OPEN' && r.targetType === 'LISTING' && r.listing?.status === 'HIDDEN' && (!r.violation || Boolean(r.violation.reversedAt)) ? (
                 <div className="mt-3">
                   <button
                     type="button"
