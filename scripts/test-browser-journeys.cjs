@@ -243,13 +243,20 @@ async function verifyListingLifecycle(browser) {
       throw new Error('Could not create disposable named shop profile: HTTP ' + profileSave.status());
     }
 
-    const profileResponsePromise = page.waitForResponse((response) => {
-      return new URL(response.url()).pathname === '/api/profile';
-    }, { timeout });
+    const sessionResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/auth/me' && response.request().method() === 'GET', { timeout });
+    const profileResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/profile' && response.request().method() === 'GET', { timeout });
     await page.goto(base + '/#/publish', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.getByRole('button', { name: /Browser Listing Lifecycle Tester/ }).waitFor({ state: 'visible', timeout });
-    const profileResponse = await profileResponsePromise;
+    const [sessionResponse, profileResponse] = await Promise.all([sessionResponsePromise, profileResponsePromise]);
+    if (!sessionResponse.ok()) throw new Error('Listing-lifecycle session request failed: HTTP ' + sessionResponse.status());
     if (!profileResponse.ok()) throw new Error('Listing-lifecycle profile request failed: HTTP ' + profileResponse.status());
+    const sessionPayload = await sessionResponse.json();
+    if (sessionPayload.user?.name !== 'Browser Listing Lifecycle Tester') throw new Error('Listing-lifecycle browser session did not resolve to the expected seller');
+    try {
+      await page.getByRole('button', { name: /Browser Listing Lifecycle Tester/ }).waitFor({ state: 'visible', timeout });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({ url: window.location.href, headings: Array.from(document.querySelectorAll('h1,h2,h3')).map((element) => (element.textContent || '').trim()).filter(Boolean).slice(0, 30), bodyText: document.body.innerText.slice(0, 2500) }));
+      throw new Error('Listing-lifecycle signed-in header did not render: ' + JSON.stringify(diagnostic) + '; original: ' + String(error));
+    }
     await page.waitForTimeout(100);
 
     const setupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
