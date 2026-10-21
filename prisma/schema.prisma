@@ -48,6 +48,7 @@ model User {
   shopFollowers ShopFollow[] @relation("ShopOwner")
   categoryInterests CategoryInterest[]
   businessProducts BusinessProduct[]
+  productCollections ProductCollection[]
   sales           Sale[]
   stockMovements  StockMovement[]
   listingDailyAnalytics ListingDailyAnalytics[]
@@ -155,6 +156,42 @@ model Listing {
 
   businessProducts BusinessProduct[]
   dailyAnalytics ListingDailyAnalytics[]
+  collectionItems ProductCollectionItem[]
+}
+
+// Shop-owned curated groups for seasonal edits, new arrivals and themed collections.
+model ProductCollection {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  coverPhotoUrl String?
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items ProductCollectionItem[]
+
+  @@index([userId, isActive, sortOrder])
+  @@index([userId, updatedAt])
+}
+
+// Join rows allow one listing to appear in more than one collection.
+// Ownership is validated by the API before adding a listing to a collection.
+model ProductCollectionItem {
+  id           String           @id @default(cuid())
+  collectionId String
+  collection   ProductCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  listingId    String
+  listing      Listing           @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  sortOrder    Int              @default(0)
+  createdAt    DateTime          @default(now())
+
+  @@unique([collectionId, listingId])
+  @@index([listingId])
+  @@index([collectionId, sortOrder])
 }
 
 model ListingDailyAnalytics {
