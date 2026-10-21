@@ -333,6 +333,10 @@ export const reportCreateSchema = z.object({
 
 export const reportActionSchema = z.object({
   action: z.enum(['HIDE', 'RESTORE', 'DISMISS', 'CONFIRM_VIOLATION', 'REVERSE_VIOLATION'], { message: 'Choose an action' }),
+  policyCategory: z.enum(REPORT_REASONS).optional(),
+}).refine((value) => value.action !== 'CONFIRM_VIOLATION' || value.policyCategory !== undefined, {
+  message: 'Choose the policy category confirmed by moderation',
+  path: ['policyCategory'],
 })
 
 export const feedbackCreateSchema = z.object({
