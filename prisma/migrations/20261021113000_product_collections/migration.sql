@@ -5,6 +5,8 @@ CREATE TABLE "ProductCollection" (
   "title" TEXT NOT NULL,
   "description" TEXT,
   "coverPhotoUrl" TEXT,
+  "startsAt" TIMESTAMP(3),
+  "endsAt" TIMESTAMP(3),
   "isActive" BOOLEAN NOT NULL DEFAULT true,
   "sortOrder" INTEGER NOT NULL DEFAULT 0,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
