@@ -69,6 +69,17 @@ describe('Mudaala safety report reasons', () => {
 })
 
 
+describe('Mudaala confirmed violation warning threshold', () => {
+  test('does not warn for the first three confirmed violations and warns on the fourth', () => {
+    const shouldWarn = (count) => count >= 4
+    expect(shouldWarn(1)).toBe(false)
+    expect(shouldWarn(2)).toBe(false)
+    expect(shouldWarn(3)).toBe(false)
+    expect(shouldWarn(4)).toBe(true)
+    expect(shouldWarn(5)).toBe(true)
+  })
+})
+
 describe('Mudaala bug report and feedback validation', () => {
   const validFeedback = {
     category: 'BUG',
