@@ -28,6 +28,7 @@ export function ReportsDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [status, setStatus] = useState<'OPEN' | 'ACTIONED' | 'DISMISSED' | 'ALL'>('OPEN')
+  const [violationCategories, setViolationCategories] = useState<Record<string, ReportReason>>({})
 
   const load = useCallback(async (which: typeof status) => {
     setError(null)
@@ -49,14 +50,14 @@ export function ReportsDashboard() {
     void load(status)
   }, [load, status])
 
-  async function act(reportId: string, action: 'HIDE' | 'RESTORE' | 'DISMISS' | 'CONFIRM_VIOLATION' | 'REVERSE_VIOLATION') {
+  async function act(reportId: string, action: 'HIDE' | 'RESTORE' | 'DISMISS' | 'CONFIRM_VIOLATION' | 'REVERSE_VIOLATION', policyCategory?: ReportReason) {
     setBusyId(reportId)
     setError(null)
     try {
       const res = await fetch(`/api/admin/reports/${reportId}/action`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, ...(policyCategory ? { policyCategory } : {}) }),
       })
       if (!res.ok) {
         const json = await res.json().catch(() => null)
@@ -148,10 +149,18 @@ export function ReportsDashboard() {
               {r.status === 'OPEN' ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {!r.violation ? (
+                    <label className="inline-flex h-9 items-center gap-2 rounded-md border px-2 text-xs font-medium">
+                      Confirmed category
+                      <select aria-label={`Policy category for report ${r.id}`} value={violationCategories[r.id] ?? r.reason} onChange={(event) => setViolationCategories((previous) => ({ ...previous, [r.id]: event.target.value as ReportReason }))} className="max-w-44 bg-transparent text-xs">
+                        {Object.entries(REPORT_REASON_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                    </label>
+                  ) : null}
+                  {!r.violation ? (
                     <button
                       type="button"
                       onClick={() => {
-                        if (window.confirm('Confirm that this report shows a real policy violation? Only a confirmed violation counts as a strike. For listings, this will also hide an active listing.')) void act(r.id, 'CONFIRM_VIOLATION')
+                        if (window.confirm('Confirm that this report shows a real policy violation? Only a confirmed violation counts as a strike. For listings, this will also hide an active listing.')) void act(r.id, 'CONFIRM_VIOLATION', violationCategories[r.id] ?? r.reason)
                       }}
                       disabled={busyId === r.id}
                       className="press inline-flex h-9 items-center gap-1.5 rounded-md border border-amber-500/50 bg-amber-50 px-3 text-[13px] font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-60"
