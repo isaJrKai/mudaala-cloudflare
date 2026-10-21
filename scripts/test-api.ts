@@ -3339,7 +3339,13 @@ async function main() {
       activeCollectionPage.status === 200 &&
       /property="og:title"/i.test(activeCollectionHtml) &&
       /name="twitter:card"/i.test(activeCollectionHtml) &&
-      activeCollectionHtml.includes(`/l/${ownerListingAId}`))
+      activeCollectionHtml.includes(`/l/${ownerListingAId}`) &&
+      activeCollectionHtml.includes('Share this collection') &&
+      activeCollectionHtml.includes('https://wa.me/?text=') &&
+      activeCollectionHtml.includes('facebook.com/sharer/sharer.php') &&
+      activeCollectionHtml.includes('twitter.com/intent/tweet') &&
+      activeCollectionHtml.includes('pinterest.com/pin/create/button') &&
+      activeCollectionHtml.includes('Copy link'))
 
     const expireScheduledCollection = await call('PATCH', `/api/my/collections/${secondCollectionId}`, {
       startsAt: null,

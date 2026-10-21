@@ -150,6 +150,26 @@ jobs:
               populatedCollectionDetail: collectionDetail,
             }));
 
+            // No collection is fabricated for this smoke test. Validate the
+            // direct public page's unavailable path and ensure it is not indexed.
+            const unavailableCollectionPage = await fetch(
+              base + '/collections/mudaala-batch2-nonexistent-collection-check-20261021',
+              { headers: { accept: 'text/html' } },
+            );
+            const unavailableCollectionHtml = await unavailableCollectionPage.text();
+            if (unavailableCollectionPage.status !== 404) {
+              throw new Error('A nonexistent public collection page did not return HTTP 404');
+            }
+            if (!/name="robots"[^>]*noindex/i.test(unavailableCollectionHtml) &&
+                !/noindex[^>]*name="robots"/i.test(unavailableCollectionHtml)) {
+              throw new Error('An unavailable public collection page is missing noindex metadata');
+            }
+            console.log(JSON.stringify({
+              directCollectionMissingRoute: '404',
+              unavailableCollectionNoindex: true,
+              writesPerformed: 0,
+            }));
+
             // The live catalogue has previously contained active perfume listings
             // with mathematical-bold Unicode text and category "other". Normalize
             // the returned seller text before checking relevance; never mutate data.
