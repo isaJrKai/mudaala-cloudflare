@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { businessProfileSchema, containsMarketplaceEmoji } from './validation'
+import { businessProfileSchema, containsMarketplaceEmoji, reportCreateSchema, REPORT_REASONS } from './validation'
 
 describe('Mudaala marketplace content policy', () => {
   test('detects common emoji, including cake, flags and keycaps', () => {
@@ -45,5 +45,24 @@ describe('Mudaala marketplace content policy', () => {
       hours: null,
     })
     expect(result.success).toBe(true)
+  })
+})
+
+
+describe('Mudaala safety report reasons', () => {
+  test('includes specific report categories for image and user-safety abuse', () => {
+    expect(REPORT_REASONS).toContain('NUDITY_OR_SEXUAL_CONTENT')
+    expect(REPORT_REASONS).toContain('HARASSMENT_OR_HATE')
+    expect(REPORT_REASONS).toContain('PERSONAL_INFORMATION')
+    expect(REPORT_REASONS).toContain('SPAM_OR_IMPERSONATION')
+  })
+
+  test('accepts a report for nudity or sexual content at the API validation boundary', () => {
+    expect(reportCreateSchema.safeParse({
+      targetType: 'LISTING',
+      targetId: 'listing-example',
+      reason: 'NUDITY_OR_SEXUAL_CONTENT',
+      details: 'Explicit image in listing photos',
+    }).success).toBe(true)
   })
 })
