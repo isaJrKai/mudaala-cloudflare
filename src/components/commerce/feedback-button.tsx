@@ -58,7 +58,7 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
 
   return (
     <>
-      <button type="button" onClick={() => { setOpen(true); setSent(false); setError('') }} className={floating
+      <button type="button" aria-label={floating ? 'Report a bug' : undefined} onClick={() => { setOpen(true); setSent(false); setError('') }} className={floating
         ? 'fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-3 z-[70] inline-flex min-h-11 items-center gap-1.5 rounded-full border bg-background px-3 py-2.5 text-xs font-semibold shadow-lg hover:bg-accent sm:bottom-5 sm:left-5 sm:right-auto sm:gap-2 sm:px-4 sm:py-3 sm:text-sm lg:left-[17rem]'
         : 'inline-flex items-center gap-1.5 hover:text-foreground hover:underline'}>
         <MessageSquareWarning className="size-4" aria-hidden />
