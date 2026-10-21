@@ -9,14 +9,16 @@ import { db, withRequestDb } from '@/lib/db'
 import { absolutePhoto, photosOf } from '@/lib/ad-page'
 import { formatPrice } from '@/lib/format'
 import { siteUrl } from '@/lib/site'
+import { publicCollectionVisibilityWhere } from '@/lib/collection-visibility'
 
 export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ id: string }> }
 
 const loadCollection = cache(async (id: string) => withRequestDb(async () => {
+  const now = new Date()
   const collection = await db.productCollection.findFirst({
-    where: { id, isActive: true },
+    where: { id, ...publicCollectionVisibilityWhere(now) },
     select: {
       id: true,
       userId: true,
@@ -37,7 +39,7 @@ const loadCollection = cache(async (id: string) => withRequestDb(async () => {
   const items = await db.productCollectionItem.findMany({
     where: {
       collectionId: id,
-      listing: { is: { userId: collection.userId, status: 'ACTIVE', type: 'OFFER', isSeed: false, expiresAt: { gt: new Date() } } },
+      listing: { is: { userId: collection.userId, status: 'ACTIVE', type: 'OFFER', isSeed: false, expiresAt: { gt: now } } },
     },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     take: 100,
