@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { businessProfileSchema, containsMarketplaceEmoji, feedbackCreateSchema, reportCreateSchema } from './validation'
+import { businessProfileSchema, containsMarketplaceEmoji, feedbackCreateSchema, reportActionSchema, reportCreateSchema } from './validation'
 import { REPORT_REASONS } from './constants'
 
 describe('Mudaala marketplace content policy', () => {
@@ -86,6 +86,13 @@ describe('Mudaala bug report and feedback validation', () => {
     expect(feedbackCreateSchema.safeParse({ ...validFeedback, description: 'It broke' }).success).toBe(false)
     expect(feedbackCreateSchema.safeParse({ ...validFeedback, pagePath: 'https://evil.example/' }).success).toBe(false)
     expect(feedbackCreateSchema.safeParse({ ...validFeedback, pagePath: '//evil.example/' }).success).toBe(false)
+  })
+
+
+  test('requires a selected policy category for a confirmed violation', () => {
+    expect(reportActionSchema.safeParse({ action: 'CONFIRM_VIOLATION' }).success).toBe(false)
+    expect(reportActionSchema.safeParse({ action: 'CONFIRM_VIOLATION', policyCategory: 'NUDITY_OR_SEXUAL_CONTENT' }).success).toBe(true)
+    expect(reportActionSchema.safeParse({ action: 'REVERSE_VIOLATION' }).success).toBe(true)
   })
 
   test('rejects oversized feedback payloads', () => {
