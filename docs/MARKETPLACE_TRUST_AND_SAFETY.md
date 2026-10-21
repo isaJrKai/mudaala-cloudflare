@@ -15,19 +15,19 @@
 - Listing/shop names and listing title/description use shared server-side content validation.
 - Prohibited product text has a publish-time filter.
 
-### Critical limitation: file validation is not image moderation
+### Critical limitation: production image moderation needs configuration and verification
 
-The current upload route verifies that a file is a supported JPEG, PNG, or WebP and removes selected metadata. It does **not** identify nudity, sexual content, violence, hateful imagery, or other visual content. A valid JPEG can still contain prohibited imagery. Do not describe the marketplace as automatically detecting or blocking nudity until a real image-classification/moderation service is integrated and tested.
+The upload route now calls OpenAI's `omni-moderation-latest` moderation endpoint before storage when `OPENAI_MODERATION_API_KEY` is configured. Explicit sexual-content flags are rejected, and a missing key, provider error, timeout, or malformed result blocks production uploads instead of publishing unchecked photos. This integration is **not active in production** until the Cloudflare secret is configured and live checks pass.
 
-The report-category addition is a reporting aid, not a substitute for automatic image screening or a staffed review process. It does not retroactively scan existing photos.
+This upload-time control does not retroactively scan existing photos. It also does not yet provide a queue for ambiguous cases or an admin review flow for rejected uploads, so those remain launch gaps. The report categories are a reporting aid, not a substitute for a staffed review process.
 
 ## Bug reports and user feedback\n\n- This change adds a global “Report a bug / Send feedback” entry point in the site footer. Users can report a broken feature, slow loading, a complaint, an idea, or another issue, with a summary, detailed comment, current page path, browser user-agent, and optional contact details.\n- Reports are rate-limited, and only admin-authorized endpoints can read or triage them. The admin inbox supports status, priority, and private internal notes; updates are audit-logged.\n- This is an in-app inbox, not an external email or SMS alert. A named admin must monitor it and define response expectations before launch. Screenshot uploads are not accepted in this first version; do not ask users to attach sensitive screenshots or credentials.\n\n## Image moderation release gate\n\n- Configure the secret with `wrangler secret put OPENAI_MODERATION_API_KEY` only after the provider account, billing, privacy/retention settings, and access controls are approved. Never place the key in `wrangler.jsonc`, source files, or GitHub commits.\n- Verify safe photos upload, explicit test fixtures are blocked, thumbnail images are checked too, and provider failure returns a temporary error without storing either image.\n- Scan existing public photos separately before claiming the marketplace is fully moderated. This change only gates new uploads.\n\n## Required controls, in priority order
 
 ### P0 — Explicit image and content safety
 
 - Keep an explicit prohibition on nudity, explicit sexual imagery, sexual exploitation, and any sexual content involving minors.
-- Integrate a maintained image-moderation service at the server-side upload/publish boundary. Never trust a client-provided moderation result.
-- Define outcomes before enabling the integration: clearly prohibited content is rejected; uncertain cases are held from public display pending review; safe content can proceed.
+- Keep the image-moderation service at the server-side upload boundary. Never trust a client-provided moderation result.
+- Current outcomes: explicit sexual-content flags are rejected; safe results can proceed; provider failures or malformed responses block the upload. A separate ambiguous-content review queue is still needed.
 - Fail closed for new public publication if the moderation provider is unavailable, with a clear retry message. Do not silently publish an unscanned image.
 - Do not store or expose classifier payloads or sensitive imagery in routine logs. Keep only the minimum decision, provider/version, timestamp, and review reference needed for accountability.
 - Test JPEG, PNG, WebP, thumbnails, multiple photos per listing, profile avatars, cover photos, and alternate API paths. Confirm that every public-image route shares the same gate.
@@ -46,7 +46,7 @@ The report-category addition is a reporting aid, not a substitute for automatic 
 - Give users a fair appeal path. If a decision is overturned, reverse the strike and correct the count; do not punish users for good-faith reports or unsubstantiated allegations.
 - Keep a moderator-visible case history and an audit trail. Restrict access to sensitive evidence and never include explicit imagery in notifications.
 - A formal warning is not itself a suspension. Any temporary suspension or account removal must have separately defined thresholds, proportionality, an appeal route, and an auditable moderator decision.
-- This change adds a unique confirmed-violation record per report, moderator confirmation/reversal actions, idempotent retries, in-app warning notifications from the fourth active strike onward, and a correction notification when an appeal is accepted. These controls remain **not live in production** until CI passes, the database migration is deployed safely, and end-to-end checks pass.
+- This change adds a unique active target-level confirmed-violation case, moderator confirmation/reversal actions, idempotent retries, in-app warning notifications from the fourth active strike onward, and a correction notification when an appeal is accepted. These controls remain **not live in production** until CI passes, the database migration is deployed safely, and end-to-end checks pass.
 
 - Make nudity/sexual content, harassment/hate, exposed personal information, and spam/impersonation first-class report reasons.
 - Ensure reports about a photo can be tied to the listing/shop and the relevant photo, without exposing reporter identity to the reported user.
