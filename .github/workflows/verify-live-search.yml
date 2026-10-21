@@ -111,6 +111,45 @@ jobs:
               throw new Error('Shop-code lookup did not resolve to the same shop returned by shop-name search');
             }
 
+            // Read-only smoke for the newly deployed public collection routes.
+            // Use the known live shop above; do not create or mutate production data.
+            const shopCollectionsPayload = await getJson('/api/shops/' + encodeURIComponent(shop.id) + '/collections');
+            if (!Array.isArray(shopCollectionsPayload.collections)) {
+              throw new Error('Public shop collections response is missing collections[]');
+            }
+            const safeCollectionFields = new Set(['id', 'title', 'description', 'coverPhotoUrl', 'sortOrder', 'itemCount']);
+            for (const collection of shopCollectionsPayload.collections) {
+              if (typeof collection.id !== 'string' || typeof collection.title !== 'string' ||
+                  !Number.isInteger(collection.itemCount) || collection.itemCount < 0) {
+                throw new Error('Public shop collections response contains an invalid collection summary');
+              }
+              if (Object.keys(collection).some((key) => !safeCollectionFields.has(key))) {
+                throw new Error('Public shop collections response exposes an unexpected field');
+              }
+            }
+            const populatedCollection = shopCollectionsPayload.collections.find((collection) => collection.itemCount > 0);
+            let collectionDetail = 'no populated live collection available';
+            if (populatedCollection) {
+              const detailPayload = await getJson('/api/collections/' + encodeURIComponent(populatedCollection.id));
+              if (detailPayload.collection?.id !== populatedCollection.id || !Array.isArray(detailPayload.items)) {
+                throw new Error('Public collection detail response is malformed');
+              }
+              if (Object.prototype.hasOwnProperty.call(detailPayload.collection, 'userId')) {
+                throw new Error('Public collection detail leaked its owner user ID');
+              }
+              for (const item of detailPayload.items) {
+                if (item.listing?.status !== 'ACTIVE' || item.listing?.type !== 'OFFER') {
+                  throw new Error('Public collection detail exposed a non-active or non-offer listing');
+                }
+              }
+              collectionDetail = 'verified';
+            }
+            console.log(JSON.stringify({
+              publicCollections: 'ok',
+              collectionCount: shopCollectionsPayload.collections.length,
+              populatedCollectionDetail: collectionDetail,
+            }));
+
             // The live catalogue has previously contained active perfume listings
             // with mathematical-bold Unicode text and category "other". Normalize
             // the returned seller text before checking relevance; never mutate data.
