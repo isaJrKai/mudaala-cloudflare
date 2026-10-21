@@ -3194,6 +3194,107 @@ async function main() {
     }
   }
 
+  console.log('\n== 24. Product collections: ownership, curation and public visibility ==')
+  {
+    const collectionOwner: Jar = { cookie: '' }
+    const collectionStranger: Jar = { cookie: '' }
+    await register(collectionOwner, uniquePhone(), 'Collection Owner', 'quiet-harbor-31')
+    await register(collectionStranger, uniquePhone(), 'Collection Stranger', 'quiet-harbor-31')
+
+    const unauthCollections = await call('GET', '/api/my/collections')
+    ok('24.1 collection list requires a session', unauthCollections.status === 401)
+
+    const ownerListingA = await call('POST', '/api/listings', { ...validListing, title: 'Collection copper item A' }, collectionOwner)
+    const ownerListingB = await call('POST', '/api/listings', { ...validListing, title: 'Collection copper item B' }, collectionOwner)
+    const strangerListing = await call('POST', '/api/listings', { ...validListing, title: 'Stranger collection item' }, collectionStranger)
+    const requestListing = await call('POST', '/api/listings', { ...validListing, type: 'REQUEST', title: 'Collection request item' }, collectionOwner)
+    ok('24.2 owner listing fixtures created', ownerListingA.status === 201 && ownerListingB.status === 201)
+    ok('24.3 stranger listing fixture created', strangerListing.status === 201)
+    ok('24.4 request listing fixture created', requestListing.status === 201)
+
+    const invalidTitle = await call('POST', '/api/my/collections', { title: '   ' }, collectionOwner)
+    ok('24.5 blank collection title rejected', invalidTitle.status === 400)
+    const unsafeCover = await call('POST', '/api/my/collections', { title: 'Unsafe cover', coverPhotoUrl: 'javascript:alert(1)' }, collectionOwner)
+    ok('24.6 unsafe collection cover URL rejected', unsafeCover.status === 400)
+
+    const created = await call('POST', '/api/my/collections', {
+      title: `Copper picks ${RUN_TAG}`,
+      description: 'Two clean test offers for the curated collection journey.',
+      coverPhotoUrl: null,
+    }, collectionOwner)
+    const collectionId = created.json?.collection?.id ?? ''
+    ok('24.7 owner can create a collection (201)', created.status === 201 && Boolean(collectionId))
+    const secondCreated = await call('POST', '/api/my/collections', { title: `Copper picks second ${RUN_TAG}` }, collectionOwner)
+    const secondCollectionId = secondCreated.json?.collection?.id ?? ''
+    ok('24.8 owner can create a second collection', secondCreated.status === 201 && Boolean(secondCollectionId))
+
+    const ownerListingAId = ownerListingA.json?.listing?.id ?? ''
+    const ownerListingBId = ownerListingB.json?.listing?.id ?? ''
+    const strangerListingId = strangerListing.json?.listing?.id ?? ''
+    const requestListingId = requestListing.json?.listing?.id ?? ''
+    const addA = await call('POST', `/api/my/collections/${collectionId}/items`, { listingId: ownerListingAId }, collectionOwner)
+    const addB = await call('POST', `/api/my/collections/${collectionId}/items`, { listingId: ownerListingBId }, collectionOwner)
+    const itemAId = addA.json?.item?.id ?? ''
+    const itemBId = addB.json?.item?.id ?? ''
+    ok('24.9 owner can add own active offer listings', addA.status === 201 && addB.status === 201)
+    const duplicateItem = await call('POST', `/api/my/collections/${collectionId}/items`, { listingId: ownerListingAId }, collectionOwner)
+    ok('24.10 duplicate listing membership rejected (409)', duplicateItem.status === 409)
+    const crossOwnerItem = await call('POST', `/api/my/collections/${collectionId}/items`, { listingId: strangerListingId }, collectionOwner)
+    ok('24.11 owner cannot add another shop\'s listing', crossOwnerItem.status === 404)
+    const requestItem = await call('POST', `/api/my/collections/${collectionId}/items`, { listingId: requestListingId }, collectionOwner)
+    ok('24.12 requests cannot be added to product collections', requestItem.status === 404)
+    const strangerAdd = await call('POST', `/api/my/collections/${collectionId}/items`, { listingId: ownerListingAId }, collectionStranger)
+    ok('24.13 another user cannot write to a collection', strangerAdd.status === 404)
+
+    const ownerList = await call('GET', '/api/my/collections', undefined, collectionOwner)
+    const strangerList = await call('GET', '/api/my/collections', undefined, collectionStranger)
+    ok('24.14 owner sees both of their collections', ownerList.status === 200 && ownerList.json?.collections?.length === 2)
+    ok('24.15 another user sees only their own collections', strangerList.status === 200 && ownerList.json.collections.some((c: any) => c.id === collectionId) && strangerList.json.collections.length === 0)
+    const ownerCollection = ownerList.json?.collections?.find((c: any) => c.id === collectionId)
+    ok('24.16 owner collection includes only its own listing items', ownerCollection?.items?.length === 2 && ownerCollection.items.every((item: any) => item.listing?.userId === collectionOwner.user?.id))
+
+    const strangerPatch = await call('PATCH', `/api/my/collections/${collectionId}`, { title: 'Stolen collection' }, collectionStranger)
+    const strangerDelete = await call('DELETE', `/api/my/collections/${collectionId}`, undefined, collectionStranger)
+    ok('24.17 non-owner cannot edit or delete a collection', strangerPatch.status === 404 && strangerDelete.status === 404)
+    const strangerReorder = await call('PATCH', `/api/my/collections/${collectionId}/items/reorder`, { items: [{ id: itemAId, sortOrder: 1 }] }, collectionStranger)
+    const strangerItemDelete = await call('DELETE', `/api/my/collections/${collectionId}/items/${itemAId}`, undefined, collectionStranger)
+    ok('24.18 non-owner cannot reorder or remove collection items', strangerReorder.status === 404 && strangerItemDelete.status === 404)
+
+    const reorderItems = await call('PATCH', `/api/my/collections/${collectionId}/items/reorder`, {
+      items: [{ id: itemAId, sortOrder: 1 }, { id: itemBId, sortOrder: 0 }],
+    }, collectionOwner)
+    ok('24.19 owner can reorder collection items atomically', reorderItems.status === 200 && reorderItems.json?.reordered === true)
+    const reorderCollections = await call('PATCH', '/api/my/collections/reorder', {
+      items: [{ id: secondCollectionId, sortOrder: 0 }, { id: collectionId, sortOrder: 1 }],
+    }, collectionOwner)
+    ok('24.20 owner can reorder collections atomically', reorderCollections.status === 200 && reorderCollections.json?.reordered === true)
+    const sortedMine = await call('GET', '/api/my/collections', undefined, collectionOwner)
+    ok('24.21 reordered collection is first in the seller list', sortedMine.json?.collections?.[0]?.id === secondCollectionId)
+    const singleItemPatch = await call('PATCH', `/api/my/collections/${collectionId}/items/${itemBId}`, { sortOrder: 3 }, collectionOwner)
+    ok('24.22 owner can update an item sort order', singleItemPatch.status === 200 && singleItemPatch.json?.item?.sortOrder === 3)
+
+    const publicList = await call('GET', `/api/shops/${collectionOwner.user?.id}/collections`)
+    const publicCollection = await call('GET', `/api/collections/${collectionId}`)
+    ok('24.23 active collection appears on the public shop', publicList.status === 200 && publicList.json?.collections?.some((c: any) => c.id === collectionId && c.itemCount === 2))
+    ok('24.24 public collection exposes only the owner\'s active offers', publicCollection.status === 200 && publicCollection.json?.items?.length === 2 && publicCollection.json.items.every((item: any) => item.listing?.userId === collectionOwner.user?.id))
+
+    const removeItem = await call('DELETE', `/api/my/collections/${collectionId}/items/${itemAId}`, undefined, collectionOwner)
+    const afterRemove = await call('GET', `/api/collections/${collectionId}`)
+    ok('24.25 removing a collection item updates the public grid', removeItem.status === 200 && afterRemove.status === 200 && afterRemove.json?.items?.length === 1)
+
+    const hide = await call('PATCH', `/api/my/collections/${collectionId}`, { isActive: false }, collectionOwner)
+    const hiddenPublicList = await call('GET', `/api/shops/${collectionOwner.user?.id}/collections`)
+    const hiddenPublicDetail = await call('GET', `/api/collections/${collectionId}`)
+    ok('24.26 deactivated collection disappears from public surfaces', hide.status === 200 && !hiddenPublicList.json?.collections?.some((c: any) => c.id === collectionId) && hiddenPublicDetail.status === 404)
+    const show = await call('PATCH', `/api/my/collections/${collectionId}`, { isActive: true }, collectionOwner)
+    ok('24.27 owner can reactivate a collection', show.status === 200 && show.json?.collection?.isActive === true)
+    const deleteCollection = await call('DELETE', `/api/my/collections/${collectionId}`, undefined, collectionOwner)
+    const deletedPublic = await call('GET', `/api/collections/${collectionId}`)
+    const deleteSecond = await call('DELETE', `/api/my/collections/${secondCollectionId}`, undefined, collectionOwner)
+    ok('24.28 deleted collection is no longer public and owner can delete both', deleteCollection.status === 200 && deletedPublic.status === 404 && deleteSecond.status === 200)
+  }
+
+    
   console.log(`\n== 22. Hermetic sweep - this run leaves no fixtures behind ==`)
   {
     const ids = [...createdUserIds]
@@ -3207,7 +3308,8 @@ async function main() {
       ? await db.businessProfile.findMany({ where: { userId: { in: ids } }, select: { id: true } })
       : []
     const targetIds = [...ownedListings, ...ownedShops].map((r) => r.id)
-    // Sections with their own hermetic cleanup already removed some users -
+
+// Sections with their own hermetic cleanup already removed some users -
     // the sweep must remove every fixture STILL ALIVE at this point.
     const aliveBefore = ids.length ? await db.user.count({ where: { id: { in: ids } } }) : 0
     const delReports = await db.report.deleteMany({
@@ -3276,6 +3378,18 @@ async function main() {
     })
     const uploadCover23Json = (await uploadCover23.json().catch(() => null)) as { url?: string } | null
     const leaverCoverPhotoUrl = uploadCover23Json?.url ?? ''
+    const uploadCollectionCover23 = await fetch(`${BASE}/api/upload`, {
+      method: 'POST',
+      headers: { cookie: leaver.cookie, ...(leaver.token ? { authorization: `Bearer ${leaver.token}` } : {}), 'cf-connecting-ip': autoEdgeIp() },
+      body: (() => {
+        const f = new FormData()
+        f.append('file', new Blob([new Uint8Array(tinyPng23)], { type: 'image/png' }), 'collection-cover.png')
+        return f
+      })(),
+    })
+    const uploadCollectionCover23Json = (await uploadCollectionCover23.json().catch(() => null)) as { url?: string } | null
+    const leaverCollectionCoverUrl = uploadCollectionCover23Json?.url ?? ''
+    ok('23.1c fixture: distinct collection cover photo uploaded', uploadCollectionCover23.status === 201 && leaverCollectionCoverUrl !== '' && leaverCollectionCoverUrl !== leaverPhotoUrl && leaverCollectionCoverUrl !== leaverCoverPhotoUrl)
     ok('23.1b fixture: distinct cover photo uploaded', uploadCover23.status === 201 && leaverCoverPhotoUrl !== '' && leaverCoverPhotoUrl !== leaverPhotoUrl)
     await call('PUT', '/api/profile', {
       businessName: `Leaver Shop ${Date.now().toString(36)}`,
@@ -3291,6 +3405,13 @@ async function main() {
     }, leaver)
     const leaverListing = await call('POST', '/api/listings', { ...validListing, title: 'Leaver copper bundle', photos: leaverPhotoUrl ? [leaverPhotoUrl] : [] }, leaver)
     ok('23.2 fixture: listing published with the photo', leaverListing.status === 201)
+    const leaverCollection = await call('POST', '/api/my/collections', {
+      title: 'Leaving seller collection',
+      description: 'Collection cover cleanup fixture',
+      coverPhotoUrl: leaverCollectionCoverUrl || null,
+    }, leaver)
+    const leaverCollectionId = leaverCollection.json?.collection?.id ?? ''
+    ok('23.2b fixture: account has a collection with its own cover photo', leaverCollection.status === 201 && Boolean(leaverCollectionId))
     await call('POST', '/api/saved-searches', { name: 'Leaver watches copper', query: { q: 'copper' } }, leaver)
     const leaverAdId: string = leaverListing.json?.listing?.id ?? ''
     let leaverReportId = ''
@@ -3321,6 +3442,7 @@ async function main() {
         exported?.user?.phone === leaverPhone &&
         exported?.profile !== null &&
         (exported?.listings?.length ?? 0) === 1 &&
+        (exported?.collections?.length ?? 0) === 1 && exported?.collections?.[0]?.coverPhotoUrl === leaverCollectionCoverUrl &&
         (exported?.savedSearches?.length ?? 0) === 1 &&
         (exported?.reportsFiled?.length ?? 0) === 1,
     )
@@ -3339,16 +3461,19 @@ async function main() {
     )
     const storedPath = path.join(process.cwd(), 'public', leaverPhotoUrl)
     const storedCoverPath = path.join(process.cwd(), 'public', leaverCoverPhotoUrl)
+    const storedCollectionCoverPath = path.join(process.cwd(), 'public', leaverCollectionCoverUrl)
     ok('23.7 fixture: the avatar photo file exists on disk before deletion', leaverPhotoUrl !== '' && fs.existsSync(storedPath))
     ok('23.7b fixture: the distinct cover photo file exists on disk before deletion', leaverCoverPhotoUrl !== '' && fs.existsSync(storedCoverPath))
+    ok('23.7c fixture: the collection cover file exists on disk before deletion', leaverCollectionCoverUrl !== '' && fs.existsSync(storedCollectionCoverPath))
     const deleteRes = await call('DELETE', '/api/account', { password: 'quiet-harbor-31' }, leaver)
     ok('23.8 right password - 200 deleted', deleteRes.status === 200 && deleteRes.json?.deleted === true)
 
     const uid = leaver.user?.id ?? ''
-    const [goneUser, goneProfile, goneListings, goneSearches, goneNotifications, goneSessions, goneResets, keptReports, keptAudits] = await Promise.all([
+    const [goneUser, goneProfile, goneListings, goneCollections, goneSearches, goneNotifications, goneSessions, goneResets, keptReports, keptAudits] = await Promise.all([
       db.user.findUnique({ where: { id: uid } }),
       db.businessProfile.findUnique({ where: { userId: uid } }),
       db.listing.count({ where: { userId: uid } }),
+      db.productCollection.count({ where: { userId: uid } }),
       db.savedSearch.count({ where: { userId: uid } }),
       db.notification.count({ where: { userId: uid } }),
       db.session.count({ where: { userId: uid } }),
@@ -3358,7 +3483,7 @@ async function main() {
     ])
     ok(
       '23.9 nothing about the user remains in the database',
-      goneUser === null && goneProfile === null && goneListings === 0 && goneSearches === 0 && goneNotifications === 0 && goneSessions === 0 && goneResets === 0,
+      goneUser === null && goneProfile === null && goneListings === 0 && goneCollections === 0 && goneSearches === 0 && goneNotifications === 0 && goneSessions === 0 && goneResets === 0,
     )
     ok(
       '23.10 filed reports are anonymised (reporterId null), audit rows too',
@@ -3366,6 +3491,7 @@ async function main() {
     )
     ok('23.11 the avatar photo is gone from storage', leaverPhotoUrl !== '' && !fs.existsSync(storedPath))
     ok('23.12 the distinct cover photo is also gone from storage', leaverCoverPhotoUrl !== '' && !fs.existsSync(storedCoverPath))
+    ok('23.12b the collection cover photo is also gone from storage', leaverCollectionCoverUrl !== '' && !fs.existsSync(storedCollectionCoverPath))
     const meAfter = await call('GET', '/api/auth/me', undefined, leaver)
     ok(
       '23.13 the deleted account session no longer answers as anyone',

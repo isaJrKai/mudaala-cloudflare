@@ -14,10 +14,22 @@ export async function GET() {
   return route(async () => {
     const user = await requireUser('Sign in to export your data')
 
-    const [profile, listings, savedSearches, notifications, reportsFiled, passwordResetRequests, sessionRows] =
+    const [profile, listings, collections, savedSearches, notifications, reportsFiled, passwordResetRequests, sessionRows] =
       await Promise.all([
         db.businessProfile.findUnique({ where: { userId: user.id } }),
         db.listing.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } }),
+        db.productCollection.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true, title: true, description: true, coverPhotoUrl: true,
+            isActive: true, sortOrder: true, createdAt: true, updatedAt: true,
+            items: {
+              orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+              select: { id: true, listingId: true, sortOrder: true, createdAt: true },
+            },
+          },
+        }),
         db.savedSearch.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } }),
         db.notification.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } }),
         db.report.findMany({ where: { reporterId: user.id }, orderBy: { createdAt: 'desc' } }),
@@ -42,6 +54,7 @@ export async function GET() {
       user: safeUser,
       profile,
       listings,
+      collections,
       savedSearches,
       notifications,
       reportsFiled,

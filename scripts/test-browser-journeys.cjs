@@ -14,6 +14,18 @@ function uniquePhone() {
   return '+2567' + String(Math.floor(10000000 + Math.random() * 89999999));
 }
 
+// APIRequestContext and page contexts normally share cookies; explicitly syncing
+// the registration cookie keeps authenticated browser journeys deterministic.
+async function syncSessionCookie(context, response) {
+  const headers = await response.headersArray();
+  const setCookie = headers.find((header) => header.name.toLowerCase() === 'set-cookie' && /^mudaala_session=/i.test(header.value));
+  if (!setCookie) return;
+  const match = setCookie.value.match(/^mudaala_session=([^;]+)/i);
+  if (!match) return;
+  const secure = base.startsWith('https://');
+  await context.addCookies([{ name: 'mudaala_session', value: match[1], url: base, httpOnly: true, secure, sameSite: secure ? 'None' : 'Lax' }]);
+}
+
 async function verifySavedSearch(browser) {
   const context = await browser.newContext({ viewport: { width: 1365, height: 900 } });
   const page = await context.newPage();
@@ -36,6 +48,9 @@ async function verifySavedSearch(browser) {
     if (registration.status() !== 201) {
       throw new Error('Could not create disposable browser-test account: HTTP ' + registration.status() + ' ' + (await registration.text()).slice(0, 200));
     }
+    // APIRequestContext does not automatically guarantee that the page's browser
+    // context receives the registration cookie; explicitly copy it before navigation.
+    await syncSessionCookie(context, registration);
 
     // Register the profile-response waiter before navigation. A fresh user's
     // shop-setup query can resolve after the session button appears; checking
@@ -207,6 +222,8 @@ async function verifyListingLifecycle(browser) {
       throw new Error('Could not create listing-lifecycle account: HTTP ' + registration.status() + ' ' + (await registration.text()).slice(0, 200));
     }
 
+    await syncSessionCookie(context, registration);
+
     // Give this disposable seller a named shop so the public Browse rail can
     // render its QR code. This uses the same profile API as the seller form.
     const profileSave = await context.request.put(base + '/api/profile', {
@@ -229,13 +246,20 @@ async function verifyListingLifecycle(browser) {
       throw new Error('Could not create disposable named shop profile: HTTP ' + profileSave.status());
     }
 
-    const profileResponsePromise = page.waitForResponse((response) => {
-      return new URL(response.url()).pathname === '/api/profile';
-    }, { timeout });
+    const sessionResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/auth/me' && response.request().method() === 'GET', { timeout });
+    const profileResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/profile' && response.request().method() === 'GET', { timeout });
     await page.goto(base + '/#/publish', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.getByRole('button', { name: /Browser Listing Lifecycle Tester/ }).waitFor({ state: 'visible', timeout });
-    const profileResponse = await profileResponsePromise;
+    const [sessionResponse, profileResponse] = await Promise.all([sessionResponsePromise, profileResponsePromise]);
+    if (!sessionResponse.ok()) throw new Error('Listing-lifecycle session request failed: HTTP ' + sessionResponse.status());
     if (!profileResponse.ok()) throw new Error('Listing-lifecycle profile request failed: HTTP ' + profileResponse.status());
+    const sessionPayload = await sessionResponse.json();
+    if (sessionPayload.user?.name !== 'Browser Listing Lifecycle Tester') throw new Error('Listing-lifecycle browser session did not resolve to the expected seller');
+    try {
+      await page.locator('header').getByText('Browser Listing Lifecycle Tester', { exact: true }).waitFor({ state: 'visible', timeout });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({ url: window.location.href, headings: Array.from(document.querySelectorAll('h1,h2,h3')).map((element) => (element.textContent || '').trim()).filter(Boolean).slice(0, 30), bodyText: document.body.innerText.slice(0, 2500) }));
+      throw new Error('Listing-lifecycle signed-in header did not render: ' + JSON.stringify(diagnostic) + '; original: ' + String(error));
+    }
     await page.waitForTimeout(100);
 
     const setupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
@@ -720,6 +744,9 @@ async function verifyBusinessInsights(browser) {
     const initialAnalytics = await initialAnalyticsPromise;
     if (!initialAnalytics.ok()) throw new Error('Initial business-analytics request failed: HTTP ' + initialAnalytics.status());
 
+    // New seller accounts may open the first-run setup modal; dismiss it before
+    // role-based queries, because the modal hides the background from the a11y tree.
+    await page.waitForTimeout(100);
     const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
     if (await shopSetupDialog.isVisible().catch(() => false)) {
       await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
@@ -758,6 +785,105 @@ async function verifyBusinessInsights(browser) {
   }
 }
 
+
+async function verifyProductCollections(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true });
+  const page = await context.newPage();
+  const phone = uniquePhone();
+  let accountCreated = false;
+  try {
+    const registration = await context.request.post(base + '/api/auth/register', {
+      data: { phone, name: 'Browser Collections Tester', password: 'password321', country: 'UG', acceptTerms: true },
+      headers: { origin: base, referer: base + '/' }, timeout,
+    });
+    if (registration.status() !== 201) throw new Error('Could not create collection-test account: HTTP ' + registration.status() + ' ' + (await registration.text()).slice(0, 200));
+    accountCreated = true;
+    await syncSessionCookie(context, registration);
+    const registered = await registration.json();
+    const userId = registered.user?.id;
+    if (!userId) throw new Error('Registration response did not include the test account id');
+
+    const listingTitle = 'Browser collection item ' + Date.now();
+    const listingResponse = await context.request.post(base + '/api/listings', {
+      data: { type: 'OFFER', title: listingTitle, description: 'A real test offer for the collection UI.', category: 'scrap-recyclables', price: 500, currency: 'UGX', priceNegotiable: false, unit: 'piece', quantity: 3, country: 'UG', county: 'Kampala', area: 'Test Area', contactPhone: phone, contactWhatsapp: null },
+      headers: { origin: base, referer: base + '/' }, timeout,
+    });
+    if (listingResponse.status() !== 201) throw new Error('Could not create collection-test listing: HTTP ' + listingResponse.status() + ' ' + (await listingResponse.text()).slice(0, 300));
+
+    const sessionResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/auth/me' && response.request().method() === 'GET', { timeout });
+    const listingsResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/my/listings' && response.request().method() === 'GET', { timeout });
+    const profileResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/profile' && response.request().method() === 'GET', { timeout });
+    await page.goto(base + '/#/business', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const [sessionResponse, listingsResponse, profileResponse] = await Promise.all([sessionResponsePromise, listingsResponsePromise, profileResponsePromise]);
+    if (!sessionResponse.ok()) throw new Error('Collection UI session request failed: HTTP ' + sessionResponse.status());
+    if (!listingsResponse.ok()) throw new Error('Collection UI listing request failed: HTTP ' + listingsResponse.status());
+    if (!profileResponse.ok()) throw new Error('Collection UI profile request failed: HTTP ' + profileResponse.status());
+    const sessionPayload = await sessionResponse.json();
+    if (sessionPayload.user?.id !== userId) throw new Error('Collection UI browser session did not resolve to the registered seller');
+
+    // The first-run Shop Setup modal marks the page behind it aria-hidden.
+    // Dismiss it before using role-based locators for the collection manager.
+    const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
+    if (await shopSetupDialog.isVisible().catch(() => false)) {
+      await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
+      await shopSetupDialog.waitFor({ state: 'hidden', timeout });
+    }
+    try {
+      await page.getByRole('heading', { name: 'Product collections', exact: true }).waitFor({ state: 'visible', timeout });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({
+        url: window.location.href,
+        headings: Array.from(document.querySelectorAll('h1,h2,h3')).map((element) => (element.textContent || '').trim()).filter(Boolean).slice(0, 30),
+        bodyText: document.body.innerText.slice(0, 2500),
+        dialogs: Array.from(document.querySelectorAll('[role="dialog"]')).map((element) => (element.textContent || '').trim().slice(0, 250)),
+      }));
+      throw new Error('My Business collection dashboard did not render: ' + JSON.stringify(diagnostic) + '; original: ' + String(error));
+    }
+
+    const collectionTitle = 'Browser collection ' + Date.now();
+    await page.getByPlaceholder('e.g. Freshly baked today').fill(collectionTitle);
+    await page.getByPlaceholder('Tell buyers what belongs in this collection.').fill('A curated collection for the browser regression test.');
+    const createResponsePromise = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/my/collections', { timeout });
+    await page.getByRole('button', { name: 'Create collection', exact: true }).click();
+    const createResponse = await createResponsePromise;
+    if (createResponse.status() !== 201) throw new Error('Collection creation failed: HTTP ' + createResponse.status() + ' ' + (await createResponse.text()).slice(0, 300));
+    await page.getByText('Collection created.', { exact: true }).waitFor({ state: 'visible', timeout });
+
+    const collectionTitleCard = page.locator('[data-slot="card-title"]').filter({ hasText: collectionTitle });
+    await collectionTitleCard.waitFor({ state: 'visible', timeout });
+    const addForm = page.locator('form').filter({ has: page.getByLabel('Choose a product for ' + collectionTitle) });
+    await addForm.getByLabel('Choose a product for ' + collectionTitle).selectOption({ label: listingTitle });
+    const addResponsePromise = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/items') && new URL(response.url()).pathname.includes('/api/my/collections/'), { timeout });
+    await addForm.getByRole('button', { name: /Add product/i }).click();
+    const addResponse = await addResponsePromise;
+    if (addResponse.status() !== 201) throw new Error('Adding a product to the collection failed: HTTP ' + addResponse.status() + ' ' + (await addResponse.text()).slice(0, 300));
+    // The listing title also exists in the add-product <select> option; assert
+    // the persisted item in the rendered collection list to avoid a strict-mode
+    // collision between the option and the actual collection item.
+    const collectionCard = page.locator('[data-slot="card"]').filter({ hasText: collectionTitle });
+    await collectionCard.locator('ul.divide-y.rounded-md.border').getByText(listingTitle, { exact: true }).waitFor({ state: 'visible', timeout });
+
+    await page.goto(base + '/#/shop/' + userId, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const publicCollection = page.getByRole('button', { name: new RegExp(collectionTitle) });
+    await publicCollection.waitFor({ state: 'visible', timeout });
+    await publicCollection.click();
+    const collectionRegion = page.getByRole('region', { name: 'Shop product collections' });
+    await collectionRegion.getByText(listingTitle, { exact: true }).waitFor({ state: 'visible', timeout });
+    const viewport = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }));
+    if (viewport.scrollWidth > viewport.width + 1) throw new Error('Collections UI overflows the 390px mobile viewport: ' + JSON.stringify(viewport));
+
+    console.log(JSON.stringify({
+      productCollections: 'pass (create, add own active offer, public shop visibility)',
+      mobile: 'pass (390px viewport, no horizontal overflow)',
+    }, null, 2));
+  } finally {
+    if (accountCreated) {
+      await context.request.delete(base + '/api/account', { data: { password: 'password321' }, headers: { origin: base, referer: base + '/' }, timeout }).catch(() => undefined);
+    }
+    await context.close();
+  }
+}
+
 (async () => {
   const { chromium } = await import('/tmp/mudaala-browser-test/node_modules/playwright/index.mjs');
   const browser = await chromium.launch({ headless: true });
@@ -767,6 +893,7 @@ async function verifyBusinessInsights(browser) {
     await verifyOpeningHoursSchedule(browser);
     await verifyMobileCart(browser);
     await verifyBusinessInsights(browser);
+    await verifyProductCollections(browser);
   } finally {
     await browser.close();
   }
