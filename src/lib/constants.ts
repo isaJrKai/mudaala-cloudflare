@@ -25,13 +25,17 @@ export const ALLOWED_STATUS_TRANSITIONS: Record<ListingStatus, ListingStatus[]> 
 
 // Report reasons - the vocabulary buyers use at the market, mapped to what
 // moderation needs. LABELS is the buyer-facing wording on the report form.
-export const REPORT_REASONS = ['SCAM', 'STOLEN_GOODS', 'PROHIBITED_ITEM', 'WRONG_INFO', 'OTHER'] as const
+export const REPORT_REASONS = ['SCAM', 'STOLEN_GOODS', 'PROHIBITED_ITEM', 'NUDITY_OR_SEXUAL_CONTENT', 'HARASSMENT_OR_HATE', 'PERSONAL_INFORMATION', 'SPAM_OR_IMPERSONATION', 'WRONG_INFO', 'OTHER'] as const
 export type ReportReason = (typeof REPORT_REASONS)[number]
 
 export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
   SCAM: 'Scam or fraud',
   STOLEN_GOODS: 'Stolen goods',
   PROHIBITED_ITEM: 'Not allowed on Mudaala',
+  NUDITY_OR_SEXUAL_CONTENT: 'Nudity or sexual content',
+  HARASSMENT_OR_HATE: 'Harassment or hateful content',
+  PERSONAL_INFORMATION: 'Private information exposed',
+  SPAM_OR_IMPERSONATION: 'Spam or impersonation',
   WRONG_INFO: 'Wrong information',
   OTHER: 'Something else',
 }
