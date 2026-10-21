@@ -1,0 +1,167 @@
+name: Verify live My Business insights
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-live-business-insights.yml'
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy Mudaala to Cloudflare Workers"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-business-insights:
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright Chromium for production browser journey
+        run: |
+          npm install --prefix /tmp/mudaala-browser-test playwright@1.56.1
+          /tmp/mudaala-browser-test/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Verify authenticated My Business insights with a disposable account
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          node <<'NODE'
+          const { chromium } = require('/tmp/mudaala-browser-test/node_modules/playwright');
+          const base = process.env.APP_URL.replace(/\/$/, '');
+          const timeout = 30000;
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({
+              viewport: { width: 390, height: 844 },
+              deviceScaleFactor: 1,
+              hasTouch: true,
+            });
+            const page = await context.newPage();
+            const phone = '+2567' + String(Math.floor(10000000 + Math.random() * 89999999));
+            const password = 'MudaalaLiveSmoke-' + crypto.randomUUID() + '!9';
+            let registered = false;
+            let testError = null;
+            let cleanupError = null;
+            let result = null;
+
+            try {
+              const registration = await context.request.post(base + '/api/auth/register', {
+                data: {
+                  phone,
+                  name: 'Mudaala Live Insights Smoke',
+                  password,
+                  country: 'UG',
+                  acceptTerms: true,
+                },
+                headers: { origin: base, referer: base + '/' },
+                timeout,
+              });
+              if (registration.status() !== 201) {
+                throw new Error('Disposable insights account registration failed with HTTP ' + registration.status());
+              }
+              registered = true;
+
+              const sessionPromise = page.waitForResponse((response) => {
+                return new URL(response.url()).pathname === '/api/auth/me' && response.request().method() === 'GET';
+              }, { timeout });
+              const profilePromise = page.waitForResponse((response) => {
+                return new URL(response.url()).pathname === '/api/profile' && response.request().method() === 'GET';
+              }, { timeout });
+              const initialAnalyticsPromise = page.waitForResponse((response) => {
+                const url = new URL(response.url());
+                return url.pathname === '/api/my/business-analytics' && url.searchParams.get('period') === '30d';
+              }, { timeout });
+
+              await page.goto(base + '/#/business', { waitUntil: 'domcontentloaded', timeout: 60000 });
+              const [sessionResponse, profileResponse, initialAnalytics] = await Promise.all([
+                sessionPromise,
+                profilePromise,
+                initialAnalyticsPromise,
+              ]);
+              if (!sessionResponse.ok()) throw new Error('Production session check failed with HTTP ' + sessionResponse.status());
+              if (!profileResponse.ok()) throw new Error('Production profile check failed with HTTP ' + profileResponse.status());
+              if (!initialAnalytics.ok()) throw new Error('Production 30-day analytics failed with HTTP ' + initialAnalytics.status());
+              const initialPayload = await initialAnalytics.json();
+              if (initialPayload.period !== '30d') throw new Error('Production analytics returned the wrong initial period');
+
+              const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
+              if (await shopSetupDialog.isVisible().catch(() => false)) {
+                await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
+                await shopSetupDialog.waitFor({ state: 'hidden', timeout });
+              }
+
+              await page.getByText('Business insights', { exact: true }).waitFor({ state: 'visible', timeout });
+              await page.getByText('Product views', { exact: true }).waitFor({ state: 'visible', timeout });
+              await page.getByRole('heading', { name: /Recorded sales/i }).waitFor({ state: 'visible', timeout });
+
+              const sevenDayPromise = page.waitForResponse((response) => {
+                const url = new URL(response.url());
+                return url.pathname === '/api/my/business-analytics' && url.searchParams.get('period') === '7d';
+              }, { timeout });
+              const sevenDayButton = page.getByRole('button', { name: '7 days', exact: true });
+              await sevenDayButton.click();
+              const sevenDayResponse = await sevenDayPromise;
+              if (!sevenDayResponse.ok()) throw new Error('Production 7-day analytics failed with HTTP ' + sevenDayResponse.status());
+              const sevenDayPayload = await sevenDayResponse.json();
+              if (sevenDayPayload.period !== '7d') throw new Error('Production period switch returned the wrong period');
+              if (await sevenDayButton.getAttribute('aria-pressed') !== 'true') {
+                throw new Error('The 7-day reporting control did not become selected');
+              }
+
+              const viewport = await page.evaluate(() => ({
+                width: document.documentElement.clientWidth,
+                scrollWidth: document.documentElement.scrollWidth,
+              }));
+              if (viewport.scrollWidth > viewport.width + 1) {
+                throw new Error('Production Business Insights overflows mobile viewport: ' + JSON.stringify(viewport));
+              }
+
+              result = {
+                authenticatedDashboard: 'pass',
+                initial30DayAnalytics: 'pass',
+                sevenDaySwitch: 'pass',
+                mobile390pxNoOverflow: 'pass',
+              };
+            } catch (error) {
+              testError = error;
+            } finally {
+              if (registered) {
+                try {
+                  const cleanup = await context.request.fetch(base + '/api/account', {
+                    method: 'DELETE',
+                    data: { password },
+                    headers: { origin: base, referer: base + '/' },
+                    timeout,
+                  });
+                  const cleanupPayload = await cleanup.json().catch(() => null);
+                  if (cleanup.status() !== 200 || cleanupPayload?.deleted !== true) {
+                    cleanupError = new Error('Disposable insights account cleanup failed with HTTP ' + cleanup.status());
+                  }
+                } catch (error) {
+                  cleanupError = error;
+                }
+              }
+              await context.close();
+              await browser.close();
+            }
+
+            if (testError) throw testError;
+            if (cleanupError) throw new Error('Disposable account cleanup failed; investigate before repeating this live verifier');
+            console.log(JSON.stringify(result, null, 2));
+          })().catch((error) => {
+            console.error(error instanceof Error ? error.stack || error.message : String(error));
+            process.exit(1);
+          });
+          NODE
