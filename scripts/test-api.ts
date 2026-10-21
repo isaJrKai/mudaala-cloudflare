@@ -720,27 +720,6 @@ async function main() {
     ok('old price below current price → 400 with field error',
       badDiscount.status === 400 && Boolean(badDiscount.json?.fields?.compareAtPrice))
 
-    const requestWithDiscount = await call('POST', '/api/listings', {
-      ...validListing,
-      type: 'REQUEST',
-      title: 'Request with forbidden old price',
-      compareAtPrice: 800,
-    }, alice)
-    ok('REQUEST cannot carry an old-price discount → 400 with field error',
-      requestWithDiscount.status === 400 && Boolean(requestWithDiscount.json?.fields?.compareAtPrice))
-
-    const serviceWithDiscount = await call('POST', '/api/listings', {
-      ...validListing,
-      category: 'services',
-      title: 'Service offer with forbidden old price',
-      unit: null,
-      quantity: null,
-      price: 500,
-      compareAtPrice: 800,
-    }, alice)
-    ok('service offer cannot carry an old-price discount → 400 with field error',
-      serviceWithDiscount.status === 400 && Boolean(serviceWithDiscount.json?.fields?.compareAtPrice))
-
     const orphanDiscount = await call('POST', '/api/listings', {
       ...validListing,
       title: 'Old price without current price',
@@ -3232,6 +3211,25 @@ async function main() {
     ok('24.2 owner listing fixtures created', ownerListingA.status === 201 && ownerListingB.status === 201)
     ok('24.3 stranger listing fixture created', strangerListing.status === 201)
     ok('24.4 request listing fixture created', requestListing.status === 201)
+    const requestWithDiscount = await call('POST', '/api/listings', {
+      ...validListing,
+      type: 'REQUEST',
+      title: 'Request with forbidden old price',
+      compareAtPrice: 800,
+    }, collectionOwner)
+    ok('REQUEST cannot carry an old-price discount → 400 with field error',
+      requestWithDiscount.status === 400 && Boolean(requestWithDiscount.json?.fields?.compareAtPrice))
+    const serviceWithDiscount = await call('POST', '/api/listings', {
+      ...validListing,
+      category: 'services',
+      title: 'Service offer with forbidden old price',
+      unit: null,
+      quantity: null,
+      price: 500,
+      compareAtPrice: 800,
+    }, collectionOwner)
+    ok('service offer cannot carry an old-price discount → 400 with field error',
+      serviceWithDiscount.status === 400 && Boolean(serviceWithDiscount.json?.fields?.compareAtPrice))
     const requestDiscountPatch = requestListing.status === 201
       ? await call('PATCH', `/api/listings/${requestListing.json.listing.id}`, { compareAtPrice: 800 }, collectionOwner)
       : { status: 0, json: null }
