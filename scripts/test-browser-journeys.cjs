@@ -70,11 +70,6 @@ async function verifySavedSearch(browser) {
     // A brand-new account can legitimately receive the first-run Shop Setup
     // dialog. Dismiss it the same way a user can (not by bypassing the overlay)
     // before exercising the independent saved-search journey.
-    const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
-    if (await shopSetupDialog.isVisible().catch(() => false)) {
-      await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
-      await shopSetupDialog.waitFor({ state: 'hidden', timeout });
-    }
 
     // Give the saved search meaningful filters so Apply is verified as a
     // state-restoring action, not merely a navigation to Browse.
@@ -817,6 +812,14 @@ async function verifyProductCollections(browser) {
     if (!profileResponse.ok()) throw new Error('Collection UI profile request failed: HTTP ' + profileResponse.status());
     const sessionPayload = await sessionResponse.json();
     if (sessionPayload.user?.id !== userId) throw new Error('Collection UI browser session did not resolve to the registered seller');
+
+    // The first-run Shop Setup modal marks the page behind it aria-hidden.
+    // Dismiss it before using role-based locators for the collection manager.
+    const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
+    if (await shopSetupDialog.isVisible().catch(() => false)) {
+      await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
+      await shopSetupDialog.waitFor({ state: 'hidden', timeout });
+    }
     try {
       await page.getByRole('heading', { name: 'Product collections', exact: true }).waitFor({ state: 'visible', timeout });
     } catch (error) {
