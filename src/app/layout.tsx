@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { siteUrl } from "@/lib/site";
 import { copy } from "@/lib/copy";
+import { FeedbackButton } from "@/components/commerce/feedback-button";
 
 // Body type is ONE sans: Inter where a device has it, system-ui otherwise
 // (see globals.css). The display serif is kept ONLY for the logo wordmark
@@ -49,6 +50,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${fraunces.variable} antialiased bg-background text-foreground`}>
         {children}
+        <FeedbackButton floating />
         <PwaInstallPrompt />
         <Toaster />
       </body>

@@ -9,7 +9,6 @@
 import Link from 'next/link'
 import { copy } from '@/lib/copy'
 import { cn } from '@/lib/utils'
-import { FeedbackButton } from './feedback-button'
 
 export function SiteFooter({ padded = false }: { padded?: boolean }) {
   return (
@@ -40,7 +39,6 @@ export function SiteFooter({ padded = false }: { padded?: boolean }) {
           <Link href="/business-terms" className="hover:text-foreground hover:underline">
             For businesses
           </Link>
-          <FeedbackButton />
         </nav>
       </div>
     </footer>

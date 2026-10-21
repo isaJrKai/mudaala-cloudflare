@@ -11,7 +11,7 @@ const CATEGORIES = [
   { value: 'OTHER', label: 'Something else' },
 ] as const
 
-export function FeedbackButton() {
+export function FeedbackButton({ floating = false }: { floating?: boolean }) {
   const [open, setOpen] = useState(false)
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]['value']>('BUG')
   const [title, setTitle] = useState('')
@@ -58,9 +58,11 @@ export function FeedbackButton() {
 
   return (
     <>
-      <button type="button" onClick={() => { setOpen(true); setSent(false); setError('') }} className="inline-flex items-center gap-1.5 hover:text-foreground hover:underline">
-        <MessageSquareWarning className="size-3.5" aria-hidden />
-        Report a bug / Send feedback
+      <button type="button" onClick={() => { setOpen(true); setSent(false); setError('') }} className={floating
+        ? 'fixed bottom-20 right-4 z-[70] inline-flex items-center gap-2 rounded-full border bg-background px-4 py-3 text-sm font-semibold shadow-lg hover:bg-accent sm:bottom-5 sm:right-5'
+        : 'inline-flex items-center gap-1.5 hover:text-foreground hover:underline'}>
+        <MessageSquareWarning className="size-4" aria-hidden />
+        {floating ? 'Report a bug' : 'Report a bug / Send feedback'}
       </button>
       {open ? (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) close() }}>
