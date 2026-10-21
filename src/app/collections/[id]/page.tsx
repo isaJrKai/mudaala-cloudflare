@@ -99,10 +99,17 @@ export default async function PublicCollectionPage({ params }: Params) {
             <div className="flex items-center gap-2 text-sm text-muted-foreground"><Layers3 className="size-4" aria-hidden /> Product collection</div>
             <h1 className="mt-2 break-words text-2xl font-bold tracking-tight sm:text-3xl">{collection.title}</h1>
             {collection.description ? <p className="mt-3 max-w-3xl whitespace-pre-wrap text-sm text-muted-foreground sm:text-base">{collection.description}</p> : null}
-            <Link href={shop.shopCode ? `/s/${shop.shopCode}` : '/'} className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
-              <Store className="size-4" aria-hidden />
-              {shop.name}{shop.area || shop.county ? ` · ${[shop.area, shop.county].filter(Boolean).join(', ')}` : ''}
-            </Link>
+            {shop.shopCode ? (
+              <Link href={`/s/${shop.shopCode}`} className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
+                <Store className="size-4" aria-hidden />
+                {shop.name}{shop.area || shop.county ? ` · ${[shop.area, shop.county].filter(Boolean).join(', ')}` : ''}
+              </Link>
+            ) : (
+              <p className="mt-4 inline-flex items-center gap-2 text-sm font-medium">
+                <Store className="size-4" aria-hidden />
+                {shop.name}{shop.area || shop.county ? ` · ${[shop.area, shop.county].filter(Boolean).join(', ')}` : ''}
+              </p>
+            )}
           </div>
         </header>
 
