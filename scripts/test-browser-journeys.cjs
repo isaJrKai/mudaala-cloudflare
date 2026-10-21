@@ -48,6 +48,9 @@ async function verifySavedSearch(browser) {
     if (registration.status() !== 201) {
       throw new Error('Could not create disposable browser-test account: HTTP ' + registration.status() + ' ' + (await registration.text()).slice(0, 200));
     }
+    // APIRequestContext does not automatically guarantee that the page's browser
+    // context receives the registration cookie; explicitly copy it before navigation.
+    await syncSessionCookie(context, registration);
 
     // Register the profile-response waiter before navigation. A fresh user's
     // shop-setup query can resolve after the session button appears; checking
