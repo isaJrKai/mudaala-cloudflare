@@ -185,8 +185,12 @@ export function ProductCollectionsManager() {
         </div>
       ) : (
         <div className="space-y-3">
-          {collections.map((collection, index) => (
-            <Card key={collection.id}>
+          {collections.map((collection, index) => {
+            const collectionAvailableListings = availableListings.filter((listing) =>
+              !collection.items.some((item) => item.listing.id === listing.id),
+            )
+            return (
+              <Card key={collection.id}>
               <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <CardTitle className="break-words text-base">{collection.title}</CardTitle>
@@ -242,16 +246,17 @@ export function ProductCollectionsManager() {
                 }}>
                   <select aria-label={`Choose a product for ${collection.title}`} value={selectedListing[collection.id] ?? ''} onChange={(event) => setSelectedListing((current) => ({ ...current, [collection.id]: event.target.value }))} className="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm">
                     <option value="">Choose one of your active offers</option>
-                    {availableListings.map((listing) => (
+                    {collectionAvailableListings.map((listing) => (
                       <option key={listing.id} value={listing.id}>{listing.title}</option>
                     ))}
                   </select>
-                  <Button type="submit" variant="outline" disabled={busy || !selectedListing[collection.id] || availableListings.length === 0}><Plus className="mr-1 size-4" aria-hidden />Add product</Button>
+                  <Button type="submit" variant="outline" disabled={busy || !selectedListing[collection.id] || collectionAvailableListings.length === 0}><Plus className="mr-1 size-4" aria-hidden />Add product</Button>
                 </form>
-                {availableListings.length === 0 ? <p className="text-xs text-muted-foreground">You need an active offer listing before you can add products. Requests and expired listings cannot be added.</p> : null}
+                {collectionAvailableListings.length === 0 ? <p className="text-xs text-muted-foreground">You need an active offer listing before you can add products. Requests and expired listings cannot be added.</p> : null}
               </CardContent>
             </Card>
-          ))}
+            )
+          })}
         </div>
       )}
     </section>
