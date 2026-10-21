@@ -339,7 +339,7 @@ export const feedbackCreateSchema = z.object({
   category: z.enum(['BUG', 'PERFORMANCE', 'COMPLAINT', 'IDEA', 'OTHER'], { message: 'Choose a feedback category' }),
   title: z.string().trim().min(4, 'Add a short summary (at least 4 characters)').max(120, 'Keep the summary under 120 characters'),
   description: z.string().trim().min(20, 'Please describe what happened in at least 20 characters').max(3000, 'Keep the description under 3000 characters'),
-  pagePath: z.string().trim().max(300).regex(/^\\/(?!\\/)[^\\r\\n]*$/, 'Invalid page path').optional().nullable(),
+  pagePath: z.string().trim().max(300).regex(/^\/(?!\/)[^\r\n]*$/, 'Invalid page path').optional().nullable(),
   contact: z.string().trim().max(120, 'Contact details are too long').optional().nullable(),
 })
 
