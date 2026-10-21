@@ -1,7 +1,9 @@
 /**
- * Browser-level checks for two high-value journeys:
- * 1) Saved search: create in Browse -> read after navigation/reload -> apply -> remove.
- * 2) Mobile cart: add a real public offer -> open/close cart -> reach Post while signed out.
+ * Browser-level checks for high-value user journeys:
+ * - Saved-search persistence across navigation and reload.
+ * - Listing lifecycle and opening-hours persistence.
+ * - Mobile cart interaction and navigation to Post while signed out.
+ * - Authenticated My Business insights, reporting-period switching and mobile layout.
  *
  * Runs only against the disposable CI PostgreSQL database and local Next server.
  */
