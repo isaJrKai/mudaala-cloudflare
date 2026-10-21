@@ -3,10 +3,10 @@ name: Deploy Mudaala to Cloudflare Workers
 on:
   push:
     branches: [main]
-    # Documentation, migrations, and API test harness-only commits do not redeploy.
-    # Workflow changes do trigger deployment so security/deploy-gate fixes can be verified.
+    # Documentation and API test harness-only commits do not redeploy.
+    # Migration commits trigger the release workflow so the live-code/schema rollout cannot be silently skipped.
+    # Database migrations remain a separately reviewed operation; this workflow does not apply DDL.
     paths-ignore:
-      - 'prisma/migrations/**'
       - 'scripts/test-api.ts'
       - '**/*.md'
   workflow_dispatch:
