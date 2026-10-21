@@ -192,9 +192,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
     // Discounts are offer-only. Enforce this on the merged record so partial
     // PATCH requests cannot attach an old price to a REQUEST listing.
-    if (listing.type !== 'OFFER' && merged.compareAtPrice !== null) {
-      throw new ApiError(400, 'Old price discounts are only available for offers', {
-        compareAtPrice: 'Old price discounts are only available for offers',
+    if ((listing.type !== 'OFFER' || merged.category === 'services') && merged.compareAtPrice !== null) {
+      throw new ApiError(400, 'Old-price discounts are only available for product offers', {
+        compareAtPrice: 'Old-price discounts are only available for product offers',
       })
     }
     // Discount rules against the merged record (partials cannot be judged alone).
