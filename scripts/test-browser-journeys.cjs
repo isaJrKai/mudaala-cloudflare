@@ -758,6 +758,77 @@ async function verifyBusinessInsights(browser) {
   }
 }
 
+
+async function verifyProductCollections(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true });
+  const page = await context.newPage();
+  const phone = uniquePhone();
+  let accountCreated = false;
+  try {
+    const registration = await context.request.post(base + '/api/auth/register', {
+      data: { phone, name: 'Browser Collections Tester', password: 'password321', country: 'UG', acceptTerms: true },
+      headers: { origin: base, referer: base + '/' }, timeout,
+    });
+    if (registration.status() !== 201) throw new Error('Could not create collection-test account: HTTP ' + registration.status() + ' ' + (await registration.text()).slice(0, 200));
+    accountCreated = true;
+    const registered = await registration.json();
+    const userId = registered.user?.id;
+    if (!userId) throw new Error('Registration response did not include the test account id');
+
+    const listingTitle = 'Browser collection item ' + Date.now();
+    const listingResponse = await context.request.post(base + '/api/listings', {
+      data: { type: 'OFFER', title: listingTitle, description: 'A real test offer for the collection UI.', category: 'scrap-recyclables', price: 500, currency: 'UGX', priceNegotiable: false, unit: 'piece', quantity: 3, country: 'UG', county: 'Kampala', area: 'Test Area', contactPhone: phone, contactWhatsapp: null },
+      headers: { origin: base, referer: base + '/' }, timeout,
+    });
+    if (listingResponse.status() !== 201) throw new Error('Could not create collection-test listing: HTTP ' + listingResponse.status() + ' ' + (await listingResponse.text()).slice(0, 300));
+
+    await page.goto(base + '/#/business', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.getByRole('heading', { name: /My business/i }).waitFor({ state: 'visible', timeout });
+    const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
+    if (await shopSetupDialog.isVisible().catch(() => false)) {
+      await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
+      await shopSetupDialog.waitFor({ state: 'hidden', timeout });
+    }
+
+    const collectionTitle = 'Browser collection ' + Date.now();
+    await page.getByPlaceholder('e.g. Freshly baked today').fill(collectionTitle);
+    await page.getByPlaceholder('Tell buyers what belongs in this collection.').fill('A curated collection for the browser regression test.');
+    const createResponsePromise = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/my/collections', { timeout });
+    await page.getByRole('button', { name: 'Create collection', exact: true }).click();
+    const createResponse = await createResponsePromise;
+    if (createResponse.status() !== 201) throw new Error('Collection creation failed: HTTP ' + createResponse.status() + ' ' + (await createResponse.text()).slice(0, 300));
+    await page.getByText('Collection created.', { exact: true }).waitFor({ state: 'visible', timeout });
+
+    const collectionHeading = page.getByRole('heading', { name: collectionTitle, exact: true });
+    await collectionHeading.waitFor({ state: 'visible', timeout });
+    const addForm = page.locator('form').filter({ has: page.getByLabel('Choose a product for ' + collectionTitle) });
+    await addForm.getByLabel('Choose a product for ' + collectionTitle).selectOption({ label: listingTitle });
+    const addResponsePromise = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/items') && new URL(response.url()).pathname.includes('/api/my/collections/'), { timeout });
+    await addForm.getByRole('button', { name: /Add product/i }).click();
+    const addResponse = await addResponsePromise;
+    if (addResponse.status() !== 201) throw new Error('Adding a product to the collection failed: HTTP ' + addResponse.status() + ' ' + (await addResponse.text()).slice(0, 300));
+    await page.getByText(listingTitle, { exact: true }).waitFor({ state: 'visible', timeout });
+
+    await page.goto(base + '/#/shop/' + userId, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const publicCollection = page.getByRole('button', { name: new RegExp(collectionTitle) });
+    await publicCollection.waitFor({ state: 'visible', timeout });
+    await publicCollection.click();
+    await page.getByText(listingTitle, { exact: true }).waitFor({ state: 'visible', timeout });
+    const viewport = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }));
+    if (viewport.scrollWidth > viewport.width + 1) throw new Error('Collections UI overflows the 390px mobile viewport: ' + JSON.stringify(viewport));
+
+    console.log(JSON.stringify({
+      productCollections: 'pass (create, add own active offer, public shop visibility)',
+      mobile: 'pass (390px viewport, no horizontal overflow)',
+    }, null, 2));
+  } finally {
+    if (accountCreated) {
+      await context.request.delete(base + '/api/account', { data: { password: 'password321' }, headers: { origin: base, referer: base + '/' }, timeout }).catch(() => undefined);
+    }
+    await context.close();
+  }
+}
+
 (async () => {
   const { chromium } = await import('/tmp/mudaala-browser-test/node_modules/playwright/index.mjs');
   const browser = await chromium.launch({ headless: true });
@@ -767,6 +838,7 @@ async function verifyBusinessInsights(browser) {
     await verifyOpeningHoursSchedule(browser);
     await verifyMobileCart(browser);
     await verifyBusinessInsights(browser);
+    await verifyProductCollections(browser);
   } finally {
     await browser.close();
   }
