@@ -5,8 +5,6 @@ CREATE TABLE "ProductCollection" (
   "title" TEXT NOT NULL CHECK (length("title") BETWEEN 1 AND 80),
   "description" TEXT CHECK ("description" IS NULL OR length("description") <= 500),
   "coverPhotoUrl" TEXT,
-  "startsAt" DATETIME,
-  "endsAt" DATETIME,
   "isActive" BOOLEAN NOT NULL DEFAULT true,
   "sortOrder" INTEGER NOT NULL DEFAULT 0 CHECK ("sortOrder" >= 0),
   "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
