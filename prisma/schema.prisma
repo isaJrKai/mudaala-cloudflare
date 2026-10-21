@@ -43,6 +43,7 @@ model User {
   savedSearches  SavedSearch[]
   notifications  Notification[]
   feedbackSubmissions Feedback[]
+  policyViolations PolicyViolation[]
   profile        BusinessProfile?
   passwordResets PasswordReset[]
   followingShops ShopFollow[] @relation("Follower")
@@ -259,6 +260,7 @@ model Report {
   details     String? // optional free text, max 500 chars
   status      String   @default("OPEN") // OPEN | ACTIONED | DISMISSED
   createdAt   DateTime @default(now())
+  policyViolation PolicyViolation?
 
   @@index([targetType, targetId, status])
   @@index([status, createdAt])
@@ -451,4 +453,27 @@ model Feedback {
   @@index([status, createdAt])
   @@index([category, createdAt])
   @@index([reporterId, createdAt])
+}
+
+
+// A moderator-confirmed policy breach. Raw reports and automatic hides are
+// never strikes. One confirmed violation per moderation report; reversal is
+// append-preserving so appeals can correct the active strike count.
+model PolicyViolation {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reportId    String   @unique
+  report      Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  targetType  String
+  targetId    String
+  policyCategory String
+  confirmedBy String
+  createdAt   DateTime @default(now())
+  reversedAt  DateTime?
+  reversedBy  String?
+  warningSentAt DateTime?
+
+  @@index([userId, reversedAt, createdAt])
+  @@index([targetType, targetId])
 }
