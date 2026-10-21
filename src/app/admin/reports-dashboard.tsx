@@ -6,7 +6,7 @@
 // from the server, so the queue is always the truth, never local optimism.
 
 import { useCallback, useEffect, useState } from 'react'
-import { EyeOff, Loader2, RotateCcw, ShieldQuestion } from 'lucide-react'
+import { AlertTriangle, EyeOff, Loader2, RotateCcw, ShieldCheck, ShieldQuestion } from 'lucide-react'
 import { REPORT_REASON_LABELS, type ReportReason } from '@/lib/constants'
 
 interface AdminReport {
@@ -17,6 +17,7 @@ interface AdminReport {
   details: string | null
   status: 'OPEN' | 'ACTIONED' | 'DISMISSED'
   createdAt: string
+  violation: { id: string; createdAt: string; reversedAt: string | null; warningSentAt: string | null } | null
   reporter: string
   listing: { id: string; title: string; status: string; type: string; price: number | null; ownerName: string } | null
   shop: { id: string; businessName: string; shopCode: string | null; county: string } | null
@@ -48,7 +49,7 @@ export function ReportsDashboard() {
     void load(status)
   }, [load, status])
 
-  async function act(reportId: string, action: 'HIDE' | 'RESTORE' | 'DISMISS') {
+  async function act(reportId: string, action: 'HIDE' | 'RESTORE' | 'DISMISS' | 'CONFIRM_VIOLATION' | 'REVERSE_VIOLATION') {
     setBusyId(reportId)
     setError(null)
     try {
@@ -137,9 +138,28 @@ export function ReportsDashboard() {
               )}
 
               {r.details ? <p className="mt-1.5 text-[13.5px] leading-snug">"{r.details}"</p> : null}
+              {r.violation ? (
+                <p className="mt-2 text-xs font-medium text-muted-foreground">
+                  {r.violation.reversedAt ? 'Confirmed violation overturned; it no longer counts as a strike.' : 'Moderator-confirmed violation recorded.'}
+                  {r.violation.warningSentAt ? ' A formal warning notification was sent.' : ''}
+                </p>
+              ) : null}
 
               {r.status === 'OPEN' ? (
                 <div className="mt-3 flex flex-wrap gap-2">
+                  {!r.violation ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm('Confirm that this report shows a real policy violation? Only a confirmed violation counts as a strike. For listings, this will also hide an active listing.')) void act(r.id, 'CONFIRM_VIOLATION')
+                      }}
+                      disabled={busyId === r.id}
+                      className="press inline-flex h-9 items-center gap-1.5 rounded-md border border-amber-500/50 bg-amber-50 px-3 text-[13px] font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-60"
+                    >
+                      {busyId === r.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <ShieldCheck className="size-3.5" aria-hidden />}
+                      Confirm violation
+                    </button>
+                  ) : null}
                   {r.targetType === 'LISTING' && r.listing?.status !== 'HIDDEN' ? (
                     <button
                       type="button"
@@ -170,6 +190,21 @@ export function ReportsDashboard() {
                   >
                     {busyId === r.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <ShieldQuestion className="size-3.5" aria-hidden />}
                     Dismiss
+                  </button>
+                </div>
+              ) : null}
+              {r.violation && !r.violation.reversedAt ? (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Overturn this confirmed violation? It will no longer count toward the account warning threshold and the user will be notified.')) void act(r.id, 'REVERSE_VIOLATION')
+                    }}
+                    disabled={busyId === r.id}
+                    className="press inline-flex h-9 items-center gap-1.5 rounded-md border border-emerald-600/50 bg-emerald-50 px-3 text-[13px] font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-60"
+                  >
+                    {busyId === r.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <AlertTriangle className="size-3.5" aria-hidden />}
+                    Overturn violation / appeal accepted
                   </button>
                 </div>
               ) : null}
