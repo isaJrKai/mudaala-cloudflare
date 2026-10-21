@@ -53,6 +53,28 @@ jobs:
           SETTINGS_ENCRYPTION_KEY: build-only-placeholder-key-32chars
           ADMIN_PHONES: "+256700000000"
 
+      - name: Require moderation secret before production deployment
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 7d45a3db16c2ce332bf146d34eb01687
+        run: |
+          set -euo pipefail
+          secrets_json="$(npx wrangler secret list --name mudaala-cloudflare --account-id "$CLOUDFLARE_ACCOUNT_ID" --format json)"
+          printf '%s' "$secrets_json" | node -e '
+            let raw = "";
+            process.stdin.on("data", chunk => raw += chunk);
+            process.stdin.on("end", () => {
+              let secrets;
+              try { secrets = JSON.parse(raw); } catch { console.error("Could not parse Worker secret names; refusing production deployment."); process.exit(1); }
+              if (!Array.isArray(secrets) || !secrets.some(secret => secret.name === "OPENAI_MODERATION_API_KEY")) {
+                console.error("Required OPENAI_MODERATION_API_KEY secret is absent; refusing production deployment.");
+                process.exit(1);
+              }
+              console.log("Required moderation secret is configured (name verified; value was not retrieved).");
+            });
+          '
+
       # Capture the active version only after the build succeeds. If deployment
       # or the read-only health check fails, traffic is routed back to this version.
       - name: Capture currently active Worker version
