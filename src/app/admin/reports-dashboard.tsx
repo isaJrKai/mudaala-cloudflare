@@ -202,6 +202,21 @@ export function ReportsDashboard() {
                   </button>
                 </div>
               ) : null}
+              {r.status !== 'OPEN' && r.targetType === 'LISTING' && r.listing?.status === 'HIDDEN' ? (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Restore this hidden listing? Only do this after reviewing the case and any appeal.')) void act(r.id, 'RESTORE')
+                    }}
+                    disabled={busyId === r.id}
+                    className="press inline-flex h-9 items-center gap-1.5 rounded-md border border-emerald-600/50 bg-emerald-50 px-3 text-[13px] font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-60"
+                  >
+                    {busyId === r.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <RotateCcw className="size-3.5" aria-hidden />}
+                    Restore hidden listing
+                  </button>
+                </div>
+              ) : null}
               {r.status === 'ACTIONED' && !r.violation ? (
                 <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/30 p-3">
                   <label className="inline-flex h-9 items-center gap-2 rounded-md border px-2 text-xs font-medium">
