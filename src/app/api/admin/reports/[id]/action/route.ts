@@ -10,7 +10,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   return route(async () => {
     const admin = await requireAdmin('Only the Mudaala admin can act on reports')
     const { id } = await params
-    const { action } = await parseBody(request, reportActionSchema)
+    const { action, policyCategory } = await parseBody(request, reportActionSchema)
     const report = await db.report.findUnique({ where: { id }, select: { id: true, targetType: true, targetId: true, reason: true, status: true } })
     if (!report) throw new ApiError(404, 'This report no longer exists')
 
@@ -21,6 +21,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return jsonOk({ ok: true, action, alreadyConfirmed: true, confirmedViolationCount: count })
       }
       if (prior) throw new ApiError(409, 'This case was previously overturned. Review a new report if there is new evidence.')
+      if (report.status !== 'OPEN') throw new ApiError(409, 'Only an open report can be confirmed as a new violation')
 
       const target = report.targetType === 'LISTING'
         ? await db.listing.findUnique({ where: { id: report.targetId }, select: { id: true, userId: true, title: true, status: true } })
@@ -35,7 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             reportId: report.id,
             targetType: report.targetType,
             targetId: report.targetId,
-            policyCategory: report.reason,
+            policyCategory: policyCategory ?? report.reason,
             confirmedBy: admin.id,
           },
         })
@@ -73,7 +74,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
               userId: target.userId,
               type: 'POLICY_WARNING',
               title: 'Formal marketplace policy warning',
-              body: `Our moderators have confirmed ${confirmedViolationCount} policy violations on your account. The latest case concerns: ${report.reason.replaceAll('_', ' ').toLowerCase()}. Please follow Mudaala’s marketplace rules. Further confirmed violations may lead to account restrictions. If you believe this decision is wrong, appeal using “Report a bug / Send feedback” in the site footer and mention this warning.`,
+              body: `Our moderators have confirmed ${confirmedViolationCount} policy violations on your account. The latest confirmed case concerns:  ${(policyCategory ?? report.reason).replaceAll('_', ' ').toLowerCase()}. Please follow Mudaala’s marketplace rules. Further confirmed violations may lead to account restrictions. If you believe this decision is wrong, appeal using “Report a bug / Send feedback” in the site footer and mention this warning.`,
             },
           })
           await tx.policyViolation.update({ where: { reportId: report.id }, data: { warningSentAt: new Date() } })
