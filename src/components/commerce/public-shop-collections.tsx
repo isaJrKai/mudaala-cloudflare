@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, ChevronUp, Layers3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -57,6 +58,11 @@ export function PublicShopCollections({ shopId, onOpenListing }: { shopId: strin
                 </span>
                 {expanded ? <ChevronUp className="size-4 shrink-0" aria-hidden /> : <ChevronDown className="size-4 shrink-0" aria-hidden />}
               </button>
+              <div className="px-3 pb-3">
+                <Link href={`/collections/${collection.id}`} className="text-xs font-semibold text-primary hover:underline">
+                  Open collection page · Share link
+                </Link>
+              </div>
               {expanded ? (
                 <div className="border-t p-3">
                   {detailQuery.isLoading ? <p role="status" className="text-sm text-muted-foreground">Loading products…</p> : null}
