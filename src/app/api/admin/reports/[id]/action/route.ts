@@ -140,6 +140,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         await tx.auditLog.create({ data: { actorId: admin.id, action: 'HIDE_LISTING', targetType: 'LISTING', targetId: listing.id } })
       })
     } else if (action === 'RESTORE') {
+      const activeViolation = await db.policyViolation.findFirst({
+        where: { targetType: 'LISTING', targetId: listing.id, reversedAt: null },
+        select: { id: true },
+      })
+      if (activeViolation) throw new ApiError(409, 'Overturn the confirmed violation before restoring this listing')
       await db.$transaction(async (tx) => {
         if (listing.status === 'HIDDEN') await tx.listing.update({ where: { id: listing.id }, data: { status: 'ACTIVE' } })
         await tx.report.update({ where: { id: report.id }, data: { status: 'ACTIONED' } })
