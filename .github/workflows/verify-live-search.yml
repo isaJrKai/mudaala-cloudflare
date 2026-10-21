@@ -153,6 +153,25 @@ jobs:
             // The live catalogue has previously contained active perfume listings
             // with mathematical-bold Unicode text and category "other". Normalize
             // the returned seller text before checking relevance; never mutate data.
+            // Exercise the related-products API against a real active offer without mutating production data.
+            const offer = (await search('')).find((item) => item.type === 'OFFER' && typeof item.id === 'string');
+            if (!offer) {
+              console.log(JSON.stringify({ relatedProducts: 'no active offer available; endpoint not exercised' }));
+            } else {
+              const recommendations = await getJson('/api/listings/' + encodeURIComponent(offer.id) + '/recommendations');
+              if (!Array.isArray(recommendations.items)) {
+                throw new Error('Related-products endpoint did not return items[]');
+              }
+              const privateFields = ['userId', 'phone', 'whatsapp', 'email', 'password', 'isAdmin'];
+              for (const item of recommendations.items) {
+                if (!item || typeof item.id !== 'string' || typeof item.title !== 'string' ||
+                    privateFields.some((field) => Object.prototype.hasOwnProperty.call(item, field))) {
+                  throw new Error('Related-products endpoint returned malformed data or private fields');
+                }
+              }
+              console.log(JSON.stringify({ relatedProducts: 'ok', count: recommendations.items.length, privateFields: 'not exposed' }));
+            }
+
             const perfume = await search('perfume');
             const perfumeMatches = perfume.filter(isRelevant);
             if (perfumeMatches.length === 0) {
