@@ -8,13 +8,15 @@ export async function GET(_request: Request, context: Context) {
   return route(async () => {
     const { id } = await context.params
     const collection = await db.productCollection.findFirst({
-      where: { id, isActive: true },
+      where: { id, isActive: true, AND: [{ OR: [{ startsAt: null }, { startsAt: { lte: new Date() } }] }, { OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }] }] },
       select: {
         id: true,
         userId: true,
         title: true,
         description: true,
         coverPhotoUrl: true,
+        startsAt: true,
+        endsAt: true,
         sortOrder: true,
         createdAt: true,
         updatedAt: true,
