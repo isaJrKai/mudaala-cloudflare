@@ -68,7 +68,7 @@ export function PublicShopCollections({ shopId, onOpenListing }: { shopId: strin
                           {listing.photos?.[0] ? <img src={listing.photos[0]} alt="" loading="lazy" className="size-12 shrink-0 rounded-md object-cover" /> : <span className="size-12 shrink-0 rounded-md bg-secondary" />}
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-medium">{listing.title}</span>
-                            <span className="block text-xs text-muted-foreground">{listing.priceLabel || listing.price || 'Contact seller for details'}</span>
+                            <span className="block text-xs text-muted-foreground">{listing.price !== null ? `${listing.currency} ${listing.price.toLocaleString()}${listing.unit ? ` / ${listing.unit}` : ''}` : 'Contact seller for details'}</span>
                           </span>
                           <Button size="sm" variant="outline" onClick={() => onOpenListing(listing.id)}>View</Button>
                         </li>
