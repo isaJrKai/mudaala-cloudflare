@@ -18,15 +18,17 @@ export async function POST(request: Request) {
     const data = await parseBody(request, feedbackCreateSchema)
     const ip = getClientIp(request)
     const user = await getSessionUser()
-    const verdict = await hit(
-      user ? `feedback:user:${user.id}` : `feedback:ip:${ip}`,
-      user ? FEEDBACK_USER_MAX : FEEDBACK_IP_MAX,
-      FEEDBACK_WINDOW_MS,
-    )
-    if (!verdict.ok) {
+    // Always apply the IP bucket as well as the per-account bucket, so
+    // creating multiple accounts does not bypass the guest/device limit.
+    const ipVerdict = await hit(`feedback:ip:${ip}`, FEEDBACK_IP_MAX, FEEDBACK_WINDOW_MS)
+    const userVerdict = user
+      ? await hit(`feedback:user:${user.id}`, FEEDBACK_USER_MAX, FEEDBACK_WINDOW_MS)
+      : { ok: true as const, retryAfterSeconds: 0 }
+    const blocked = !ipVerdict.ok ? ipVerdict : !userVerdict.ok ? userVerdict : null
+    if (blocked) {
       return NextResponse.json(
         { error: 'You have sent several feedback reports recently. Please try again later.' },
-        { status: 429, headers: { 'retry-after': String(verdict.retryAfterSeconds) } },
+        { status: 429, headers: { 'retry-after': String(blocked.retryAfterSeconds) } },
       )
     }
 
