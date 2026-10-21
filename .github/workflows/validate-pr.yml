@@ -206,6 +206,35 @@ jobs:
       - name: Test service listing stock-field normalization for publish and edit
         run: npx tsx scripts/test-service-listing-form.ts
 
+      - name: Verify logical backup and restore in disposable PostgreSQL
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          backup_file="$(mktemp /tmp/mudaala-ci-backup.XXXXXX.dump)"
+          trap 'rm -f "$backup_file"' EXIT
+          # Use the PostgreSQL 17 server container's matching client tools. The
+          # runner's preinstalled pg_dump may be older than the service image.
+          pg_container="$(docker ps --filter 'ancestor=postgres:17' --format '{{.ID}}' | head -n 1)"
+          test -n "$pg_container"
+          docker exec "$pg_container" pg_dump --format=custom --no-owner --no-acl --username=postgres --dbname=mudaala > "$backup_file"
+          docker exec "$pg_container" createdb --username=postgres mudaala_restore_check
+          restore_url="postgresql://postgres:postgres@127.0.0.1:5432/mudaala_restore_check"
+          docker exec -i "$pg_container" pg_restore --exit-on-error --no-owner --no-acl --username=postgres --dbname=mudaala_restore_check < "$backup_file"
+          source_tables="$(psql "$DATABASE_URL" -Atc "SELECT quote_ident(tablename) FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations' ORDER BY tablename")"
+          restored_tables="$(psql "$restore_url" -Atc "SELECT quote_ident(tablename) FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations' ORDER BY tablename")"
+          test "$source_tables" = "$restored_tables"
+          while IFS= read -r table_name; do
+            [ -z "$table_name" ] && continue
+            source_count="$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM public.$table_name")"
+            restored_count="$(psql "$restore_url" -Atc "SELECT count(*) FROM public.$table_name")"
+            if [ "$source_count" != "$restored_count" ]; then
+              echo "Row-count mismatch for $table_name: source=$source_count restored=$restored_count"
+              exit 1
+            fi
+          done <<< "$source_tables"
+          echo "Disposable PostgreSQL logical backup/restore passed: restored public table set and row counts match."
       - name: Create and prove least-privilege runtime database role
         # Apply the exact migration intended for production, but only in disposable CI.
         # Login is enabled here with a test-only password; the migration itself leaves
