@@ -701,6 +701,9 @@ async function verifyBusinessInsights(browser) {
       throw new Error('Could not create disposable business-insights account: HTTP ' + registration.status() + ' ' + (await registration.text()).slice(0, 200));
     }
 
+    const sessionResponsePromise = page.waitForResponse((response) => {
+      return new URL(response.url()).pathname === '/api/auth/me' && response.request().method() === 'GET';
+    }, { timeout });
     const profileResponsePromise = page.waitForResponse((response) => {
       return new URL(response.url()).pathname === '/api/profile' && response.request().method() === 'GET';
     }, { timeout });
@@ -709,8 +712,9 @@ async function verifyBusinessInsights(browser) {
       return url.pathname === '/api/my/business-analytics' && url.searchParams.get('period') === '30d';
     }, { timeout });
     await page.goto(base + '/#/business', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.getByRole('button', { name: /Browser Business Insights Tester/ }).waitFor({ state: 'visible', timeout });
 
+    const sessionResponse = await sessionResponsePromise;
+    if (!sessionResponse.ok()) throw new Error('Business-insights session request failed: HTTP ' + sessionResponse.status());
     const profileResponse = await profileResponsePromise;
     if (!profileResponse.ok()) throw new Error('Business-insights profile request failed: HTTP ' + profileResponse.status());
     const initialAnalytics = await initialAnalyticsPromise;
