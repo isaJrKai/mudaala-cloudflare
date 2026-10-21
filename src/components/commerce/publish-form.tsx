@@ -470,7 +470,7 @@ export function EditListingForm({ id }: { id: string }) {
           description: listing.description,
           category: listing.category,
           price: listing.price === null ? '' : String(listing.price),
-          compareAtPrice: listing.compareAtPrice === null || listing.compareAtPrice === undefined ? '' : String(listing.compareAtPrice),
+          compareAtPrice: listing.type === 'OFFER' && listing.compareAtPrice !== null && listing.compareAtPrice !== undefined ? String(listing.compareAtPrice) : '',
           currency: listing.currency ?? 'UGX',
           priceNegotiable: listing.priceNegotiable,
           unit: listing.unit ?? 'none',
@@ -627,7 +627,7 @@ export function EditListingForm({ id }: { id: string }) {
             </select>
           </div>
         </Field>
-        {form.category !== 'services' ? (
+        {loaded.type === 'OFFER' && form.category !== 'services' ? (
         <Field label="Old price (optional)" htmlFor="e-compare" error={errors.compareAtPrice} hint="shows as a discount">
           <Input
             id="e-compare"
