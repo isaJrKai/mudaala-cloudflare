@@ -729,6 +729,18 @@ async function main() {
     ok('REQUEST cannot carry an old-price discount → 400 with field error',
       requestWithDiscount.status === 400 && Boolean(requestWithDiscount.json?.fields?.compareAtPrice))
 
+    const serviceWithDiscount = await call('POST', '/api/listings', {
+      ...validListing,
+      category: 'services',
+      title: 'Service offer with forbidden old price',
+      unit: null,
+      quantity: null,
+      price: 500,
+      compareAtPrice: 800,
+    }, alice)
+    ok('service offer cannot carry an old-price discount → 400 with field error',
+      serviceWithDiscount.status === 400 && Boolean(serviceWithDiscount.json?.fields?.compareAtPrice))
+
     const orphanDiscount = await call('POST', '/api/listings', {
       ...validListing,
       title: 'Old price without current price',
@@ -3225,6 +3237,21 @@ async function main() {
       : { status: 0, json: null }
     ok('request listing cannot accept an old-price discount on PATCH',
       requestDiscountPatch.status === 400 && Boolean(requestDiscountPatch.json?.fields?.compareAtPrice))
+    const serviceOffer = await call('POST', '/api/listings', {
+      ...validListing,
+      category: 'services',
+      title: 'Cleaning service offer test',
+      unit: null,
+      quantity: null,
+      price: 500,
+      compareAtPrice: null,
+    }, collectionOwner)
+    ok('service offer fixture created for discount PATCH regression', serviceOffer.status === 201)
+    const serviceDiscountPatch = serviceOffer.status === 201
+      ? await call('PATCH', `/api/listings/${serviceOffer.json.listing.id}`, { compareAtPrice: 800 }, collectionOwner)
+      : { status: 0, json: null }
+    ok('service listing cannot accept an old-price discount on PATCH',
+      serviceDiscountPatch.status === 400 && Boolean(serviceDiscountPatch.json?.fields?.compareAtPrice))
 
     const invalidTitle = await call('POST', '/api/my/collections', { title: '   ' }, collectionOwner)
     ok('24.5 blank collection title rejected', invalidTitle.status === 400)
