@@ -17,6 +17,7 @@ CREATE TABLE "PolicyViolation" (
     CONSTRAINT "PolicyViolation_reportId_fkey" FOREIGN KEY ("reportId") REFERENCES "Report"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 CREATE UNIQUE INDEX "PolicyViolation_reportId_key" ON "PolicyViolation"("reportId");
+CREATE UNIQUE INDEX "PolicyViolation_activeKey_key" ON "PolicyViolation"("activeKey");
 CREATE INDEX "PolicyViolation_userId_reversedAt_createdAt_idx" ON "PolicyViolation"("userId", "reversedAt", "createdAt");
 CREATE INDEX "PolicyViolation_targetType_targetId_idx" ON "PolicyViolation"("targetType", "targetId");
 
