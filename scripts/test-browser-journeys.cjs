@@ -797,7 +797,16 @@ async function verifyProductCollections(browser) {
     });
     if (listingResponse.status() !== 201) throw new Error('Could not create collection-test listing: HTTP ' + listingResponse.status() + ' ' + (await listingResponse.text()).slice(0, 300));
 
+    const sessionResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/auth/me' && response.request().method() === 'GET', { timeout });
+    const listingsResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/my/listings' && response.request().method() === 'GET', { timeout });
+    const profileResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/profile' && response.request().method() === 'GET', { timeout });
     await page.goto(base + '/#/business', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const [sessionResponse, listingsResponse, profileResponse] = await Promise.all([sessionResponsePromise, listingsResponsePromise, profileResponsePromise]);
+    if (!sessionResponse.ok()) throw new Error('Collection UI session request failed: HTTP ' + sessionResponse.status());
+    if (!listingsResponse.ok()) throw new Error('Collection UI listing request failed: HTTP ' + listingsResponse.status());
+    if (!profileResponse.ok()) throw new Error('Collection UI profile request failed: HTTP ' + profileResponse.status());
+    const sessionPayload = await sessionResponse.json();
+    if (sessionPayload.user?.id !== userId) throw new Error('Collection UI browser session did not resolve to the registered seller');
     await page.getByRole('heading', { name: /My business/i }).waitFor({ state: 'visible', timeout });
     const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
     if (await shopSetupDialog.isVisible().catch(() => false)) {
