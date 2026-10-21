@@ -151,8 +151,13 @@ describe('Mudaala image safety moderation', () => {
       apiKey: 'test-moderation-key',
       fetchImpl: async () => new Response(JSON.stringify({ results: [{}] }), { status: 200 }),
     })
+    const missingMinorCategory = await moderateImageContent(sampleImage, 'jpg', {
+      apiKey: 'test-moderation-key',
+      fetchImpl: async () => new Response(JSON.stringify({ results: [{ categories: { sexual: false } }] }), { status: 200 }),
+    })
     expect(unavailable.status).toBe('unavailable')
     expect(invalid.status).toBe('unavailable')
+    expect(missingMinorCategory.status).toBe('unavailable')
   })
 
   test('does not silently clear production uploads when provider credentials are missing', async () => {
