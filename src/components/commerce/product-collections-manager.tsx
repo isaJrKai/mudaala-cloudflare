@@ -18,6 +18,8 @@ type ProductCollection = {
   title: string
   description: string | null
   coverPhotoUrl: string | null
+  startsAt: string | null
+  endsAt: string | null
   isActive: boolean
   sortOrder: number
   items: CollectionItem[]
@@ -28,11 +30,15 @@ export function ProductCollectionsManager() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [coverPhotoUrl, setCoverPhotoUrl] = useState('')
+  const [startsAt, setStartsAt] = useState('')
+  const [endsAt, setEndsAt] = useState('')
   const [selectedListing, setSelectedListing] = useState<Record<string, string>>({})
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [editCoverPhotoUrl, setEditCoverPhotoUrl] = useState('')
+  const [editStartsAt, setEditStartsAt] = useState('')
+  const [editEndsAt, setEditEndsAt] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -86,11 +92,15 @@ export function ProductCollectionsManager() {
           title: cleanTitle,
           description: description.trim() || null,
           coverPhotoUrl: coverPhotoUrl.trim() || null,
+          startsAt: startsAt ? new Date(startsAt).toISOString() : null,
+          endsAt: endsAt ? new Date(endsAt).toISOString() : null,
         }),
       })
       setTitle('')
       setDescription('')
       setCoverPhotoUrl('')
+      setStartsAt('')
+      setEndsAt('')
     }, 'Collection created.')
   }
 
@@ -99,6 +109,8 @@ export function ProductCollectionsManager() {
     setEditTitle(collection.title)
     setEditDescription(collection.description ?? '')
     setEditCoverPhotoUrl(collection.coverPhotoUrl ?? '')
+    setEditStartsAt(collection.startsAt ? new Date(new Date(collection.startsAt).getTime() - new Date(collection.startsAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '')
+    setEditEndsAt(collection.endsAt ? new Date(new Date(collection.endsAt).getTime() - new Date(collection.endsAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '')
     setError('')
     setMessage('')
   }
@@ -108,7 +120,7 @@ export function ProductCollectionsManager() {
     void perform(async () => {
       await apiFetch('/api/my/collections/' + collectionId, {
         method: 'PATCH',
-        body: JSON.stringify({ title: editTitle.trim(), description: editDescription.trim() || null, coverPhotoUrl: editCoverPhotoUrl.trim() || null }),
+        body: JSON.stringify({ title: editTitle.trim(), description: editDescription.trim() || null, coverPhotoUrl: editCoverPhotoUrl.trim() || null, startsAt: editStartsAt ? new Date(editStartsAt).toISOString() : null, endsAt: editEndsAt ? new Date(editEndsAt).toISOString() : null }),
       })
       setEditingId(null)
     }, 'Collection details saved.')
@@ -161,7 +173,17 @@ export function ProductCollectionsManager() {
               <p className="text-xs font-normal text-muted-foreground">Take a photo with your phone or choose one from your gallery.</p>
             </div>
             <div className="sm:col-span-2">
-              <Button type="submit" disabled={busy}><Plus className="mr-2 size-4" aria-hidden />Create collection</Button>
+              <details className="rounded-md border p-3">
+                <summary className="cursor-pointer text-sm font-medium">Schedule this collection (optional)</summary>
+                <p className="mt-2 text-xs text-muted-foreground">Leave dates empty for a normal collection. A start date makes it visible automatically; an end date hides it automatically. You can also hide it yourself.</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="space-y-1 text-sm">Start date and time<input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm" /></label>
+                  <label className="space-y-1 text-sm">End date and time<input type="datetime-local" min={startsAt || undefined} value={endsAt} onChange={(event) => setEndsAt(event.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm" /></label>
+                </div>
+              </details>
+            </div>
+            <div className="sm:col-span-2">
+              <Button type="submit" disabled={busy || Boolean(startsAt && endsAt && new Date(endsAt) <= new Date(startsAt))}><Plus className="mr-2 size-4" aria-hidden />Create collection</Button>
             </div>
           </form>
         </CardContent>
@@ -195,7 +217,7 @@ export function ProductCollectionsManager() {
                 <div className="min-w-0">
                   <CardTitle className="break-words text-base">{collection.title}</CardTitle>
                   <p className="mt-1 text-sm text-muted-foreground">{collection.description || 'No description yet.'}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{collection.items.length} {collection.items.length === 1 ? 'product' : 'products'} · {collection.isActive ? 'Visible to buyers' : 'Hidden from buyers'}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{collection.items.length} {collection.items.length === 1 ? 'product' : 'products'} · {!collection.isActive ? 'Hidden by you' : collection.startsAt && new Date(collection.startsAt).getTime() > Date.now() ? `Scheduled for ${new Date(collection.startsAt).toLocaleString()}` : collection.endsAt && new Date(collection.endsAt).getTime() <= Date.now() ? 'Schedule ended' : 'Visible to buyers'}</p>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   <Button size="sm" variant="outline" disabled={busy || editingId === collection.id} onClick={() => beginEdit(collection)}><Pencil className="mr-1 size-3.5" aria-hidden />Edit</Button>
@@ -215,7 +237,15 @@ export function ProductCollectionsManager() {
                     <label className="space-y-1 text-sm font-medium">Collection name<input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} maxLength={80} required className="h-10 w-full rounded-md border bg-background px-3 font-normal" /></label>
                     <label className="space-y-1 text-sm font-medium">Description<textarea value={editDescription} onChange={(event) => setEditDescription(event.target.value)} maxLength={500} rows={2} className="w-full rounded-md border bg-background px-3 py-2 font-normal" /></label>
                     <div className="space-y-1 text-sm font-medium"><p>Cover photo</p><PhotoPicker value={editCoverPhotoUrl ? [editCoverPhotoUrl] : []} onChange={(photos) => setEditCoverPhotoUrl(photos[0] ?? '')} single cover label="Collection cover photo" /></div>
-                    <div className="flex flex-wrap gap-2"><Button type="submit" disabled={busy || !editTitle.trim()}>Save details</Button><Button type="button" variant="outline" disabled={busy} onClick={() => setEditingId(null)}><X className="mr-1 size-4" aria-hidden />Cancel</Button></div>
+                    <details className="rounded-md border p-3">
+                      <summary className="cursor-pointer text-sm font-medium">Schedule this collection (optional)</summary>
+                      <p className="mt-2 text-xs text-muted-foreground">Leave dates empty for no schedule. Buyers see it only during the selected period.</p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <label className="space-y-1 text-sm">Start date and time<input type="datetime-local" value={editStartsAt} onChange={(event) => setEditStartsAt(event.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm" /></label>
+                        <label className="space-y-1 text-sm">End date and time<input type="datetime-local" min={editStartsAt || undefined} value={editEndsAt} onChange={(event) => setEditEndsAt(event.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm" /></label>
+                      </div>
+                    </details>
+                    <div className="flex flex-wrap gap-2"><Button type="submit" disabled={busy || !editTitle.trim() || Boolean(editStartsAt && editEndsAt && new Date(editEndsAt) <= new Date(editStartsAt))}>Save details</Button><Button type="button" variant="outline" disabled={busy} onClick={() => setEditingId(null)}><X className="mr-1 size-4" aria-hidden />Cancel</Button></div>
                   </form>
                 ) : null}
                 {collection.items.length ? (
