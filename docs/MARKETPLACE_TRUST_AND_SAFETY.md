@@ -27,7 +27,11 @@ This upload-time control does not retroactively scan existing photos. It also do
 - Reports are rate-limited, and only admin-authorized endpoints can read or triage them. The admin inbox supports status, priority, and private internal notes; updates are audit-logged.
 - This is an in-app inbox, not an external email or SMS alert. A named admin must monitor it and define response expectations before launch. Screenshot uploads are not accepted in this first version; do not ask users to attach sensitive screenshots or credentials.
 
-## Image moderation release gate\n\n- Configure the secret with `wrangler secret put OPENAI_MODERATION_API_KEY` only after the provider account, billing, privacy/retention settings, and access controls are approved. Never place the key in `wrangler.jsonc`, source files, or GitHub commits.\n- Verify safe photos upload, explicit test fixtures are blocked, thumbnail images are checked too, and provider failure returns a temporary error without storing either image.\n- Scan existing public photos separately before claiming the marketplace is fully moderated. This change only gates new uploads.
+## Image moderation release gate
+
+- Configure the secret with `wrangler secret put OPENAI_MODERATION_API_KEY` only after the provider account, billing, privacy/retention settings, and access controls are approved. Never place the key in `wrangler.jsonc`, source files, or GitHub commits.
+- Verify safe photos upload, explicit test fixtures are blocked, thumbnail images are checked too, and provider failure returns a temporary error without storing either image.
+- Scan existing public photos separately before claiming the marketplace is fully moderated. This change only gates new uploads.
 
 ## Required controls, in priority order
 
