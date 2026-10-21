@@ -43,7 +43,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         // A confirmed listing violation also hides an active listing. Shop
         // profile-level hiding is not supported yet; the owner's violation is
         // still recorded and the limitation remains documented.
-        if (report.targetType === 'LISTING' && target.status === 'ACTIVE') {
+        if (report.targetType === 'LISTING' && 'status' in target && target.status === 'ACTIVE') {
           await tx.listing.update({ where: { id: target.id }, data: { status: 'HIDDEN' } })
           await tx.notification.create({
             data: {
