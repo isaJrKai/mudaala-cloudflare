@@ -36,3 +36,8 @@ When this policy changes, the version date at the top changes and the app may as
 ## Bug reports and feedback
 
 If you send “Report a bug / Send feedback”, Mudaala stores the category, summary, comment, the page path you were viewing, a limited browser user-agent string, and any contact detail you choose to provide. Contact details are optional. Feedback is visible to authorized Mudaala administrators for investigation and triage; internal admin notes are not shown to reporters. Feedback is rate-limited to reduce abuse. Do not include passwords, payment secrets, or sensitive personal information in a report. This first version does not accept screenshot attachments. Feedback records are retained while reasonably needed to investigate issues, maintain platform safety, and document resolutions, subject to applicable deletion and legal requirements.
+
+
+## Image safety checks
+
+When automated photo moderation is enabled, newly uploaded original photos and their small previews are sent securely to OpenAI's Moderation API for classification before Mudaala stores or publishes them. The provider receives image data and returns safety categories. Mudaala does not send account passwords or payment details as part of this check. If moderation credentials are missing or the provider is unavailable, production photo uploads are temporarily blocked rather than published without a safety check. Existing photos are not retroactively scanned by this upload-time control.
