@@ -33,7 +33,18 @@ The report-category addition is a reporting aid, not a substitute for automatic 
 - Test JPEG, PNG, WebP, thumbnails, multiple photos per listing, profile avatars, cover photos, and alternate API paths. Confirm that every public-image route shares the same gate.
 - Define a safe, privacy-preserving process for suspected child sexual abuse material: do not download, copy, or circulate it for manual review; restrict access and follow applicable reporting obligations.
 
-### P0 — Reports and moderation operations
+### P0 — Repeat-violation warnings and moderation operations
+
+#### Account warning rule (policy target; not active until implemented and tested)
+
+- Count **confirmed violations**, not raw reports. A report, a rejected upload, or an unreviewed accusation alone must not count as a strike.
+- A confirmed violation is recorded only after a moderator reviews the evidence and takes an enforcement action for a specific policy breach. Record the policy category, target, moderator/system decision, timestamp, and linked case ID.
+- On the **fourth confirmed violation** (more than three), send the account a formal in-app warning explaining the specific rule breached, the action taken, the cumulative confirmed-violation count, how to appeal, and that further violations may lead to temporary suspension or account removal.
+- Notify on each subsequent confirmed violation as well, but do not flood the account with duplicate notifications for retries of the same moderation action.
+- Give users a fair appeal path. If a decision is overturned, reverse the strike and correct the count; do not punish users for good-faith reports or unsubstantiated allegations.
+- Keep a moderator-visible case history and an audit trail. Restrict access to sensitive evidence and never include explicit imagery in notifications.
+- A formal warning is not itself a suspension. Any temporary suspension or account removal must have separately defined thresholds, proportionality, an appeal route, and an auditable moderator decision.
+- Until the warning counter, notification, idempotency, appeal reversal, and tests ship, this is a **planned rule**, not a live account-enforcement feature.
 
 - Make nudity/sexual content, harassment/hate, exposed personal information, and spam/impersonation first-class report reasons.
 - Ensure reports about a photo can be tied to the listing/shop and the relevant photo, without exposing reporter identity to the reported user.
@@ -71,9 +82,11 @@ The report-category addition is a reporting aid, not a substitute for automatic 
 - [ ] Automated tests cover safe, prohibited, uncertain, unavailable-provider, malformed-image, thumbnail, and alternate-path cases.
 - [ ] Existing publicly served images have an explicit migration/backfill decision; no claim that historical images are scanned until it is done.
 - [ ] Report queue, shop-level action, appeal route, real support inbox, reviewer ownership, and audit logging are verified end-to-end.
+- [ ] Confirmed-violation counting is idempotent, excludes unreviewed reports, and sends the formal warning on the fourth confirmed violation.
+- [ ] Appeals can reverse an incorrect strike without leaving stale warning counts or duplicate notifications.
 - [ ] Live smoke tests verify rejected content is not visible by direct URL, listing page, search, sitemap, thumbnails, or cached responses.
 - [ ] Monitoring and incident-response ownership are documented.
 
 ## Current delivery in this branch
 
-This change adds specific report reasons for nudity/sexual content, harassment/hate, exposed personal information, and spam/impersonation, and tests the API validation path. It updates the safety guide to explain the rules. It does **not** implement automated visual classification, shop suspension, a moderation-provider integration, or an appeal workflow. Those remain explicit gates rather than implied capabilities.
+This change adds specific report reasons for nudity/sexual content, harassment/hate, exposed personal information, and spam/impersonation, and tests the API validation path. It updates the safety guide to explain the rules and specifies a formal warning after the fourth confirmed violation. It does **not** yet implement automated visual classification, confirmed-violation counting, account warnings, shop suspension, a moderation-provider integration, or an appeal workflow. Those remain explicit gates rather than implied capabilities.
