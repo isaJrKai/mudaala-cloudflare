@@ -214,10 +214,14 @@ jobs:
           set -euo pipefail
           backup_file="$(mktemp /tmp/mudaala-ci-backup.XXXXXX.dump)"
           trap 'rm -f "$backup_file"' EXIT
-          pg_dump --format=custom --no-owner --no-acl "$DATABASE_URL" --file="$backup_file"
-          createdb -h 127.0.0.1 -U postgres mudaala_restore_check
+          # Use the PostgreSQL 17 server container's matching client tools. The
+          # runner's preinstalled pg_dump may be older than the service image.
+          pg_container="$(docker ps --filter 'ancestor=postgres:17' --format '{{.ID}}' | head -n 1)"
+          test -n "$pg_container"
+          docker exec "$pg_container" pg_dump --format=custom --no-owner --no-acl --username=postgres --dbname=mudaala > "$backup_file"
+          docker exec "$pg_container" createdb --username=postgres mudaala_restore_check
           restore_url="postgresql://postgres:postgres@127.0.0.1:5432/mudaala_restore_check"
-          pg_restore --exit-on-error --no-owner --no-acl --dbname="$restore_url" "$backup_file"
+          docker exec -i "$pg_container" pg_restore --exit-on-error --no-owner --no-acl --username=postgres --dbname=mudaala_restore_check < "$backup_file"
           source_tables="$(psql "$DATABASE_URL" -Atc "SELECT quote_ident(tablename) FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations' ORDER BY tablename")"
           restored_tables="$(psql "$restore_url" -Atc "SELECT quote_ident(tablename) FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations' ORDER BY tablename")"
           test "$source_tables" = "$restored_tables"
