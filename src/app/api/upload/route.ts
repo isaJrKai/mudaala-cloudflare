@@ -14,6 +14,7 @@ import { ApiError, route, jsonOk, requireUser } from '@/lib/api'
 import { hit, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
 import { chooseStorage } from '@/lib/storage'
+import { moderateImageContent } from '@/lib/image-moderation'
 
 const MAX_BYTES = 8 * 1024 * 1024 // 8MB upload limit
 
@@ -171,6 +172,32 @@ export async function POST(request: Request) {
 
     const original = new Uint8Array(await file.arrayBuffer())
     const input = Buffer.from(stripImageMetadata(original, detectedType))
+
+    // Production uploads are held until the image classifier has explicitly
+    // cleared both the original and any browser-supplied thumbnail. Development
+    // can run without provider credentials, but production fails closed.
+    if (process.env.OPENAI_MODERATION_API_KEY || process.env.NODE_ENV === 'production') {
+      const moderation = await moderateImageContent(input, detectedType)
+      if (moderation.status === 'blocked') {
+        throw new ApiError(400, 'This photo appears to contain explicit sexual content, which is not allowed on Mudaala. Please choose another photo.')
+      }
+      if (moderation.status !== 'safe') {
+        console.error('[upload] image moderation unavailable', { status: moderation.status, providerStatus: moderation.status === 'unavailable' ? moderation.providerStatus : undefined })
+        throw new ApiError(503, 'Photo safety checks are temporarily unavailable. Please try again later.')
+      }
+
+      if (thumbnailInput) {
+        const thumbnailModeration = await moderateImageContent(thumbnailInput, 'webp')
+        if (thumbnailModeration.status === 'blocked') {
+          throw new ApiError(400, 'The photo preview appears to contain explicit sexual content. Please choose the photo again.')
+        }
+        if (thumbnailModeration.status !== 'safe') {
+          console.error('[upload] thumbnail moderation unavailable', { status: thumbnailModeration.status, providerStatus: thumbnailModeration.status === 'unavailable' ? thumbnailModeration.providerStatus : undefined })
+          throw new ApiError(503, 'Photo safety checks are temporarily unavailable. Please try again later.')
+        }
+      }
+    }
+
     const storage = chooseStorage()
     let url: string
     try {
