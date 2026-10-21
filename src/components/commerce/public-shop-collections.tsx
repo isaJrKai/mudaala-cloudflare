@@ -27,10 +27,11 @@ export function PublicShopCollections({ shopId, onOpenListing }: { shopId: strin
     queryFn: () => apiGet<PublicCollectionDetail>(`/api/collections/${encodeURIComponent(expandedId!)}`),
   })
   const collections = collectionsQuery.data?.collections ?? []
-  if (collectionsQuery.isLoading || collections.length === 0) return null
+  if (collectionsQuery.isLoading) return null
   if (collectionsQuery.isError) {
     return <p className="text-sm text-muted-foreground">Collections could not be loaded right now.</p>
   }
+  if (collections.length === 0) return null
 
   return (
     <section aria-label="Shop product collections" className="space-y-3">
