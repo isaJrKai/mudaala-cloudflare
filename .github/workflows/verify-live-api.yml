@@ -175,7 +175,7 @@ jobs:
         run: |
           node <<'NODE'
           const base = process.env.APP_URL.replace(/\/$/, '');
-          const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZr8AAAAASUVORK5CYII=', 'base64');
+          const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
           const passwordFor = () => 'Q7!' + Math.random().toString(36).slice(2, 14) + 'zR';
           const phoneFor = () => '+2567' + String(Math.floor(10000000 + Math.random() * 89999999));
           const owner = { phone: phoneFor(), password: passwordFor(), cookie: null };
@@ -253,7 +253,7 @@ jobs:
               form.append('file', new Blob([png], { type: 'image/png' }), 'audit-photo.png');
               const uploaded = await api('/api/upload', { method: 'POST', cookie: owner.cookie, form });
               if (uploaded.status !== 201 || typeof uploaded.json?.url !== 'string' || !uploaded.json.url.startsWith('https://')) {
-                throw new Error('Authenticated production photo upload failed with HTTP ' + uploaded.status);
+                throw new Error('Authenticated production photo upload failed with HTTP ' + uploaded.status + ': ' + JSON.stringify(uploaded.json ?? {}).slice(0, 300));
               }
               const photoUrl = uploaded.json.url;
               const title = 'Temporary Mudaala security audit ' + auditTag;
