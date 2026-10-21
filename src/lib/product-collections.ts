@@ -26,6 +26,10 @@ export const productCollectionItemCreateSchema = z.object({
   sortOrder: z.number().int().min(0).max(10000).optional(),
 }).strict()
 
+export const productCollectionItemUpdateSchema = z.object({
+  sortOrder: z.number().int().min(0).max(10000),
+}).strict()
+
 const reorderItemSchema = z.object({
   id: z.string().trim().min(1).max(128),
   sortOrder: z.number().int().min(0).max(10000),
