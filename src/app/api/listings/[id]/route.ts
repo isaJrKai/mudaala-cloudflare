@@ -190,6 +190,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (listingNeedsUnit(merged.category, merged.price) && merged.unit === null) {
       throw new ApiError(400, 'Choose the unit the price refers to', { unit: 'Choose the unit the price refers to' })
     }
+    // Discounts are offer-only. Enforce this on the merged record so partial
+    // PATCH requests cannot attach an old price to a REQUEST listing.
+    if (listing.type !== 'OFFER' && merged.compareAtPrice !== null) {
+      throw new ApiError(400, 'Old price discounts are only available for offers', {
+        compareAtPrice: 'Old price discounts are only available for offers',
+      })
+    }
     // Discount rules against the merged record (partials cannot be judged alone).
     if (merged.compareAtPrice !== null && merged.price === null) {
       throw new ApiError(400, 'Add the current price first - the old price only shows as a discount next to it', {
