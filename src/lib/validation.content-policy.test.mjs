@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { businessProfileSchema, containsMarketplaceEmoji, feedbackCreateSchema, reportActionSchema, reportCreateSchema } from './validation'
 import { REPORT_REASONS } from './constants'
+import { shouldSendFormalPolicyWarning } from './policy-violations'
 
 describe('Mudaala marketplace content policy', () => {
   test('detects common emoji, including cake, flags and keycaps', () => {
@@ -71,12 +72,12 @@ describe('Mudaala safety report reasons', () => {
 
 describe('Mudaala confirmed violation warning threshold', () => {
   test('does not warn for the first three confirmed violations and warns on the fourth', () => {
-    const shouldWarn = (count) => count >= 4
-    expect(shouldWarn(1)).toBe(false)
-    expect(shouldWarn(2)).toBe(false)
-    expect(shouldWarn(3)).toBe(false)
-    expect(shouldWarn(4)).toBe(true)
-    expect(shouldWarn(5)).toBe(true)
+    expect(shouldSendFormalPolicyWarning(1)).toBe(false)
+    expect(shouldSendFormalPolicyWarning(2)).toBe(false)
+    expect(shouldSendFormalPolicyWarning(3)).toBe(false)
+    expect(shouldSendFormalPolicyWarning(4)).toBe(true)
+    expect(shouldSendFormalPolicyWarning(5)).toBe(true)
+    expect(shouldSendFormalPolicyWarning(3.5)).toBe(false)
   })
 })
 
