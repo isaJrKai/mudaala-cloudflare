@@ -176,7 +176,7 @@ jobs:
           connection.execute('INSERT INTO "ProductCollectionItem" ("id","collectionId","listingId") VALUES (?,?,?)', ("item-1","collection-1","listing-1"))
           for sql, params in [
               ('INSERT INTO "ProductCollectionItem" ("id","collectionId","listingId") VALUES (?,?,?)', ("item-2","collection-1","listing-1")),
-              ('INSERT INTO "ProductCollection" ("id","userId","title","updatedAt") VALUES (?,?,?,CURRENT_TIMESTAMP)', ("bad-title","owner-1","","")),
+              ('INSERT INTO "ProductCollection" ("id","userId","title","updatedAt") VALUES (?,?,?,CURRENT_TIMESTAMP)', ("bad-title","owner-1","")),
               ('INSERT INTO "ProductCollectionItem" ("id","collectionId","listingId") VALUES (?,?,?)', ("bad-fk","missing","listing-1")),
           ]:
               try:
