@@ -739,11 +739,6 @@ async function verifyBusinessInsights(browser) {
     const initialAnalytics = await initialAnalyticsPromise;
     if (!initialAnalytics.ok()) throw new Error('Initial business-analytics request failed: HTTP ' + initialAnalytics.status());
 
-    const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
-    if (await shopSetupDialog.isVisible().catch(() => false)) {
-      await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
-      await shopSetupDialog.waitFor({ state: 'hidden', timeout });
-    }
 
     await page.getByText('Business insights', { exact: true }).waitFor({ state: 'visible', timeout });
     await page.getByText('Product views', { exact: true }).waitFor({ state: 'visible', timeout });
