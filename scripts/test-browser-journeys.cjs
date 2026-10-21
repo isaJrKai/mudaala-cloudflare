@@ -807,7 +807,17 @@ async function verifyProductCollections(browser) {
     if (!profileResponse.ok()) throw new Error('Collection UI profile request failed: HTTP ' + profileResponse.status());
     const sessionPayload = await sessionResponse.json();
     if (sessionPayload.user?.id !== userId) throw new Error('Collection UI browser session did not resolve to the registered seller');
-    await page.getByRole('heading', { name: /My business/i }).waitFor({ state: 'visible', timeout });
+    try {
+      await page.getByRole('heading', { name: /My business/i }).waitFor({ state: 'visible', timeout });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({
+        url: window.location.href,
+        headings: Array.from(document.querySelectorAll('h1,h2,h3')).map((element) => (element.textContent || '').trim()).filter(Boolean).slice(0, 30),
+        bodyText: document.body.innerText.slice(0, 2500),
+        dialogs: Array.from(document.querySelectorAll('[role="dialog"]')).map((element) => (element.textContent || '').trim().slice(0, 250)),
+      }));
+      throw new Error('My Business collection dashboard did not render: ' + JSON.stringify(diagnostic) + '; original: ' + String(error));
+    }
     const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
     if (await shopSetupDialog.isVisible().catch(() => false)) {
       await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
