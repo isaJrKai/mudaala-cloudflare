@@ -581,3 +581,10 @@ svg.mango-stroke { stroke: currentColor; }
     overflow-wrap: anywhere;
   }
 }
+
+
+/* Floating actions share the lower edge on phones; keep labels from forcing
+   the two controls beyond the narrowest supported viewport. */
+@media (max-width: 360px) {
+  .feedback-label { display: none; }
+}
