@@ -28,7 +28,7 @@ const loadCollection = cache(async (id: string) => withRequestDb(async () => {
           id: true,
           name: true,
           country: true,
-          profile: { select: { businessName: true, photoUrl: true, area: true, county: true } },
+          profile: { select: { businessName: true, photoUrl: true, area: true, county: true, shopCode: true } },
         },
       },
     },
@@ -54,6 +54,7 @@ const loadCollection = cache(async (id: string) => withRequestDb(async () => {
       name: user.profile?.businessName?.trim() || user.name,
       area: user.profile?.area ?? null,
       county: user.profile?.county ?? null,
+      shopCode: user.profile?.shopCode ?? null,
     },
     items,
   }
@@ -98,7 +99,7 @@ export default async function PublicCollectionPage({ params }: Params) {
             <div className="flex items-center gap-2 text-sm text-muted-foreground"><Layers3 className="size-4" aria-hidden /> Product collection</div>
             <h1 className="mt-2 break-words text-2xl font-bold tracking-tight sm:text-3xl">{collection.title}</h1>
             {collection.description ? <p className="mt-3 max-w-3xl whitespace-pre-wrap text-sm text-muted-foreground sm:text-base">{collection.description}</p> : null}
-            <Link href={`/s/${shop.id}`} className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
+            <Link href={shop.shopCode ? `/s/${shop.shopCode}` : '/'} className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
               <Store className="size-4" aria-hidden />
               {shop.name}{shop.area || shop.county ? ` · ${[shop.area, shop.county].filter(Boolean).join(', ')}` : ''}
             </Link>
