@@ -38,6 +38,7 @@ The report-category addition is a reporting aid, not a substitute for automatic 
 #### Account warning rule (implemented in this change; not active in production until checks pass, migration is deployed, and live verification completes)
 
 - Count **confirmed violations**, not raw reports. A report, a rejected upload, or an unreviewed accusation alone must not count as a strike.
+- Strike counting begins when this enforcement feature is active; historical reports and automatic hides are not silently converted into confirmed strikes.
 - A confirmed violation is recorded only after a moderator reviews the evidence and takes an enforcement action for a specific policy breach. Record the policy category, target, moderator/system decision, timestamp, and linked case ID.
 - On the **fourth confirmed violation** (more than three), send the account a formal in-app notification explaining the moderator-selected policy category, confirmed-violation count, enforcement decision, appeal route, and that further confirmed violations may lead to account restrictions.
 - Notify on each subsequent confirmed violation as well, but do not flood the account with duplicate notifications for retries of the same moderation action.
