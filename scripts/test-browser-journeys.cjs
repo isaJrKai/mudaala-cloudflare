@@ -726,7 +726,7 @@ async function verifyBusinessInsights(browser) {
       await shopSetupDialog.waitFor({ state: 'hidden', timeout });
     }
 
-    await page.getByRole('heading', { name: /Business insights/i }).waitFor({ state: 'visible', timeout });
+    await page.getByText('Business insights', { exact: true }).waitFor({ state: 'visible', timeout });
     await page.getByText('Product views', { exact: true }).waitFor({ state: 'visible', timeout });
     await page.getByRole('heading', { name: /Recorded sales/i }).waitFor({ state: 'visible', timeout });
 
