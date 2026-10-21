@@ -828,7 +828,8 @@ async function verifyProductCollections(browser) {
     const publicCollection = page.getByRole('button', { name: new RegExp(collectionTitle) });
     await publicCollection.waitFor({ state: 'visible', timeout });
     await publicCollection.click();
-    await page.getByText(listingTitle, { exact: true }).waitFor({ state: 'visible', timeout });
+    const collectionRegion = page.getByRole('region', { name: 'Shop product collections' });
+    await collectionRegion.getByText(listingTitle, { exact: true }).waitFor({ state: 'visible', timeout });
     const viewport = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }));
     if (viewport.scrollWidth > viewport.width + 1) throw new Error('Collections UI overflows the 390px mobile viewport: ' + JSON.stringify(viewport));
 
