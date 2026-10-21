@@ -37,6 +37,8 @@ export async function POST(request: Request) {
         title: data.title,
         description: data.description?.trim() || null,
         coverPhotoUrl: data.coverPhotoUrl ?? null,
+        startsAt: data.startsAt ? new Date(data.startsAt) : null,
+        endsAt: data.endsAt ? new Date(data.endsAt) : null,
         isActive: data.isActive ?? true,
         sortOrder,
       },
