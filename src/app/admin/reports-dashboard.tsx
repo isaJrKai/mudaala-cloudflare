@@ -202,6 +202,27 @@ export function ReportsDashboard() {
                   </button>
                 </div>
               ) : null}
+              {r.status === 'ACTIONED' && !r.violation ? (
+                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/30 p-3">
+                  <label className="inline-flex h-9 items-center gap-2 rounded-md border px-2 text-xs font-medium">
+                    Confirmed category
+                    <select aria-label={`Policy category for report ${r.id}`} value={violationCategories[r.id] ?? r.reason} onChange={(event) => setViolationCategories((previous) => ({ ...previous, [r.id]: event.target.value as ReportReason }))} className="max-w-44 bg-transparent text-xs">
+                      {Object.entries(REPORT_REASON_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Confirm that this reviewed report shows a real policy violation? This creates an account strike and may trigger a formal warning.')) void act(r.id, 'CONFIRM_VIOLATION', violationCategories[r.id] ?? r.reason)
+                    }}
+                    disabled={busyId === r.id}
+                    className="press inline-flex h-9 items-center gap-1.5 rounded-md border border-amber-500/50 bg-amber-50 px-3 text-[13px] font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-60"
+                  >
+                    {busyId === r.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <ShieldCheck className="size-3.5" aria-hidden />}
+                    Confirm violation
+                  </button>
+                </div>
+              ) : null}
               {r.violation && !r.violation.reversedAt ? (
                 <div className="mt-3">
                   <button
