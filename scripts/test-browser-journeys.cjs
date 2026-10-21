@@ -864,7 +864,7 @@ async function verifyProductCollections(browser) {
     await collectionCard.locator('ul.divide-y.rounded-md.border').getByText(listingTitle, { exact: true }).waitFor({ state: 'visible', timeout });
 
     await page.goto(base + '/#/shop/' + userId, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    const publicCollection = page.getByRole('button', { name: new RegExp(collectionTitle) });
+    const publicCollection = page.getByRole('region', { name: 'Shop product collections' }).getByRole('button', { name: new RegExp(collectionTitle) });
     await publicCollection.waitFor({ state: 'visible', timeout });
     await publicCollection.click();
     const collectionRegion = page.getByRole('region', { name: 'Shop product collections' });
