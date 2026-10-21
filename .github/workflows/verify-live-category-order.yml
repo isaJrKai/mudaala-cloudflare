@@ -1,0 +1,78 @@
+name: Verify live category ordering
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy Mudaala to Cloudflare Workers"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  category-order:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Check out deployed source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked project dependencies
+        run: npm ci
+      - name: Install isolated Playwright runner
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium
+      - name: Assert default category order in a clean real browser
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            try {
+              const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+              const page = await context.newPage();
+              const response = await page.goto(process.env.APP_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
+              if (!response || !response.ok()) {
+                throw new Error('Production homepage failed: HTTP ' + (response?.status() ?? 'no response'));
+              }
+              const categoryGroup = page.getByRole('group', { name: 'Filter by category' });
+              await categoryGroup.waitFor({ state: 'visible', timeout: 30000 });
+              const labels = await categoryGroup.getByRole('button').allTextContents();
+              const normalized = labels.map((label) => label.trim().replace(/\\s+/g, ' '));
+              const expected = [
+                'All',
+                'Clothes & Apparel',
+                'Phones & Electronics',
+                'Beauty & Personal Care',
+                'Food & Groceries',
+                'Services',
+              ];
+              const actual = normalized.slice(0, expected.length);
+              if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+                throw new Error('Default category order mismatch. Expected ' + JSON.stringify(expected) + '; received ' + JSON.stringify(actual));
+              }
+              console.log(JSON.stringify({
+                liveBrowserCategoryOrder: 'pass',
+                viewport: '390x844',
+                firstCategories: actual,
+                personalizationState: 'fresh browser; no saved category preferences',
+                writesPerformed: 0,
+              }));
+              await context.close();
+            } finally {
+              await browser.close();
+            }
+          })().catch((error) => {
+            console.error(error instanceof Error ? error.message : String(error));
+            process.exit(1);
+          });
+          NODE
