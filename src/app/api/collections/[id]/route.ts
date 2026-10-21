@@ -1,14 +1,16 @@
 import { route, jsonOk, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { SHOP_OWNER_INCLUDE, serializeListing } from '@/lib/listings'
+import { publicCollectionVisibilityWhere } from '@/lib/collection-visibility'
 
 type Context = { params: Promise<{ id: string }> }
 
 export async function GET(_request: Request, context: Context) {
   return route(async () => {
     const { id } = await context.params
+    const now = new Date()
     const collection = await db.productCollection.findFirst({
-      where: { id, isActive: true, AND: [{ OR: [{ startsAt: null }, { startsAt: { lte: new Date() } }] }, { OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }] }] },
+      where: { id, ...publicCollectionVisibilityWhere(now) },
       select: {
         id: true,
         userId: true,
@@ -38,7 +40,7 @@ export async function GET(_request: Request, context: Context) {
             status: 'ACTIVE',
             type: 'OFFER',
             isSeed: false,
-            expiresAt: { gt: new Date() },
+            expiresAt: { gt: now },
           },
         },
       },
