@@ -22,7 +22,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return jsonOk({ ok: true, action, alreadyConfirmed: true, confirmedViolationCount: count })
       }
       if (prior) throw new ApiError(409, 'This case was previously overturned. Review a new report if there is new evidence.')
-      if (report.status !== 'OPEN') throw new ApiError(409, 'Only an open report can be confirmed as a new violation')
+      if (report.status === 'DISMISSED') throw new ApiError(409, 'A dismissed report cannot be confirmed as a new violation')
 
       const target = report.targetType === 'LISTING'
         ? await db.listing.findUnique({ where: { id: report.targetId }, select: { id: true, userId: true, title: true, status: true } })
@@ -75,7 +75,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
               userId: target.userId,
               type: 'POLICY_WARNING',
               title: 'Formal marketplace policy warning',
-              body: `Our moderators have confirmed ${confirmedViolationCount} policy violations on your account. The latest confirmed case concerns: ${(policyCategory ?? report.reason).replaceAll('_', ' ').toLowerCase()}. Please follow Mudaala’s marketplace rules. Further confirmed violations may lead to account restrictions. If you believe this decision is wrong, appeal using “Report a bug / Send feedback” in the site footer and mention this warning.`,
+              body: `Our moderators have confirmed ${confirmedViolationCount} policy violations on your account. A formal warning has been placed after moderator review. The latest confirmed case concerns: ${(policyCategory ?? report.reason).replaceAll('_', ' ').toLowerCase()}. Please follow Mudaala’s marketplace rules. Further confirmed violations may lead to account restrictions. If you believe this decision is wrong, appeal using “Report a bug / Send feedback” in the site footer and mention this warning.`,
             },
           })
           await tx.policyViolation.update({ where: { reportId: report.id }, data: { warningSentAt: new Date() } })
