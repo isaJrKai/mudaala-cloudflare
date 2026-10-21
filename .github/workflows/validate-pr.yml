@@ -171,6 +171,11 @@ jobs:
           connection.execute('CREATE TABLE "Listing" ("id" TEXT NOT NULL PRIMARY KEY)')
           migration = Path("prisma/migrations-sqlite/20261021113000_product_collections/migration.sql").read_text()
           connection.executescript(migration)
+          schedule_migration = Path("prisma/migrations-sqlite/20261021150000_collection_scheduling/migration.sql").read_text()
+          connection.executescript(schedule_migration)
+          schedule_columns = {row[1] for row in connection.execute('PRAGMA table_info("ProductCollection")')}
+          if not {"startsAt", "endsAt"}.issubset(schedule_columns):
+              raise SystemExit("Expected optional collection schedule columns to be present")
           connection.execute('INSERT INTO "User" ("id") VALUES (?)', ("owner-1",))
           connection.execute('INSERT INTO "Listing" ("id") VALUES (?)', ("listing-1",))
           connection.execute('INSERT INTO "ProductCollection" ("id","userId","title","updatedAt") VALUES (?,?,?,CURRENT_TIMESTAMP)', ("collection-1","owner-1","Seasonal picks"))
@@ -188,7 +193,7 @@ jobs:
           indexes = {row[1] for row in connection.execute('PRAGMA index_list("ProductCollectionItem")')}
           if not indexes:
               raise SystemExit("Expected collection-item indexes to be created")
-          print("SQLite collection migration passed: schema, indexes, foreign keys, title and duplicate-item constraints.")
+          print("SQLite collection migrations passed: schema, schedule columns, indexes, foreign keys, title and duplicate-item constraints.")
           PY
 
       - name: Seed development fixtures into disposable PostgreSQL
