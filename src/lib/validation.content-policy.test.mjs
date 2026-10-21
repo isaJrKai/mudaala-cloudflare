@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { businessProfileSchema, containsMarketplaceEmoji, feedbackCreateSchema, reportActionSchema, reportCreateSchema } from './validation'
 import { REPORT_REASONS } from './constants'
 import { shouldSendFormalPolicyWarning } from './policy-violations'
+import { moderateImageContent } from './image-moderation'
 
 describe('Mudaala marketplace content policy', () => {
   test('detects common emoji, including cake, flags and keycaps', () => {
@@ -109,5 +110,53 @@ describe('Mudaala bug report and feedback validation', () => {
 
   test('rejects oversized feedback payloads', () => {
     expect(feedbackCreateSchema.safeParse({ ...validFeedback, description: 'x'.repeat(3001) }).success).toBe(false)
+  })
+})
+
+
+describe('Mudaala image safety moderation', () => {
+  const sampleImage = new Uint8Array([0xff, 0xd8, 0xff, 0x00])
+
+  test('sends a base64 image to the moderation endpoint and allows a clear image', async () => {
+    let sentBody
+    const fetchImpl = async (url, init) => {
+      expect(url).toBe('https://api.openai.com/v1/moderations')
+      expect(init.headers.authorization).toBe('Bearer test-moderation-key')
+      sentBody = JSON.parse(init.body)
+      return new Response(JSON.stringify({ results: [{ categories: { sexual: false, 'sexual/minors': false } }] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+    const result = await moderateImageContent(sampleImage, 'jpg', { apiKey: 'test-moderation-key', fetchImpl })
+    expect(result.status).toBe('safe')
+    expect(sentBody.model).toBe('omni-moderation-latest')
+    expect(sentBody.input[0].image_url.url).toBe('data:image/jpeg;base64,/9j/AA==')
+  })
+
+  test('blocks images classified as explicit sexual content', async () => {
+    const fetchImpl = async () => new Response(JSON.stringify({
+      results: [{ categories: { sexual: true, 'sexual/minors': false } }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } })
+    const result = await moderateImageContent(sampleImage, 'jpg', { apiKey: 'test-moderation-key', fetchImpl })
+    expect(result).toEqual({ status: 'blocked', category: 'sexual' })
+  })
+
+  test('fails closed when the provider is unavailable or returns an invalid result', async () => {
+    const unavailable = await moderateImageContent(sampleImage, 'jpg', {
+      apiKey: 'test-moderation-key',
+      fetchImpl: async () => new Response('unavailable', { status: 503 }),
+    })
+    const invalid = await moderateImageContent(sampleImage, 'jpg', {
+      apiKey: 'test-moderation-key',
+      fetchImpl: async () => new Response(JSON.stringify({ results: [{}] }), { status: 200 }),
+    })
+    expect(unavailable.status).toBe('unavailable')
+    expect(invalid.status).toBe('unavailable')
+  })
+
+  test('does not silently clear production uploads when provider credentials are missing', async () => {
+    const result = await moderateImageContent(sampleImage, 'jpg', { apiKey: '' })
+    expect(result.status).toBe('not_configured')
   })
 })
