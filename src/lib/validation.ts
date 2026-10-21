@@ -197,8 +197,8 @@ export const listingCreateSchema = listingBaseSchema
     message: 'The old price must be higher than the current price',
     path: ['compareAtPrice'],
   })
-  .refine((v) => v.type === 'OFFER' || v.compareAtPrice == null, {
-    message: 'Old price discounts are only available for offers',
+  .refine((v) => (v.type === 'OFFER' && v.category !== 'services') || v.compareAtPrice == null, {
+    message: 'Old-price discounts are only available for product offers',
     path: ['compareAtPrice'],
   })
 
