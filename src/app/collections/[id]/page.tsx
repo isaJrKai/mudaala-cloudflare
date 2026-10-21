@@ -67,9 +67,9 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { collection, shop, items } = data
   const title = `${collection.title} · ${shop.name} · Mudaala`
   const description = (collection.description?.trim() || `Explore ${items.length} available products from ${shop.name} on Mudaala.`).replace(/\\s+/g, ' ').slice(0, 200)
-  const cover = collection.coverPhotoUrl
+  const cover = collection.coverPhotoUrl && !collection.coverPhotoUrl.includes('/uploads/seed/')
     ? absolutePhoto(collection.coverPhotoUrl)
-    : items.flatMap((item) => photosOf(item.listing.photos)).map(absolutePhoto)[0]
+    : items.flatMap((item) => photosOf(item.listing.photos).filter((photo) => !photo.includes('/uploads/seed/'))).map(absolutePhoto)[0]
   const shareImage = cover ?? `${siteUrl}/api/og/collection?title=${encodeURIComponent(collection.title)}&shop=${encodeURIComponent(shop.name)}`
   return {
     title,
