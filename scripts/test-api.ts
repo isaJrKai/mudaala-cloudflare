@@ -3211,6 +3211,45 @@ async function main() {
     ok('24.2 owner listing fixtures created', ownerListingA.status === 201 && ownerListingB.status === 201)
     ok('24.3 stranger listing fixture created', strangerListing.status === 201)
     ok('24.4 request listing fixture created', requestListing.status === 201)
+    const requestWithDiscount = await call('POST', '/api/listings', {
+      ...validListing,
+      type: 'REQUEST',
+      title: 'Request with forbidden old price',
+      compareAtPrice: 800,
+    }, collectionOwner)
+    ok('REQUEST cannot carry an old-price discount → 400 with field error',
+      requestWithDiscount.status === 400 && Boolean(requestWithDiscount.json?.fields?.compareAtPrice))
+    const serviceWithDiscount = await call('POST', '/api/listings', {
+      ...validListing,
+      category: 'services',
+      title: 'Service offer with forbidden old price',
+      unit: null,
+      quantity: null,
+      price: 500,
+      compareAtPrice: 800,
+    }, collectionOwner)
+    ok('service offer cannot carry an old-price discount → 400 with field error',
+      serviceWithDiscount.status === 400 && Boolean(serviceWithDiscount.json?.fields?.compareAtPrice))
+    const requestDiscountPatch = requestListing.status === 201
+      ? await call('PATCH', `/api/listings/${requestListing.json.listing.id}`, { compareAtPrice: 800 }, collectionOwner)
+      : { status: 0, json: null }
+    ok('request listing cannot accept an old-price discount on PATCH',
+      requestDiscountPatch.status === 400 && Boolean(requestDiscountPatch.json?.fields?.compareAtPrice))
+    const serviceOffer = await call('POST', '/api/listings', {
+      ...validListing,
+      category: 'services',
+      title: 'Cleaning service offer test',
+      unit: null,
+      quantity: null,
+      price: 500,
+      compareAtPrice: null,
+    }, collectionOwner)
+    ok('service offer fixture created for discount PATCH regression', serviceOffer.status === 201)
+    const serviceDiscountPatch = serviceOffer.status === 201
+      ? await call('PATCH', `/api/listings/${serviceOffer.json.listing.id}`, { compareAtPrice: 800 }, collectionOwner)
+      : { status: 0, json: null }
+    ok('service listing cannot accept an old-price discount on PATCH',
+      serviceDiscountPatch.status === 400 && Boolean(serviceDiscountPatch.json?.fields?.compareAtPrice))
 
     const invalidTitle = await call('POST', '/api/my/collections', { title: '   ' }, collectionOwner)
     ok('24.5 blank collection title rejected', invalidTitle.status === 400)

@@ -197,6 +197,10 @@ export const listingCreateSchema = listingBaseSchema
     message: 'The old price must be higher than the current price',
     path: ['compareAtPrice'],
   })
+  .refine((v) => (v.type === 'OFFER' && v.category !== 'services') || v.compareAtPrice == null, {
+    message: 'Old-price discounts are only available for product offers',
+    path: ['compareAtPrice'],
+  })
 
 // Edits: same fields minus type (type is fixed at publish time).
 // Cross-field price/unit rules are enforced by the PATCH handler against the
