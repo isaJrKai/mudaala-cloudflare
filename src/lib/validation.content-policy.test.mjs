@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { businessProfileSchema, containsMarketplaceEmoji, reportCreateSchema } from './validation'
+import { businessProfileSchema, containsMarketplaceEmoji, feedbackCreateSchema, reportCreateSchema } from './validation'
 import { REPORT_REASONS } from './constants'
 
 describe('Mudaala marketplace content policy', () => {
@@ -65,5 +65,30 @@ describe('Mudaala safety report reasons', () => {
       reason: 'NUDITY_OR_SEXUAL_CONTENT',
       details: 'Explicit image in listing photos',
     }).success).toBe(true)
+  })
+})
+
+
+describe('Mudaala bug report and feedback validation', () => {
+  const validFeedback = {
+    category: 'BUG',
+    title: 'Photo upload is stuck',
+    description: 'The upload spinner keeps running and the listing is never saved.',
+    pagePath: '/#/publish',
+    contact: 'help@example.com',
+  }
+
+  test('accepts a complete feedback report with a safe local pathname', () => {
+    expect(feedbackCreateSchema.safeParse(validFeedback).success).toBe(true)
+  })
+
+  test('rejects short descriptions and external or protocol-relative page URLs', () => {
+    expect(feedbackCreateSchema.safeParse({ ...validFeedback, description: 'It broke' }).success).toBe(false)
+    expect(feedbackCreateSchema.safeParse({ ...validFeedback, pagePath: 'https://evil.example/' }).success).toBe(false)
+    expect(feedbackCreateSchema.safeParse({ ...validFeedback, pagePath: '//evil.example/' }).success).toBe(false)
+  })
+
+  test('rejects oversized feedback payloads', () => {
+    expect(feedbackCreateSchema.safeParse({ ...validFeedback, description: 'x'.repeat(3001) }).success).toBe(false)
   })
 })
