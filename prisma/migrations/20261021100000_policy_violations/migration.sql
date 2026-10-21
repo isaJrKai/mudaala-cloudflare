@@ -3,6 +3,7 @@ CREATE TABLE "PolicyViolation" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "reportId" TEXT NOT NULL,
+    "activeKey" TEXT,
     "targetType" TEXT NOT NULL,
     "targetId" TEXT NOT NULL,
     "policyCategory" TEXT NOT NULL,
