@@ -11,7 +11,7 @@ export async function GET(_request: Request, context: Context) {
     if (!shop) throw new ApiError(404, 'This shop does not exist')
     const now = new Date()
     const collections = await db.productCollection.findMany({
-      where: { userId: shopId, ...publicCollectionVisibilityWhere(now) }
+      where: { userId: shopId, ...publicCollectionVisibilityWhere(now) },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       include: {
         items: {
