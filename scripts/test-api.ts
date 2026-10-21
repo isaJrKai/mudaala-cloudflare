@@ -3329,6 +3329,30 @@ async function main() {
     const scheduledDetail = await call('GET', `/api/collections/${secondCollectionId}`)
     ok('24.23 active collection appears on the public shop', publicList.status === 200 && publicList.json?.collections?.some((c: any) => c.id === collectionId && c.itemCount === 2))
     ok('24.23a future collection stays hidden until its start time', !publicList.json?.collections?.some((c: any) => c.id === secondCollectionId) && scheduledDetail.status === 404)
+
+    const futureCollectionPage = await fetch(`${BASE}/collections/${encodeURIComponent(secondCollectionId)}`)
+    ok('24.23b future collection is also unavailable on its direct public page', futureCollectionPage.status === 404)
+
+    const activeCollectionPage = await fetch(`${BASE}/collections/${encodeURIComponent(collectionId)}`)
+    const activeCollectionHtml = await activeCollectionPage.text()
+    ok('24.23c active collection page renders product links and Open Graph/Twitter metadata',
+      activeCollectionPage.status === 200 &&
+      /property="og:title"/i.test(activeCollectionHtml) &&
+      /name="twitter:card"/i.test(activeCollectionHtml) &&
+      activeCollectionHtml.includes(`/l/${ownerListingAId}`))
+
+    const expireScheduledCollection = await call('PATCH', `/api/my/collections/${secondCollectionId}`, {
+      startsAt: null,
+      endsAt: new Date(Date.now() - 60_000).toISOString(),
+    }, collectionOwner)
+    const expiredPublicList = await call('GET', `/api/shops/${collectionOwner.user?.id}/collections`)
+    const expiredPublicDetail = await call('GET', `/api/collections/${secondCollectionId}`)
+    const expiredCollectionPage = await fetch(`${BASE}/collections/${encodeURIComponent(secondCollectionId)}`)
+    ok('24.23d expired collection is unavailable on shop, API detail and direct page',
+      expireScheduledCollection.status === 200 &&
+      !expiredPublicList.json?.collections?.some((c: any) => c.id === secondCollectionId) &&
+      expiredPublicDetail.status === 404 &&
+      expiredCollectionPage.status === 404)
     ok('24.24 public collection exposes only the owner\'s active offers', publicCollection.status === 200 && publicCollection.json?.items?.length === 2 && publicCollection.json.items.every((item: any) => item.listing?.userId === collectionOwner.user?.id))
 
     const removeItem = await call('DELETE', `/api/my/collections/${collectionId}/items/${itemAId}`, undefined, collectionOwner)
@@ -3338,7 +3362,8 @@ async function main() {
     const hide = await call('PATCH', `/api/my/collections/${collectionId}`, { isActive: false }, collectionOwner)
     const hiddenPublicList = await call('GET', `/api/shops/${collectionOwner.user?.id}/collections`)
     const hiddenPublicDetail = await call('GET', `/api/collections/${collectionId}`)
-    ok('24.26 deactivated collection disappears from public surfaces', hide.status === 200 && !hiddenPublicList.json?.collections?.some((c: any) => c.id === collectionId) && hiddenPublicDetail.status === 404)
+    const hiddenCollectionPage = await fetch(`${BASE}/collections/${encodeURIComponent(collectionId)}`)
+    ok('24.26 deactivated collection disappears from every public surface', hide.status === 200 && !hiddenPublicList.json?.collections?.some((c: any) => c.id === collectionId) && hiddenPublicDetail.status === 404 && hiddenCollectionPage.status === 404)
     const show = await call('PATCH', `/api/my/collections/${collectionId}`, { isActive: true }, collectionOwner)
     ok('24.27 owner can reactivate a collection', show.status === 200 && show.json?.collection?.isActive === true)
     const deleteCollection = await call('DELETE', `/api/my/collections/${collectionId}`, undefined, collectionOwner)

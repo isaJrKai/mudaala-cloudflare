@@ -1,5 +1,6 @@
 import { route, jsonOk, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
+import { publicCollectionVisibilityWhere } from '@/lib/collection-visibility'
 
 type Context = { params: Promise<{ id: string }> }
 
@@ -10,7 +11,7 @@ export async function GET(_request: Request, context: Context) {
     if (!shop) throw new ApiError(404, 'This shop does not exist')
     const now = new Date()
     const collections = await db.productCollection.findMany({
-      where: { userId: shopId, isActive: true, AND: [{ OR: [{ startsAt: null }, { startsAt: { lte: now } }] }, { OR: [{ endsAt: null }, { endsAt: { gt: now } }] }] },
+      where: { userId: shopId, ...publicCollectionVisibilityWhere(now) },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       include: {
         items: {
