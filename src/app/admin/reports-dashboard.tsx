@@ -209,10 +209,10 @@ export function ReportsDashboard() {
                     onClick={() => {
                       if (window.confirm('Restore this hidden listing? Only do this after reviewing the case and any appeal.')) void act(r.id, 'RESTORE')
                     }}
-                    disabled={busyId === r.violation.reportId || busyId === r.id}
+                    disabled={busyId === r.id}
                     className="press inline-flex h-9 items-center gap-1.5 rounded-md border border-emerald-600/50 bg-emerald-50 px-3 text-[13px] font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-60"
                   >
-                    {busyId === r.violation.reportId || busyId === r.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <RotateCcw className="size-3.5" aria-hidden />}
+                    {busyId === r.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <RotateCcw className="size-3.5" aria-hidden />}
                     Restore hidden listing
                   </button>
                 </div>
@@ -245,10 +245,10 @@ export function ReportsDashboard() {
                     onClick={() => {
                       if (window.confirm('Overturn this confirmed violation? It will no longer count toward the account warning threshold and the user will be notified.')) void act(r.violation!.reportId, 'REVERSE_VIOLATION')
                     }}
-                    disabled={busyId === r.id}
+                    disabled={busyId === r.violation.reportId || busyId === r.id}
                     className="press inline-flex h-9 items-center gap-1.5 rounded-md border border-emerald-600/50 bg-emerald-50 px-3 text-[13px] font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-60"
                   >
-                    {busyId === r.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <AlertTriangle className="size-3.5" aria-hidden />}
+                    {busyId === r.violation.reportId || busyId === r.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <AlertTriangle className="size-3.5" aria-hidden />}
                     Overturn violation / appeal accepted
                   </button>
                 </div>
