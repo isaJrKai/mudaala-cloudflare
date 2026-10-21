@@ -860,7 +860,8 @@ async function verifyProductCollections(browser) {
     // The listing title also exists in the add-product <select> option; assert
     // the persisted item in the rendered collection list to avoid a strict-mode
     // collision between the option and the actual collection item.
-    await page.locator('ul.divide-y.rounded-md.border').getByText(listingTitle, { exact: true }).waitFor({ state: 'visible', timeout });
+    const collectionCard = page.locator('[data-slot="card"]').filter({ hasText: collectionTitle });
+    await collectionCard.locator('ul.divide-y.rounded-md.border').getByText(listingTitle, { exact: true }).waitFor({ state: 'visible', timeout });
 
     await page.goto(base + '/#/shop/' + userId, { waitUntil: 'domcontentloaded', timeout: 60000 });
     const publicCollection = page.getByRole('button', { name: new RegExp(collectionTitle) });
