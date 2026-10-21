@@ -22,6 +22,7 @@ import { useSession } from '@/hooks/use-session'
 import { useAddToBasket } from './basket-view'
 import { MudaalaCurve } from './mudaala-curve'
 import { ListingBlock } from './listing-card'
+import { PublicShopCollections } from './public-shop-collections'
 import { ListingGridSkeleton } from './skeletons'
 import { ErrorState } from './listings-browse'
 import { EmptyState } from './empty-state'
@@ -425,6 +426,8 @@ export function ShopView({ id }: { id: string }) {
           </div>
         </section>
       ) : null}
+
+      <PublicShopCollections shopId={shop.id} onOpenListing={(listingId) => navigate({ name: 'listing', id: listingId })} />
 
       {/* The catalogue - every active listing this shop runs */}
       <section aria-label="Shop catalogue" className="space-y-3">

@@ -23,6 +23,7 @@ import { EmptyState } from './empty-state'
 import { ErrorState } from './listings-browse'
 import { BusinessRecordsPanel } from './business-records-panel'
 import { BusinessInsightsPanel } from './business-insights-panel'
+import { ProductCollectionsManager } from './product-collections-manager'
 
 function MetricCard({
   label,
@@ -247,6 +248,8 @@ export function BusinessDashboard() {
           </Card>
         </div>
       </section>
+
+      <ProductCollectionsManager />
 
       <BusinessInsightsPanel />
 
