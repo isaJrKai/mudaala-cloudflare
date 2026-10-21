@@ -27,7 +27,7 @@ export function SiteFooter({ padded = false }: { padded?: boolean }) {
           </p>
           <p className="mt-0.5 text-xs">{copy.app.footerNote}</p>
         </div>
-        <nav aria-label="Legal" className="flex items-center gap-4">
+        <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <Link href="/safety" className="hover:text-foreground hover:underline">
             Safety
           </Link>
