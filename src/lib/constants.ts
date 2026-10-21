@@ -152,22 +152,24 @@ interface CategoryDef {
   examples: string
 }
 
-// Categories reflect real local-commerce goods (scrap, produce, groceries...).
+// Order by everyday buyer intent first. Keep category keys stable so existing
+// listings, filters and saved searches retain their current classification.
+// Scrap/recycling remains available, but should not lead the marketplace.
 export const CATEGORIES: CategoryDef[] = [
-  { key: 'scrap-recyclables', label: 'Scrap & Recyclables', examples: 'copper, brass, aluminium, plastics, cartons' },
-  { key: 'food-groceries', label: 'Food & Groceries', examples: 'flour, cooking oil, sugar, rice' },
-  { key: 'farm-produce', label: 'Farm Produce', examples: 'maize, beans, vegetables, eggs, milk' },
-  { key: 'livestock-feed', label: 'Livestock & Feed', examples: 'goats, poultry, dairy meal, hay' },
-  { key: 'hardware-building', label: 'Hardware & Building', examples: 'cement, steel, timber, roofing' },
   { key: 'textiles-clothing', label: 'Clothes & Apparel', examples: 'second-hand clothes, shoes, bags, fabric, uniforms' },
-  { key: 'electronics', label: 'Electronics', examples: 'phones, radios, solar panels, spare parts' },
-  { key: 'transport-haulage', label: 'Transport & Haulage', examples: 'delivery runs, hire, loading' },
+  { key: 'electronics', label: 'Phones & Electronics', examples: 'smartphones, feature phones, chargers, radios, solar panels, spare parts' },
+  { key: 'beauty-personal-care', label: 'Beauty & Personal Care', examples: 'perfume, cologne, cosmetics, hair products, skincare' },
+  { key: 'food-groceries', label: 'Food & Groceries', examples: 'flour, cooking oil, sugar, rice' },
+  { key: 'services', label: 'Services', examples: 'hair, beauty, photography, plumbing, repairs, tutoring, professional services' },
   { key: 'home-kitchen', label: 'Home & Kitchen', examples: 'cookware, kitchenware, gas cylinders, utensils' },
   { key: 'household-essentials', label: 'Household Essentials', examples: 'washing powder, soap, detergents, cleaning supplies, tissue, everyday home supplies' },
+  { key: 'hardware-building', label: 'Hardware & Building', examples: 'cement, steel, timber, roofing' },
+  { key: 'farm-produce', label: 'Farm Produce', examples: 'maize, beans, vegetables, eggs, milk' },
   { key: 'home-decor', label: 'Home Décor & Furniture', examples: 'curtains, rugs, cushions, vases, wall art, furniture, decorative pieces' },
+  { key: 'transport-haulage', label: 'Transport & Haulage', examples: 'delivery runs, hire, loading' },
+  { key: 'livestock-feed', label: 'Livestock & Feed', examples: 'goats, poultry, dairy meal, hay' },
   { key: 'arts-crafts', label: 'Arts & Crafts', examples: 'handmade gifts, crochet, beadwork, pottery, paintings, woven crafts' },
-  { key: 'beauty-personal-care', label: 'Beauty & Personal Care', examples: 'perfume, cologne, cosmetics, hair products' },
-  { key: 'services', label: 'Services', examples: 'hair, beauty, photography, plumbing, repairs, tutoring' },
+  { key: 'scrap-recyclables', label: 'Scrap & Recyclables', examples: 'copper, brass, aluminium, plastics, cartons' },
   { key: 'other', label: 'Other', examples: 'anything else traded locally' },
 ]
 
