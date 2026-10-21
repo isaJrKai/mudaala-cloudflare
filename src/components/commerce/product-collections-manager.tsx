@@ -252,7 +252,7 @@ export function ProductCollectionsManager() {
                   </select>
                   <Button type="submit" variant="outline" disabled={busy || !selectedListing[collection.id] || collectionAvailableListings.length === 0}><Plus className="mr-1 size-4" aria-hidden />Add product</Button>
                 </form>
-                {collectionAvailableListings.length === 0 ? <p className="text-xs text-muted-foreground">You need an active offer listing before you can add products. Requests and expired listings cannot be added.</p> : null}
+                {collectionAvailableListings.length === 0 ? <p className="text-xs text-muted-foreground">{availableListings.length === 0 ? 'You need an active offer listing before you can add products. Requests and expired listings cannot be added.' : 'All your active offers are already in this collection.'}</p> : null}
               </CardContent>
             </Card>
             )
