@@ -32,17 +32,39 @@ export async function POST(request: Request) {
       )
     }
 
-    const feedback = await db.feedback.create({
-      data: {
-        reporterId: user?.id ?? null,
-        category: data.category,
-        title: data.title,
-        description: data.description,
-        pagePath: data.pagePath ?? null,
-        contact: data.contact?.trim() || null,
-        userAgent: request.headers.get('user-agent')?.slice(0, 500) ?? null,
-      },
-      select: { id: true, status: true, createdAt: true },
+    const adminIds = (process.env.ADMIN_USER_IDS ?? '').split(',').map((value) => value.trim()).filter(Boolean)
+    const feedback = await db.$transaction(async (tx) => {
+      const created = await tx.feedback.create({
+        data: {
+          reporterId: user?.id ?? null,
+          category: data.category,
+          title: data.title,
+          description: data.description,
+          pagePath: data.pagePath ?? null,
+          contact: data.contact?.trim() || null,
+          userAgent: request.headers.get('user-agent')?.slice(0, 500) ?? null,
+        },
+        select: { id: true, status: true, createdAt: true },
+      })
+
+      // Notify configured production admins in their existing in-app inbox.
+      // Keep the comment/contact out of notifications; full details remain
+      // private inside /admin. If the allowlist is empty, the admin inbox
+      // still receives the submission and no arbitrary users are notified.
+      if (adminIds.length > 0) {
+        const admins = await tx.user.findMany({ where: { id: { in: adminIds } }, select: { id: true } })
+        if (admins.length > 0) {
+          await tx.notification.createMany({
+            data: admins.map((admin) => ({
+              userId: admin.id,
+              type: 'NEW_FEEDBACK',
+              title: 'New bug report or feedback',
+              body: `New ${data.category.toLowerCase()} feedback: ${data.title}. Open the admin dashboard to review it.`,
+            })),
+          })
+        }
+      }
+      return created
     })
     return jsonOk({ feedback: { id: feedback.id, status: feedback.status, createdAt: feedback.createdAt }, message: 'Thank you. Your feedback has been sent to the Mudaala admin team.' }, 201)
   })
