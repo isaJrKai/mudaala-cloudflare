@@ -139,6 +139,47 @@ jobs:
             });
           '
 
+      - name: Smoke test public shop collections response shape (read-only)
+        if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          node --input-type=module <<'NODE'
+          const base = process.env.APP_URL;
+          const fail = (message) => { console.error(message); process.exit(1); };
+          const shopsResponse = await fetch(`${base}/api/shops/search?q=gras`);
+          if (!shopsResponse.ok) fail(`Shop search failed before collections smoke: HTTP ${shopsResponse.status}`);
+          const shopsPayload = await shopsResponse.json().catch(() => null);
+          if (!Array.isArray(shopsPayload?.shops) || !shopsPayload.shops.some((shop) => typeof shop.id === 'string' && shop.id.length > 0)) {
+            fail('Shop search returned no usable public shop ID for the collections smoke');
+          }
+          const shop = shopsPayload.shops.find((candidate) => typeof candidate.id === 'string' && candidate.id.length > 0);
+          const response = await fetch(`${base}/api/shops/${encodeURIComponent(shop.id)}/collections`);
+          if (!response.ok) fail(`Public shop collections endpoint failed: HTTP ${response.status}`);
+          const payload = await response.json().catch(() => null);
+          if (!Array.isArray(payload?.collections)) fail('Public shop collections response is missing collections[]');
+          for (const collection of payload.collections) {
+            if (typeof collection.id !== 'string' || typeof collection.title !== 'string' ||
+                !Number.isInteger(collection.itemCount) || collection.itemCount < 0) {
+              fail('Public collection response contains an invalid card shape');
+            }
+            if ('userId' in collection || 'phone' in collection || 'contact' in collection) {
+              fail('Public collection response exposes a private ownership/contact field');
+            }
+          }
+          let detailChecked = false;
+          if (payload.collections.length > 0) {
+            const detailResponse = await fetch(`${base}/api/collections/${encodeURIComponent(payload.collections[0].id)}`);
+            if (!detailResponse.ok) fail(`Public collection detail failed: HTTP ${detailResponse.status}`);
+            const detail = await detailResponse.json().catch(() => null);
+            if (detail?.collection?.id !== payload.collections[0].id || !Array.isArray(detail.items)) {
+              fail('Public collection detail response is missing collection/items shape');
+            }
+            detailChecked = true;
+          }
+          console.log(JSON.stringify({ publicShopCollections: 'ok', cards: payload.collections.length, detailChecked }));
+          NODE
+
       - name: Verify shared rate-limit binding is reachable (no customer-data writes)
         if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         env:
