@@ -30,12 +30,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (!target) throw new ApiError(404, 'The reported listing or shop no longer exists')
       const targetLabel = 'title' in target ? target.title : target.businessName
 
+      const activeCaseKey = `${target.userId}:${report.targetType}:${report.targetId}`
       let confirmedViolationCount = 0
+      let duplicateActiveCase = false
       await db.$transaction(async (tx) => {
+        const existingActiveCase = await tx.policyViolation.findUnique({ where: { activeKey: activeCaseKey } })
+        if (existingActiveCase) {
+          // Several buyers may report the same listing/shop. Treat the reviewed
+          // target as one case, not one strike per reporter.
+          await tx.report.update({ where: { id: report.id }, data: { status: 'ACTIONED' } })
+          await tx.auditLog.create({
+            data: { actorId: admin.id, action: 'CONFIRM_DUPLICATE_POLICY_REPORT', targetType: 'REPORT', targetId: report.id },
+          })
+          confirmedViolationCount = await tx.policyViolation.count({ where: { userId: target.userId, reversedAt: null } })
+          duplicateActiveCase = true
+          return
+        }
+
         await tx.policyViolation.create({
           data: {
             userId: target.userId,
             reportId: report.id,
+            activeKey: activeCaseKey,
             targetType: report.targetType,
             targetId: report.targetId,
             policyCategory: policyCategory ?? report.reason,
@@ -83,6 +99,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         }
       }, { isolationLevel: 'Serializable' })
 
+      if (duplicateActiveCase) return jsonOk({ ok: true, action, duplicateActiveCase: true, confirmedViolationCount, warningSent: false })
       return jsonOk({ ok: true, action, confirmedViolationCount, warningSent: shouldSendFormalPolicyWarning(confirmedViolationCount) })
     }
 
@@ -97,7 +114,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await db.$transaction(async (tx) => {
         await tx.policyViolation.update({
           where: { reportId: report.id },
-          data: { reversedAt: new Date(), reversedBy: admin.id },
+          data: { reversedAt: new Date(), reversedBy: admin.id, activeKey: null },
         })
         confirmedViolationCount = await tx.policyViolation.count({ where: { userId: violation.userId, reversedAt: null } })
         await tx.notification.create({
