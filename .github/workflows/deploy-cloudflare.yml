@@ -125,6 +125,74 @@ jobs:
             });
           '
 
+      - name: Verify live moderation accepts a safe disposable image
+        if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          node --input-type=module <<'NODE'
+          import { randomInt, randomUUID } from 'node:crypto';
+          const base = process.env.APP_URL;
+          const password = `mudaala-release-${randomUUID()}-P9!`;
+          const phone = `+2567${String(randomInt(10000000, 99999999))}`;
+          let registered = false;
+          let cookie = '';
+          let failure = null;
+          try {
+            const registration = await fetch(`${base}/api/auth/register`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ phone, name: 'Mudaala Release Smoke', password, country: 'UG', acceptTerms: true }),
+            });
+            if (registration.status !== 201) throw new Error(`Disposable registration failed: HTTP ${registration.status}`);
+            registered = true;
+            cookie = registration.headers.get('set-cookie')?.split(';')[0] ?? '';
+            if (!cookie) {
+              const login = await fetch(`${base}/api/auth/login`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ phone, password }),
+              });
+              if (!login.ok) throw new Error(`Disposable login failed: HTTP ${login.status}`);
+              cookie = login.headers.get('set-cookie')?.split(';')[0] ?? '';
+            }
+            if (!cookie) throw new Error('No session cookie was issued; cannot safely clean up the disposable account');
+            const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+            const form = new FormData();
+            form.append('file', new Blob([png], { type: 'image/png' }), 'mudaala-safe-smoke.png');
+            const upload = await fetch(`${base}/api/upload`, { method: 'POST', headers: { cookie }, body: form });
+            const payload = await upload.json().catch(() => null);
+            if (upload.status !== 201 || typeof payload?.url !== 'string') {
+              throw new Error(`Safe-image upload/moderation failed: HTTP ${upload.status}`);
+            }
+            console.log(JSON.stringify({ liveSafeImageModeration: 'pass', uploadStatus: upload.status }));
+          } catch (error) {
+            failure = error;
+          } finally {
+            if (registered && cookie) {
+              try {
+                const cleanup = await fetch(`${base}/api/account`, {
+                  method: 'DELETE',
+                  headers: { 'content-type': 'application/json', cookie },
+                  body: JSON.stringify({ password }),
+                });
+                const cleanupPayload = await cleanup.json().catch(() => null);
+                if (!cleanup.ok || cleanupPayload?.deleted !== true) {
+                  failure = new Error(`Disposable account cleanup failed: HTTP ${cleanup.status}`);
+                }
+              } catch {
+                failure = new Error('Disposable account cleanup request failed; manual cleanup is required');
+              }
+            } else if (registered) {
+              failure = new Error('Disposable account was created but no session cookie was available for cleanup');
+            }
+          }
+          if (failure) {
+            console.error(failure instanceof Error ? failure.message : String(failure));
+            process.exit(1);
+          }
+          NODE
+
       - name: Smoke test public Browse and shop-name search
         if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         env:
