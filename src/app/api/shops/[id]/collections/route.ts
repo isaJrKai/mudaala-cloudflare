@@ -10,7 +10,7 @@ export async function GET(_request: Request, context: Context) {
     if (!shop) throw new ApiError(404, 'This shop does not exist')
     const now = new Date()
     const collections = await db.productCollection.findMany({
-      where: { userId: shopId, isActive: true },
+      where: { userId: shopId, isActive: true, AND: [{ OR: [{ startsAt: null }, { startsAt: { lte: now } }] }, { OR: [{ endsAt: null }, { endsAt: { gt: now } }] }] },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       include: {
         items: {
@@ -19,7 +19,7 @@ export async function GET(_request: Request, context: Context) {
               is: { userId: shopId, status: 'ACTIVE', type: 'OFFER', isSeed: false, expiresAt: { gt: now } },
             },
           },
-          select: { id: true },
+          select: { id: true, listing: { select: { photos: true } } },
         },
       },
     })
@@ -31,6 +31,7 @@ export async function GET(_request: Request, context: Context) {
         coverPhotoUrl: collection.coverPhotoUrl,
         sortOrder: collection.sortOrder,
         itemCount: items.length,
+        coverImages: items.flatMap((item) => { try { const photos = JSON.parse(item.listing.photos) as unknown; return Array.isArray(photos) ? photos.filter((photo): photo is string => typeof photo === 'string' && photo.length > 0) : [] } catch { return [] } }).slice(0, 4),
       })),
     })
   })

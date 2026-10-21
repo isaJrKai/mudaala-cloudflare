@@ -11,6 +11,7 @@ type PublicCollection = {
   title: string
   description: string | null
   coverPhotoUrl: string | null
+  coverImages: string[]
   itemCount: number
 }
 type PublicCollectionDetail = { collection: PublicCollection; items: Array<{ id: string; listing: Listing }> }
@@ -47,6 +48,12 @@ export function PublicShopCollections({ shopId, onOpenListing }: { shopId: strin
               <button type="button" aria-expanded={expanded} onClick={() => setExpandedId(expanded ? null : collection.id)} className="flex min-h-16 w-full items-center gap-3 p-3 text-left hover:bg-accent/40">
                 {collection.coverPhotoUrl ? (
                   <img src={collection.coverPhotoUrl} alt="" loading="lazy" className="size-14 shrink-0 rounded-md object-cover" />
+                ) : collection.coverImages?.length === 1 ? (
+                  <img src={collection.coverImages[0]} alt="" loading="lazy" className="size-14 shrink-0 rounded-md object-cover" />
+                ) : collection.coverImages?.length > 1 ? (
+                  <span className="grid size-14 shrink-0 grid-cols-2 grid-rows-2 gap-0.5 overflow-hidden rounded-md bg-secondary">
+                    {collection.coverImages.slice(0, 4).map((photo, index) => <img key={`${photo}-${index}`} src={photo} alt="" loading="lazy" className="size-full min-h-0 min-w-0 object-cover" />)}
+                  </span>
                 ) : (
                   <span className="flex size-14 shrink-0 items-center justify-center rounded-md bg-secondary"><Layers3 className="size-5 text-muted-foreground" aria-hidden /></span>
                 )}

@@ -9,14 +9,18 @@ export const productCollectionCreateSchema = z.object({
   title: z.string().trim().min(1, 'Enter a collection title').max(80),
   description: z.string().trim().max(500).nullable().optional(),
   coverPhotoUrl: coverPhotoUrlSchema.optional(),
+  startsAt: z.string().datetime().nullable().optional(),
+  endsAt: z.string().datetime().nullable().optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(10000).optional(),
-}).strict()
+}).strict().refine((value) => !value.startsAt || !value.endsAt || new Date(value.endsAt) > new Date(value.startsAt), { message: "End date must be after the start date", path: ["endsAt"] })
 
 export const productCollectionUpdateSchema = z.object({
   title: z.string().trim().min(1, 'Enter a collection title').max(80).optional(),
   description: z.string().trim().max(500).nullable().optional(),
   coverPhotoUrl: coverPhotoUrlSchema.optional(),
+  startsAt: z.string().datetime().nullable().optional(),
+  endsAt: z.string().datetime().nullable().optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(10000).optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, 'Provide at least one collection field to update')

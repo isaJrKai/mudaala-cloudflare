@@ -9,12 +9,19 @@ export async function PATCH(request: Request, context: Context) {
     const user = await requireUser()
     const { id } = await context.params
     const data = await parseBody(request, productCollectionUpdateSchema)
+    const current = await db.productCollection.findFirst({ where: { id, userId: user.id }, select: { startsAt: true, endsAt: true } })
+    if (!current) throw new ApiError(404, 'Collection not found')
+    const effectiveStart = data.startsAt === undefined ? current.startsAt : data.startsAt ? new Date(data.startsAt) : null
+    const effectiveEnd = data.endsAt === undefined ? current.endsAt : data.endsAt ? new Date(data.endsAt) : null
+    if (effectiveStart && effectiveEnd && effectiveEnd <= effectiveStart) throw new ApiError(400, 'End date must be after the start date')
     const updated = await db.productCollection.updateMany({
       where: { id, userId: user.id },
       data: {
         ...(data.title !== undefined ? { title: data.title } : {}),
         ...(data.description !== undefined ? { description: data.description?.trim() || null } : {}),
         ...(data.coverPhotoUrl !== undefined ? { coverPhotoUrl: data.coverPhotoUrl } : {}),
+        ...(data.startsAt !== undefined ? { startsAt: data.startsAt ? new Date(data.startsAt) : null } : {}),
+        ...(data.endsAt !== undefined ? { endsAt: data.endsAt ? new Date(data.endsAt) : null } : {}),
         ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
         ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
       },

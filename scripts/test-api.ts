@@ -3263,9 +3263,21 @@ async function main() {
     }, collectionOwner)
     const collectionId = created.json?.collection?.id ?? ''
     ok('24.7 owner can create a collection (201)', created.status === 201 && Boolean(collectionId))
-    const secondCreated = await call('POST', '/api/my/collections', { title: `Copper picks second ${RUN_TAG}` }, collectionOwner)
+    const invalidSchedule = await call('POST', '/api/my/collections', {
+      title: `Invalid schedule ${RUN_TAG}`,
+      startsAt: new Date(Date.now() + 86_400_000).toISOString(),
+      endsAt: new Date(Date.now() + 3_600_000).toISOString(),
+    }, collectionOwner)
+    ok('24.7a end date before start date is rejected', invalidSchedule.status === 400)
+    const scheduledStart = new Date(Date.now() + 86_400_000).toISOString()
+    const scheduledEnd = new Date(Date.now() + 172_800_000).toISOString()
+    const secondCreated = await call('POST', '/api/my/collections', {
+      title: `Copper picks second ${RUN_TAG}`,
+      startsAt: scheduledStart,
+      endsAt: scheduledEnd,
+    }, collectionOwner)
     const secondCollectionId = secondCreated.json?.collection?.id ?? ''
-    ok('24.8 owner can create a second collection', secondCreated.status === 201 && Boolean(secondCollectionId))
+    ok('24.8 owner can create a scheduled collection', secondCreated.status === 201 && Boolean(secondCollectionId) && secondCreated.json?.collection?.startsAt && secondCreated.json?.collection?.endsAt)
 
     const ownerListingAId = ownerListingA.json?.listing?.id ?? ''
     const ownerListingBId = ownerListingB.json?.listing?.id ?? ''
@@ -3314,7 +3326,9 @@ async function main() {
 
     const publicList = await call('GET', `/api/shops/${collectionOwner.user?.id}/collections`)
     const publicCollection = await call('GET', `/api/collections/${collectionId}`)
+    const scheduledDetail = await call('GET', `/api/collections/${secondCollectionId}`)
     ok('24.23 active collection appears on the public shop', publicList.status === 200 && publicList.json?.collections?.some((c: any) => c.id === collectionId && c.itemCount === 2))
+    ok('24.23a future collection stays hidden until its start time', !publicList.json?.collections?.some((c: any) => c.id === secondCollectionId) && scheduledDetail.status === 404)
     ok('24.24 public collection exposes only the owner\'s active offers', publicCollection.status === 200 && publicCollection.json?.items?.length === 2 && publicCollection.json.items.every((item: any) => item.listing?.userId === collectionOwner.user?.id))
 
     const removeItem = await call('DELETE', `/api/my/collections/${collectionId}/items/${itemAId}`, undefined, collectionOwner)
