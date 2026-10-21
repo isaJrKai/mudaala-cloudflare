@@ -3194,20 +3194,6 @@ async function main() {
     }
   }
 
-  console.log(`\n== 22. Hermetic sweep - this run leaves no fixtures behind ==`)
-  {
-    const ids = [...createdUserIds]
-    // Targets the fixtures own or were reported about: listings + shop
-    // profiles owned by this run's users (users cascade on delete, but
-    // report/audit rows POINTING at those targets must go first).
-    const ownedListings = ids.length
-      ? await db.listing.findMany({ where: { userId: { in: ids } }, select: { id: true } })
-      : []
-    const ownedShops = ids.length
-      ? await db.businessProfile.findMany({ where: { userId: { in: ids } }, select: { id: true } })
-      : []
-    const targetIds = [...ownedListings, ...ownedShops].map((r) => r.id)
-
   console.log('\n== 24. Product collections: ownership, curation and public visibility ==')
   {
     const collectionOwner: Jar = { cookie: '' }
@@ -3308,7 +3294,22 @@ async function main() {
     ok('24.28 deleted collection is no longer public and owner can delete both', deleteCollection.status === 200 && deletedPublic.status === 404 && deleteSecond.status === 200)
   }
 
-    // Sections with their own hermetic cleanup already removed some users -
+    
+  console.log(`\n== 22. Hermetic sweep - this run leaves no fixtures behind ==`)
+  {
+    const ids = [...createdUserIds]
+    // Targets the fixtures own or were reported about: listings + shop
+    // profiles owned by this run's users (users cascade on delete, but
+    // report/audit rows POINTING at those targets must go first).
+    const ownedListings = ids.length
+      ? await db.listing.findMany({ where: { userId: { in: ids } }, select: { id: true } })
+      : []
+    const ownedShops = ids.length
+      ? await db.businessProfile.findMany({ where: { userId: { in: ids } }, select: { id: true } })
+      : []
+    const targetIds = [...ownedListings, ...ownedShops].map((r) => r.id)
+
+// Sections with their own hermetic cleanup already removed some users -
     // the sweep must remove every fixture STILL ALIVE at this point.
     const aliveBefore = ids.length ? await db.user.count({ where: { id: { in: ids } } }) : 0
     const delReports = await db.report.deleteMany({
