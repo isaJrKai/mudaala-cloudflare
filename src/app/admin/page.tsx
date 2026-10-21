@@ -8,6 +8,7 @@ import { isAdminUser } from '@/lib/admin'
 import { withRequestDb } from '@/lib/db'
 import { AdminAnalytics } from './analytics-dashboard'
 import { ReportsDashboard } from './reports-dashboard'
+import { FeedbackDashboard } from './feedback-dashboard'
 
 export const dynamic = 'force-dynamic'
 
@@ -73,6 +74,14 @@ export default async function AdminPage() {
           Reports from buyers across Mudaala. Hide what breaks the rules, restore what was flagged by mistake, dismiss the rest.
         </p>
         <ReportsDashboard />
+      </section>
+
+      <section aria-labelledby="feedback-heading" className="mt-10 border-t pt-6">
+        <h2 id="feedback-heading" className="text-base font-semibold">Bug reports & feedback</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Private messages from users about bugs, slow pages, complaints and ideas. Update status and priority, and keep internal investigation notes here.
+        </p>
+        <FeedbackDashboard />
       </section>
     </main>
   )
