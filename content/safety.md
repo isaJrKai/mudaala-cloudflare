@@ -22,7 +22,9 @@ Most trades go fine. These habits keep it that way.
 
 ## Reporting a bad ad
 
-Every listing and shop page has a **Report** button. Reporting takes seconds, you do not need an account, and you can stay anonymous to the seller. When several different people report the same listing, it is hidden automatically while the team reviews it.
+Every listing and shop page has a **Report** button. Reporting takes seconds, you do not need an account, and you can stay anonymous to the seller. You can report scams, prohibited items, nudity or sexual content, harassment or hateful content, exposed private information, spam or impersonation, and inaccurate information. When several different people report the same listing, it is hidden automatically while the team reviews it.
+
+Mudaala does not allow explicit sexual imagery, sexual exploitation, or sexual content involving minors. Do not upload or share such content. Reporting sends a case to moderation; if content appears to depict a child in a sexual context, do not download, forward, or repost it. Report it immediately.
 
 If you have been scammed, also report to the police. If a listing involves stolen goods, especially copper, cables or other public infrastructure, report it: those sales hurt everyone in the community.
 

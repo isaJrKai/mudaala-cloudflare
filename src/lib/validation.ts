@@ -332,7 +332,27 @@ export const reportCreateSchema = z.object({
 })
 
 export const reportActionSchema = z.object({
-  action: z.enum(['HIDE', 'RESTORE', 'DISMISS'], { message: 'Choose an action' }),
+  action: z.enum(['HIDE', 'RESTORE', 'DISMISS', 'CONFIRM_VIOLATION', 'REVERSE_VIOLATION'], { message: 'Choose an action' }),
+  policyCategory: z.enum(REPORT_REASONS).optional(),
+}).refine((value) => value.action !== 'CONFIRM_VIOLATION' || value.policyCategory !== undefined, {
+  message: 'Choose the policy category confirmed by moderation',
+  path: ['policyCategory'],
+})
+
+export const feedbackCreateSchema = z.object({
+  category: z.enum(['BUG', 'PERFORMANCE', 'COMPLAINT', 'IDEA', 'OTHER'], { message: 'Choose a feedback category' }),
+  title: z.string().trim().min(4, 'Add a short summary (at least 4 characters)').max(120, 'Keep the summary under 120 characters'),
+  description: z.string().trim().min(20, 'Please describe what happened in at least 20 characters').max(3000, 'Keep the description under 3000 characters'),
+  pagePath: z.string().trim().max(300).regex(/^\/(?!\/)[^\r\n]*$/, 'Invalid page path').optional().nullable(),
+  contact: z.string().trim().max(120, 'Contact details are too long').optional().nullable(),
+})
+
+export const feedbackAdminUpdateSchema = z.object({
+  status: z.enum(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']).optional(),
+  priority: z.enum(['NORMAL', 'HIGH', 'URGENT']).optional(),
+  adminNotes: z.string().trim().max(3000, 'Admin notes must be under 3000 characters').optional().nullable(),
+}).refine((value) => value.status !== undefined || value.priority !== undefined || value.adminNotes !== undefined, {
+  message: 'Choose a status, priority, or add an internal note',
 })
 
 export const adminReportsQuerySchema = z.object({

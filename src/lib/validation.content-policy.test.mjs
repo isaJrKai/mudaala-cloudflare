@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { businessProfileSchema, containsMarketplaceEmoji } from './validation'
+import { businessProfileSchema, containsMarketplaceEmoji, feedbackCreateSchema, reportActionSchema, reportCreateSchema } from './validation'
+import { REPORT_REASONS } from './constants'
+import { shouldSendFormalPolicyWarning } from './policy-violations'
+import { moderateImageContent } from './image-moderation'
 
 describe('Mudaala marketplace content policy', () => {
   test('detects common emoji, including cake, flags and keycaps', () => {
@@ -45,5 +48,120 @@ describe('Mudaala marketplace content policy', () => {
       hours: null,
     })
     expect(result.success).toBe(true)
+  })
+})
+
+
+describe('Mudaala safety report reasons', () => {
+  test('includes specific report categories for image and user-safety abuse', () => {
+    expect(REPORT_REASONS).toContain('NUDITY_OR_SEXUAL_CONTENT')
+    expect(REPORT_REASONS).toContain('HARASSMENT_OR_HATE')
+    expect(REPORT_REASONS).toContain('PERSONAL_INFORMATION')
+    expect(REPORT_REASONS).toContain('SPAM_OR_IMPERSONATION')
+  })
+
+  test('accepts a report for nudity or sexual content at the API validation boundary', () => {
+    expect(reportCreateSchema.safeParse({
+      targetType: 'LISTING',
+      targetId: 'listing-example',
+      reason: 'NUDITY_OR_SEXUAL_CONTENT',
+      details: 'Explicit image in listing photos',
+    }).success).toBe(true)
+  })
+})
+
+
+describe('Mudaala confirmed violation warning threshold', () => {
+  test('does not warn for the first three confirmed violations and warns on the fourth', () => {
+    expect(shouldSendFormalPolicyWarning(1)).toBe(false)
+    expect(shouldSendFormalPolicyWarning(2)).toBe(false)
+    expect(shouldSendFormalPolicyWarning(3)).toBe(false)
+    expect(shouldSendFormalPolicyWarning(4)).toBe(true)
+    expect(shouldSendFormalPolicyWarning(5)).toBe(true)
+    expect(shouldSendFormalPolicyWarning(3.5)).toBe(false)
+  })
+})
+
+describe('Mudaala bug report and feedback validation', () => {
+  const validFeedback = {
+    category: 'BUG',
+    title: 'Photo upload is stuck',
+    description: 'The upload spinner keeps running and the listing is never saved.',
+    pagePath: '/#/publish',
+    contact: 'help@example.com',
+  }
+
+  test('accepts a complete feedback report with a safe local pathname', () => {
+    expect(feedbackCreateSchema.safeParse(validFeedback).success).toBe(true)
+  })
+
+  test('rejects short descriptions and external or protocol-relative page URLs', () => {
+    expect(feedbackCreateSchema.safeParse({ ...validFeedback, description: 'It broke' }).success).toBe(false)
+    expect(feedbackCreateSchema.safeParse({ ...validFeedback, pagePath: 'https://evil.example/' }).success).toBe(false)
+    expect(feedbackCreateSchema.safeParse({ ...validFeedback, pagePath: '//evil.example/' }).success).toBe(false)
+  })
+
+
+  test('requires a selected policy category for a confirmed violation', () => {
+    expect(reportActionSchema.safeParse({ action: 'CONFIRM_VIOLATION' }).success).toBe(false)
+    expect(reportActionSchema.safeParse({ action: 'CONFIRM_VIOLATION', policyCategory: 'NUDITY_OR_SEXUAL_CONTENT' }).success).toBe(true)
+    expect(reportActionSchema.safeParse({ action: 'REVERSE_VIOLATION' }).success).toBe(true)
+  })
+
+  test('rejects oversized feedback payloads', () => {
+    expect(feedbackCreateSchema.safeParse({ ...validFeedback, description: 'x'.repeat(3001) }).success).toBe(false)
+  })
+})
+
+
+describe('Mudaala image safety moderation', () => {
+  const sampleImage = new Uint8Array([0xff, 0xd8, 0xff, 0x00])
+
+  test('sends a base64 image to the moderation endpoint and allows a clear image', async () => {
+    let sentBody
+    const fetchImpl = async (url, init) => {
+      expect(url).toBe('https://api.openai.com/v1/moderations')
+      expect(init.headers.authorization).toBe('Bearer test-moderation-key')
+      sentBody = JSON.parse(init.body)
+      return new Response(JSON.stringify({ results: [{ categories: { sexual: false, 'sexual/minors': false } }] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+    const result = await moderateImageContent(sampleImage, 'jpg', { apiKey: 'test-moderation-key', fetchImpl })
+    expect(result.status).toBe('safe')
+    expect(sentBody.model).toBe('omni-moderation-latest')
+    expect(sentBody.input[0].image_url.url).toBe('data:image/jpeg;base64,/9j/AA==')
+  })
+
+  test('blocks images classified as explicit sexual content', async () => {
+    const fetchImpl = async () => new Response(JSON.stringify({
+      results: [{ categories: { sexual: true, 'sexual/minors': false } }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } })
+    const result = await moderateImageContent(sampleImage, 'jpg', { apiKey: 'test-moderation-key', fetchImpl })
+    expect(result).toEqual({ status: 'blocked', category: 'sexual' })
+  })
+
+  test('fails closed when the provider is unavailable or returns an invalid result', async () => {
+    const unavailable = await moderateImageContent(sampleImage, 'jpg', {
+      apiKey: 'test-moderation-key',
+      fetchImpl: async () => new Response('unavailable', { status: 503 }),
+    })
+    const invalid = await moderateImageContent(sampleImage, 'jpg', {
+      apiKey: 'test-moderation-key',
+      fetchImpl: async () => new Response(JSON.stringify({ results: [{}] }), { status: 200 }),
+    })
+    const missingMinorCategory = await moderateImageContent(sampleImage, 'jpg', {
+      apiKey: 'test-moderation-key',
+      fetchImpl: async () => new Response(JSON.stringify({ results: [{ categories: { sexual: false } }] }), { status: 200 }),
+    })
+    expect(unavailable.status).toBe('unavailable')
+    expect(invalid.status).toBe('unavailable')
+    expect(missingMinorCategory.status).toBe('unavailable')
+  })
+
+  test('does not silently clear production uploads when provider credentials are missing', async () => {
+    const result = await moderateImageContent(sampleImage, 'jpg', { apiKey: '' })
+    expect(result.status).toBe('not_configured')
   })
 })

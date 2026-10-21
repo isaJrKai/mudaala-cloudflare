@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
       where: status === 'ALL' ? {} : { status },
       orderBy: { createdAt: 'desc' },
       take: 200,
+      include: { policyViolation: { select: { id: true, reportId: true, createdAt: true, reversedAt: true, warningSentAt: true } } },
     })
 
     // Reporter display names for signed-in reporters - admins may need to
@@ -49,6 +50,15 @@ export async function GET(request: NextRequest) {
     ])
     const listingById = new Map(listings.map((l) => [l.id, l]))
     const shopById = new Map(shops.map((s) => [s.id, s]))
+    const activeTargetViolations = await db.policyViolation.findMany({
+      where: {
+        targetType: { in: ['LISTING', 'SHOP'] },
+        targetId: { in: [...new Set(reports.map((r) => r.targetId))] },
+        reversedAt: null,
+      },
+      select: { id: true, reportId: true, targetType: true, targetId: true, createdAt: true, reversedAt: true, warningSentAt: true },
+    })
+    const activeViolationByTarget = new Map(activeTargetViolations.map((violation) => [`${violation.targetType}:${violation.targetId}`, violation]))
 
     return jsonOk({
       reports: reports.map((r) => {
@@ -62,6 +72,7 @@ export async function GET(request: NextRequest) {
           details: r.details,
           status: r.status,
           createdAt: r.createdAt,
+          violation: activeViolationByTarget.get(`${r.targetType}:${r.targetId}`) ?? r.policyViolation,
           reporter: r.reporterId ? (nameById.get(r.reporterId) ?? 'a signed-in seller') : 'a guest',
           listing: listing
             ? { id: listing.id, title: listing.title, status: listing.status, type: listing.type, price: listing.price, ownerName: listing.user.name }

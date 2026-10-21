@@ -53,6 +53,28 @@ jobs:
           SETTINGS_ENCRYPTION_KEY: build-only-placeholder-key-32chars
           ADMIN_PHONES: "+256700000000"
 
+      - name: Require moderation secret before production deployment
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 7d45a3db16c2ce332bf146d34eb01687
+        run: |
+          set -euo pipefail
+          secrets_json="$(npx wrangler secret list --name mudaala-cloudflare --account-id "$CLOUDFLARE_ACCOUNT_ID" --format json)"
+          printf '%s' "$secrets_json" | node -e '
+            let raw = "";
+            process.stdin.on("data", chunk => raw += chunk);
+            process.stdin.on("end", () => {
+              let secrets;
+              try { secrets = JSON.parse(raw); } catch { console.error("Could not parse Worker secret names; refusing production deployment."); process.exit(1); }
+              if (!Array.isArray(secrets) || !secrets.some(secret => secret.name === "OPENAI_MODERATION_API_KEY")) {
+                console.error("Required OPENAI_MODERATION_API_KEY secret is absent; refusing production deployment.");
+                process.exit(1);
+              }
+              console.log("Required moderation secret is configured (name verified; value was not retrieved).");
+            });
+          '
+
       # Capture the active version only after the build succeeds. If deployment
       # or the read-only health check fails, traffic is routed back to this version.
       - name: Capture currently active Worker version
@@ -103,6 +125,74 @@ jobs:
             });
           '
 
+      - name: Verify live moderation accepts a safe disposable image
+        if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          node --input-type=module <<'NODE'
+          import { randomInt, randomUUID } from 'node:crypto';
+          const base = process.env.APP_URL;
+          const password = `mudaala-release-${randomUUID()}-P9!`;
+          const phone = `+2567${String(randomInt(10000000, 99999999))}`;
+          let registered = false;
+          let cookie = '';
+          let failure = null;
+          try {
+            const registration = await fetch(`${base}/api/auth/register`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ phone, name: 'Mudaala Release Smoke', password, country: 'UG', acceptTerms: true }),
+            });
+            if (registration.status !== 201) throw new Error(`Disposable registration failed: HTTP ${registration.status}`);
+            registered = true;
+            cookie = registration.headers.get('set-cookie')?.split(';')[0] ?? '';
+            if (!cookie) {
+              const login = await fetch(`${base}/api/auth/login`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ phone, password }),
+              });
+              if (!login.ok) throw new Error(`Disposable login failed: HTTP ${login.status}`);
+              cookie = login.headers.get('set-cookie')?.split(';')[0] ?? '';
+            }
+            if (!cookie) throw new Error('No session cookie was issued; cannot safely clean up the disposable account');
+            const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+            const form = new FormData();
+            form.append('file', new Blob([png], { type: 'image/png' }), 'mudaala-safe-smoke.png');
+            const upload = await fetch(`${base}/api/upload`, { method: 'POST', headers: { cookie }, body: form });
+            const payload = await upload.json().catch(() => null);
+            if (upload.status !== 201 || typeof payload?.url !== 'string') {
+              throw new Error(`Safe-image upload/moderation failed: HTTP ${upload.status}`);
+            }
+            console.log(JSON.stringify({ liveSafeImageModeration: 'pass', uploadStatus: upload.status }));
+          } catch (error) {
+            failure = error;
+          } finally {
+            if (registered && cookie) {
+              try {
+                const cleanup = await fetch(`${base}/api/account`, {
+                  method: 'DELETE',
+                  headers: { 'content-type': 'application/json', cookie },
+                  body: JSON.stringify({ password }),
+                });
+                const cleanupPayload = await cleanup.json().catch(() => null);
+                if (!cleanup.ok || cleanupPayload?.deleted !== true) {
+                  failure = new Error(`Disposable account cleanup failed: HTTP ${cleanup.status}`);
+                }
+              } catch {
+                failure = new Error('Disposable account cleanup request failed; manual cleanup is required');
+              }
+            } else if (registered) {
+              failure = new Error('Disposable account was created but no session cookie was available for cleanup');
+            }
+          }
+          if (failure) {
+            console.error(failure instanceof Error ? failure.message : String(failure));
+            process.exit(1);
+          }
+          NODE
+
       - name: Smoke test public Browse and shop-name search
         if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         env:
@@ -138,6 +228,47 @@ jobs:
               console.log(JSON.stringify({ shopSearch: "ok", matches: payload.shops.length }));
             });
           '
+
+      - name: Smoke test public shop collections response shape (read-only)
+        if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        env:
+          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+        run: |
+          node --input-type=module <<'NODE'
+          const base = process.env.APP_URL;
+          const fail = (message) => { console.error(message); process.exit(1); };
+          const shopsResponse = await fetch(`${base}/api/shops/search?q=gras`);
+          if (!shopsResponse.ok) fail(`Shop search failed before collections smoke: HTTP ${shopsResponse.status}`);
+          const shopsPayload = await shopsResponse.json().catch(() => null);
+          if (!Array.isArray(shopsPayload?.shops) || !shopsPayload.shops.some((shop) => typeof shop.id === 'string' && shop.id.length > 0)) {
+            fail('Shop search returned no usable public shop ID for the collections smoke');
+          }
+          const shop = shopsPayload.shops.find((candidate) => typeof candidate.id === 'string' && candidate.id.length > 0);
+          const response = await fetch(`${base}/api/shops/${encodeURIComponent(shop.id)}/collections`);
+          if (!response.ok) fail(`Public shop collections endpoint failed: HTTP ${response.status}`);
+          const payload = await response.json().catch(() => null);
+          if (!Array.isArray(payload?.collections)) fail('Public shop collections response is missing collections[]');
+          for (const collection of payload.collections) {
+            if (typeof collection.id !== 'string' || typeof collection.title !== 'string' ||
+                !Number.isInteger(collection.itemCount) || collection.itemCount < 0) {
+              fail('Public collection response contains an invalid card shape');
+            }
+            if ('userId' in collection || 'phone' in collection || 'contact' in collection) {
+              fail('Public collection response exposes a private ownership/contact field');
+            }
+          }
+          let detailChecked = false;
+          if (payload.collections.length > 0) {
+            const detailResponse = await fetch(`${base}/api/collections/${encodeURIComponent(payload.collections[0].id)}`);
+            if (!detailResponse.ok) fail(`Public collection detail failed: HTTP ${detailResponse.status}`);
+            const detail = await detailResponse.json().catch(() => null);
+            if (detail?.collection?.id !== payload.collections[0].id || !Array.isArray(detail.items)) {
+              fail('Public collection detail response is missing collection/items shape');
+            }
+            detailChecked = true;
+          }
+          console.log(JSON.stringify({ publicShopCollections: 'ok', cards: payload.collections.length, detailChecked }));
+          NODE
 
       - name: Verify shared rate-limit binding is reachable (no customer-data writes)
         if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
