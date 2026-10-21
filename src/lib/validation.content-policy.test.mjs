@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { businessProfileSchema, containsMarketplaceEmoji, reportCreateSchema, REPORT_REASONS } from './validation'
+import { businessProfileSchema, containsMarketplaceEmoji, reportCreateSchema } from './validation'
+import { REPORT_REASONS } from './constants'
 
 describe('Mudaala marketplace content policy', () => {
   test('detects common emoji, including cake, flags and keycaps', () => {
