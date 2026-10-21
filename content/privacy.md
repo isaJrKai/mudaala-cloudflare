@@ -31,3 +31,8 @@ You can delete any listing yourself, any time. To delete your whole account, con
 ## Changes to this policy
 
 When this policy changes, the version date at the top changes and the app may ask you to review it again. Continuing to use Mudaala after a change means you accept the updated policy.
+
+
+## Bug reports and feedback
+
+If you send “Report a bug / Send feedback”, Mudaala stores the category, summary, comment, the page path you were viewing, a limited browser user-agent string, and any contact detail you choose to provide. Contact details are optional. Feedback is visible to authorized Mudaala administrators for investigation and triage; internal admin notes are not shown to reporters. Feedback is rate-limited to reduce abuse. Do not include passwords, payment secrets, or sensitive personal information in a report. This first version does not accept screenshot attachments. Feedback records are retained while reasonably needed to investigate issues, maintain platform safety, and document resolutions, subject to applicable deletion and legal requirements.
