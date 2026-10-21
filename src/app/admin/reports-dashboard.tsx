@@ -17,7 +17,7 @@ interface AdminReport {
   details: string | null
   status: 'OPEN' | 'ACTIONED' | 'DISMISSED'
   createdAt: string
-  violation: { id: string; createdAt: string; reversedAt: string | null; warningSentAt: string | null } | null
+  violation: { id: string; reportId: string; createdAt: string; reversedAt: string | null; warningSentAt: string | null } | null
   reporter: string
   listing: { id: string; title: string; status: string; type: string; price: number | null; ownerName: string } | null
   shop: { id: string; businessName: string; shopCode: string | null; county: string } | null
@@ -209,10 +209,10 @@ export function ReportsDashboard() {
                     onClick={() => {
                       if (window.confirm('Restore this hidden listing? Only do this after reviewing the case and any appeal.')) void act(r.id, 'RESTORE')
                     }}
-                    disabled={busyId === r.id}
+                    disabled={busyId === r.violation.reportId || busyId === r.id}
                     className="press inline-flex h-9 items-center gap-1.5 rounded-md border border-emerald-600/50 bg-emerald-50 px-3 text-[13px] font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-60"
                   >
-                    {busyId === r.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <RotateCcw className="size-3.5" aria-hidden />}
+                    {busyId === r.violation.reportId || busyId === r.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <RotateCcw className="size-3.5" aria-hidden />}
                     Restore hidden listing
                   </button>
                 </div>
@@ -243,7 +243,7 @@ export function ReportsDashboard() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (window.confirm('Overturn this confirmed violation? It will no longer count toward the account warning threshold and the user will be notified.')) void act(r.id, 'REVERSE_VIOLATION')
+                      if (window.confirm('Overturn this confirmed violation? It will no longer count toward the account warning threshold and the user will be notified.')) void act(r.violation!.reportId, 'REVERSE_VIOLATION')
                     }}
                     disabled={busyId === r.id}
                     className="press inline-flex h-9 items-center gap-1.5 rounded-md border border-emerald-600/50 bg-emerald-50 px-3 text-[13px] font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-60"
