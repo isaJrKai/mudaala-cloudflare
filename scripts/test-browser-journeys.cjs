@@ -255,7 +255,7 @@ async function verifyListingLifecycle(browser) {
     const sessionPayload = await sessionResponse.json();
     if (sessionPayload.user?.name !== 'Browser Listing Lifecycle Tester') throw new Error('Listing-lifecycle browser session did not resolve to the expected seller');
     try {
-      await page.getByRole('button', { name: /Browser Listing Lifecycle Tester/ }).waitFor({ state: 'visible', timeout });
+      await page.locator('header').getByText('Browser Listing Lifecycle Tester', { exact: true }).waitFor({ state: 'visible', timeout });
     } catch (error) {
       const diagnostic = await page.evaluate(() => ({ url: window.location.href, headings: Array.from(document.querySelectorAll('h1,h2,h3')).map((element) => (element.textContent || '').trim()).filter(Boolean).slice(0, 30), bodyText: document.body.innerText.slice(0, 2500) }));
       throw new Error('Listing-lifecycle signed-in header did not render: ' + JSON.stringify(diagnostic) + '; original: ' + String(error));
