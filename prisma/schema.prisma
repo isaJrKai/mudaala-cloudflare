@@ -465,6 +465,7 @@ model PolicyViolation {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   reportId    String   @unique
   report      Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  activeKey   String?  @unique // cleared on appeal reversal; dedupes concurrent reports for the same active case
   targetType  String
   targetId    String
   policyCategory String
