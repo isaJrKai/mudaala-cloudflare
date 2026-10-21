@@ -14,6 +14,18 @@ function uniquePhone() {
   return '+2567' + String(Math.floor(10000000 + Math.random() * 89999999));
 }
 
+// APIRequestContext and page contexts normally share cookies; explicitly syncing
+// the registration cookie keeps authenticated browser journeys deterministic.
+async function syncSessionCookie(context, response) {
+  const headers = await response.headersArray();
+  const setCookie = headers.find((header) => header.name.toLowerCase() === 'set-cookie' && /^mudaala_session=/i.test(header.value));
+  if (!setCookie) return;
+  const match = setCookie.value.match(/^mudaala_session=([^;]+)/i);
+  if (!match) return;
+  const secure = base.startsWith('https://');
+  await context.addCookies([{ name: 'mudaala_session', value: match[1], url: base, httpOnly: true, secure, sameSite: secure ? 'None' : 'Lax' }]);
+}
+
 async function verifySavedSearch(browser) {
   const context = await browser.newContext({ viewport: { width: 1365, height: 900 } });
   const page = await context.newPage();
@@ -206,6 +218,8 @@ async function verifyListingLifecycle(browser) {
     if (registration.status() !== 201) {
       throw new Error('Could not create listing-lifecycle account: HTTP ' + registration.status() + ' ' + (await registration.text()).slice(0, 200));
     }
+
+    await syncSessionCookie(context, registration);
 
     // Give this disposable seller a named shop so the public Browse rail can
     // render its QR code. This uses the same profile API as the seller form.
@@ -771,6 +785,7 @@ async function verifyProductCollections(browser) {
     });
     if (registration.status() !== 201) throw new Error('Could not create collection-test account: HTTP ' + registration.status() + ' ' + (await registration.text()).slice(0, 200));
     accountCreated = true;
+    await syncSessionCookie(context, registration);
     const registered = await registration.json();
     const userId = registered.user?.id;
     if (!userId) throw new Error('Registration response did not include the test account id');
