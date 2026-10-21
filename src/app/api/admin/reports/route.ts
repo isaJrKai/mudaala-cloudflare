@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
       where: status === 'ALL' ? {} : { status },
       orderBy: { createdAt: 'desc' },
       take: 200,
+      include: { policyViolation: { select: { id: true, createdAt: true, reversedAt: true, warningSentAt: true } } },
     })
 
     // Reporter display names for signed-in reporters - admins may need to
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest) {
           details: r.details,
           status: r.status,
           createdAt: r.createdAt,
+          violation: r.policyViolation ? { id: r.policyViolation.id, createdAt: r.policyViolation.createdAt, reversedAt: r.policyViolation.reversedAt, warningSentAt: r.policyViolation.warningSentAt } : null,
           reporter: r.reporterId ? (nameById.get(r.reporterId) ?? 'a signed-in seller') : 'a guest',
           listing: listing
             ? { id: listing.id, title: listing.title, status: listing.status, type: listing.type, price: listing.price, ownerName: listing.user.name }
