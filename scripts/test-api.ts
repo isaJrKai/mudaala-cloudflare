@@ -738,19 +738,6 @@ async function main() {
     }, alice)
     ok('old price without a current price → 400', orphanDiscount.status === 400)
 
-    const requestListing = await call('POST', '/api/listings', {
-      ...validListing,
-      type: 'REQUEST',
-      title: 'Copper scrap wanted test',
-    }, alice)
-    ok('create REQUEST without an old price → 201',
-      requestListing.status === 201 && Boolean(requestListing.json?.listing?.id))
-    const requestDiscountPatch = requestListing.status === 201
-      ? await call('PATCH', `/api/listings/${requestListing.json.listing.id}`, { compareAtPrice: 800 }, alice)
-      : { status: 0, json: null }
-    ok('PATCH cannot add an old-price discount to a REQUEST → 400 with field error',
-      requestDiscountPatch.status === 400 && Boolean(requestDiscountPatch.json?.fields?.compareAtPrice))
-
     // PATCH: clear then set the discount against the merged record.
     const cleared = await call('PATCH', `/api/listings/${discount.json.listing.id}`, { compareAtPrice: null }, alice)
     ok('PATCH clears old price (null)', cleared.status === 200 && cleared.json?.listing?.compareAtPrice === null)
@@ -3233,6 +3220,11 @@ async function main() {
     ok('24.2 owner listing fixtures created', ownerListingA.status === 201 && ownerListingB.status === 201)
     ok('24.3 stranger listing fixture created', strangerListing.status === 201)
     ok('24.4 request listing fixture created', requestListing.status === 201)
+    const requestDiscountPatch = requestListing.status === 201
+      ? await call('PATCH', `/api/listings/${requestListing.json.listing.id}`, { compareAtPrice: 800 }, collectionOwner)
+      : { status: 0, json: null }
+    ok('request listing cannot accept an old-price discount on PATCH',
+      requestDiscountPatch.status === 400 && Boolean(requestDiscountPatch.json?.fields?.compareAtPrice))
 
     const invalidTitle = await call('POST', '/api/my/collections', { title: '   ' }, collectionOwner)
     ok('24.5 blank collection title rejected', invalidTitle.status === 400)
