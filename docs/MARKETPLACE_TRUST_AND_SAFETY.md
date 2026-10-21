@@ -10,7 +10,7 @@
 - Listing and shop reports can be submitted without requiring sign-in.
 - Report creation has rate limits and duplicate-open-report prevention.
 - Three distinct reporters can cause an active listing to be hidden while it is reviewed.
-- Admins have a report queue and can hide, restore, or dismiss reports; moderation actions are audited.
+- Admins have a report queue and can hide, restore, or dismiss reports; moderation actions are audited. This change adds explicit confirmed-violation and reversal actions, with a separate strike record rather than counting raw reports.
 - Listing upload requires authentication, limits file size and upload rate, checks image magic bytes, and strips common image metadata.
 - Listing/shop names and listing title/description use shared server-side content validation.
 - Prohibited product text has a publish-time filter.
@@ -21,7 +21,7 @@ The current upload route verifies that a file is a supported JPEG, PNG, or WebP 
 
 The report-category addition is a reporting aid, not a substitute for automatic image screening or a staffed review process. It does not retroactively scan existing photos.
 
-## Required controls, in priority order
+## Bug reports and user feedback\n\n- This change adds a global “Report a bug / Send feedback” entry point in the site footer. Users can report a broken feature, slow loading, a complaint, an idea, or another issue, with a summary, detailed comment, current page path, browser user-agent, and optional contact details.\n- Reports are rate-limited, and only admin-authorized endpoints can read or triage them. The admin inbox supports status, priority, and private internal notes; updates are audit-logged.\n- This is an in-app inbox, not an external email or SMS alert. A named admin must monitor it and define response expectations before launch. Screenshot uploads are not accepted in this first version; do not ask users to attach sensitive screenshots or credentials.\n\n## Required controls, in priority order
 
 ### P0 — Explicit image and content safety
 
@@ -35,16 +35,16 @@ The report-category addition is a reporting aid, not a substitute for automatic 
 
 ### P0 — Repeat-violation warnings and moderation operations
 
-#### Account warning rule (policy target; not active until implemented and tested)
+#### Account warning rule (implemented in this change; not active in production until checks pass, migration is deployed, and live verification completes)
 
 - Count **confirmed violations**, not raw reports. A report, a rejected upload, or an unreviewed accusation alone must not count as a strike.
 - A confirmed violation is recorded only after a moderator reviews the evidence and takes an enforcement action for a specific policy breach. Record the policy category, target, moderator/system decision, timestamp, and linked case ID.
-- On the **fourth confirmed violation** (more than three), send the account a formal in-app warning explaining the specific rule breached, the action taken, the cumulative confirmed-violation count, how to appeal, and that further violations may lead to temporary suspension or account removal.
+- On the **fourth confirmed violation** (more than three), send the account a formal in-app notification explaining the moderator-selected policy category, confirmed-violation count, enforcement decision, appeal route, and that further confirmed violations may lead to account restrictions.
 - Notify on each subsequent confirmed violation as well, but do not flood the account with duplicate notifications for retries of the same moderation action.
 - Give users a fair appeal path. If a decision is overturned, reverse the strike and correct the count; do not punish users for good-faith reports or unsubstantiated allegations.
 - Keep a moderator-visible case history and an audit trail. Restrict access to sensitive evidence and never include explicit imagery in notifications.
 - A formal warning is not itself a suspension. Any temporary suspension or account removal must have separately defined thresholds, proportionality, an appeal route, and an auditable moderator decision.
-- Until the warning counter, notification, idempotency, appeal reversal, and tests ship, this is a **planned rule**, not a live account-enforcement feature.
+- This change adds a unique confirmed-violation record per report, moderator confirmation/reversal actions, idempotent retries, in-app warning notifications from the fourth active strike onward, and a correction notification when an appeal is accepted. These controls remain **not live in production** until CI passes, the database migration is deployed safely, and end-to-end checks pass.
 
 - Make nudity/sexual content, harassment/hate, exposed personal information, and spam/impersonation first-class report reasons.
 - Ensure reports about a photo can be tied to the listing/shop and the relevant photo, without exposing reporter identity to the reported user.
