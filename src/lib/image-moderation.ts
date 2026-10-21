@@ -36,6 +36,7 @@ export async function moderateImageContent(
   type: SupportedImageType,
   options: ModerationOptions = {},
 ): Promise<ImageModerationResult> {
+  // Production must provide OPENAI_MODERATION_API_KEY as a Worker secret, never a plain-text variable.
   const apiKey = options.apiKey ?? process.env.OPENAI_MODERATION_API_KEY
   if (!apiKey) return { status: 'not_configured' }
 
