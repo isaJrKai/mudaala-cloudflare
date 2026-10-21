@@ -332,7 +332,7 @@ export const reportCreateSchema = z.object({
 })
 
 export const reportActionSchema = z.object({
-  action: z.enum(['HIDE', 'RESTORE', 'DISMISS'], { message: 'Choose an action' }),
+  action: z.enum(['HIDE', 'RESTORE', 'DISMISS', 'CONFIRM_VIOLATION', 'REVERSE_VIOLATION'], { message: 'Choose an action' }),
 })
 
 export const feedbackCreateSchema = z.object({
