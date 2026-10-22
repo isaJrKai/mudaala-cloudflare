@@ -26,27 +26,32 @@ A successful database restore alone is not a complete Mudaala recovery drill.
 
 ## Create an encrypted logical database export
 
-Run this from a trusted workstation, with `DATABASE_URL` set securely in the shell environment to the production connection string. Do not use the application's restricted runtime credential if it cannot read all required backup data; use a separately authorized database credential with only the access needed for export.
+Run this from a trusted workstation, with `DATABASE_URL` set securely in the shell environment to the production connection string. Set `BACKUP_DIR` to a private local directory outside the repository and outside cloud-sync folders. Do not use the application's restricted runtime credential if it cannot read all required backup data; use a separately authorized database credential with only the access needed for export.
 
 ```bash
 set -euo pipefail
 umask 077
 : "${DATABASE_URL:?Set DATABASE_URL securely before continuing}"
 : "${AGE_RECIPIENT:?Set AGE_RECIPIENT to the approved backup recipient's public age key}"
+: "${BACKUP_DIR:?Set BACKUP_DIR to a private directory outside the repository and cloud-sync folders}"
+mkdir -p "$BACKUP_DIR"
 
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
+stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+archive="$BACKUP_DIR/mudaala-db-backup-$stamp.tar.gz.age"
 
 supabase db dump --db-url "$DATABASE_URL" --role-only -f "$workdir/roles.sql"
 supabase db dump --db-url "$DATABASE_URL" -f "$workdir/schema.sql"
 supabase db dump --db-url "$DATABASE_URL" --use-copy --data-only -f "$workdir/data.sql"
 
 tar -C "$workdir" -czf "$workdir/mudaala-db-backup.tar.gz" roles.sql schema.sql data.sql
-age -r "$AGE_RECIPIENT" -o "$workdir/mudaala-db-backup.tar.gz.age" "$workdir/mudaala-db-backup.tar.gz"
-sha256sum "$workdir/mudaala-db-backup.tar.gz.age"
+age -r "$AGE_RECIPIENT" -o "$archive" "$workdir/mudaala-db-backup.tar.gz"
+sha256sum "$archive" > "$archive.sha256"
+printf 'Encrypted archive: %s\nChecksum file: %s\n' "$archive" "$archive.sha256"
 ```
 
-Upload **only** the encrypted `.age` file and its checksum to the approved off-site destination. Confirm the upload completed and verify the checksum against the uploaded bytes. Keep the decryption private key separate from the backup destination. Record the timestamp, project ref, CLI version, checksum, destination, and operator in the private operations log—not secrets or row contents.
+The script leaves only the encrypted archive and checksum in `BACKUP_DIR`; its temporary plaintext files are removed when it exits. Verify the archive and checksum exist. Upload **only** the encrypted `.age` file and checksum to the approved off-site destination. Confirm the upload completed and verify the checksum against the uploaded bytes. Keep the decryption private key separate from the backup destination. Record the timestamp, project ref, CLI version, checksum, destination, and operator in the private operations log—not secrets or row contents.
 
 This command creates a logical database export. It does not back up Storage object bytes.
 
@@ -54,7 +59,7 @@ This command creates a logical database export. It does not back up Storage obje
 
 Use an approved method supported by the project's configured Supabase Storage access (for example, the Storage S3-compatible endpoint if enabled). Copy object bytes and required bucket/access metadata to the approved private destination. Keep private credentials out of logs and never change the existing bucket's public/private setting as part of a backup.
 
-After copying, compare bucket names, object counts, total bytes, and per-object checksums where the chosen transfer method supports them. Verify a small sample can be decrypted/accessed in the backup destination without changing or deleting production objects. If no safe destination or supported authenticated copy method is available, document this as an open blocker; do not claim photos are backed up.
+After copying, compare bucket names, object counts, total bytes, and per-object checksums where the chosen transfer method supports them. Verify a small sample can be accessed from the backup destination without changing or deleting production objects. If no safe destination or supported authenticated copy method is available, document this as an open blocker; do not claim photos are backed up.
 
 ## Restore drill — disposable target only
 
