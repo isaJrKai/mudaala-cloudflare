@@ -390,3 +390,37 @@ These are recorded requirements discovered in founder/customer conversations. Fo
 - [ ] Continue open recovery/security work: diagnose the Wrangler `RateLimitShard` export warning; produce an off-site logical backup and restore only into disposable local PostgreSQL; inspect bounded production telemetry; verify the scheduled sweep only through its normal schedule; assess the development-only `braces` advisory without unsafe forced upgrades.
 - [ ] Founder/device-only gates remain separate: real phone QR scan, mobile visual clearance, live call/WhatsApp taps and preview, founder-session My Business/admin UI, and the approved owner-facing cleanup of `Annet cakes 🎂` (preserve both photo URLs). Do not mark these complete from automated CI.
 - [x] **Batch 1 release/security verification slice completed (2026-10-21):** PRs #175, #176 and #178 are validated, merged and deployed; production release smoke, API/privacy/photo, My Business insights, shop/product search/recommendation privacy, default category priority and mobile feedback-button usability checks passed. See the evidence at the top of this file and issue #163. **Batch 2 has started** with the collections/sharing schedule-visibility audit. Real collection content remains absent by design (no sellers have created collections yet), so no populated collection page is claimed live-verified. Later operational/manual gates remain tracked separately: backup/restore, normal scheduled sweep telemetry, physical-phone checks, feedback notification-delivery confirmation, legacy thumbnails, upstream development-toolchain advisory, deferred phone verification, and the Wrangler warning. No paid services, destructive production writes, or download-button changes.
+
+
+## Shop identity code numbering system — planned, not implemented
+
+**Founder-approved planning task (2026-10-23):** Design a human-memorable, permanent Mudaala shop code system inspired by physical Kampala shop labels such as WD16 and SH35. This section is a specification/backlog entry only; it does not claim that the generator, routes, or production behavior have changed.
+
+### Product rules
+
+- Keep the existing `BusinessProfile.shopCode` field and unique constraint as the current data foundation; inspect the actual assignment/generation path before implementation.
+- Preserve every already-issued shop code exactly as-is. Never rename a code because a shop changes its name, pauses trading, or closes; never recycle a retired code.
+- Keep the `MD` identity prefix and a short first tier of four digits (for example, legacy-style `MD-4821`). Decide display punctuation separately from the canonical stored/lookup value, and make lookup normalization tolerant of harmless case, spaces, and hyphens without creating ambiguous matches.
+- Allocate deterministically and safely under concurrent shop creation. The database uniqueness constraint remains authoritative; code assignment must have a transaction/locking or collision-retry strategy and must fail safely rather than assign a duplicate.
+- Keep codes pronounceable and easy to read on signs, QR posters, in speech, and on low-end phones. Evaluate whether ambiguous letters such as I/O should be excluded from suffixes; recalculate capacity using the chosen alphabet rather than relying on theoretical A–Z counts.
+- Codes must not encode phone numbers, personal information, shop category, or location. A code is an identifier, not proof that a shop is verified.
+- Do not promise a public URL shape such as `/s/{code}` until the route is inspected and tested. QR destinations must use a confirmed, stable route on the canonical domain `https://mudaala.store`, while existing links remain valid.
+
+### Capacity and proposed expansion
+
+- Four digits provide 10,000 combinations (0000–9999) before accounting for reserved values and existing assignments.
+- Four digits plus one A–Z suffix provide at most 260,000 combinations; four digits plus two A–Z suffixes provide at most 6,760,000 combinations. These are theoretical ceilings, not usable-capacity guarantees; excluding confusing letters reduces them.
+- Proposed rollout for evaluation: retain all legacy codes; issue the simple four-digit tier while safe capacity remains; then extend to a fixed suffix tier and later longer suffixes as required. Prefer a deterministic allocator over random assignment so collisions and capacity exhaustion are observable. Validate whether the legacy hyphen is presentation-only before defining the canonical format.
+- Plan for at least one million shops without changing existing codes. With all 26 letters, two suffix letters provide 6.76 million combinations for the four-digit-plus-two-letter tier; with a reduced alphabet, prove that the chosen scheme still exceeds the target.
+
+### Implementation and release gates
+
+- [ ] Trace every shop-code creation/assignment path, including onboarding, shop/profile creation, seed fixtures, scripts, API routes, and tests; document current behavior and any existing-code distribution.
+- [ ] Finalize the canonical format, readable alphabet, normalization rules, reserved-code policy, and capacity calculations.
+- [ ] Implement an allocator that is deterministic, concurrency-safe, idempotent where appropriate, and compatible with existing codes; preserve the database uniqueness constraint and avoid production-wide rewrites.
+- [ ] Add tests for first-tier allocation, suffix expansion, exhaustion boundaries, reserved values, case/hyphen/space normalization, duplicate/collision handling, concurrent creation, retry limits, legacy-code preservation, and never-recycling retired codes.
+- [ ] Verify shop search/lookup and QR destinations end to end on `https://mudaala.store`; test that previously printed QR codes and old Worker-domain links still work.
+- [ ] Review schema/migration impact and rollback path before any production migration or data change. Do not assign test codes to real shops or change live shop codes during validation.
+- [ ] Update this checklist only with evidence-backed status after CI, deployment (if needed), and live verification. Until then, this remains **planned / not implemented**.
+
+**Acceptance target:** A shopkeeper can read, say, remember, and enter the code reliably; codes stay unique and permanent; the allocator can scale to at least 1,000,000 shops without a format-breaking migration; all existing codes and QR links continue to work.
