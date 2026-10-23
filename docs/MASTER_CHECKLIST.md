@@ -413,6 +413,14 @@ These are recorded requirements discovered in founder/customer conversations. Fo
 - Proposed rollout for evaluation: retain all legacy codes; issue the simple four-digit tier while safe capacity remains; then extend to a fixed suffix tier and later longer suffixes as required. Prefer a deterministic allocator over random assignment so collisions and capacity exhaustion are observable. Validate whether the legacy hyphen is presentation-only before defining the canonical format.
 - Plan for at least one million shops without changing existing codes. With all 26 letters, two suffix letters provide 6.76 million combinations for the four-digit-plus-two-letter tier; with a reduced alphabet, prove that the chosen scheme still exceeds the target.
 
+### Initial repository audit (2026-10-23)
+
+- `src/lib/shop.ts` currently generates random `MD-0000`–`MD-9999` candidates and retries a read-before-write availability check up to 200 times. That is a 10,000-code ceiling and is not concurrency-safe by itself; the unique DB constraint can still reject simultaneous assignments.
+- `src/app/api/profile/route.ts` assigns a candidate in the profile upsert's create branch. Existing profile updates intentionally leave `shopCode` unchanged, which is the correct immutability behavior.
+- The public `/s/[code]` route already exists. It uses `normalizeShopCode` and the exact stored-code lookup; the current normalizer accepts `MD`, `MU`, and `DK` prefixes only when followed by exactly four digits.
+- `scripts/backfill-shop-codes.ts` rewrites stored `DK-XXXX` values to `MD-XXXX` while preserving digits. That is existing legacy behavior, but it conflicts with the new founder requirement that all previously issued codes remain unchanged. The implementation must replace this assumption with backward-compatible lookup/redirect handling; do not run the backfill against production or rename stored codes.
+- The current 4-digit normalizer, API validation/error copy, allocator, backfill script, tests, QR/share URLs, and documentation must be reviewed together. Keep this audit as a starting point, not as proof of completed implementation.
+
 ### Implementation and release gates
 
 - [ ] Trace every shop-code creation/assignment path, including onboarding, shop/profile creation, seed fixtures, scripts, API routes, and tests; document current behavior and any existing-code distribution.
