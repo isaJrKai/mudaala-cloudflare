@@ -462,6 +462,21 @@ async function verifyListingLifecycle(browser) {
     await page.waitForFunction(() => window.location.hash.startsWith('#/listing/'), null, { timeout });
     await page.getByText(editedTitle, { exact: true }).waitFor({ state: 'visible', timeout });
 
+    // Regression: the public Browse feed must use two columns on narrow phones.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const resultsGrid = page.getByTestId('listing-results-grid');
+    await resultsGrid.waitFor({ state: 'visible', timeout });
+    await page.getByText(editedTitle, { exact: true }).waitFor({ state: 'visible', timeout });
+    const mobileGrid = await resultsGrid.evaluate((element) => ({
+      columns: getComputedStyle(element).gridTemplateColumns.split(' ').length,
+      width: element.getBoundingClientRect().width,
+      viewportWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    if (mobileGrid.columns !== 2) throw new Error('Browse must show two product columns on a 390px phone: ' + JSON.stringify(mobileGrid));
+    if (mobileGrid.scrollWidth > mobileGrid.viewportWidth + 1) throw new Error('Browse grid overflows the mobile viewport: ' + JSON.stringify(mobileGrid));
+
     await page.goto(base + '/#/my-listings', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.getByRole('heading', { name: /my listings/i }).waitFor({ state: 'visible', timeout });
     const card = listingCard();
