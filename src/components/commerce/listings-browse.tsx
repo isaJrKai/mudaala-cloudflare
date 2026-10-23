@@ -436,7 +436,7 @@ export function ListingsBrowse() {
             </p>
             {/* Compact two-column product grid on phones; three columns on
                 wider screens. Keep this aligned with ListingGridSkeleton. */}
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+            <div data-testid="listing-results-grid" className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
               {data.items.map((listing) => (
                 <ListingBlock
                   key={listing.id}
