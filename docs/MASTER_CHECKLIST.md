@@ -432,3 +432,27 @@ These are recorded requirements discovered in founder/customer conversations. Fo
 - [ ] Update this checklist only with evidence-backed status after CI, deployment (if needed), and live verification. Until then, this remains **planned / not implemented**.
 
 **Acceptance target:** A shopkeeper can read, say, remember, and enter the code reliably; codes stay unique and permanent; the allocator can scale to at least 1,000,000 shops without a format-breaking migration; all existing codes and QR links continue to work.
+
+
+## Browse cards: swipe photos directly on the photo surface — planned, not implemented
+
+**Founder request (2026-10-23):** When a listing has multiple photos, buyers must be able to swipe left/right **inside the photo itself on the Browse card** to see the next/previous image. Swiping must not require touching the title, price, shop name, card body, or a control below the image.
+
+### Initial repository audit
+
+- `src/components/commerce/listing-card.tsx` currently renders only `listing.photos[0]` in its `ListingPhoto` component, so Browse cards do not currently expose the other photos there.
+- `src/components/commerce/public-photo-gallery.tsx` already has a horizontally scrollable photo gallery for public shop/ad pages, but this does not satisfy the Browse-card-specific request by itself.
+
+### Acceptance criteria
+
+- [ ] For listings with 2+ photos, horizontal touch swipes that start and remain on the Browse card's photo surface change the displayed photo in place; the rest of the card remains stable.
+- [ ] Keep the interaction confined to the image surface. Do not require or bind swipes to the title, shop name, price, card body, or controls below the photo.
+- [ ] Show a subtle, legible on-photo position indicator (for example, `1 / 4`) and, where useful on desktop, previous/next controls overlaid on the photo itself.
+- [ ] Listings with zero or one photo retain their existing placeholder/single-photo behavior without misleading carousel controls.
+- [ ] Touch interaction must preserve normal vertical Browse scrolling, avoid accidental card opening, and work with keyboard/accessibility controls; controls need accessible names and visible focus.
+- [ ] Keep photo loading efficient for low-data users: use existing thumbnail handling where appropriate, lazy-load non-active photos, and avoid eagerly downloading every full-resolution image.
+- [ ] Verify on narrow mobile widths and desktop, including 2 photos, many photos, first/last boundaries, missing/broken photo fallback, and touch scrolling.
+- [ ] Add automated coverage for index changes, boundaries, one-photo/empty cases, and interactions not leaking into card navigation; run relevant CI checks.
+- [ ] Do not mark complete until implementation is reviewed and the Browse experience is verified in a real browser/device. No production behavior has changed as part of this checklist entry.
+
+**Implementation note:** Reuse existing gallery behavior where practical, but design the swipe/drag target around the Browse photo container itself. The photo-surface requirement is the defining acceptance criterion.
