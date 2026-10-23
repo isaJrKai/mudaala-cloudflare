@@ -390,3 +390,69 @@ These are recorded requirements discovered in founder/customer conversations. Fo
 - [ ] Continue open recovery/security work: diagnose the Wrangler `RateLimitShard` export warning; produce an off-site logical backup and restore only into disposable local PostgreSQL; inspect bounded production telemetry; verify the scheduled sweep only through its normal schedule; assess the development-only `braces` advisory without unsafe forced upgrades.
 - [ ] Founder/device-only gates remain separate: real phone QR scan, mobile visual clearance, live call/WhatsApp taps and preview, founder-session My Business/admin UI, and the approved owner-facing cleanup of `Annet cakes 🎂` (preserve both photo URLs). Do not mark these complete from automated CI.
 - [x] **Batch 1 release/security verification slice completed (2026-10-21):** PRs #175, #176 and #178 are validated, merged and deployed; production release smoke, API/privacy/photo, My Business insights, shop/product search/recommendation privacy, default category priority and mobile feedback-button usability checks passed. See the evidence at the top of this file and issue #163. **Batch 2 has started** with the collections/sharing schedule-visibility audit. Real collection content remains absent by design (no sellers have created collections yet), so no populated collection page is claimed live-verified. Later operational/manual gates remain tracked separately: backup/restore, normal scheduled sweep telemetry, physical-phone checks, feedback notification-delivery confirmation, legacy thumbnails, upstream development-toolchain advisory, deferred phone verification, and the Wrangler warning. No paid services, destructive production writes, or download-button changes.
+
+
+## Shop identity code numbering system — planned, not implemented
+
+**Founder-approved planning task (2026-10-23):** Design a human-memorable, permanent Mudaala shop code system inspired by physical Kampala shop labels such as WD16 and SH35. This section is a specification/backlog entry only; it does not claim that the generator, routes, or production behavior have changed.
+
+### Product rules
+
+- Keep the existing `BusinessProfile.shopCode` field and unique constraint as the current data foundation; inspect the actual assignment/generation path before implementation.
+- Preserve every already-issued shop code exactly as-is. Never rename a code because a shop changes its name, pauses trading, or closes; never recycle a retired code.
+- Keep the `MD` identity prefix and a short first tier of four digits (for example, legacy-style `MD-4821`). Decide display punctuation separately from the canonical stored/lookup value, and make lookup normalization tolerant of harmless case, spaces, and hyphens without creating ambiguous matches.
+- Allocate deterministically and safely under concurrent shop creation. The database uniqueness constraint remains authoritative; code assignment must have a transaction/locking or collision-retry strategy and must fail safely rather than assign a duplicate.
+- Keep codes pronounceable and easy to read on signs, QR posters, in speech, and on low-end phones. Evaluate whether ambiguous letters such as I/O should be excluded from suffixes; recalculate capacity using the chosen alphabet rather than relying on theoretical A–Z counts.
+- Codes must not encode phone numbers, personal information, shop category, or location. A code is an identifier, not proof that a shop is verified.
+- Do not promise a public URL shape such as `/s/{code}` until the route is inspected and tested. QR destinations must use a confirmed, stable route on the canonical domain `https://mudaala.store`, while existing links remain valid.
+
+### Capacity and proposed expansion
+
+- Four digits provide 10,000 combinations (0000–9999) before accounting for reserved values and existing assignments.
+- Four digits plus one A–Z suffix provide at most 260,000 combinations; four digits plus two A–Z suffixes provide at most 6,760,000 combinations. These are theoretical ceilings, not usable-capacity guarantees; excluding confusing letters reduces them.
+- Proposed rollout for evaluation: retain all legacy codes; issue the simple four-digit tier while safe capacity remains; then extend to a fixed suffix tier and later longer suffixes as required. Prefer a deterministic allocator over random assignment so collisions and capacity exhaustion are observable. Validate whether the legacy hyphen is presentation-only before defining the canonical format.
+- Plan for at least one million shops without changing existing codes. With all 26 letters, two suffix letters provide 6.76 million combinations for the four-digit-plus-two-letter tier; with a reduced alphabet, prove that the chosen scheme still exceeds the target.
+
+### Initial repository audit (2026-10-23)
+
+- `src/lib/shop.ts` currently generates random `MD-0000`–`MD-9999` candidates and retries a read-before-write availability check up to 200 times. That is a 10,000-code ceiling and is not concurrency-safe by itself; the unique DB constraint can still reject simultaneous assignments.
+- `src/app/api/profile/route.ts` assigns a candidate in the profile upsert's create branch. Existing profile updates intentionally leave `shopCode` unchanged, which is the correct immutability behavior.
+- The public `/s/[code]` route already exists. It uses `normalizeShopCode` and the exact stored-code lookup; the current normalizer accepts `MD`, `MU`, and `DK` prefixes only when followed by exactly four digits.
+- `scripts/backfill-shop-codes.ts` rewrites stored `DK-XXXX` values to `MD-XXXX` while preserving digits. That is existing legacy behavior, but it conflicts with the new founder requirement that all previously issued codes remain unchanged. The implementation must replace this assumption with backward-compatible lookup/redirect handling; do not run the backfill against production or rename stored codes.
+- The current 4-digit normalizer, API validation/error copy, allocator, backfill script, tests, QR/share URLs, and documentation must be reviewed together. Keep this audit as a starting point, not as proof of completed implementation.
+
+### Implementation and release gates
+
+- [ ] Trace every shop-code creation/assignment path, including onboarding, shop/profile creation, seed fixtures, scripts, API routes, and tests; document current behavior and any existing-code distribution.
+- [ ] Finalize the canonical format, readable alphabet, normalization rules, reserved-code policy, and capacity calculations.
+- [ ] Implement an allocator that is deterministic, concurrency-safe, idempotent where appropriate, and compatible with existing codes; preserve the database uniqueness constraint and avoid production-wide rewrites.
+- [ ] Add tests for first-tier allocation, suffix expansion, exhaustion boundaries, reserved values, case/hyphen/space normalization, duplicate/collision handling, concurrent creation, retry limits, legacy-code preservation, and never-recycling retired codes.
+- [ ] Verify shop search/lookup and QR destinations end to end on `https://mudaala.store`; test that previously printed QR codes and old Worker-domain links still work.
+- [ ] Review schema/migration impact and rollback path before any production migration or data change. Do not assign test codes to real shops or change live shop codes during validation.
+- [ ] Update this checklist only with evidence-backed status after CI, deployment (if needed), and live verification. Until then, this remains **planned / not implemented**.
+
+**Acceptance target:** A shopkeeper can read, say, remember, and enter the code reliably; codes stay unique and permanent; the allocator can scale to at least 1,000,000 shops without a format-breaking migration; all existing codes and QR links continue to work.
+
+
+## Browse cards: swipe photos directly on the photo surface — planned, not implemented
+
+**Founder request (2026-10-23):** When a listing has multiple photos, buyers must be able to swipe left/right **inside the photo itself on the Browse card** to see the next/previous image. Swiping must not require touching the title, price, shop name, card body, or a control below the image.
+
+### Initial repository audit
+
+- `src/components/commerce/listing-card.tsx` currently renders only `listing.photos[0]` in its `ListingPhoto` component, so Browse cards do not currently expose the other photos there.
+- `src/components/commerce/public-photo-gallery.tsx` already has a horizontally scrollable photo gallery for public shop/ad pages, but this does not satisfy the Browse-card-specific request by itself.
+
+### Acceptance criteria
+
+- [ ] For listings with 2+ photos, horizontal touch swipes that start and remain on the Browse card's photo surface change the displayed photo in place; the rest of the card remains stable.
+- [ ] Keep the interaction confined to the image surface. Do not require or bind swipes to the title, shop name, price, card body, or controls below the photo.
+- [ ] Show a subtle, legible on-photo position indicator (for example, `1 / 4`) and, where useful on desktop, previous/next controls overlaid on the photo itself.
+- [ ] Listings with zero or one photo retain their existing placeholder/single-photo behavior without misleading carousel controls.
+- [ ] Touch interaction must preserve normal vertical Browse scrolling, avoid accidental card opening, and work with keyboard/accessibility controls; controls need accessible names and visible focus.
+- [ ] Keep photo loading efficient for low-data users: use existing thumbnail handling where appropriate, lazy-load non-active photos, and avoid eagerly downloading every full-resolution image.
+- [ ] Verify on narrow mobile widths and desktop, including 2 photos, many photos, first/last boundaries, missing/broken photo fallback, and touch scrolling.
+- [ ] Add automated coverage for index changes, boundaries, one-photo/empty cases, and interactions not leaking into card navigation; run relevant CI checks.
+- [ ] Do not mark complete until implementation is reviewed and the Browse experience is verified in a real browser/device. No production behavior has changed as part of this checklist entry.
+
+**Implementation note:** Reuse existing gallery behavior where practical, but design the swipe/drag target around the Browse photo container itself. The photo-surface requirement is the defining acceptance criterion.
