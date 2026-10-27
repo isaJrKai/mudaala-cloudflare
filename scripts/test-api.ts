@@ -783,7 +783,7 @@ async function main() {
     const showroomBanned = await call('POST', `/api/shops/${alice.user?.id}/showroom`, {
       title: 'Stolen phone sample',
       description: 'A product description that should fail the existing policy check.',
-      category: 'electronics',
+      category: validListing.category,
       price: null,
       availability: 'AVAILABLE_ON_ORDER',
       photoUrl: null,
