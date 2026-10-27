@@ -135,7 +135,7 @@ export function GuidedTour() {
   const waitingForSave = Boolean(step.requiresSave && !saved)
 
   return (
-    <div className="fixed inset-0 z-[99]" aria-label="Shop setup guide">
+    <div className="pointer-events-none fixed inset-0 z-[99]" aria-label="Shop setup guide">
       {rect ? (
         <div
           aria-hidden="true"
@@ -154,7 +154,7 @@ export function GuidedTour() {
         role="dialog"
         aria-modal="false"
         aria-labelledby="mudaala-tour-title"
-        className="fixed inset-x-3 bottom-4 mx-auto max-w-lg rounded-xl border bg-card p-4 shadow-xl sm:bottom-6 sm:p-5"
+        className="pointer-events-auto fixed inset-x-3 bottom-4 mx-auto max-w-lg rounded-xl border bg-card p-4 shadow-xl sm:bottom-6 sm:p-5"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
