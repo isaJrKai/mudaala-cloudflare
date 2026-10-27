@@ -872,6 +872,9 @@ async function verifyProductCollections(browser) {
     const viewport = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }));
     if (viewport.scrollWidth > viewport.width + 1) throw new Error('Collections UI overflows the 390px mobile viewport: ' + JSON.stringify(viewport));
 
+    // Reuse this disposable seller rather than registering another account, which would trip the abuse limiter.
+    await verifyGuidedOnboarding(page);
+
     console.log(JSON.stringify({
       productCollections: 'pass (create, add own active offer, public shop visibility)',
       mobile: 'pass (390px viewport, no horizontal overflow)',
@@ -956,8 +959,6 @@ async function verifyGuidedOnboarding(page) {
     await verifyMobileCart(browser);
     await verifyBusinessInsights(browser);
     await verifyProductCollections(browser);
-    // Reuse the disposable collection-test account to stay within registration abuse limits.
-    await verifyGuidedOnboarding(page);
   } finally {
     await browser.close();
   }
