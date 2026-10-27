@@ -884,107 +884,66 @@ async function verifyProductCollections(browser) {
   }
 }
 
-async function verifyGuidedOnboarding(browser) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
-  const page = await context.newPage();
-  const phone = uniquePhone();
-  const password = 'password321';
-  let accountCreated = false;
-
-  try {
-    const registration = await context.request.post(base + '/api/auth/register', {
-      data: {
-        phone,
-        name: 'Guided Onboarding Browser Tester',
-        password,
-        country: 'UG',
-        acceptTerms: true,
-      },
-      headers: { origin: base, referer: base + '/' },
-      timeout,
-    });
-    if (registration.status() !== 201) {
-      throw new Error('Could not create disposable guided-tour account: HTTP ' + registration.status() + ' ' + (await registration.text()).slice(0, 200));
-    }
-    accountCreated = true;
-    await syncSessionCookie(context, registration);
-
-    const profileResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/profile', { timeout });
-    await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.getByRole('button', { name: /Guided Onboarding Browser Tester/ }).waitFor({ state: 'visible', timeout });
-    const profileResponse = await profileResponsePromise;
-    if (!profileResponse.ok()) throw new Error('Guided-tour profile load failed: HTTP ' + profileResponse.status());
-
-    const setupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
-    if (await setupDialog.isVisible().catch(() => false)) {
-      await setupDialog.getByRole('button', { name: 'Later', exact: true }).click();
-      await setupDialog.waitFor({ state: 'hidden', timeout });
-    }
-
-    await page.goto(base + '/#/account', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.getByRole('button', { name: 'Show me how', exact: true }).click();
-
-    await page.locator('[data-tour="shop-name"]').waitFor({ state: 'visible', timeout });
-    await page.locator('#bp-name').fill('Guided Tour Shop ' + Date.now());
-    await page.getByRole('button', { name: 'Next', exact: true }).click();
-
-    await page.locator('[data-tour="shop-trade"]').waitFor({ state: 'visible', timeout });
-    await page.locator('#bp-category').click();
-    await page.getByRole('option').nth(1).click(); // Skip the "Not specified" option and choose a real trade.
-    await page.getByRole('button', { name: 'Next', exact: true }).click();
-
-    await page.locator('#bp-area').fill('Kampala');
-    await page.getByRole('button', { name: 'Next', exact: true }).click();
-    await page.locator('[data-tour="shop-photo"]').waitFor({ state: 'visible', timeout });
-    await page.getByRole('button', { name: 'Next', exact: true }).click();
-
-    await page.locator('#bp-desc').fill('A real shop profile created by the disposable guided onboarding browser test.');
-    await page.getByRole('button', { name: 'Next', exact: true }).click();
-    await page.locator('[data-tour="shop-save"]').waitFor({ state: 'visible', timeout });
-    const saveResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/profile' && response.request().method() === 'PUT', { timeout });
-    await page.getByRole('button', { name: 'Save shop', exact: true }).click();
-    const saveResponse = await saveResponsePromise;
-    if (!saveResponse.ok()) throw new Error('Guided shop save failed: HTTP ' + saveResponse.status() + ' ' + (await saveResponse.text()).slice(0, 250));
-    await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await page.getByRole('button', { name: 'Add my first product', exact: true }).click();
-
-    await page.locator('#p-title').waitFor({ state: 'visible', timeout });
-    const listingTitle = 'Guided tour product ' + Date.now();
-    await page.locator('#p-title').fill(listingTitle);
-    await page.getByRole('button', { name: 'Next', exact: true }).click();
-    await page.locator('#p-category').click();
-    await page.getByRole('option').first().click();
-    await page.getByRole('button', { name: 'Next', exact: true }).click();
-    await page.locator('#p-desc').fill('A real test listing used only in the disposable CI database to verify guided product publishing and public preview.');
-    await page.getByRole('button', { name: 'Next', exact: true }).click();
-    await page.locator('[data-tour="product-photos"]').waitFor({ state: 'visible', timeout });
-    await page.getByRole('button', { name: 'Next', exact: true }).click();
-
-    await page.locator('[data-tour="product-publish"]').waitFor({ state: 'visible', timeout });
-    const publishResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/listings' && response.request().method() === 'POST', { timeout });
-    await page.locator('[data-tour="product-publish"]').click();
-    const publishResponse = await publishResponsePromise;
-    if (publishResponse.status() !== 201) throw new Error('Guided product publish failed: HTTP ' + publishResponse.status() + ' ' + (await publishResponse.text()).slice(0, 250));
-
-    await page.locator('[data-tour="public-preview"]').waitFor({ state: 'visible', timeout });
-    await page.getByRole('button', { name: 'Finish guide', exact: true }).click();
-    if (await page.getByRole('dialog', { name: /This is your public product page/i }).isVisible().catch(() => false)) {
-      throw new Error('Guided onboarding did not close after finishing the public preview');
-    }
-
-    const viewport = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }));
-    if (viewport.scrollWidth > viewport.width + 1) throw new Error('Guided onboarding overflows the 390px mobile viewport: ' + JSON.stringify(viewport));
-    console.log(JSON.stringify({ guidedOnboarding: 'pass (shop save → product publish → public preview)', mobile: 'pass (390px, no horizontal overflow)' }, null, 2));
-  } finally {
-    if (accountCreated) {
-      await context.request.delete(base + '/api/account', {
-        data: { password },
-        headers: { origin: base, referer: base + '/' },
-        timeout,
-      }).catch(() => undefined);
-    }
-    await context.close();
+async function verifyGuidedOnboarding(page) {
+  await page.goto(base + '/#/account', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  const setupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
+  if (await setupDialog.isVisible().catch(() => false)) {
+    await setupDialog.getByRole('button', { name: 'Later', exact: true }).click();
+    await setupDialog.waitFor({ state: 'hidden', timeout });
   }
+  await page.getByRole('button', { name: 'Show me how', exact: true }).waitFor({ state: 'visible', timeout });
+  await page.getByRole('button', { name: 'Show me how', exact: true }).click();
+
+  await page.locator('[data-tour="shop-name"]').waitFor({ state: 'visible', timeout });
+  await page.locator('#bp-name').fill('Guided Tour Shop ' + Date.now());
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+
+  await page.locator('[data-tour="shop-trade"]').waitFor({ state: 'visible', timeout });
+  await page.locator('#bp-category').click();
+  await page.getByRole('option').nth(1).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+
+  await page.locator('#bp-area').fill('Kampala');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.locator('[data-tour="shop-photo"]').waitFor({ state: 'visible', timeout });
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+
+  await page.locator('#bp-desc').fill('A real shop profile created by the disposable guided onboarding browser test.');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.locator('[data-tour="shop-save"]').waitFor({ state: 'visible', timeout });
+  const saveResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/profile' && response.request().method() === 'PUT', { timeout });
+  await page.getByRole('button', { name: 'Save shop', exact: true }).click();
+  const saveResponse = await saveResponsePromise;
+  if (!saveResponse.ok()) throw new Error('Guided shop save failed: HTTP ' + saveResponse.status() + ' ' + (await saveResponse.text()).slice(0, 250));
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await page.getByRole('button', { name: 'Add my first product', exact: true }).click();
+
+  await page.locator('#p-title').waitFor({ state: 'visible', timeout });
+  const listingTitle = 'Guided tour product ' + Date.now();
+  await page.locator('#p-title').fill(listingTitle);
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.locator('#p-category').click();
+  await page.getByRole('option').first().click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.locator('#p-desc').fill('A real test listing used only in the disposable CI database to verify guided product publishing and public preview.');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.locator('[data-tour="product-photos"]').waitFor({ state: 'visible', timeout });
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+
+  await page.locator('[data-tour="product-publish"]').waitFor({ state: 'visible', timeout });
+  const publishResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/listings' && response.request().method() === 'POST', { timeout });
+  await page.locator('[data-tour="product-publish"]').click();
+  const publishResponse = await publishResponsePromise;
+  if (publishResponse.status() !== 201) throw new Error('Guided product publish failed: HTTP ' + publishResponse.status() + ' ' + (await publishResponse.text()).slice(0, 250));
+
+  await page.locator('[data-tour="public-preview"]').waitFor({ state: 'visible', timeout });
+  await page.getByRole('button', { name: 'Finish guide', exact: true }).click();
+  if (await page.getByRole('dialog', { name: /This is your public product page/i }).isVisible().catch(() => false)) {
+    throw new Error('Guided onboarding did not close after finishing the public preview');
+  }
+  const viewport = await page.evaluate(() => ({ width: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }));
+  if (viewport.scrollWidth > viewport.width + 1) throw new Error('Guided onboarding overflows the 390px mobile viewport: ' + JSON.stringify(viewport));
+  console.log(JSON.stringify({ guidedOnboarding: 'pass (shop save → product publish → public preview)', mobile: 'pass (390px, no horizontal overflow)' }, null, 2));
 }
 
 (async () => {
@@ -997,7 +956,8 @@ async function verifyGuidedOnboarding(browser) {
     await verifyMobileCart(browser);
     await verifyBusinessInsights(browser);
     await verifyProductCollections(browser);
-    await verifyGuidedOnboarding(browser);
+    // Reuse the disposable collection-test account to stay within registration abuse limits.
+    await verifyGuidedOnboarding(page);
   } finally {
     await browser.close();
   }
