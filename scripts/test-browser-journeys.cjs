@@ -968,7 +968,7 @@ async function verifyGuidedOnboarding(browser) {
 
     await page.locator('[data-tour="public-preview"]').waitFor({ state: 'visible', timeout });
     await page.getByRole('button', { name: 'Finish guide', exact: true }).click();
-    if (await page.getByRole('dialog', { name: /Preview the live product/i }).isVisible().catch(() => false)) {
+    if (await page.getByRole('dialog', { name: /This is your public product page/i }).isVisible().catch(() => false)) {
       throw new Error('Guided onboarding did not close after finishing the public preview');
     }
 
