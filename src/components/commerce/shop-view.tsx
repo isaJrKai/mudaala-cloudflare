@@ -23,6 +23,7 @@ import { useAddToBasket } from './basket-view'
 import { MudaalaCurve } from './mudaala-curve'
 import { ListingBlock } from './listing-card'
 import { PublicShopCollections } from './public-shop-collections'
+import { ShopShowroom } from './shop-showroom'
 import { ListingGridSkeleton } from './skeletons'
 import { ErrorState } from './listings-browse'
 import { EmptyState } from './empty-state'
@@ -81,7 +82,7 @@ export function ShopView({ id }: { id: string }) {
     )
   }
 
-  const { shop, listings } = data
+  const { shop, listings, showroomItems } = data
   const trackShopEngagement = (event: 'CALL_CLICK' | 'WHATSAPP_CLICK' | 'SHARE_CLICK') => {
     void apiFetch(`/api/shops/${encodeURIComponent(shop.id)}/engagement`, {
       method: 'POST',
@@ -428,6 +429,8 @@ export function ShopView({ id }: { id: string }) {
       ) : null}
 
       <PublicShopCollections shopId={shop.id} onOpenListing={(listingId) => navigate({ name: 'listing', id: listingId })} />
+
+      <ShopShowroom shopId={shop.id} items={showroomItems ?? []} isOwner={isOwner} contactPhone={whatsappNumber} />
 
       {/* The catalogue - every active listing this shop runs */}
       <section aria-label="Shop catalogue" className="space-y-3">

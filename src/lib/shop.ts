@@ -35,7 +35,20 @@ export function shopChecklistComplete(checklist: ShopChecklist): boolean {
   return Object.values(checklist).every(Boolean)
 }
 
+export interface ShopShowroomItem {
+  id: string
+  title: string
+  description: string
+  category: string
+  price: number | null
+  currency: string
+  availability: string
+  photoUrl: string | null
+  createdAt: string
+}
+
 interface ShopPageData {
+  showroomItems: ShopShowroomItem[]
   shop: {
     id: string
     name: string
@@ -167,11 +180,32 @@ export async function getShopPage(userId: string): Promise<ShopPageData | null> 
     take: 200,
   })
 
+  const showroomItems = await db.showroomItem.findMany({
+    where: { userId },
+    orderBy: [{ createdAt: 'desc' }],
+    take: 100,
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      category: true,
+      price: true,
+      currency: true,
+      availability: true,
+      photoUrl: true,
+      createdAt: true,
+    },
+  })
+
   const profile = user.profile
   const checklist = shopChecklistFor(profile)
   const country = user.country ?? 'UG'
 
   return {
+    showroomItems: showroomItems.map((item) => ({
+      ...item,
+      createdAt: item.createdAt.toISOString(),
+    })),
     shop: {
       id: user.id,
       // The admin mark is derived only from the server-side ADMIN_USER_IDS allowlist.

@@ -1,5 +1,5 @@
-// Removes orphaned files from public/uploads (files no listing or shop photo
-// references). Seed files under public/uploads/seed/ are never touched.
+// Removes orphaned files from public/uploads (files with no listing, shop, or
+// showroom photo references). Seed files under public/uploads/seed/ are never touched.
 import { PrismaClient } from '@prisma/client'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
@@ -9,6 +9,7 @@ const db = new PrismaClient()
 async function main() {
   const listings = await db.listing.findMany({ select: { photos: true } })
   const shops = await db.businessProfile.findMany({ select: { photoUrl: true } })
+  const showroomItems = await db.showroomItem.findMany({ select: { photoUrl: true } })
   const referenced = new Set<string>()
   for (const l of listings) {
     // l.photos is a JSON-encoded array of /uploads/... URLs (schema String),
@@ -23,6 +24,7 @@ async function main() {
     for (const p of photos) if (typeof p === 'string') referenced.add(p.replace('/uploads/', ''))
   }
   for (const s of shops) if (s.photoUrl) referenced.add(s.photoUrl.replace('/uploads/', ''))
+  for (const item of showroomItems) if (item.photoUrl) referenced.add(item.photoUrl.replace('/uploads/', ''))
 
   const dir = 'public/uploads'
   let removed = 0

@@ -51,10 +51,32 @@ model User {
   categoryInterests CategoryInterest[]
   businessProducts BusinessProduct[]
   productCollections ProductCollection[]
+  showroomItems    ShowroomItem[]
   sales           Sale[]
   stockMovements  StockMovement[]
   listingDailyAnalytics ListingDailyAnalytics[]
   shopDailyAnalytics ShopDailyAnalytics[]
+}
+
+// Products a shop can showcase beyond its current stock. These records are
+// intentionally separate from Listing so they never enter public Browse/search,
+// saved-search alerts, or active-offer counts. Availability is explicit.
+model ShowroomItem {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  category    String
+  price       Float?
+  currency    String   @default("UGX")
+  availability String  @default("AVAILABLE_ON_ORDER") // IN_STOCK | AVAILABLE_ON_ORDER | SAMPLE_ONLY
+  photoUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([userId, availability])
 }
 
 model Session {

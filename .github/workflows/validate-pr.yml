@@ -48,13 +48,6 @@ jobs:
       - name: Run ESLint across the repository
         run: npm run lint
 
-      - name: Audit production dependency vulnerabilities (blocking)
-        run: npm audit --omit=dev --audit-level=high
-
-      - name: Report all dependency advisories, including development tools (tracked in issue #132)
-        run: npm audit --include=dev --audit-level=high
-        continue-on-error: true
-
       - name: Audit unused files, exports, and dependencies (Knip)
         run: npx --yes knip@5 --reporter compact
         continue-on-error: true # Audit findings are triaged before removal; don't hide build/security test results.
@@ -135,7 +128,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020190000_listing_daily_analytics/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020200000_business_records_rls/migration.sql
           # Exercise the exact additive collection migration against disposable PostgreSQL.
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."ProductCollectionItem", public."ProductCollection" CASCADE;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."ProductCollectionItem", public."ProductCollection", public."ShowroomItem" CASCADE;'
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261021113000_product_collections/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261021150000_collection_scheduling/migration.sql
           collection_rls_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('ProductCollection','ProductCollectionItem') AND c.relrowsecurity")
@@ -146,12 +139,21 @@ jobs:
             exit 1
           fi
           echo "Product collection PostgreSQL migration passed: both tables have RLS, deny/runtime policies and least-privilege DML grants."
-          policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(DISTINCT tablename) FROM pg_policies WHERE schemaname='public' AND tablename IN ('AppSetting','AuditLog','BusinessProfile','BusinessProduct','CategoryInterest','Listing','ListingDailyAnalytics','Notification','PasswordReset','PriceSnapshot','Report','Sale','SaleItem','SavedSearch','Session','ShopDailyAnalytics','ShopFollow','StockMovement','User') AND 'anon'=ANY(roles) AND 'authenticated'=ANY(roles) AND qual='false' AND with_check='false'")
-          if [ "$policy_count" != "19" ]; then
-            echo "Expected deny-all Data API policies on all 19 application tables, found $policy_count tables"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261027080000_shop_showroom_items/migration.sql
+          showroom_rls=$(psql "$DATABASE_URL" -Atc "SELECT c.relrowsecurity::int FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='ShowroomItem'")
+          showroom_policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='ShowroomItem' AND policyname IN ('deny_direct_api_clients','mudaala_runtime_access')")
+          showroom_grants=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name='ShowroomItem' AND grantee='mudaala_runtime' AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          if [ "$showroom_rls" != "1" ] || [ "$showroom_policy_count" != "2" ] || [ "$showroom_grants" != "4" ]; then
+            echo "Showroom migration security checks failed: RLS=$showroom_rls policies=$showroom_policy_count runtime_grants=$showroom_grants"
             exit 1
           fi
-          grant_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('AppSetting','AuditLog','BusinessProfile','BusinessProduct','CategoryInterest','Listing','ListingDailyAnalytics','Notification','PasswordReset','PriceSnapshot','Report','Sale','SaleItem','SavedSearch','Session','ShopDailyAnalytics','ShopFollow','StockMovement','User') AND grantee IN ('anon','authenticated') AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          echo "Showroom PostgreSQL migration passed: RLS, deny/runtime policies and least-privilege grants verified."
+          policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(DISTINCT tablename) FROM pg_policies WHERE schemaname='public' AND tablename IN ('AppSetting','AuditLog','BusinessProfile','BusinessProduct','CategoryInterest','Listing','ListingDailyAnalytics','Notification','PasswordReset','PriceSnapshot','Report','Sale','SaleItem','SavedSearch','Session','ShopDailyAnalytics','ShopFollow','ShowroomItem','StockMovement','User') AND 'anon'=ANY(roles) AND 'authenticated'=ANY(roles) AND qual='false' AND with_check='false'")
+          if [ "$policy_count" != "20" ]; then
+            echo "Expected deny-all Data API policies on all 20 application tables, found $policy_count tables"
+            exit 1
+          fi
+          grant_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('AppSetting','AuditLog','BusinessProfile','BusinessProduct','CategoryInterest','Listing','ListingDailyAnalytics','Notification','PasswordReset','PriceSnapshot','Report','Sale','SaleItem','SavedSearch','Session','ShopDailyAnalytics','ShopFollow','ShowroomItem','StockMovement','User') AND grantee IN ('anon','authenticated') AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
           if [ "$grant_count" != "0" ]; then
             echo "Expected no direct Data API table grants, found $grant_count"
             exit 1
@@ -195,6 +197,35 @@ jobs:
           if not indexes:
               raise SystemExit("Expected collection-item indexes to be created")
           print("SQLite collection migrations passed: schema, schedule columns, indexes, foreign keys, title and duplicate-item constraints.")
+          PY
+
+      - name: Validate SQLite showroom migration and constraints
+        run: |
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+
+          connection = sqlite3.connect(":memory:")
+          connection.execute("PRAGMA foreign_keys = ON")
+          connection.execute('CREATE TABLE "User" ("id" TEXT NOT NULL PRIMARY KEY)')
+          migration = Path("prisma/migrations-sqlite/20261027080000_shop_showroom_items/migration.sql").read_text()
+          connection.executescript(migration)
+          connection.execute('INSERT INTO "User" ("id") VALUES (?)', ("owner-1",))
+          connection.execute('INSERT INTO "ShowroomItem" ("id","userId","title","description","category","availability","updatedAt") VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP)', ("show-1","owner-1","Three-seater sofa","A sofa that can be sourced in different fabrics.","home-decor","AVAILABLE_ON_ORDER"))
+          for sql, params in [
+              ('INSERT INTO "ShowroomItem" ("id","userId","title","description","category","updatedAt") VALUES (?,?,?,?,?,CURRENT_TIMESTAMP)', ("bad-title","owner-1","x","This description is long enough to pass.","home-decor")),
+              ('INSERT INTO "ShowroomItem" ("id","userId","title","description","category","availability","updatedAt") VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP)', ("bad-status","owner-1","Three-seater sofa","A sofa that can be sourced in different fabrics.","home-decor","UNKNOWN")),
+              ('INSERT INTO "ShowroomItem" ("id","userId","title","description","category","updatedAt") VALUES (?,?,?,?,?,CURRENT_TIMESTAMP)', ("bad-owner","missing","Three-seater sofa","A sofa that can be sourced in different fabrics.","home-decor")),
+          ]:
+              try:
+                  connection.execute(sql, params)
+              except sqlite3.IntegrityError:
+                  continue
+              raise SystemExit(f"Expected SQLite showroom constraint to reject: {sql}")
+          indexes = {row[1] for row in connection.execute('PRAGMA index_list("ShowroomItem")')}
+          if len(indexes) < 2:
+              raise SystemExit("Expected showroom owner/availability indexes")
+          print("SQLite showroom migration passed: owner foreign key, title/description, availability and indexes.")
           PY
 
       - name: Seed development fixtures into disposable PostgreSQL
@@ -357,3 +388,13 @@ jobs:
         run: node scripts/test-mobile-viewport.cjs
         env:
           APP_URL: http://localhost:3000
+
+      # Run security audits after functional tests so a known dependency advisory
+      # does not prevent schema, migration, API-isolation, and browser evidence.
+      # The blocking production audit still fails the job until the dependency is patched.
+      - name: Audit production dependency vulnerabilities (blocking)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Report all dependency advisories, including development tools (tracked in issue #132)
+        run: npm audit --include=dev --audit-level=high
+        continue-on-error: true
