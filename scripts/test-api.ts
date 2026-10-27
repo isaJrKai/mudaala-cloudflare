@@ -787,7 +787,7 @@ async function main() {
       price: null,
       availability: 'AVAILABLE_ON_ORDER',
       photoUrl: null,
-    }, { cookie: '', user: bob.user })
+    }, bob)
     ok('non-owner cannot create items in another shop showroom (403)', showroomWrongOwner.status === 403)
 
     const shopGhost = await call('GET', '/api/shops/does-not-exist')
