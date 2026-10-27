@@ -72,15 +72,16 @@ export function PublishForm() {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    if (user) {
-      // Pre-fill contact phone and default the currency to the account's
-      // country (Uganda → USh). Still switchable per listing.
+    if (!user) return
+    // Defer defaults until after the effect phase; preserve values already typed.
+    const timer = window.setTimeout(() => {
       setForm((f) => ({
         ...f,
         contactPhone: f.contactPhone === '' ? user.phone : f.contactPhone,
         currency: f.currency === 'UGX' ? countryDef(user.country ?? 'UG').currency : f.currency,
       }))
-    }
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [user])
 
   if (sessionLoading) {
