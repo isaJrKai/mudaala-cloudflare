@@ -154,6 +154,14 @@ export function ListingsBrowse() {
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['listings', query, nearParams],
     queryFn: () => apiGet<ListingsPage>(`/api/listings?${query}${nearParams}`),
+    // Retry transient transport/edge/server failures, not client errors such as
+    // invalid filters or an expired session. This helps cold Browse loads recover
+    // without forcing the user to refresh the whole page.
+    retry: (failureCount, err) => {
+      const status = (err as Error & { status?: number }).status
+      return failureCount < 2 && (status === undefined || status === 429 || status >= 500)
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 4000),
     placeholderData: (prev) => prev,
   })
 
@@ -426,9 +434,9 @@ export function ListingsBrowse() {
             <p className="text-sm text-muted-foreground" role="status">
               {copy.browse.resultsFound(data.total, data.pageCount > 1 ? { page: data.page, pageCount: data.pageCount } : undefined)}
             </p>
-            {/* Rows on the phone (small photo on the side), compact blocks in
-                a grid on desktop - the same card flips at sm. */}
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
+            {/* Compact two-column product grid on phones; three columns on
+                wider screens. Keep this aligned with ListingGridSkeleton. */}
+            <div data-testid="listing-results-grid" className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
               {data.items.map((listing) => (
                 <ListingBlock
                   key={listing.id}
