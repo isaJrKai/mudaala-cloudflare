@@ -930,6 +930,9 @@ async function verifyGuidedOnboarding(page) {
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.locator('#p-desc').fill('A real test listing used only in the disposable CI database to verify guided product publishing and public preview.');
   await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.locator('[data-tour="product-price"]').waitFor({ state: 'visible', timeout });
+  await page.locator('#p-price').fill('500');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.locator('[data-tour="product-photos"]').waitFor({ state: 'visible', timeout });
   await page.getByRole('button', { name: 'Next', exact: true }).click();
 
