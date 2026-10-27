@@ -48,13 +48,6 @@ jobs:
       - name: Run ESLint across the repository
         run: npm run lint
 
-      - name: Audit production dependency vulnerabilities (blocking)
-        run: npm audit --omit=dev --audit-level=high
-
-      - name: Report all dependency advisories, including development tools (tracked in issue #132)
-        run: npm audit --include=dev --audit-level=high
-        continue-on-error: true
-
       - name: Audit unused files, exports, and dependencies (Knip)
         run: npx --yes knip@5 --reporter compact
         continue-on-error: true # Audit findings are triaged before removal; don't hide build/security test results.
@@ -357,3 +350,13 @@ jobs:
         run: node scripts/test-mobile-viewport.cjs
         env:
           APP_URL: http://localhost:3000
+
+      # Run security audits after functional tests so a known dependency advisory
+      # does not prevent schema, migration, API-isolation, and browser evidence.
+      # The blocking production audit still fails the job until the dependency is patched.
+      - name: Audit production dependency vulnerabilities (blocking)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Report all dependency advisories, including development tools (tracked in issue #132)
+        run: npm audit --include=dev --audit-level=high
+        continue-on-error: true
