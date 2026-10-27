@@ -4,7 +4,7 @@
  * per-element bounds checks; the page shell and ordinary content must fit.
  */
 const base = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
-const widths = [320, 360, 375, 390, 414, 640];
+const widths = [320, 360, 375, 390, 414, 430, 640, 768, 1024, 1280];
 const routes = ['home', 'browse', 'basket', 'publish', 'my-listings', 'saved', 'notifications', 'account', 'settings', 'following', 'business'];
 const height = 844;
 const tolerance = 1;
