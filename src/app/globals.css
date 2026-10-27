@@ -396,6 +396,8 @@ button[aria-disabled="true"] {
   position: relative;
   isolation: isolate;
   min-width: 0;
+  /* Decorative orbit art is intentionally cropped; it must not widen any viewport. */
+  overflow-x: clip;
 }
 .mudaala-page::before,
 .mudaala-page::after {
