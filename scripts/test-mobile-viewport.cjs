@@ -1,21 +1,22 @@
 /**
- * Chromium regression check for mobile horizontal overflow on Browse.
+ * Chromium regression check for mobile horizontal overflow across the main app views.
  * Intentional horizontal carousels (such as category chips) are excluded from
  * per-element bounds checks; the page shell and ordinary content must fit.
  */
 const base = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 const widths = [320, 360, 375, 390, 414, 640];
+const routes = ['home', 'browse', 'basket', 'publish', 'my-listings', 'saved', 'notifications', 'account', 'settings', 'following', 'business'];
 const height = 844;
 const tolerance = 1;
 
-async function inspectBrowse(browser, width) {
+async function inspectRoute(browser, width, route) {
   const context = await browser.newContext({ viewport: { width, height }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
 
   try {
-    await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.locator('main h1, main h2').first().waitFor({ state: 'visible', timeout: 15000 });
-    await page.waitForTimeout(300);
+    await page.goto(base + '/#/' + route, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.locator('main').waitFor({ state: 'visible', timeout: 15000 });
+    await page.waitForTimeout(250);
 
     const result = await page.evaluate(() => {
       const viewportWidth = document.documentElement.clientWidth;
@@ -131,8 +132,10 @@ async function inspectBrowse(browser, width) {
   const { chromium } = await import('/tmp/mudaala-browser-test/node_modules/playwright/index.mjs');
   const browser = await chromium.launch({ headless: true });
   try {
-    for (const width of widths) await inspectBrowse(browser, width);
-    console.log('Mobile viewport overflow regression check passed for all widths.');
+    for (const route of routes) {
+      for (const width of widths) await inspectRoute(browser, width, route);
+    }
+    console.log(`Mobile viewport overflow regression check passed for ${routes.length} views across ${widths.length} widths.`);
   } finally {
     await browser.close();
   }
