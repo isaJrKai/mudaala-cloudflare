@@ -147,7 +147,7 @@ jobs:
           fi
           echo "Product collection PostgreSQL migration passed: both tables have RLS, deny/runtime policies and least-privilege DML grants."
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261027080000_shop_showroom_items/migration.sql
-          showroom_rls=$(psql "$DATABASE_URL" -Atc "SELECT relrowsecurity::int FROM pg_class WHERE oid='public.\\"ShowroomItem\\"'::regclass")
+          showroom_rls=$(psql "$DATABASE_URL" -Atc "SELECT c.relrowsecurity::int FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='ShowroomItem'")
           showroom_policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='ShowroomItem' AND policyname IN ('deny_direct_api_clients','mudaala_runtime_access')")
           showroom_grants=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name='ShowroomItem' AND grantee='mudaala_runtime' AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
           if [ "$showroom_rls" != "1" ] || [ "$showroom_policy_count" != "2" ] || [ "$showroom_grants" != "4" ]; then
