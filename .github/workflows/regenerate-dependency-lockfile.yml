@@ -1,6 +1,8 @@
 name: Regenerate dependency lockfile artifact
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches:
       - fix/production-dependency-advisories
