@@ -751,6 +751,10 @@ async function main() {
       shopBody?.shop?.checklist?.photo === true && shopBody?.shop?.complete === false)
     ok('shop contact phone present for buyers', typeof shopBody?.shop?.phone === 'string' && shopBody.shop.phone.startsWith('+'))
 
+    // Bob is a second authenticated owner used to verify cross-shop isolation.
+    const bob: Jar = { cookie: '' }
+    await register(bob, uniquePhone(), 'Bob Stranger', 'password456')
+
     // Showroom items belong to the shop page but must never become marketplace listings.
     const showroom = await call('POST', `/api/shops/${alice.user?.id}/showroom`, {
       title: 'Three-seater sofa sample',
@@ -790,8 +794,6 @@ async function main() {
     ok('unknown shop → 404', shopGhost.status === 404)
 
     // Bob lists something; it must NOT appear in Alice's catalogue.
-    const bob: Jar = { cookie: '' }
-    await register(bob, uniquePhone(), 'Bob Stranger', 'password456')
     const bobListing = await call('POST', '/api/listings', { ...validListing, title: 'Bob unrelated stock item' }, bob)
     const shopAfter = await call('GET', `/api/shops/${alice.user?.id}`)
     ok('other sellers listings never leak into a shop catalogue',
