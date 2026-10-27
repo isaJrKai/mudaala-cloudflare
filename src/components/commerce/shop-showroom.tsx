@@ -194,9 +194,10 @@ export function ShopShowroom({
               <input id="showroom-price" type="number" min="0" max="100000000" step="1" value={price} onChange={(event) => setPrice(event.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm" placeholder="Leave blank if price varies" />
             </div>
             <div className="space-y-1">
-              <label htmlFor="showroom-photo" className="text-sm font-medium">Product photo URL (optional)</label>
-              <input id="showroom-photo" type="url" value={photoUrl} onChange={(event) => setPhotoUrl(event.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm" placeholder="https://… or an uploaded /uploads/ photo URL" />
-              <p className="text-xs text-muted-foreground">Use a photo you have permission to display. Photo upload can be added through the existing upload flow in a follow-up.</p>
+              <span className="text-sm font-medium">Product photo (optional)</span>
+              <PhotoPicker value={photoUrl ? [photoUrl] : []} onChange={(photos) => setPhotoUrl(photos[0] ?? '')} single label="Showroom product photo" />
+              <label htmlFor="showroom-photo-url" className="text-xs text-muted-foreground">Or paste a photo URL</label>
+              <input id="showroom-photo-url" type="url" value={photoUrl.startsWith('/uploads/') ? '' : photoUrl} onChange={(event) => setPhotoUrl(event.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm" placeholder="https://…" />
             </div>
             <Button type="submit" disabled={saving} className="w-full sm:w-auto">{saving ? 'Adding…' : 'Add to showroom'}</Button>
           </form>
