@@ -104,7 +104,10 @@ export function FeedbackDashboard() {
     }
   }, [status])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    const initialLoad = window.setTimeout(() => { void load() }, 0)
+    return () => window.clearTimeout(initialLoad)
+  }, [load])
 
   return (
     <div className="mt-4">

@@ -166,9 +166,12 @@ function PlatformHealth() {
   }, [])
 
   useEffect(() => {
-    void load()
+    const initialLoad = window.setTimeout(() => { void load() }, 0)
     const timer = window.setInterval(() => { void load() }, 60_000)
-    return () => window.clearInterval(timer)
+    return () => {
+      window.clearTimeout(initialLoad)
+      window.clearInterval(timer)
+    }
   }, [load])
 
   const appUp = health?.app === 'up'
@@ -237,7 +240,10 @@ export function AdminAnalytics() {
     }
   }, [])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    const initialLoad = window.setTimeout(() => { void load() }, 0)
+    return () => window.clearTimeout(initialLoad)
+  }, [load])
 
   return (
     <section aria-labelledby="platform-analytics-heading" className="mt-5">

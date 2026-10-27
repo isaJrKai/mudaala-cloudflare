@@ -47,7 +47,8 @@ export function ReportsDashboard() {
   }, [])
 
   useEffect(() => {
-    void load(status)
+    const initialLoad = window.setTimeout(() => { void load(status) }, 0)
+    return () => window.clearTimeout(initialLoad)
   }, [load, status])
 
   async function act(reportId: string, action: 'HIDE' | 'RESTORE' | 'DISMISS' | 'CONFIRM_VIOLATION' | 'REVERSE_VIOLATION', policyCategory?: ReportReason) {
