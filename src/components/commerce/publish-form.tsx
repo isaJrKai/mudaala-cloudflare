@@ -272,7 +272,7 @@ export function PublishForm() {
 
       <div className="rounded-lg border bg-secondary/30 p-3.5">
         <div className={cn('grid grid-cols-1 gap-4', form.category === 'services' ? 'sm:grid-cols-1' : 'sm:grid-cols-3')}>
-          <Field label={form.category === 'services' ? (form.type === 'OFFER' ? 'Price / starting price' : 'Budget / maximum budget') : form.type === 'OFFER' ? copy.common.price : copy.common.budget} htmlFor="p-price" error={errors.price}>
+          <Field label={form.category === 'services' ? (form.type === 'OFFER' ? 'Price / starting price' : 'Budget / maximum budget') : form.type === 'OFFER' ? copy.common.price : copy.common.budget} htmlFor="p-price" tourTarget="product-price" error={errors.price}>
             <div className="flex gap-2">
               <Input
                 id="p-price"
