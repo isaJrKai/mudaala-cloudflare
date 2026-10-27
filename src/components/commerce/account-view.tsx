@@ -419,7 +419,8 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
   }, [])
 
   useEffect(() => {
-    if (data && !hydrated) {
+    if (!data || hydrated) return
+    const timer = window.setTimeout(() => {
       const p = data.profile
       setForm({
         businessName: p?.businessName ?? user.name,
@@ -444,7 +445,8 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
         setClosingTime(savedSchedule.closing)
       }
       setHydrated(true)
-    }
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [data, hydrated, user])
 
   // Live same-name guard: while the seller types a shop name that another
