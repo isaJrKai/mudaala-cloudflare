@@ -751,6 +751,41 @@ async function main() {
       shopBody?.shop?.checklist?.photo === true && shopBody?.shop?.complete === false)
     ok('shop contact phone present for buyers', typeof shopBody?.shop?.phone === 'string' && shopBody.shop.phone.startsWith('+'))
 
+    // Showroom items belong to the shop page but must never become marketplace listings.
+    const showroom = await call('POST', `/api/shops/${alice.user?.id}/showroom`, {
+      title: 'Three-seater sofa sample',
+      description: 'A sofa design the shop can source in different fabrics.',
+      category: 'home-decor',
+      price: 850000,
+      availability: 'AVAILABLE_ON_ORDER',
+      photoUrl: null,
+    }, alice)
+    ok('shop owner can add a showroom item (201)',
+      showroom.status === 201 && showroom.json?.item?.availability === 'AVAILABLE_ON_ORDER')
+    const showroomPublic = await call('GET', `/api/shops/${alice.user?.id}`)
+    ok('showroom item appears in public shop data, not ordinary listings',
+      showroomPublic.status === 200
+      && showroomPublic.json?.showroomItems?.some((item: any) => item.id === showroom.json?.item?.id)
+      && !showroomPublic.json?.listings?.some((item: any) => item.id === showroom.json?.item?.id))
+    const showroomBadStatus = await call('POST', `/api/shops/${alice.user?.id}/showroom`, {
+      title: 'Invalid availability sample',
+      description: 'This item deliberately uses an invalid availability status.',
+      category: 'home-decor',
+      price: null,
+      availability: 'MAYBE',
+      photoUrl: null,
+    }, alice)
+    ok('showroom rejects unknown availability (400)', showroomBadStatus.status === 400)
+    const showroomWrongOwner = await call('POST', `/api/shops/${alice.user?.id}/showroom`, {
+      title: 'Someone else item',
+      description: 'This should never be written to another shop showroom.',
+      category: 'home-decor',
+      price: null,
+      availability: 'AVAILABLE_ON_ORDER',
+      photoUrl: null,
+    }, { cookie: '', user: bob.user })
+    ok('non-owner cannot create items in another shop showroom (403)', showroomWrongOwner.status === 403)
+
     const shopGhost = await call('GET', '/api/shops/does-not-exist')
     ok('unknown shop → 404', shopGhost.status === 404)
 
