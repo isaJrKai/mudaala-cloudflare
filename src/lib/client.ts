@@ -244,9 +244,22 @@ interface ShopInfo {
   complete: boolean
 }
 
+export interface ShopShowroomItemT {
+  id: string
+  title: string
+  description: string
+  category: string
+  price: number | null
+  currency: string
+  availability: 'IN_STOCK' | 'AVAILABLE_ON_ORDER' | 'SAMPLE_ONLY'
+  photoUrl: string | null
+  createdAt: string
+}
+
 export interface ShopPage {
   shop: ShopInfo
   listings: Listing[]
+  showroomItems: ShopShowroomItemT[]
 }
 
 /** Result of punching a MD-XXXX code into /api/shops/lookup - card-slim on
