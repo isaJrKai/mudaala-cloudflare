@@ -186,6 +186,9 @@ export function AccountView() {
       </div>
 
       <div className="flex flex-wrap gap-2">
+        <Button variant="outline" className="gap-1.5" onClick={() => window.dispatchEvent(new CustomEvent('mudaala:start-shop-tour'))}>
+          Show me how
+        </Button>
         <Button variant="outline" className="gap-1.5" onClick={() => navigate({ name: 'shop', id: user.id })}>
           <Store className="size-4" aria-hidden /> View my shop
         </Button>
