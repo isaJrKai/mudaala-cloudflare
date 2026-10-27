@@ -566,6 +566,8 @@ svg.mango-stroke { stroke: currentColor; }
   .mudaala-page {
     min-width: 0;
     max-width: 100%;
+    /* Clip decorative orbit artwork at the page edge without shifting its design. */
+    overflow-x: clip;
   }
 
   .mudaala-page--browse,
