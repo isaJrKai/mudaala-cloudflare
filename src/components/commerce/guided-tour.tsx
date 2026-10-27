@@ -28,6 +28,7 @@ const PRODUCT_STEPS: TourStep[] = [
   { view: 'publish', target: 'product-title', title: 'Name one real product or service', body: 'Use the words customers would search for. Be specific; do not add claims or stock you cannot stand behind.' },
   { view: 'publish', target: 'product-category', title: 'Choose its category', body: 'Pick the closest category so customers can discover the item in the right part of the market.' },
   { view: 'publish', target: 'product-description', title: 'Explain what buyers should know', body: 'Describe the item honestly: condition, size, materials, what is included, or the service you provide.' },
+  { view: 'publish', target: 'product-price', title: 'Set an honest price', body: 'Enter the actual price or starting price. If the price needs discussion, use the negotiable option rather than inventing a number.' },
   { view: 'publish', target: 'product-photos', title: 'Add a real photo', body: 'Use a clear photo of the actual item, your work, or your service. You can add more photos later.' },
   { view: 'publish', target: 'product-publish', title: 'Publish your listing', body: 'Check the price, location and contact details. Publish only when the information is accurate; the guide will continue after a successful publish.', requiresPublish: true },
 ]
