@@ -20,7 +20,6 @@ const STEPS: TourStep[] = [
   { target: 'shop-save', title: 'Save your shop details', body: 'When you are ready, tap Save shop. We will move on only after Mudaala confirms the save.', requiresSave: true },
 ]
 
-const REQUEST_KEY = 'mudaala_guided_shop_setup_requested'
 const COMPLETE_KEY = 'mudaala_guided_shop_setup_completed'
 
 type Rect = { top: number; left: number; width: number; height: number }
@@ -37,7 +36,6 @@ export function GuidedTour() {
     setStepIndex(-1)
     setRect(null)
     try {
-      localStorage.removeItem(REQUEST_KEY)
       if (completed) localStorage.setItem(COMPLETE_KEY, '1')
     } catch {
       // The tour remains usable when browser storage is unavailable.
@@ -45,21 +43,7 @@ export function GuidedTour() {
   }, [])
 
   useEffect(() => {
-    if (!user || view.name !== 'account') return
-    try {
-      if (localStorage.getItem(REQUEST_KEY) === '1') setStepIndex(0)
-    } catch {
-      // Ignore unavailable browser storage.
-    }
-  }, [user, view.name])
-
-  useEffect(() => {
     const onStart = () => {
-      try {
-        localStorage.setItem(REQUEST_KEY, '1')
-      } catch {
-        // The caller can still navigate to the profile.
-      }
       navigate({ name: 'account' })
       setStepIndex(0)
       setSaved(false)
@@ -77,10 +61,7 @@ export function GuidedTour() {
   }, [navigate])
 
   useEffect(() => {
-    if (stepIndex < 0 || stepIndex >= STEPS.length || view.name !== 'account') {
-      setRect(null)
-      return
-    }
+    if (stepIndex < 0 || stepIndex >= STEPS.length || view.name !== 'account') return
     const selector = `[data-tour="${STEPS[stepIndex].target}"]`
     let cancelled = false
     let attempts = 0
