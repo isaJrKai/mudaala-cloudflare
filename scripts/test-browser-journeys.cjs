@@ -932,6 +932,11 @@ async function verifyGuidedOnboarding(page) {
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.locator('[data-tour="product-price"]').waitFor({ state: 'visible', timeout });
   await page.locator('#p-price').fill('500');
+  // Complete the actual required listing fields before exercising Publish.
+  await page.locator('#p-unit').click();
+  await page.getByRole('option').first().click();
+  await page.locator('#p-county').click();
+  await page.getByRole('option', { name: 'Kampala', exact: true }).click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.locator('[data-tour="product-photos"]').waitFor({ state: 'visible', timeout });
   await page.getByRole('button', { name: 'Next', exact: true }).click();
