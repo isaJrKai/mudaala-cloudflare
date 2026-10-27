@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
-import { CATEGORY_KEYS } from '@/lib/constants'
+import { CATEGORY_KEYS, findProhibitedItem } from '@/lib/constants'
 import { containsMarketplaceEmoji } from '@/lib/validation'
 
 type Params = { params: Promise<{ id: string }> }
@@ -29,6 +29,12 @@ export async function POST(request: Request, { params }: Params) {
     if (user.id !== id) throw new ApiError(403, 'Only this shop owner can add showroom items')
 
     const data = await parseBody(request, showroomItemSchema)
+    const banned = findProhibitedItem(data.title, data.description)
+    if (banned) {
+      throw new ApiError(400, banned.message, {
+        title: 'This showroom item cannot be published - ' + banned.label.toLowerCase(),
+      })
+    }
     const count = await db.showroomItem.count({ where: { userId: user.id } })
     if (count >= 100) throw new ApiError(409, 'This showroom has reached its 100-item limit')
 
