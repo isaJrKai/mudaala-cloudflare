@@ -6,6 +6,7 @@ import { AppSidebar } from '@/components/commerce/app-sidebar'
 import { BottomNav } from '@/components/commerce/bottom-nav'
 import { AuthDialog } from '@/components/commerce/auth-dialog'
 import { ShopSetupDialog } from '@/components/commerce/shop-setup-dialog'
+import { GuidedTour } from '@/components/commerce/guided-tour'
 import { SiteFooter } from '@/components/commerce/site-footer'
 import { RailShell } from '@/components/commerce/cart-dock'
 
@@ -32,6 +33,7 @@ export default function Home() {
       <BottomNav />
       <AuthDialog />
       <ShopSetupDialog />
+      <GuidedTour />
     </Providers>
   )
 }
