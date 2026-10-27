@@ -930,7 +930,7 @@ async function verifyGuidedOnboarding(browser) {
 
     await page.locator('[data-tour="shop-trade"]').waitFor({ state: 'visible', timeout });
     await page.locator('#bp-category').click();
-    await page.getByRole('option').first().click();
+    await page.getByRole('option').nth(1).click(); // Skip the "Not specified" option and choose a real trade.
     await page.getByRole('button', { name: 'Next', exact: true }).click();
 
     await page.locator('#bp-area').fill('Kampala');
