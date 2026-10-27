@@ -125,6 +125,7 @@ export function ShopSetupDialog() {
             className="sm:order-2"
             onClick={() => {
               dismiss()
+              window.dispatchEvent(new CustomEvent('mudaala:start-shop-tour'))
               navigate({ name: 'account' })
             }}
           >

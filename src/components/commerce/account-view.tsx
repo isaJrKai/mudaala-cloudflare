@@ -186,6 +186,9 @@ export function AccountView() {
       </div>
 
       <div className="flex flex-wrap gap-2">
+        <Button variant="outline" className="gap-1.5" onClick={() => window.dispatchEvent(new CustomEvent('mudaala:start-shop-tour'))}>
+          Show me how
+        </Button>
         <Button variant="outline" className="gap-1.5" onClick={() => navigate({ name: 'shop', id: user.id })}>
           <Store className="size-4" aria-hidden /> View my shop
         </Button>
@@ -575,6 +578,7 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
       await queryClient.invalidateQueries({ queryKey: ['shop', user.id] })
       await queryClient.invalidateQueries({ queryKey: ['featured-shop'] })
       toast({ title: 'Shop saved', description: 'Your listings now show this name and information.' })
+      window.dispatchEvent(new CustomEvent('mudaala:shop-profile-saved'))
     } catch (err) {
       const withFields = err as Error & { fields?: Record<string, string> }
       if (withFields.fields) setErrors(withFields.fields)
@@ -639,7 +643,7 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
       <ShopLocationBlock profile={data?.profile ?? null} />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border bg-secondary/30 p-3.5">
+        <div data-tour="shop-photo" className="rounded-lg border bg-secondary/30 p-3.5">
           <p className="mb-2 text-sm font-medium">Shop profile photo</p>
           <PhotoPicker value={form.photoUrl ? [form.photoUrl] : []} onChange={(photos) => set('photoUrl', photos[0] ?? '')} max={1} single />
           <p className="mt-2 text-xs text-muted-foreground">Your logo or shop sign. Shown beside your shop name and on listings.</p>
@@ -651,7 +655,7 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
         </div>
       </div>
 
-      <div className="space-y-1.5">
+      <div data-tour="shop-name" className="space-y-1.5">
         <Label htmlFor="bp-name">Shop name</Label>
         <Input id="bp-name" value={form.businessName} onChange={(e) => set('businessName', e.target.value)} maxLength={80} required />
         {errors.businessName ? <p role="alert" className="text-sm text-destructive">{errors.businessName}</p> : null}
@@ -670,7 +674,7 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
+        <div data-tour="shop-trade" className="space-y-1.5">
           <Label htmlFor="bp-category">Trade</Label>
           <Select value={form.category} onValueChange={onSelect('category')}>
             <SelectTrigger id="bp-category" aria-invalid={Boolean(errors.category)}>
@@ -712,7 +716,7 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
+        <div data-tour="shop-area" className="space-y-1.5">
           <Label htmlFor="bp-area">Area / town</Label>
           <Input id="bp-area" value={form.area} onChange={(e) => set('area', e.target.value)} maxLength={80} />
           {errors.area ? <p role="alert" className="text-sm text-destructive">{errors.area}</p> : null}
@@ -854,15 +858,17 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
       ) : null}
       <p className="-mt-2 text-xs leading-relaxed text-muted-foreground">{copy.pay.sellerNote}</p>
 
-      <div className="space-y-1.5">
+      <div data-tour="shop-description" className="space-y-1.5">
         <Label htmlFor="bp-desc">About the business</Label>
         <Textarea id="bp-desc" value={form.description} onChange={(e) => set('description', e.target.value)} rows={3} maxLength={500} />
         {errors.description ? <p role="alert" className="text-sm text-destructive">{errors.description}</p> : null}
       </div>
 
-      <Button type="submit" disabled={busy} className="press">
-        {busy ? 'Saving…' : 'Save shop'}
-      </Button>
+      <div data-tour="shop-save" className="w-fit">
+        <Button type="submit" disabled={busy} className="press">
+          {busy ? 'Saving…' : 'Save shop'}
+        </Button>
+      </div>
     </form>
   )
 }

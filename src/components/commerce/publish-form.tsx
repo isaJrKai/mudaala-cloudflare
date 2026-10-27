@@ -149,6 +149,7 @@ export function PublishForm() {
     setBusy(true)
     try {
       const { listing } = await apiPost<{ listing: Listing }>('/api/listings', parsed.data)
+      window.dispatchEvent(new CustomEvent('mudaala:listing-published', { detail: { id: listing.id } }))
       await queryClient.invalidateQueries({ queryKey: ['listings'] })
       await queryClient.invalidateQueries({ queryKey: ['my-listings'] })
       toast({ title: copy.publish.publishedToast, description: copy.publish.publishedToastSub })
@@ -206,6 +207,7 @@ export function PublishForm() {
       <Field
         label={form.category === 'other' ? 'What are you selling?' : 'What exactly?'}
         htmlFor="p-title"
+        tourTarget="product-title"
         error={errors.title}
         hint={`${form.title.length}/120`}
       >
@@ -229,7 +231,7 @@ export function PublishForm() {
         />
       </Field>
 
-      <Field label="Category" htmlFor="p-category" error={errors.category}>
+      <Field label="Category" htmlFor="p-category" tourTarget="product-category" error={errors.category}>
         <Select value={form.category} onValueChange={(v) => set('category', v)}>
           <SelectTrigger id="p-category" aria-invalid={Boolean(errors.category)}>
             <SelectValue placeholder="Choose a category" />
@@ -249,7 +251,7 @@ export function PublishForm() {
         <p className="rounded-md border border-primary/20 bg-accent/40 px-3 py-2.5 text-sm text-muted-foreground">Describe the service, the area you cover and what customers should expect. Leave the price empty if customers need to request a quote.</p>
       ) : null}
 
-      <Field label="Description" htmlFor="p-desc" error={errors.description} hint={`${form.description.length}/2000`}>
+      <Field label="Description" htmlFor="p-desc" tourTarget="product-description" error={errors.description} hint={`${form.description.length}/2000`}>
         <Textarea
           id="p-desc"
           value={form.description}
@@ -265,13 +267,13 @@ export function PublishForm() {
         />
       </Field>
 
-      <Field label={copy.publish.photos} htmlFor="p-photos" hint={copy.publish.photosHint}>
+      <Field label={copy.publish.photos} htmlFor="p-photos" tourTarget="product-photos" hint={copy.publish.photosHint}>
         <PhotoPicker value={form.photos} onChange={(photos) => set('photos', photos)} max={4} />
       </Field>
 
       <div className="rounded-lg border bg-secondary/30 p-3.5">
         <div className={cn('grid grid-cols-1 gap-4', form.category === 'services' ? 'sm:grid-cols-1' : 'sm:grid-cols-3')}>
-          <Field label={form.category === 'services' ? (form.type === 'OFFER' ? 'Price / starting price' : 'Budget / maximum budget') : form.type === 'OFFER' ? copy.common.price : copy.common.budget} htmlFor="p-price" error={errors.price}>
+          <Field label={form.category === 'services' ? (form.type === 'OFFER' ? 'Price / starting price' : 'Budget / maximum budget') : form.type === 'OFFER' ? copy.common.price : copy.common.budget} htmlFor="p-price" tourTarget="product-price" error={errors.price}>
             <div className="flex gap-2">
               <Input
                 id="p-price"
@@ -410,7 +412,7 @@ export function PublishForm() {
       ) : null}
 
       <div className="flex gap-2 pb-2">
-        <Button type="submit" disabled={busy} className="mudaala-money-cta press flex-1 sm:flex-none sm:px-8">
+        <Button type="submit" data-tour="product-publish" disabled={busy} className="mudaala-money-cta press flex-1 sm:flex-none sm:px-8">
           {busy ? copy.publish.submitting : copy.publish.submit}
         </Button>
         <Button type="button" variant="outline" onClick={() => navigate({ name: 'browse' })} disabled={busy} className="press">
@@ -426,16 +428,18 @@ function Field({
   htmlFor,
   error,
   hint,
+  tourTarget,
   children,
 }: {
   label: string
   htmlFor: string
+  tourTarget?: string
   error?: string
   hint?: string
   children: React.ReactNode
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5" data-tour={tourTarget}>
       <div className="flex items-baseline justify-between gap-2">
         <Label htmlFor={htmlFor}>{label}</Label>
         {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}

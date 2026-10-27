@@ -191,7 +191,7 @@ export function ListingDetail({ id }: { id: string }) {
         <ArrowLeft className="size-4" aria-hidden /> {copy.listing.backToBrowse}
       </Button>
 
-      <article className="overflow-hidden rounded-lg border bg-card">
+      <article data-tour="public-preview" className="overflow-hidden rounded-lg border bg-card">
         <PhotoGallery listing={listing} />
 
         <div className="p-4 sm:p-5">
