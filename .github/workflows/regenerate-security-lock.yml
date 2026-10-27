@@ -1,8 +1,8 @@
 name: Regenerate security lockfile (one-off)
 
 on:
-  push:
-    branches: [fix/production-dependency-advisories]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
