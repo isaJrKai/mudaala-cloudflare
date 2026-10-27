@@ -163,6 +163,7 @@ export const CATEGORIES: CategoryDef[] = [
   { key: 'services', label: 'Services', examples: 'hair, beauty, photography, plumbing, repairs, tutoring, professional services' },
   { key: 'home-kitchen', label: 'Home & Kitchen', examples: 'cookware, kitchenware, gas cylinders, utensils' },
   { key: 'household-essentials', label: 'Household Essentials', examples: 'washing powder, soap, detergents, cleaning supplies, tissue, everyday home supplies' },
+  { key: 'packaging-products', label: 'Packaging Products', examples: 'shopping bags, paper bags, cartons, boxes, bottles, jars, containers, labels, wrapping materials, food packaging' },
   { key: 'hardware-building', label: 'Hardware & Building', examples: 'cement, steel, timber, roofing' },
   { key: 'farm-produce', label: 'Farm Produce', examples: 'maize, beans, vegetables, eggs, milk' },
   { key: 'home-decor', label: 'Home Décor & Furniture', examples: 'curtains, rugs, cushions, vases, wall art, furniture, decorative pieces' },
