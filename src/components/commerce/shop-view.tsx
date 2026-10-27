@@ -430,7 +430,7 @@ export function ShopView({ id }: { id: string }) {
 
       <PublicShopCollections shopId={shop.id} onOpenListing={(listingId) => navigate({ name: 'listing', id: listingId })} />
 
-      <ShopShowroom shopId={shop.id} items={showroomItems} isOwner={isOwner} />
+      <ShopShowroom shopId={shop.id} items={showroomItems ?? []} isOwner={isOwner} contactPhone={whatsappNumber} />
 
       {/* The catalogue - every active listing this shop runs */}
       <section aria-label="Shop catalogue" className="space-y-3">
