@@ -78,17 +78,16 @@ async function verifySavedSearch(browser) {
     if (!profileResponse.ok()) {
       throw new Error('Browser-test profile request failed: HTTP ' + profileResponse.status());
     }
-    await page.getByRole('button', { name: /Browser Saved Search Tester/ }).waitFor({ state: 'visible', timeout });
-    await page.waitForTimeout(100); // allow React Query's response update to render
-
-    // A brand-new account can legitimately receive the first-run Shop Setup
-    // dialog. Dismiss it the same way a user can (not by bypassing the overlay)
-    // before exercising the independent saved-search journey.
+    // A fresh account can open the first-run Shop Setup modal as soon as the
+    // profile query resolves. An aria-modal dialog removes the header from the
+    // accessibility tree, so dismiss it before querying the account button.
+    await page.waitForTimeout(100); // allow the profile query and setup effect to settle
     const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
     if (await shopSetupDialog.isVisible().catch(() => false)) {
       await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
       await shopSetupDialog.waitFor({ state: 'hidden', timeout });
     }
+    await page.getByRole('button', { name: /Browser Saved Search Tester/ }).waitFor({ state: 'visible', timeout });
 
     // Give the saved search meaningful filters so Apply is verified as a
     // state-restoring action, not merely a navigation to Browse.
