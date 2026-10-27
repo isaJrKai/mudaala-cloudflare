@@ -36,10 +36,9 @@ async function inspectRoute(browser, width, route) {
         }
         return false;
       };
-      const selectors = [
-        'main', '.mudaala-page', '.mudaala-page--browse',
-        'main *'
-      ];
+      // Scan the whole rendered document, not only main: the mobile bottom nav,
+      // cart dock, install prompt and floating feedback control live outside it.
+      const selectors = ['body *'];
       const checked = new Set();
       const elements = [];
       for (const selector of selectors) {
