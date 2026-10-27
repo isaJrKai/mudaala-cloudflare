@@ -16,6 +16,15 @@ async function inspectRoute(browser, width, route) {
   try {
     await page.goto(base + '/#/' + route, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.locator('main').waitFor({ state: 'visible', timeout: 15000 });
+    if (route === 'browse') {
+      const resultsGrid = page.getByTestId('listing-results-grid');
+      await resultsGrid.waitFor({ state: 'visible', timeout: 15000 });
+      const columns = await resultsGrid.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length);
+      const expectedColumns = width < 640 ? 2 : 3;
+      if (columns !== expectedColumns) {
+        throw new Error(JSON.stringify({ route, viewport: width, expectedColumns, actualColumns: columns }));
+      }
+    }
     await page.waitForTimeout(250);
 
     const result = await page.evaluate(() => {
