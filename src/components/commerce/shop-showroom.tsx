@@ -2,8 +2,10 @@
 
 import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ImagePlus, PackageCheck, Trash2 } from 'lucide-react'
+import { ImagePlus, MessageCircle, PackageCheck, Trash2 } from 'lucide-react'
 import { apiFetch } from '@/lib/client'
+import { PhotoPicker } from './photo-picker'
+import { whatsappLink } from '@/lib/format'
 import type { ShopShowroomItemT } from '@/lib/client'
 import { CATEGORY_KEYS, categoryLabel } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
@@ -19,21 +21,19 @@ const availabilityLabel: Record<Availability, string> = {
 
 function formatShowroomPrice(price: number | null, currency: string): string {
   if (price === null) return 'Ask for price'
-  return new Intl.NumberFormat('en-UG', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(price)
+  return new Intl.NumberFormat('en', { maximumFractionDigits: 0 }).format(price) + (currency === 'UGX' ? ' UGX' : ` ${currency}`)
 }
 
 export function ShopShowroom({
   shopId,
   items,
   isOwner,
+  contactPhone,
 }: {
   shopId: string
   items: ShopShowroomItemT[]
   isOwner: boolean
+  contactPhone: string
 }) {
   const queryClient = useQueryClient()
   const { toast } = useToast()
@@ -146,6 +146,11 @@ export function ShopShowroom({
                     </Button>
                   ) : null}
                 </div>
+                <Button asChild variant="outline" size="sm" className="w-full gap-2">
+                  <a href={whatsappLink(contactPhone, item.title, 'OFFER')} target="_blank" rel="noopener noreferrer">
+                    <MessageCircle className="size-4" aria-hidden /> Ask about this item
+                  </a>
+                </Button>
               </div>
             </article>
           ))}
