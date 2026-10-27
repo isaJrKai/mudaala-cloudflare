@@ -58,13 +58,27 @@ async function verifySavedSearch(browser) {
     const profileResponsePromise = page.waitForResponse((response) => {
       return new URL(response.url()).pathname === '/api/profile';
     }, { timeout });
+    const sessionResponsePromise = page.waitForResponse((response) => {
+      return new URL(response.url()).pathname === '/api/auth/me';
+    }, { timeout });
     await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    // Wait for both the cookie-backed session and profile query before Save.
-    await page.getByRole('button', { name: /Browser Saved Search Tester/ }).waitFor({ state: 'visible', timeout });
+
+    // Verify cookie-backed auth directly before waiting on the navigation label.
+    // Otherwise a missing/expired session is hidden behind a generic UI timeout.
+    const sessionResponse = await sessionResponsePromise;
+    if (!sessionResponse.ok()) {
+      throw new Error('Browser-test session request failed: HTTP ' + sessionResponse.status());
+    }
+    const sessionPayload = await sessionResponse.json();
+    if (sessionPayload?.user?.name !== 'Browser Saved Search Tester') {
+      throw new Error('Browser-test session did not resolve to the registered account');
+    }
+
     const profileResponse = await profileResponsePromise;
     if (!profileResponse.ok()) {
       throw new Error('Browser-test profile request failed: HTTP ' + profileResponse.status());
     }
+    await page.getByRole('button', { name: /Browser Saved Search Tester/ }).waitFor({ state: 'visible', timeout });
     await page.waitForTimeout(100); // allow React Query's response update to render
 
     // A brand-new account can legitimately receive the first-run Shop Setup
