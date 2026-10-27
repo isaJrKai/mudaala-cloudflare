@@ -780,6 +780,15 @@ async function main() {
       photoUrl: null,
     }, alice)
     ok('showroom rejects unknown availability (400)', showroomBadStatus.status === 400)
+    const showroomBanned = await call('POST', `/api/shops/${alice.user?.id}/showroom`, {
+      title: 'Stolen phone sample',
+      description: 'A product description that should fail the existing policy check.',
+      category: 'electronics',
+      price: null,
+      availability: 'AVAILABLE_ON_ORDER',
+      photoUrl: null,
+    }, alice)
+    ok('showroom applies the existing prohibited-item policy (400)', showroomBanned.status === 400)
     const showroomWrongOwner = await call('POST', `/api/shops/${alice.user?.id}/showroom`, {
       title: 'Someone else item',
       description: 'This should never be written to another shop showroom.',
@@ -789,6 +798,10 @@ async function main() {
       photoUrl: null,
     }, bob)
     ok('non-owner cannot create items in another shop showroom (403)', showroomWrongOwner.status === 403)
+    const showroomWrongDelete = await call('DELETE', `/api/shops/${alice.user?.id}/showroom/${showroom.json?.item?.id}`, undefined, bob)
+    ok('non-owner cannot remove another shop showroom item (403)', showroomWrongDelete.status === 403)
+    const showroomOwnerDelete = await call('DELETE', `/api/shops/${alice.user?.id}/showroom/${showroom.json?.item?.id}`, undefined, alice)
+    ok('shop owner can remove a showroom item', showroomOwnerDelete.status === 200 && showroomOwnerDelete.json?.ok === true)
 
     const shopGhost = await call('GET', '/api/shops/does-not-exist')
     ok('unknown shop → 404', shopGhost.status === 404)
