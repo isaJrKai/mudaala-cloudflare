@@ -93,9 +93,9 @@ export function PublishForm() {
       <div className="rounded-lg border bg-card p-6 text-center">
         <h1 className="text-lg font-semibold">{copy.publish.signInTitle}</h1>
         <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">{copy.publish.signInSub}</p>
-        <div className="mt-4 flex justify-center gap-2">
-          <Button onClick={() => setAuthOpen(true)}>{copy.publish.signInCta}</Button>
-          <Button variant="outline" onClick={() => navigate({ name: 'browse' })}>
+        <div className="mt-4 flex w-full flex-col justify-center gap-2 min-[400px]:flex-row">
+          <Button className="w-full min-[400px]:w-auto" onClick={() => setAuthOpen(true)}>{copy.publish.signInCta}</Button>
+          <Button className="w-full min-[400px]:w-auto" variant="outline" onClick={() => navigate({ name: 'browse' })}>
             {copy.publish.keepBrowsing}
           </Button>
         </div>

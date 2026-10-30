@@ -253,7 +253,7 @@ export function ListingCard({ listing, onOpen, actions, showStatus, onOpenShop, 
               href={whatsappLink(whatsappNumber, listing.title, listing.type)}
               target="_blank"
               rel="noopener noreferrer"
-              className="whatsapp-brand inline-flex h-9 shrink-0 items-center gap-1 rounded-md border px-2.5 text-xs font-semibold transition-colors"
+              className="whatsapp-brand inline-flex h-9 shrink-0 items-center gap-0.5 rounded-md border px-2 text-[11px] font-semibold transition-colors"
               aria-label={copy.card.whatsappAria(shopDisplayName, listing.title)}
             >
               <WhatsAppIcon className="size-3.5" aria-hidden /> {copy.common.whatsapp}
@@ -298,11 +298,11 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
 
   return (
     <div className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card transition-[border-color,background-color,box-shadow] duration-200 hover:border-primary/55 hover:bg-primary/[0.03] hover:shadow-md">
-      <div className="flex flex-1 sm:block">
+      <div className="block min-w-0">
         {/* Photo: a bordered 96px tile beside the text on phones, the card's
             full-width top on desktop. No zoom-on-hover - the picture sells,
             it does not perform. */}
-        <div className="relative m-2.5 size-24 shrink-0 overflow-hidden rounded-lg border bg-secondary sm:mx-0 sm:mb-0 sm:mt-0 sm:size-auto sm:aspect-[4/3] sm:w-full sm:rounded-none sm:border-0 sm:border-b">
+        <div className="relative aspect-[4/3] w-full overflow-hidden border-b bg-secondary">
           <ListingPhoto listing={listing} />
           <button type="button" onClick={() => onOpen(listing.id)} className="absolute inset-0 z-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" aria-label={copy.card.openAria(listing.title)} />
           <span className="pointer-events-none absolute left-1 top-1 z-10 sm:left-1.5 sm:top-1.5">
@@ -343,10 +343,10 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
           ) : null}
         </div>
 
-        <button type="button" onClick={() => onOpen(listing.id)} className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:w-full sm:flex-none" aria-label={copy.card.openAria(listing.title)}>
+        <button type="button" onClick={() => onOpen(listing.id)} className="block w-full min-w-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" aria-label={copy.card.openAria(listing.title)}>
           {/* pr-2.5 on the row so long titles stop at the card edge; on
               desktop the padding wraps all sides evenly. */}
-          <div className="py-2.5 pr-2.5 sm:p-2.5">
+          <div className="min-w-0 p-2.5">
             {/* Exactly two lines of title keep every card in a row the same
                 height - a 1-line title leaves room, a 5-line one gets cut. */}
             <h3 className="line-clamp-2 text-sm font-bold leading-snug">{listing.title}</h3>
@@ -390,7 +390,7 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
                 href={whatsappLink(whatsappNumber, listing.title, listing.type)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="whatsapp-brand press inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border text-xs font-semibold"
+                className="whatsapp-brand press inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-0.5 rounded-md border text-[11px] font-semibold"
                 aria-label={copy.card.whatsappAria(shopDisplayName, listing.title)}
               >
                 <WhatsAppIcon className="size-3.5" aria-hidden /> {copy.common.whatsapp}

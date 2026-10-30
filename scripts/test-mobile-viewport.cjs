@@ -1,21 +1,31 @@
 /**
- * Chromium regression check for mobile horizontal overflow on Browse.
+ * Chromium regression check for mobile horizontal overflow across the main app views.
  * Intentional horizontal carousels (such as category chips) are excluded from
  * per-element bounds checks; the page shell and ordinary content must fit.
  */
 const base = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
-const widths = [320, 360, 375, 390, 414, 640];
+const widths = [320, 360, 375, 390, 414, 430, 640, 768, 1024, 1280];
+const routes = ['home', 'browse', 'basket', 'publish', 'my-listings', 'saved', 'notifications', 'account', 'settings', 'following', 'business'];
 const height = 844;
 const tolerance = 1;
 
-async function inspectBrowse(browser, width) {
+async function inspectRoute(browser, width, route) {
   const context = await browser.newContext({ viewport: { width, height }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
 
   try {
-    await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.locator('main h1, main h2').first().waitFor({ state: 'visible', timeout: 15000 });
-    await page.waitForTimeout(300);
+    await page.goto(base + '/#/' + route, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.locator('main').waitFor({ state: 'visible', timeout: 15000 });
+    if (route === 'browse') {
+      const resultsGrid = page.getByTestId('listing-results-grid');
+      await resultsGrid.waitFor({ state: 'visible', timeout: 15000 });
+      const columns = await resultsGrid.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length);
+      const expectedColumns = width < 640 ? 2 : 3;
+      if (columns !== expectedColumns) {
+        throw new Error(JSON.stringify({ route, viewport: width, expectedColumns, actualColumns: columns }));
+      }
+    }
+    await page.waitForTimeout(250);
 
     const result = await page.evaluate(() => {
       const viewportWidth = document.documentElement.clientWidth;
@@ -35,10 +45,9 @@ async function inspectBrowse(browser, width) {
         }
         return false;
       };
-      const selectors = [
-        'main', '.mudaala-page', '.mudaala-page--browse',
-        'main *'
-      ];
+      // Scan the whole rendered document, not only main: the mobile bottom nav,
+      // cart dock, install prompt and floating feedback control live outside it.
+      const selectors = ['body *'];
       const checked = new Set();
       const elements = [];
       for (const selector of selectors) {
@@ -48,6 +57,13 @@ async function inspectBrowse(browser, width) {
           const rect = element.getBoundingClientRect();
           const style = getComputedStyle(element);
           const horizontalScroller = /(auto|scroll)/.test(style.overflowX) &&
+            element.scrollWidth > element.clientWidth + 1;
+          // Natural inline content can make arbitrary wrappers report a larger
+          // scrollWidth without causing clipping or page-level horizontal scroll.
+          // Keep the intrinsic-width assertion focused on interactive controls,
+          // where a clipped or spilling label/icon is a real usability defect.
+          const interactiveControl = element.matches('button, a, input, select, textarea, [role="button"]');
+          const controlContentOverflow = interactiveControl && !horizontalScroller &&
             element.scrollWidth > element.clientWidth + 1;
           elements.push({
             selector,
@@ -60,8 +76,7 @@ async function inspectBrowse(browser, width) {
             clientWidth: element.clientWidth,
             scrollWidth: element.scrollWidth,
             overflowX: style.overflowX,
-            internalOverflow: !horizontalScroller && style.overflowX === 'visible' &&
-              element.scrollWidth > element.clientWidth + 1,
+            controlContentOverflow,
             horizontalScroller,
             position: style.position,
             inHorizontalScroller: hasHorizontalScrollAncestor(element),
@@ -87,7 +102,7 @@ async function inspectBrowse(browser, width) {
       !element.inHorizontalScroller &&
       (element.right > result.viewportWidth + tolerance ||
         element.left < -tolerance ||
-        element.internalOverflow)
+        element.controlContentOverflow)
     ).sort((a, b) => {
       const aOutside = a.right > result.viewportWidth + tolerance || a.left < -tolerance;
       const bOutside = b.right > result.viewportWidth + tolerance || b.left < -tolerance;
@@ -131,8 +146,10 @@ async function inspectBrowse(browser, width) {
   const { chromium } = await import('/tmp/mudaala-browser-test/node_modules/playwright/index.mjs');
   const browser = await chromium.launch({ headless: true });
   try {
-    for (const width of widths) await inspectBrowse(browser, width);
-    console.log('Mobile viewport overflow regression check passed for all widths.');
+    for (const route of routes) {
+      for (const width of widths) await inspectRoute(browser, width, route);
+    }
+    console.log(`Mobile viewport overflow regression check passed for ${routes.length} views across ${widths.length} widths.`);
   } finally {
     await browser.close();
   }

@@ -58,23 +58,36 @@ async function verifySavedSearch(browser) {
     const profileResponsePromise = page.waitForResponse((response) => {
       return new URL(response.url()).pathname === '/api/profile';
     }, { timeout });
+    const sessionResponsePromise = page.waitForResponse((response) => {
+      return new URL(response.url()).pathname === '/api/auth/me';
+    }, { timeout });
     await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    // Wait for both the cookie-backed session and profile query before Save.
-    await page.getByRole('button', { name: /Browser Saved Search Tester/ }).waitFor({ state: 'visible', timeout });
+
+    // Verify cookie-backed auth directly before waiting on the navigation label.
+    // Otherwise a missing/expired session is hidden behind a generic UI timeout.
+    const sessionResponse = await sessionResponsePromise;
+    if (!sessionResponse.ok()) {
+      throw new Error('Browser-test session request failed: HTTP ' + sessionResponse.status());
+    }
+    const sessionPayload = await sessionResponse.json();
+    if (sessionPayload?.user?.name !== 'Browser Saved Search Tester') {
+      throw new Error('Browser-test session did not resolve to the registered account');
+    }
+
     const profileResponse = await profileResponsePromise;
     if (!profileResponse.ok()) {
       throw new Error('Browser-test profile request failed: HTTP ' + profileResponse.status());
     }
-    await page.waitForTimeout(100); // allow React Query's response update to render
-
-    // A brand-new account can legitimately receive the first-run Shop Setup
-    // dialog. Dismiss it the same way a user can (not by bypassing the overlay)
-    // before exercising the independent saved-search journey.
+    // A fresh account can open the first-run Shop Setup modal as soon as the
+    // profile query resolves. An aria-modal dialog removes the header from the
+    // accessibility tree, so dismiss it before querying the account button.
+    await page.waitForTimeout(100); // allow the profile query and setup effect to settle
     const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
     if (await shopSetupDialog.isVisible().catch(() => false)) {
       await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
       await shopSetupDialog.waitFor({ state: 'hidden', timeout });
     }
+    await page.getByRole('button', { name: /Browser Saved Search Tester/ }).waitFor({ state: 'visible', timeout });
 
     // Give the saved search meaningful filters so Apply is verified as a
     // state-restoring action, not merely a navigation to Browse.
@@ -461,6 +474,21 @@ async function verifyListingLifecycle(browser) {
     }
     await page.waitForFunction(() => window.location.hash.startsWith('#/listing/'), null, { timeout });
     await page.getByText(editedTitle, { exact: true }).waitFor({ state: 'visible', timeout });
+
+    // Regression: the public Browse feed must use two columns on narrow phones.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const resultsGrid = page.getByTestId('listing-results-grid');
+    await resultsGrid.waitFor({ state: 'visible', timeout });
+    await page.getByText(editedTitle, { exact: true }).waitFor({ state: 'visible', timeout });
+    const mobileGrid = await resultsGrid.evaluate((element) => ({
+      columns: getComputedStyle(element).gridTemplateColumns.split(' ').length,
+      width: element.getBoundingClientRect().width,
+      viewportWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    if (mobileGrid.columns !== 2) throw new Error('Browse must show two product columns on a 390px phone: ' + JSON.stringify(mobileGrid));
+    if (mobileGrid.scrollWidth > mobileGrid.viewportWidth + 1) throw new Error('Browse grid overflows the mobile viewport: ' + JSON.stringify(mobileGrid));
 
     await page.goto(base + '/#/my-listings', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.getByRole('heading', { name: /my listings/i }).waitFor({ state: 'visible', timeout });
