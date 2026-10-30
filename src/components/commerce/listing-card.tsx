@@ -390,7 +390,7 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
                 href={whatsappLink(whatsappNumber, listing.title, listing.type)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="whatsapp-brand press inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border text-xs font-semibold"
+                className="whatsapp-brand press inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-0.5 rounded-md border text-[11px] font-semibold"
                 aria-label={copy.card.whatsappAria(shopDisplayName, listing.title)}
               >
                 <WhatsAppIcon className="size-3.5" aria-hidden /> {copy.common.whatsapp}
