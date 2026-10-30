@@ -58,6 +58,13 @@ async function inspectRoute(browser, width, route) {
           const style = getComputedStyle(element);
           const horizontalScroller = /(auto|scroll)/.test(style.overflowX) &&
             element.scrollWidth > element.clientWidth + 1;
+          // Natural inline content can make arbitrary wrappers report a larger
+          // scrollWidth without causing clipping or page-level horizontal scroll.
+          // Keep the intrinsic-width assertion focused on interactive controls,
+          // where a clipped or spilling label/icon is a real usability defect.
+          const interactiveControl = element.matches('button, a, input, select, textarea, [role="button"]');
+          const controlContentOverflow = interactiveControl && !horizontalScroller &&
+            element.scrollWidth > element.clientWidth + 1;
           elements.push({
             selector,
             tag: element.tagName.toLowerCase(),
@@ -69,8 +76,7 @@ async function inspectRoute(browser, width, route) {
             clientWidth: element.clientWidth,
             scrollWidth: element.scrollWidth,
             overflowX: style.overflowX,
-            internalOverflow: !horizontalScroller && style.overflowX === 'visible' &&
-              element.scrollWidth > element.clientWidth + 1,
+            controlContentOverflow,
             horizontalScroller,
             position: style.position,
             inHorizontalScroller: hasHorizontalScrollAncestor(element),
@@ -96,7 +102,7 @@ async function inspectRoute(browser, width, route) {
       !element.inHorizontalScroller &&
       (element.right > result.viewportWidth + tolerance ||
         element.left < -tolerance ||
-        element.internalOverflow)
+        element.controlContentOverflow)
     ).sort((a, b) => {
       const aOutside = a.right > result.viewportWidth + tolerance || a.left < -tolerance;
       const bOutside = b.right > result.viewportWidth + tolerance || b.left < -tolerance;
