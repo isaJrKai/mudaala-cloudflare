@@ -586,7 +586,7 @@ export function ShopView({ id }: { id: string }) {
               try {
                 const file = await createShopPosterFile(posterRef.current, { name: shop.name, area: shop.area, county: shop.county, phone: shop.phone, shopCode: shop.shopCode!, photoUrl: shop.photoUrl, coverPhotoUrl: shop.coverPhotoUrl ?? null })
                 if (file && navigator.share && navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: shop.name + ' on Mudaala', text: 'Discover ' + shop.name + ' on Mudaala — ' + shopUrl })
-                else window.open('https://wa.me/?text=' + encodeURIComponent(copy.shop.shareTextOwner(shop.name, shop.shopCode!, shopUrl)), '_blank', 'noopener,noreferrer')
+                else window.location.assign('https://wa.me/?text=' + encodeURIComponent(copy.shop.shareTextOwner(shop.name, shop.shopCode!, shopUrl))
               } catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) window.open('https://wa.me/?text=' + encodeURIComponent(copy.shop.shareTextOwner(shop.name, shop.shopCode!, shopUrl)), '_blank', 'noopener,noreferrer') }
               finally { setPosterSharing(false) }
             }}><WhatsAppIcon className="size-5" />{posterSharing ? 'Preparing…' : 'Share on WhatsApp'}</Button>
