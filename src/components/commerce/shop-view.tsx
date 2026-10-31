@@ -590,10 +590,7 @@ export function ShopView({ id }: { id: string }) {
           <p className="no-print mx-auto max-w-lg px-2 pt-2 text-center text-[11px] text-neutral-600">On your phone, WhatsApp appears in the share sheet. Choose Status to post it for your customers.</p>
         </div>
       ) : null}
-              <div className="relative mx-auto mt-5 w-fit bg-white p-3">
-                {shopUrl ? (
-                  <QRCode value={shopUrl} size={200} level="H" role="img" aria-label={`QR code for ${shop.name}'s shop`} />
-                ) : null}
+
                 {/* The leaf badge - the same mark the app wears, centered on
                     the code like the printed poster. level="H" (30% recovery)
                     keeps the QR fully scannable under the badge, on paper and
