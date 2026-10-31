@@ -34,12 +34,12 @@ describe('WhatsApp webhook security helpers', () => {
     const payload = {
       entry: [{
         changes: [
-          { value: { messages: [{ id: 'wamid_1' }, { id: 'wamid_1' }, { id: 'wamid_2' }, { id: 'bad id' }] } },
+          { value: { messages: [{ id: 'wamid.HBgM123.1' }, { id: 'wamid.HBgM123.1' }, { id: 'wamid.HBgM456.2' }, { id: 'bad id' }] } },
           { value: { statuses: [{ id: 'wamid_status' }] } },
         ],
       }],
     }
-    expect(extractInboundWhatsAppMessageIds(payload)).toEqual(['wamid_1', 'wamid_2'])
+    expect(extractInboundWhatsAppMessageIds(payload)).toEqual(['wamid.HBgM123.1', 'wamid.HBgM456.2'])
   })
 
   it('handles malformed webhook envelopes safely', () => {
