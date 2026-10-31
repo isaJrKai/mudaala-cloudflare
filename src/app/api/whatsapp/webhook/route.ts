@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     }
 
     const rawBody = await request.text()
-    if (rawBody.length > MAX_WEBHOOK_BYTES) {
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_WEBHOOK_BYTES) {
       throw new ApiError(413, 'Webhook payload is too large')
     }
 
