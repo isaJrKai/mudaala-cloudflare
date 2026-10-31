@@ -156,6 +156,8 @@ export function ShopView({ id }: { id: string }) {
       photoUrl: currentShop.photoUrl, coverPhotoUrl: currentShop.coverPhotoUrl ?? null,
     }).then((file) => {
       if (!cancelled) { setPosterFile(file); setPosterFileReady(true) }
+    }).catch(() => {
+      if (!cancelled) { setPosterFile(null); setPosterFileReady(true) }
     })
     return () => { cancelled = true }
   }, [posterOpen, data, shopUrl])
