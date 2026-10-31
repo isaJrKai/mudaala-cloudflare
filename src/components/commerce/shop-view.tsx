@@ -53,7 +53,7 @@ function posterXml(value: string): string {
 
 async function createShopPosterFile(
   poster: HTMLElement,
-  shop: { name: string; area: string | null; county: string | null; phone: string; shopCode: string; photoUrl: string | null; coverPhotoUrl: string | null },
+  shop: { name: string; area: string | null; county: string | null; phone: string; shopCode: string; phoneConfirmed: boolean; photoUrl: string | null; coverPhotoUrl: string | null },
 ): Promise<File | null> {
   const qr = poster.querySelector('.poster-qr svg')
   if (!qr) return null
@@ -71,6 +71,7 @@ async function createShopPosterFile(
   const name = posterXml(shop.name)
   const place = posterXml(location)
   const phone = posterXml(formatPhonePretty(shop.phone))
+  const trustLabel = shop.phoneConfirmed ? 'Trusted Shop' : 'Local Shop'
   const cover = values[0] ? '<image href="' + values[0] + '" x="28" y="150" width="1024" height="440" preserveAspectRatio="xMidYMid slice"/>' : ''
   const profile = values[1] ? '<image href="' + values[1] + '" x="70" y="645" width="200" height="200" preserveAspectRatio="xMidYMid slice"/>' : ''
   const markHeader = values[2] ? '<image href="' + values[2] + '" x="52" y="38" width="88" height="88"/>' : ''
@@ -86,10 +87,10 @@ async function createShopPosterFile(
     '<g clip-path="url(#cover)"><rect x="28" y="150" width="1024" height="440" fill="#d9d2c2"/>', cover, '<rect x="28" y="150" width="1024" height="440" fill="url(#shade)"/>',
     '<text x="590" y="310" font-family="Arial,sans-serif" font-size="70" font-weight="700" fill="#fff">Shop</text><text x="590" y="390" font-family="Arial,sans-serif" font-size="82" font-weight="800" fill="#ffd04a">Online</text><text x="590" y="455" font-family="Arial,sans-serif" font-size="48" font-weight="700" fill="#fff">with Mudaala!</text><text x="594" y="520" font-family="Arial,sans-serif" font-size="26" fill="#fff">Discover • Browse • Buy</text></g>',
     '<rect x="28" y="555" width="1024" height="410" rx="36" fill="#fffdf7" stroke="#e9d9b4" stroke-width="3"/><circle cx="170" cy="745" r="108" fill="#f2b82e"/><circle cx="170" cy="745" r="100" fill="#e7e0d1"/><g clip-path="url(#profile)">', profile, '</g>',
-    '<text x="315" y="715" font-family="Arial,sans-serif" font-size="48" font-weight="800" fill="#171717">' + name + '</text><text x="315" y="770" font-family="Arial,sans-serif" font-size="27" fill="#3b453e">⌖  ' + place + '</text><path d="M315 800H610" stroke="#eadfca" stroke-width="3"/><text x="315" y="855" font-family="Arial,sans-serif" font-size="29" font-weight="600" fill="#171717">☎  ' + phone + '</text>',
+    '<text x="315" y="715" font-family="Arial,sans-serif" font-size="48" textLength="320" lengthAdjust="spacingAndGlyphs" font-weight="800" fill="#171717">' + name + '</text><text x="315" y="770" font-family="Arial,sans-serif" font-size="27" fill="#3b453e">⌖  ' + place + '</text><path d="M315 800H610" stroke="#eadfca" stroke-width="3"/><text x="315" y="855" font-family="Arial,sans-serif" font-size="24" textLength="300" lengthAdjust="spacingAndGlyphs" font-weight="600" fill="#171717">☎  ' + phone + '</text>',
     qrPattern, '<rect x="677" y="632" width="276" height="276" rx="14" fill="#fff"/><image href="' + qrData + '" x="686" y="641" width="258" height="258"/><circle cx="815" cy="770" r="30" fill="#fff" stroke="#f2b82e" stroke-width="5"/>', mark,
     '<rect x="678" y="928" width="276" height="42" rx="21" fill="#174a35"/><text x="816" y="957" text-anchor="middle" font-family="Arial,sans-serif" font-size="23" font-weight="700" fill="#fff">Scan to visit this shop</text>',
-    '<text x="540" y="1035" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#174a35">Trusted Shop  •  Quality Products</text><text x="540" y="1080" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#174a35">Great Deals  •  Near You</text>',
+    '<text x="540" y="1035" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#174a35">' + posterXml(trustLabel) + '  •  Quality Products</text><text x="540" y="1080" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#174a35">Great Deals  •  Near You</text>',
     '<rect x="145" y="1120" width="790" height="112" rx="56" fill="#174a35" stroke="#f2b82e" stroke-width="7"/><text x="540" y="1190" text-anchor="middle" font-family="Arial,sans-serif" font-size="42" font-weight="800" fill="#fff">Share on WhatsApp →</text><text x="540" y="1288" text-anchor="middle" font-family="Arial,sans-serif" font-size="25" font-style="italic" fill="#174a35">Help others discover this shop</text><path d="M0 1320H1080V1350H0Z" fill="#174a35"/></svg>'
   ].join('')
   try {
@@ -576,7 +577,7 @@ export function ShopView({ id }: { id: string }) {
               </div>
               <div className="flex min-w-0 flex-col items-center"><div className="rounded-xl bg-[#10100f] p-1.5" style={{ backgroundImage: "url('/mudaala-african-textile.svg')", backgroundSize: 'cover' }}><div className="poster-qr relative rounded-lg bg-white p-1.5">{shopUrl ? <QRCode value={shopUrl} size={112} level="H" role="img" aria-label={'QR code for ' + shop.name + "'s shop"} /> : null}<span className="absolute left-1/2 top-1/2 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#10100f] p-0.5" style={{ backgroundImage: "url('/mudaala-african-textile.svg')", backgroundSize: 'cover' }}><img src="/mudaala-icon-v2.svg" alt="" className="size-full rounded-full border-2 border-[#f2b82e]" /></span></div></div><span className="mt-1.5 rounded-full bg-[#174a35] px-2.5 py-1 text-center text-[9px] font-bold leading-tight text-white sm:text-[10px]">Scan to visit this shop</span></div>
             </section>
-            <div className="mx-4 mt-3 flex items-center justify-center gap-2 text-center text-[10px] font-bold text-[#174a35] sm:gap-4 sm:text-xs"><span className="flex-1">{shop.phoneConfirmed ? '✓ Trusted Shop' : 'Local Shop'}</span><span className="h-6 w-px bg-[#efb923]" /><span className="flex-1">◇ Quality Products</span><span className="h-6 w-px bg-[#efb923]" /><span className="flex-1">↗ Great Deals</span><span className="h-6 w-px bg-[#efb923]" /><span className="flex-1">⌖ Near You</span></div>
+            <div className="mx-4 mt-3 flex items-center justify-center gap-2 text-center text-[10px] font-bold text-[#174a35] sm:gap-4 sm:text-xs"><span className="flex-1">{shop.phoneConfirmed ? '✓ Phone Confirmed' : 'Local Shop'}</span><span className="h-6 w-px bg-[#efb923]" /><span className="flex-1">◇ Quality Products</span><span className="h-6 w-px bg-[#efb923]" /><span className="flex-1">↗ Great Deals</span><span className="h-6 w-px bg-[#efb923]" /><span className="flex-1">⌖ Near You</span></div>
             <footer className="relative mt-4 overflow-hidden bg-[#174a35] px-5 pb-5 pt-4 text-center text-white"><div className="absolute inset-x-0 top-0 h-2 bg-[#f2b82e]" /><div className="pointer-events-none absolute -bottom-14 -right-10 size-36 rounded-full border-[18px] border-[#f2b82e]/90" /><p className="relative font-semibold italic text-white/90">Help others discover this shop!</p><p className="relative mt-1 text-[10px] font-semibold tracking-[0.18em] text-[#f7cf69]">{shop.shopCode}</p></footer>
           </div>
           <div className="no-print mx-auto grid max-w-lg grid-cols-2 gap-2 pt-3">
@@ -584,7 +585,7 @@ export function ShopView({ id }: { id: string }) {
               if (!posterRef.current || !shopUrl) return
               setPosterSharing(true); trackShopEngagement('SHARE_CLICK')
               try {
-                const file = await createShopPosterFile(posterRef.current, { name: shop.name, area: shop.area, county: shop.county, phone: shop.phone, shopCode: shop.shopCode!, photoUrl: shop.photoUrl, coverPhotoUrl: shop.coverPhotoUrl ?? null })
+                const file = await createShopPosterFile(posterRef.current, { name: shop.name, area: shop.area, county: shop.county, phone: shop.phone, shopCode: shop.shopCode!, phoneConfirmed: shop.phoneConfirmed, photoUrl: shop.photoUrl, coverPhotoUrl: shop.coverPhotoUrl ?? null })
                 if (file && navigator.share && navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: shop.name + ' on Mudaala', text: 'Discover ' + shop.name + ' on Mudaala — ' + shopUrl })
                 else window.location.assign('https://wa.me/?text=' + encodeURIComponent(copy.shop.shareTextOwner(shop.name, shop.shopCode!, shopUrl)))
               } catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) window.location.assign('https://wa.me/?text=' + encodeURIComponent(copy.shop.shareTextOwner(shop.name, shop.shopCode!, shopUrl))) }
