@@ -52,8 +52,8 @@ export async function POST(request: Request) {
       throw new ApiError(413, 'Webhook payload is too large')
     }
 
-    const rawBody = await request.text()
-    if (new TextEncoder().encode(rawBody).byteLength > MAX_WEBHOOK_BYTES) {
+    const rawBody = new Uint8Array(await request.arrayBuffer())
+    if (rawBody.byteLength > MAX_WEBHOOK_BYTES) {
       throw new ApiError(413, 'Webhook payload is too large')
     }
 
@@ -63,7 +63,8 @@ export async function POST(request: Request) {
 
     let payload: unknown
     try {
-      payload = JSON.parse(rawBody)
+      const decodedBody = new TextDecoder('utf-8', { fatal: true }).decode(rawBody)
+      payload = JSON.parse(decodedBody)
     } catch {
       throw new ApiError(400, 'Webhook payload must be valid JSON')
     }
