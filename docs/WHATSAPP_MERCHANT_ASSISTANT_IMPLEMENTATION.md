@@ -5,7 +5,7 @@
 The first implementation slice adds `/api/whatsapp/webhook` with:
 
 - Meta GET subscription challenge verification using `WHATSAPP_VERIFY_TOKEN`.
-- POST verification of `X-Hub-Signature-256` against the exact raw request body using `WHATSAPP_APP_SECRET`.
+- POST verification of `X-Hub-Signature-256` against the exact raw request bytes before UTF-8 decoding or JSON parsing, using `WHATSAPP_APP_SECRET`.
 - A 1 MB payload cap and safe JSON parsing.
 - Extraction of inbound WhatsApp message IDs only.
 - Atomic duplicate-delivery protection using the existing `AppSetting` primary key, with seven-day marker retention.
