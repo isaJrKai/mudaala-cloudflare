@@ -390,3 +390,46 @@ These are recorded requirements discovered in founder/customer conversations. Fo
 - [ ] Continue open recovery/security work: diagnose the Wrangler `RateLimitShard` export warning; produce an off-site logical backup and restore only into disposable local PostgreSQL; inspect bounded production telemetry; verify the scheduled sweep only through its normal schedule; assess the development-only `braces` advisory without unsafe forced upgrades.
 - [ ] Founder/device-only gates remain separate: real phone QR scan, mobile visual clearance, live call/WhatsApp taps and preview, founder-session My Business/admin UI, and the approved owner-facing cleanup of `Annet cakes 🎂` (preserve both photo URLs). Do not mark these complete from automated CI.
 - [x] **Batch 1 release/security verification slice completed (2026-10-21):** PRs #175, #176 and #178 are validated, merged and deployed; production release smoke, API/privacy/photo, My Business insights, shop/product search/recommendation privacy, default category priority and mobile feedback-button usability checks passed. See the evidence at the top of this file and issue #163. **Batch 2 has started** with the collections/sharing schedule-visibility audit. Real collection content remains absent by design (no sellers have created collections yet), so no populated collection page is claimed live-verified. Later operational/manual gates remain tracked separately: backup/restore, normal scheduled sweep telemetry, physical-phone checks, feedback notification-delivery confirmation, legacy thumbnails, upstream development-toolchain advisory, deferred phone verification, and the Wrangler warning. No paid services, destructive production writes, or download-button changes.
+
+
+## Daily operations reconciliation — 2026-10-31
+
+**Scope:** GitHub/source/test review and reconciliation of open reliability gates. No production writes, merges, deployments, credential changes, or authorization changes were performed. Merchant AI remains paused.
+
+### Public listing-page HTTP 500 — issue #207
+
+- [x] Read issue #207 and the production diagnosis recorded in draft PR [#211](https://github.com/isaJrKai/mudaala-cloudflare/pull/211). The affected listing was read-only inspected as an active services OFFER with valid photo/owner relations and null optional price/unit/quantity fields; no customer identifier or seller data is reproduced here.
+- [x] Confirmed exception path: the listing not-found boundary in `src/app/l/[id]/not-found.tsx` performs listing and similar-listing database reads after the page request scope may have unwound. The production DB guard in `src/lib/db.ts` rejects Prisma access outside `withRequestDb()`. PR #211 wraps the fallback reads in their own request DB scope.
+- [x] PR #211 adds a production-mode Next regression using a disposable PostgreSQL fixture: active services OFFER with null price/unit/quantity and four photos returns HTTP 200; after fixture deletion the same route returns HTTP 404, not 500. Fixture cleanup is included.
+- [x] Exact-head validation for PR #211 passed: [workflow run 41204264638](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/41204264638), head `7caae3b9afb12b0ff305404009e0ae89589c9372`. All 34 workflow steps passed, including Worker build, restricted-role API/privacy checks, production-mode public listing route regression, and browser checks.
+- [ ] **Root-cause boundary remains open:** this explains the 500-producing exception once Next enters the not-found boundary, but does not yet explain why Next entered that boundary for a listing independently confirmed active. Do not label issue #207 fully root-caused or production-fixed. PR #211 remains draft/open/unmerged/undeployed. Next: isolate the upstream not-found trigger with a source-mapped, deterministic reproduction, then request review. No deployment without explicit approval.
+
+### Related reliability gates
+
+- [ ] **#208 — opportunistic expiry sweep blocks reads:** draft PR [#208](https://github.com/isaJrKai/mudaala-cloudflare/pull/208) proposes making expiry cleanup best-effort so a transient maintenance-query failure does not block a public listing read. This is a separate failure hypothesis from #207's confirmed request-scope exception. CI/reproducible failure-before-fix evidence is not established in this reconciliation. Review its exact diff and tests independently; preserve scheduled-sweep correctness, notification semantics, and observability.
+- [ ] **#209 — shop/My Business loading:** issue [#209](https://github.com/isaJrKai/mudaala-cloudflare/issues/209) contains source-inspection candidates (expiry work on several user-facing reads, sequential shop queries, client loading/error states), not a confirmed production root cause. Capture route status/duration, Worker outcome/CPU, and DB latency for Home, My Business, `/api/my/listings`, `/api/profile`, `/api/shops/{id}`, and `/s/{code}`; reproduce safely with a test account. Keep cover-photo delivery as a separate check.
+- [ ] **#191 — intermittent Browse failures:** issue [#191](https://github.com/isaJrKai/mudaala-cloudflare/issues/191) remains open. Inspect React Query retry/cache/error states, `apiGet`, and `/api/listings`; correlate production status/latency and add transient-failure-then-success, final-error, manual-retry, and cached-data tests. Do not replace a failure with a fake empty catalogue.
+- [ ] **#132 — development-toolchain advisory:** keep the `braces` advisory visible; do not run `npm audit fix --force` or downgrade Next. Treat Prisma 7 as a separately tested major upgrade requiring disposable PostgreSQL migration/runtime/authorization/rollback validation.
+
+### Other open release and operational gates
+
+- [ ] **Backup/restore:** disposable PostgreSQL backup/restore CI evidence is not the same as an off-site production backup export/retention policy and an independently completed restore drill. Keep the production recovery gate open until both are evidenced.
+- [ ] **Physical-device journey:** QR scan, real-device mobile layout, `tel:` and WhatsApp actions remain unverified on a physical phone. Automated viewport checks are not a substitute.
+- [ ] **Feedback notifications:** feedback submission/triage evidence exists, but delivery of the separate in-app `NEW_FEEDBACK` notification remains unverified.
+- [ ] **Legacy thumbnails:** four active legacy photo URLs were previously found without sibling thumbnails. Preserve originals; first decide on a backwards-compatible URL mapping, test on disposable files, and produce a dry-run manifest before any approved upload.
+- [ ] **Seller phone verification:** keep disabled until provider credentials and the complete secure OTP lifecycle (expiry, replay/rate limits, account linking and recovery) are configured and tested.
+- [ ] **Scheduled maintenance:** observe the normal scheduled invocation only; do not manually trigger the production sweep. A zero counter proves no due records were processed, not the non-zero processing path.
+- [ ] **Collections/share:** verify a genuine seller-created collection and actual mobile WhatsApp preview when real data is available; do not fabricate production content.
+- [ ] **Wrangler `RateLimitShard` preflight warning:** continue monitoring the known deployed binding evidence; do not alter class identity or migration history as a cosmetic warning fix.
+- [ ] **Shop-name cleanup:** use the owner-facing edit path to remove the cake emoji from the recorded shop name; preserve both photo URLs and all other owner fields. No direct DB write.
+- [ ] **PR #210 poster redesign:** separate draft/product work; not part of the current reliability batch.
+
+### Execution order
+
+1. Review PR #211 and isolate the remaining upstream not-found trigger; keep the tested scope fix in its draft PR.
+2. Independently review and test PR #208; do not combine its expiry semantics with #207.
+3. Collect production telemetry and safe reproductions for #209 and #191 before proposing code changes.
+4. Keep #132, backup/restore, physical-device, notification, thumbnail, phone-verification, scheduled-sweep, collection-share, and shop-name gates tracked as above.
+5. For every fix: reproduce → smallest scoped change → exact-head CI → review → explicit deployment approval → live verification → reconcile this checklist.
+
+**Safety state:** no merge/deploy/production data mutation authorized in this pass. Merchant AI remains paused.
