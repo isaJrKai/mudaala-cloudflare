@@ -14,6 +14,7 @@ describe('WhatsApp webhook security helpers', () => {
 
   it('accepts a valid signature for the exact raw body', () => {
     expect(verifyMetaWebhookSignature(body, signature, secret)).toBe(true)
+    expect(verifyMetaWebhookSignature(Buffer.from(body), signature, secret)).toBe(true)
   })
 
   it('rejects a changed body, missing secret, and malformed signatures', () => {
