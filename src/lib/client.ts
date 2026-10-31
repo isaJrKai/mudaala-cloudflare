@@ -173,7 +173,7 @@ export interface SavedSearchT {
 
 export interface NotificationT {
   id: string
-  type: 'NEW_MATCH' | 'LISTING_EXPIRED' | 'LISTING_EXPIRING' | 'LISTING_HIDDEN'
+  type: 'NEW_MATCH' | 'LISTING_EXPIRED' | 'LISTING_EXPIRING' | 'LISTING_HIDDEN' | 'SHOP_SHARING_GUIDE'
   title: string
   body: string
   listingId: string | null
