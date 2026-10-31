@@ -579,7 +579,7 @@ export function ShopView({ id }: { id: string }) {
         <div className="shop-poster fixed inset-0 z-50 overflow-y-auto bg-[#f5efdf] p-3 sm:p-5" role="dialog" aria-modal="true" aria-label={'QR poster for ' + shop.name}>
           <div className="no-print mx-auto flex max-w-lg items-center justify-between pb-3">
             <p className="text-sm font-medium text-neutral-600">{copy.shop.posterHint}</p>
-            <Button variant="ghost" size="sm" className="gap-1" onClick={() => setPosterOpen(false)}><X className="size-4" aria-hidden /> {copy.common.close}</Button>
+            <Button variant="ghost" size="sm" className="gap-1" onClick={() => setPosterOpen(false)}><ArrowLeft className="size-4" aria-hidden /> Back to shop</Button>
           </div>
           <div ref={posterRef} className="mx-auto max-w-lg overflow-hidden rounded-[1.6rem] border border-[#e7d9bb] bg-[#fbf6e9] text-neutral-950 shadow-sm">
             <header className="relative flex items-center gap-3 overflow-hidden px-5 py-4 sm:px-7">
