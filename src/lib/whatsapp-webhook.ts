@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-const MESSAGE_ID_PATTERN = /^[A-Za-z0-9_-]{1,256}$/
+const MESSAGE_ID_PATTERN = /^[A-Za-z0-9._:-]{1,256}$/
 
 /** Verify Meta's X-Hub-Signature-256 against the exact, unparsed request body. */
 export function verifyMetaWebhookSignature(
