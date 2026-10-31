@@ -45,6 +45,9 @@ jobs:
       - name: Test marketplace content policy
         run: npm run test:content-policy
 
+      - name: Test WhatsApp webhook security helpers
+        run: npm run test:whatsapp
+
       - name: Run ESLint across the repository
         run: npm run lint
 
