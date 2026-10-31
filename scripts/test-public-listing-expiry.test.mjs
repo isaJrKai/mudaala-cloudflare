@@ -27,7 +27,7 @@ describe('public listing expiry sweep fallback', () => {
   })
 
   test('runs the listing lookup after a successful sweep without logging', async () => {
-    const events: string[] = []
+    const events = []
     const result = await withBestEffortExpirySweep(
       async () => { events.push('sweep') },
       async () => { events.push('lookup'); return 'listing-found' },
