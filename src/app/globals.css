@@ -274,7 +274,19 @@
     inset: 0 !important;
     overflow: visible !important;
     background: white !important;
-    padding: 32px !important;
+    padding: 24px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .shop-poster > div:nth-child(2) {
+    width: 100% !important;
+    max-width: 720px !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+  }
+  .shop-poster * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
   .no-print { display: none !important; }
 }
