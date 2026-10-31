@@ -591,33 +591,7 @@ export function ShopView({ id }: { id: string }) {
         </div>
       ) : null}
 
-                {/* The leaf badge - the same mark the app wears, centered on
-                    the code like the printed poster. level="H" (30% recovery)
-                    keeps the QR fully scannable under the badge, on paper and
-                    behind laminate. */}
-                <span className="absolute left-1/2 top-1/2 flex size-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-md border border-neutral-200 bg-white">
-                  <Leaf className="size-6 fill-primary/15 text-primary" aria-hidden />
-                </span>
-              </div>
-              <p className="mt-3 text-sm font-semibold text-neutral-900">{copy.shop.posterScan}</p>
-              <p className="mt-2 text-4xl font-bold tracking-[0.12em] text-neutral-900 tabular-nums">{shop.shopCode}</p>
-              <p className="mt-0.5 text-[11px] font-medium text-neutral-500">{copy.shop.posterCodeCaption}</p>
-              <p className="mt-2 text-xs text-neutral-600">{copy.shop.posterRescan}</p>
-            </div>
-            <MudaalaCurve className="block h-6 w-full text-primary" />
-            <div className="bg-primary px-8 pb-8 pt-3 text-primary-foreground">
-              <p className="flex items-center justify-center gap-2 text-base font-semibold tabular-nums">
-                <Phone className="size-4" aria-hidden /> {copy.shop.posterCallUs(formatPhonePretty(shop.phone))}
-              </p>
-            </div>
-          </div>
-          <div className="no-print mx-auto max-w-md pt-4">
-            <Button className="w-full gap-1.5" onClick={() => window.print()}>
-              <Printer className="size-4" aria-hidden /> Print poster
-            </Button>
-          </div>
-        </div>
-      ) : null}
+
     </div>
   )
 }
