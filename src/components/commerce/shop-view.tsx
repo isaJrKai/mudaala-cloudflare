@@ -8,7 +8,7 @@
 // too - the poster is the seller's tool for pulling walk-up customers onto
 // their page (print it, stick it on the stall, buyers scan).
 
-import { useMemo, useState, useSyncExternalStore } from 'react'
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, BadgeCheck, Check, Clock, Copy, ExternalLink, Eye, Leaf, MapPin, Pencil, Phone, Printer, QrCode, Share2, Store, X } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/commerce/brand-icons'
@@ -32,11 +32,83 @@ import { copy } from '@/lib/copy'
 import { categoryLabel } from '@/lib/constants'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
+async function posterImageData(url: string | null | undefined): Promise<string | null> {
+  if (!url) return null
+  try {
+    const response = await fetch(url, { mode: 'cors', credentials: 'omit' })
+    if (!response.ok) return null
+    const blob = await response.blob()
+    return await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch { return null }
+}
+
+function posterXml(value: string): string {
+  return value.replace(/[&<>\"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&apos;' })[char] ?? char)
+}
+
+async function createShopPosterFile(
+  poster: HTMLElement,
+  shop: { name: string; area: string | null; county: string | null; phone: string; shopCode: string; photoUrl: string | null; coverPhotoUrl: string | null },
+): Promise<File | null> {
+  const qr = poster.querySelector('.poster-qr svg')
+  if (!qr) return null
+  const values = await Promise.all([
+    posterImageData(shop.coverPhotoUrl || shop.photoUrl),
+    posterImageData(shop.photoUrl),
+    posterImageData('/mudaala-icon-v2.svg'),
+  ])
+  const qrMarkup = new XMLSerializer().serializeToString(qr)
+  const qrData = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(qrMarkup)
+  const location = [shop.area, shop.county].filter(Boolean).join(', ') || 'Find us on Mudaala'
+  const name = posterXml(shop.name)
+  const place = posterXml(location)
+  const phone = posterXml(formatPhonePretty(shop.phone))
+  const code = posterXml(shop.shopCode)
+  const cover = values[0] ? '<image href="' + values[0] + '" x="28" y="150" width="1024" height="440" preserveAspectRatio="xMidYMid slice"/>' : ''
+  const profile = values[1] ? '<image href="' + values[1] + '" x="70" y="645" width="200" height="200" preserveAspectRatio="xMidYMid slice"/>' : ''
+  const mark = values[2] ? '<image href="' + values[2] + '" x="796" y="751" width="38" height="38"/>' : ''
+  const svg = [
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">',
+    '<defs><clipPath id="cover"><rect x="28" y="150" width="1024" height="440" rx="34"/></clipPath><clipPath id="profile"><circle cx="170" cy="745" r="100"/></clipPath><linearGradient id="shade"><stop stop-color="#10100f" stop-opacity=".05"/><stop offset="1" stop-color="#10100f" stop-opacity=".75"/></linearGradient></defs>',
+    '<rect width="1080" height="1350" fill="#fbf6e9"/><path d="M0 0H1080V130C850 185 630 90 390 130S90 175 0 115Z" fill="#f4ecd9"/>',
+    '<circle cx="96" cy="82" r="48" fill="#174a35"/>', mark,
+    '<text x="166" y="91" font-family="Arial,sans-serif" font-size="58" font-weight="700" fill="#164a34">mudaala</text><text x="168" y="124" font-family="Arial,sans-serif" font-size="24" fill="#164a34">Buy and sell near you</text>',
+    '<g clip-path="url(#cover)"><rect x="28" y="150" width="1024" height="440" fill="#d9d2c2"/>', cover, '<rect x="28" y="150" width="1024" height="440" fill="url(#shade)"/>',
+    '<text x="590" y="310" font-family="Arial,sans-serif" font-size="70" font-weight="700" fill="#fff">Shop</text><text x="590" y="390" font-family="Arial,sans-serif" font-size="82" font-weight="800" fill="#ffd04a">Online</text><text x="590" y="455" font-family="Arial,sans-serif" font-size="48" font-weight="700" fill="#fff">with Mudaala!</text><text x="594" y="520" font-family="Arial,sans-serif" font-size="26" fill="#fff">Discover • Browse • Buy</text></g>',
+    '<rect x="28" y="555" width="1024" height="410" rx="36" fill="#fffdf7" stroke="#e9d9b4" stroke-width="3"/><circle cx="170" cy="745" r="108" fill="#f2b82e"/><circle cx="170" cy="745" r="100" fill="#e7e0d1"/><g clip-path="url(#profile)">', profile, '</g>',
+    '<text x="315" y="715" font-family="Arial,sans-serif" font-size="48" font-weight="800" fill="#171717">' + name + '</text><text x="315" y="770" font-family="Arial,sans-serif" font-size="27" fill="#3b453e">⌖  ' + place + '</text><path d="M315 800H610" stroke="#eadfca" stroke-width="3"/><text x="315" y="855" font-family="Arial,sans-serif" font-size="29" font-weight="600" fill="#171717">☎  ' + phone + '</text>',
+    '<rect x="665" y="620" width="300" height="300" rx="24" fill="#10100f"/><rect x="677" y="632" width="276" height="276" rx="14" fill="#fff"/><image href="' + qrData + '" x="686" y="641" width="258" height="258"/><circle cx="815" cy="770" r="30" fill="#fff" stroke="#f2b82e" stroke-width="5"/>', mark,
+    '<rect x="678" y="928" width="276" height="42" rx="21" fill="#174a35"/><text x="816" y="957" text-anchor="middle" font-family="Arial,sans-serif" font-size="23" font-weight="700" fill="#fff">Scan to visit this shop</text>',
+    '<text x="540" y="1035" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#174a35">Trusted Shop  •  Quality Products</text><text x="540" y="1080" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#174a35">Great Deals  •  Near You</text>',
+    '<rect x="145" y="1120" width="790" height="112" rx="56" fill="#174a35" stroke="#f2b82e" stroke-width="7"/><text x="540" y="1190" text-anchor="middle" font-family="Arial,sans-serif" font-size="42" font-weight="800" fill="#fff">Share on WhatsApp →</text><text x="540" y="1288" text-anchor="middle" font-family="Arial,sans-serif" font-size="25" font-style="italic" fill="#174a35">Help others discover this shop</text><path d="M0 1320H1080V1350H0Z" fill="#174a35"/></svg>'
+  ].join('')
+  try {
+    const objectUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }))
+    const image = new Image()
+    image.src = objectUrl
+    await image.decode()
+    const canvas = document.createElement('canvas')
+    canvas.width = 1080; canvas.height = 1350
+    const context = canvas.getContext('2d')
+    if (!context) { URL.revokeObjectURL(objectUrl); return null }
+    context.drawImage(image, 0, 0)
+    URL.revokeObjectURL(objectUrl)
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+    return blob ? new File([blob], shop.shopCode.toLowerCase() + '-mudaala-poster.png', { type: 'image/png' }) : null
+  } catch { return null }
+}
 export function ShopView({ id }: { id: string }) {
   const { navigate } = useAppStore()
   const { user, isLoading: sessionLoading } = useSession()
   const addToBasket = useAddToBasket()
   const [posterOpen, setPosterOpen] = useState(false)
+  const posterRef = useRef<HTMLDivElement>(null)
+  const [posterSharing, setPosterSharing] = useState(false)
   const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false)
   // Copy-the-code feedback: the button itself becomes the receipt - it swaps
   // to a check + "Copied" for a beat, the same swap pattern as Add to basket.
@@ -474,52 +546,50 @@ export function ShopView({ id }: { id: string }) {
         )}
       </section>
 
-      {/* Printable poster overlay - flat white, big QR, the permanent code.
-          The print stylesheet (globals.css) makes the paper show only this. */}
+      {/* Shareable shop poster: real shop photos, stable QR destination and Mudaala brand assets. */}
       {posterOpen ? (
-        <div className="shop-poster fixed inset-0 z-50 overflow-y-auto bg-white p-5" role="dialog" aria-modal="true" aria-label={`QR poster for ${shop.name}`}>
-          <div className="no-print mx-auto flex max-w-md items-center justify-between pb-4">
-            <p className="text-sm font-medium text-neutral-500">{copy.shop.posterHint}</p>
-            <Button variant="ghost" size="sm" className="gap-1" onClick={() => setPosterOpen(false)}>
-              <X className="size-4" aria-hidden /> {copy.common.close}
-            </Button>
+        <div className="shop-poster fixed inset-0 z-50 overflow-y-auto bg-[#f5efdf] p-3 sm:p-5" role="dialog" aria-modal="true" aria-label={'QR poster for ' + shop.name}>
+          <div className="no-print mx-auto flex max-w-lg items-center justify-between pb-3">
+            <p className="text-sm font-medium text-neutral-600">{copy.shop.posterHint}</p>
+            <Button variant="ghost" size="sm" className="gap-1" onClick={() => setPosterOpen(false)}><X className="size-4" aria-hidden /> {copy.common.close}</Button>
           </div>
-          <div className="mx-auto max-w-md overflow-hidden rounded-lg border-2 border-neutral-900 bg-white text-center">
-            {/* The paper carries the Mudaala curve too - this poster is the
-                brand's PHYSICAL surface. A shopper in the market should
-                recognize a Mudaala poster from across the row, the same way
-                they recognize the app. Layout follows the printed-poster
-                mockup: brand header, shop photo, serif name, QR with the
-                leaf badge, then the permanent code. The code stays
-                black-on-white: the one number that must survive any printer
-                gets the most reliable ink. */}
-            <div className="flex items-start justify-between px-7 pt-6 text-left">
-              <span className="flex items-center gap-1.5">
-                <Leaf className="size-5 fill-primary/15 text-primary" aria-hidden />
-                <span className="font-display text-xl font-bold lowercase tracking-tight text-primary">mudaala</span>
-              </span>
-              <span className="text-right text-[10px] font-medium leading-relaxed text-neutral-500">
-                {copy.app.tagline}
-              </span>
-            </div>
-            <div className="px-8 pb-7 pt-4">
-              {shop.photoUrl ? (
-                <img src={shop.photoUrl} alt="" className="mx-auto size-28 rounded-lg border border-neutral-300 object-cover" />
-              ) : (
-                // PLACEHOLDER RULE - the printed poster gets the same neutral
-                // grey tile the app shows. No stock or generated images.
-                <span className="mx-auto flex size-28 flex-col items-center justify-center gap-1 rounded-lg border border-neutral-300 bg-neutral-100 text-neutral-500">
-                  <Leaf className="size-6" aria-hidden />
-                  <span className="px-2 text-center text-[10px] font-medium leading-tight">{shop.name}</span>
-                </span>
-              )}
-              <h2 className="mt-4 font-display text-3xl font-bold tracking-tight text-neutral-900">{shop.name}</h2>
-              {shop.area || shop.county ? (
-                <p className="mt-1 flex items-center justify-center gap-1 text-sm text-neutral-600">
-                  <MapPin className="size-3.5 text-neutral-500" aria-hidden />
-                  {[shop.area, shop.county].filter(Boolean).join(', ')}
-                </p>
-              ) : null}
+          <div ref={posterRef} className="mx-auto max-w-lg overflow-hidden rounded-[1.6rem] border border-[#e7d9bb] bg-[#fbf6e9] text-neutral-950 shadow-sm">
+            <header className="relative flex items-center gap-3 overflow-hidden px-5 py-4 sm:px-7">
+              <span className="absolute right-0 top-0 h-24 w-36 opacity-90" style={{ backgroundImage: "url('/mudaala-african-textile.svg')", backgroundSize: 'cover', maskImage: 'linear-gradient(135deg, transparent, black 45%)' }} />
+              <img src="/mudaala-icon-v2.svg" alt="" className="relative size-12 shrink-0 rounded-full" />
+              <div className="relative min-w-0"><p className="font-display text-[1.75rem] font-bold leading-none tracking-tight text-[#174a35]">mudaala</p><p className="mt-1 text-xs font-semibold tracking-wide text-[#315b43]">Buy and sell near you</p></div>
+            </header>
+            <section className="relative mx-3 overflow-hidden rounded-[1.25rem] bg-[#d8d1c2] sm:mx-4">
+              {shop.coverPhotoUrl || shop.photoUrl ? <img src={shop.coverPhotoUrl || shop.photoUrl || ''} crossOrigin="anonymous" alt={shop.name + ' shop cover'} className="h-52 w-full object-cover sm:h-64" /> : <div className="flex h-52 items-center justify-center bg-[#e9e1cf] px-8 text-center sm:h-64"><span className="font-display text-3xl font-semibold text-[#174a35]">{shop.name}</span></div>}
+              <div className="absolute inset-0 bg-gradient-to-l from-black/75 via-black/25 to-transparent" />
+              <div className="absolute inset-y-0 right-0 flex w-[58%] flex-col justify-center px-3 text-right sm:px-6"><p className="text-3xl font-extrabold leading-[0.95] text-white sm:text-5xl">Shop</p><p className="mt-1 inline-block text-4xl font-black leading-none text-[#ffc928] sm:text-6xl">Online</p><p className="mt-2 text-lg font-bold text-white sm:text-2xl">with Mudaala!</p><p className="mt-3 text-[10px] font-semibold tracking-wide text-white sm:text-xs">Discover <span className="text-[#ffc928]">•</span> Browse <span className="text-[#ffc928]">•</span> Buy</p></div>
+            </section>
+            <section className="mx-3 mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[1.25rem] border border-[#eadfca] bg-[#fffdf7] p-3 sm:mx-4 sm:gap-5 sm:p-5">
+              <div className="flex min-w-0 items-center gap-3">
+                {shop.photoUrl ? <img src={shop.photoUrl} crossOrigin="anonymous" alt={shop.name + ' profile'} className="size-[4.5rem] shrink-0 rounded-full border-[3px] border-[#f2b82e] object-cover sm:size-24" /> : <div className="flex size-[4.5rem] shrink-0 items-center justify-center rounded-full border-[3px] border-[#f2b82e] bg-[#e9e1cf] font-display text-xl text-[#174a35] sm:size-24">{shop.name.slice(0, 1).toUpperCase()}</div>}
+                <div className="min-w-0"><h2 className="break-words font-display text-xl font-bold leading-tight text-[#171717] sm:text-3xl">{shop.name}</h2><p className="mt-1 flex items-start gap-1 text-xs leading-snug text-neutral-700 sm:text-sm"><MapPin className="mt-0.5 size-3.5 shrink-0 text-[#174a35]" aria-hidden />{[shop.area, shop.county].filter(Boolean).join(', ') || 'Find us on Mudaala'}</p><p className="mt-2 flex items-center gap-1 text-xs font-semibold text-neutral-800 sm:text-sm"><Phone className="size-3.5 shrink-0 text-[#174a35]" aria-hidden /><span className="break-all">{formatPhonePretty(shop.phone)}</span></p></div>
+              </div>
+              <div className="flex min-w-0 flex-col items-center"><div className="rounded-xl bg-[#10100f] p-1.5"><div className="poster-qr relative rounded-lg bg-white p-1.5">{shopUrl ? <QRCode value={shopUrl} size={112} level="H" role="img" aria-label={'QR code for ' + shop.name + "'s shop"} /> : null}<span className="absolute left-1/2 top-1/2 flex size-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-[#f2b82e] bg-white p-1"><img src="/mudaala-icon-v2.svg" alt="" className="size-full rounded-full" /></span></div></div><span className="mt-1.5 rounded-full bg-[#174a35] px-2.5 py-1 text-center text-[9px] font-bold leading-tight text-white sm:text-[10px]">Scan to visit this shop</span></div>
+            </section>
+            <div className="mx-4 mt-3 flex items-center justify-center gap-2 text-center text-[10px] font-bold text-[#174a35] sm:gap-4 sm:text-xs"><span className="flex-1">✓ Trusted Shop</span><span className="h-6 w-px bg-[#efb923]" /><span className="flex-1">◇ Quality Products</span><span className="h-6 w-px bg-[#efb923]" /><span className="flex-1">↗ Great Deals</span><span className="h-6 w-px bg-[#efb923]" /><span className="flex-1">⌖ Near You</span></div>
+            <footer className="relative mt-4 overflow-hidden bg-[#174a35] px-5 pb-5 pt-4 text-center text-white"><div className="absolute inset-x-0 top-0 h-2 bg-[#f2b82e]" /><div className="pointer-events-none absolute -bottom-14 -right-10 size-36 rounded-full border-[18px] border-[#f2b82e]/90" /><p className="relative font-semibold italic text-white/90">Help others discover this shop!</p><p className="relative mt-1 text-[10px] font-semibold tracking-[0.18em] text-[#f7cf69]">{shop.shopCode}</p></footer>
+          </div>
+          <div className="no-print mx-auto grid max-w-lg grid-cols-2 gap-2 pt-3">
+            <Button className="h-12 gap-2 bg-[#174a35] text-white hover:bg-[#103b2a]" disabled={posterSharing} onClick={async () => {
+              if (!posterRef.current || !shopUrl) return
+              setPosterSharing(true); trackShopEngagement('SHARE_CLICK')
+              try {
+                const file = await createShopPosterFile(posterRef.current, { name: shop.name, area: shop.area, county: shop.county, phone: shop.phone, shopCode: shop.shopCode!, photoUrl: shop.photoUrl, coverPhotoUrl: shop.coverPhotoUrl ?? null })
+                if (file && navigator.share && navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: shop.name + ' on Mudaala', text: 'Discover ' + shop.name + ' on Mudaala — ' + shopUrl })
+                else window.open('https://wa.me/?text=' + encodeURIComponent(copy.shop.shareTextOwner(shop.name, shop.shopCode!, shopUrl)), '_blank', 'noopener,noreferrer')
+              } catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) window.open('https://wa.me/?text=' + encodeURIComponent(copy.shop.shareTextOwner(shop.name, shop.shopCode!, shopUrl)), '_blank', 'noopener,noreferrer') }
+              finally { setPosterSharing(false) }
+            }}><WhatsAppIcon className="size-5" />{posterSharing ? 'Preparing…' : 'Share on WhatsApp'}</Button>
+            <Button variant="outline" className="h-12 gap-2 border-[#d4b45d] bg-[#fffdf7] text-[#174a35]" onClick={() => window.print()}><Printer className="size-4" aria-hidden /> Print poster</Button>
+          </div>
+          <p className="no-print mx-auto max-w-lg px-2 pt-2 text-center text-[11px] text-neutral-600">On your phone, WhatsApp appears in the share sheet. Choose Status to post it for your customers.</p>
+        </div>
+      ) : null}
               <div className="relative mx-auto mt-5 w-fit bg-white p-3">
                 {shopUrl ? (
                   <QRCode value={shopUrl} size={200} level="H" role="img" aria-label={`QR code for ${shop.name}'s shop`} />
