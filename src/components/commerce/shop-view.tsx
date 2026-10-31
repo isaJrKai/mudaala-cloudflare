@@ -10,7 +10,7 @@
 
 import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, BadgeCheck, Check, Clock, Copy, ExternalLink, Eye, Leaf, MapPin, Pencil, Phone, Printer, QrCode, Share2, Store, X } from 'lucide-react'
+import { ArrowLeft, BadgeCheck, Check, Clock, Copy, ExternalLink, Eye, MapPin, Pencil, Phone, Printer, QrCode, Share2, Store, X } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/commerce/brand-icons'
 import QRCode from 'react-qr-code'
 import { Button } from '@/components/ui/button'
@@ -68,7 +68,6 @@ async function createShopPosterFile(
   const name = posterXml(shop.name)
   const place = posterXml(location)
   const phone = posterXml(formatPhonePretty(shop.phone))
-  const code = posterXml(shop.shopCode)
   const cover = values[0] ? '<image href="' + values[0] + '" x="28" y="150" width="1024" height="440" preserveAspectRatio="xMidYMid slice"/>' : ''
   const profile = values[1] ? '<image href="' + values[1] + '" x="70" y="645" width="200" height="200" preserveAspectRatio="xMidYMid slice"/>' : ''
   const mark = values[2] ? '<image href="' + values[2] + '" x="796" y="751" width="38" height="38"/>' : ''
