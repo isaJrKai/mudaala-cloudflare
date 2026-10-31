@@ -77,12 +77,13 @@ async function createShopPosterFile(
   const markHeader = values[2] ? '<image href="' + values[2] + '" x="70" y="56" width="52" height="52"/>' : ''
   const mark = values[2] ? '<image href="' + values[2] + '" x="796" y="751" width="38" height="38"/>' : ''
   const textile = values[3] ? '<image href="' + values[3] + '" x="820" y="0" width="260" height="140" preserveAspectRatio="xMidYMid slice"/>' : ''
+  const ringPattern = values[3] ? '<image href="' + values[3] + '" x="48" y="34" width="96" height="96" preserveAspectRatio="xMidYMid slice"/>' : '<circle cx="96" cy="82" r="48" fill="#10100f"/>'
   const qrPattern = values[3] ? '<image href="' + values[3] + '" x="665" y="620" width="300" height="300" preserveAspectRatio="xMidYMid slice"/>' : '<rect x="665" y="620" width="300" height="300" rx="24" fill="#10100f"/>'
   const svg = [
     '<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">',
     '<defs><clipPath id="logoRing"><circle cx="96" cy="82" r="48"/></clipPath><clipPath id="cover"><rect x="28" y="150" width="1024" height="440" rx="34"/></clipPath><clipPath id="profile"><circle cx="170" cy="745" r="100"/></clipPath><linearGradient id="shade"><stop stop-color="#10100f" stop-opacity=".05"/><stop offset="1" stop-color="#10100f" stop-opacity=".75"/></linearGradient></defs>',
     '<rect width="1080" height="1350" fill="#fbf6e9"/><path d="M0 0H1080V130C850 185 630 90 390 130S90 175 0 115Z" fill="#f4ecd9"/>',
-    '<g clip-path="url(#logoRing)">', textile, '</g>', markHeader,
+    '<g clip-path="url(#logoRing)">', ringPattern, '</g>', markHeader,
     '<text x="166" y="91" font-family="Arial,sans-serif" font-size="58" font-weight="700" fill="#164a34">mudaala</text><text x="168" y="124" font-family="Arial,sans-serif" font-size="24" fill="#164a34">Buy and sell near you</text>',
     '<g clip-path="url(#cover)"><rect x="28" y="150" width="1024" height="440" fill="#d9d2c2"/>', cover, '<rect x="28" y="150" width="1024" height="440" fill="url(#shade)"/>',
     '<text x="590" y="310" font-family="Arial,sans-serif" font-size="70" font-weight="700" fill="#fff">Shop</text><text x="590" y="390" font-family="Arial,sans-serif" font-size="82" font-weight="800" fill="#ffd04a">Online</text><text x="590" y="455" font-family="Arial,sans-serif" font-size="48" font-weight="700" fill="#fff">with Mudaala!</text><text x="594" y="520" font-family="Arial,sans-serif" font-size="26" fill="#fff">Discover • Browse • Buy</text></g>',
