@@ -1,0 +1,96 @@
+name: Diagnose public listing Worker stack (no deployment)
+
+on:
+  push:
+    branches:
+      - diagnose/207-worker-stack
+
+permissions:
+  contents: read
+
+jobs:
+  map-worker-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out exact production source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Validate schema and generate Prisma client
+        run: |
+          npx prisma validate
+          npx prisma generate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
+      - name: Build the same OpenNext Worker bundle as production
+        run: npx @opennextjs/cloudflare build
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          CRON_SECRET: build-only-placeholder
+          SETTINGS_ENCRYPTION_KEY: build-only-placeholder-key-32chars
+          ADMIN_PHONES: "+256700000000"
+
+      - name: Produce a local Wrangler dry-run bundle (never deploy)
+        run: npx wrangler deploy --dry-run --outdir /tmp/mudaala-worker-dry-run
+
+      - name: Map the production stack frames to generated code
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const roots = ['.open-next', '.wrangler', '/tmp/mudaala-worker-dry-run'];
+          const files = [];
+          function walk(dir) {
+            if (!fs.existsSync(dir)) return;
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              const full = path.join(dir, entry.name);
+              if (entry.isDirectory()) walk(full);
+              else if (/\.(?:js|mjs|cjs|map)$/.test(entry.name)) files.push(full);
+            }
+          }
+          roots.forEach(walk);
+          const markers = [
+            'Database access must run inside withRequestDb() in production',
+            'Cloudflare HYPERDRIVE binding is unavailable in production',
+            'sourceMappingURL',
+            'expireOverdueListings',
+            'similarListings',
+            'loadAdRow',
+          ];
+          let foundLargeBundle = false;
+          for (const file of files) {
+            const source = fs.readFileSync(file, 'utf8');
+            const lines = source.split('\n');
+            const matches = markers.filter(marker => source.includes(marker));
+            if (matches.length) {
+              console.log(JSON.stringify({ file, matches }));
+            }
+            if (path.basename(file).includes('custom-worker') || lines.length > 135593) {
+              foundLargeBundle = true;
+              console.log(JSON.stringify({
+                stackFile: file,
+                lineCount: lines.length,
+                frames: [135592, 135593, 133394, 133324, 55198, 139380].map(line => ({
+                  line,
+                  text: lines[line - 1] ?? null,
+                })),
+              }));
+            }
+          }
+          console.log(JSON.stringify({ candidateFiles: files.length, foundLargeBundle }));
+          if (!foundLargeBundle) {
+            console.log('No custom-worker.js-sized file was emitted; inspect the Wrangler dry-run file list above.');
+          }
+          NODE
