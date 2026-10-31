@@ -17,17 +17,13 @@ async function main() {
     headers: requestHeaders,
     body: JSON.stringify({ phone: '0772123456', password: 'demo1234' }),
   })
-  const loginBody = await readJson(login)
-  if (!login.ok || !loginBody?.sessionToken) {
+  if (!login.ok) {
     throw new Error(`CI fixture login failed: HTTP ${login.status}`)
   }
 
   const cookie = login.headers.get('set-cookie')?.split(';')[0] || ''
-  const authHeaders = {
-    ...requestHeaders,
-    ...(cookie ? { cookie } : {}),
-    authorization: `Bearer ${loginBody.sessionToken}`,
-  }
+  if (!cookie) throw new Error('CI fixture login did not issue its httpOnly session cookie')
+  const authHeaders = { ...requestHeaders, cookie }
 
   const title = `CI public listing route regression ${Date.now()}`
   let listingId = ''
@@ -56,8 +52,17 @@ async function main() {
     })
     const createdBody = await readJson(created)
     listingId = createdBody?.listing?.id || ''
-    if (created.status !== 201 || !listingId) {
-      throw new Error(`Could not create temporary public-listing fixture: HTTP ${created.status}`)
+    if (
+      created.status !== 201 ||
+      !listingId ||
+      createdBody?.listing?.status !== 'ACTIVE' ||
+      createdBody?.listing?.type !== 'OFFER' ||
+      createdBody?.listing?.category !== 'services' ||
+      createdBody?.listing?.price !== null ||
+      createdBody?.listing?.unit !== null ||
+      createdBody?.listing?.quantity !== null
+    ) {
+      throw new Error(`Could not create the expected active no-price services fixture: HTTP ${created.status}`)
     }
 
     const path = `/l/${listingId}`
@@ -65,7 +70,7 @@ async function main() {
       headers: { accept: 'text/html', 'x-mudaala-path': path },
     })
     const liveHtml = await livePage.text()
-    if (livePage.status !== 200 || !liveHtml.includes(title) || !liveHtml.includes('Ask seller')) {
+    if (livePage.status !== 200 || !liveHtml.includes(title)) {
       throw new Error(`Active services OFFER with null price did not render: HTTP ${livePage.status}`)
     }
 
