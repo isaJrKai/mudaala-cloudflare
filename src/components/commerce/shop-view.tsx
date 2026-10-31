@@ -10,7 +10,7 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, BadgeCheck, Check, Clock, Copy, ExternalLink, Eye, MapPin, Pencil, Phone, Printer, QrCode, Share2, Store, X } from 'lucide-react'
+import { ArrowLeft, BadgeCheck, Check, Clock, Copy, ExternalLink, Eye, MapPin, Pencil, Phone, Printer, QrCode, Share2 } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/commerce/brand-icons'
 import QRCode from 'react-qr-code'
 import { Button } from '@/components/ui/button'
