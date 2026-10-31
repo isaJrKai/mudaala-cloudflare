@@ -3,7 +3,7 @@ import { withBestEffortExpirySweep } from '../src/lib/ad-page.ts'
 
 describe('public listing expiry sweep fallback', () => {
   test('continues the listing lookup when opportunistic expiry cleanup rejects', async () => {
-    const events: string[] = []
+    const events = []
     const expectedListing = { id: 'fixture-listing', status: 'ACTIVE' }
 
     const result = await withBestEffortExpirySweep(
