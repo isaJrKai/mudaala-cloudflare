@@ -8,7 +8,7 @@
 // too - the poster is the seller's tool for pulling walk-up customers onto
 // their page (print it, stick it on the stall, buyers scan).
 
-import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, BadgeCheck, Check, Clock, Copy, ExternalLink, Eye, MapPin, Pencil, Phone, Printer, QrCode, Share2, Store, X } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/commerce/brand-icons'
@@ -116,6 +116,8 @@ export function ShopView({ id }: { id: string }) {
   const [posterOpen, setPosterOpen] = useState(false)
   const posterRef = useRef<HTMLDivElement>(null)
   const [posterSharing, setPosterSharing] = useState(false)
+  const [posterFile, setPosterFile] = useState<File | null>(null)
+  const [posterFileReady, setPosterFileReady] = useState(false)
   const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false)
   // Copy-the-code feedback: the button itself becomes the receipt - it swaps
   // to a check + "Copied" for a beat, the same swap pattern as Add to basket.
@@ -138,6 +140,25 @@ export function ShopView({ id }: { id: string }) {
     queryKey: ['shop', id],
     queryFn: () => apiGet<ShopPageT>(`/api/shops/${id}`),
   })
+
+  useEffect(() => {
+    const currentShop = data?.shop
+    if (!posterOpen || !posterRef.current || !currentShop?.shopCode || !shopUrl) {
+      setPosterFile(null)
+      setPosterFileReady(false)
+      return
+    }
+    let cancelled = false
+    setPosterFileReady(false)
+    void createShopPosterFile(posterRef.current, {
+      name: currentShop.name, area: currentShop.area, county: currentShop.county,
+      phone: currentShop.phone, shopCode: currentShop.shopCode, phoneConfirmed: currentShop.phoneConfirmed,
+      photoUrl: currentShop.photoUrl, coverPhotoUrl: currentShop.coverPhotoUrl ?? null,
+    }).then((file) => {
+      if (!cancelled) { setPosterFile(file); setPosterFileReady(true) }
+    })
+    return () => { cancelled = true }
+  }, [posterOpen, data, shopUrl])
 
   if (isLoading) {
     return (
@@ -582,16 +603,15 @@ export function ShopView({ id }: { id: string }) {
             <footer className="relative mt-4 overflow-hidden bg-[#174a35] px-5 pb-5 pt-4 text-center text-white"><div className="absolute inset-x-0 top-0 h-2 bg-[#f2b82e]" /><div className="pointer-events-none absolute -bottom-14 -right-10 size-36 rounded-full border-[18px] border-[#f2b82e]/90" /><p className="relative font-semibold italic text-white/90">Help others discover this shop!</p><p className="relative mt-1 text-[10px] font-semibold tracking-[0.18em] text-[#f7cf69]">{shop.shopCode}</p></footer>
           </div>
           <div className="no-print mx-auto grid max-w-lg grid-cols-2 gap-2 pt-3">
-            <Button className="h-12 gap-2 bg-[#174a35] text-white hover:bg-[#103b2a]" disabled={posterSharing} onClick={async () => {
+            <Button className="h-12 gap-2 bg-[#174a35] text-white hover:bg-[#103b2a]" disabled={posterSharing || !posterFileReady} onClick={async () => {
               if (!posterRef.current || !shopUrl) return
               setPosterSharing(true); trackShopEngagement('SHARE_CLICK')
               try {
-                const file = await createShopPosterFile(posterRef.current, { name: shop.name, area: shop.area, county: shop.county, phone: shop.phone, shopCode: shop.shopCode!, phoneConfirmed: shop.phoneConfirmed, photoUrl: shop.photoUrl, coverPhotoUrl: shop.coverPhotoUrl ?? null })
-                if (file && navigator.share && navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: shop.name + ' on Mudaala', text: 'Discover ' + shop.name + ' on Mudaala — ' + shopUrl })
+                if (posterFile && navigator.share && navigator.canShare?.({ files: [posterFile] })) await navigator.share({ files: [posterFile], title: shop.name + ' on Mudaala', text: 'Discover ' + shop.name + ' on Mudaala — ' + shopUrl })
                 else window.location.assign('https://wa.me/?text=' + encodeURIComponent(copy.shop.shareTextOwner(shop.name, shop.shopCode!, shopUrl)))
               } catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) window.location.assign('https://wa.me/?text=' + encodeURIComponent(copy.shop.shareTextOwner(shop.name, shop.shopCode!, shopUrl))) }
               finally { setPosterSharing(false) }
-            }}><WhatsAppIcon className="size-5" />{posterSharing ? 'Preparing…' : 'Share on WhatsApp'}</Button>
+            }}><WhatsAppIcon className="size-5" />{posterSharing || !posterFileReady ? 'Preparing…' : posterFile ? 'Share on WhatsApp' : 'Share shop link'}</Button>
             <Button variant="outline" className="h-12 gap-2 border-[#d4b45d] bg-[#fffdf7] text-[#174a35]" onClick={() => window.print()}><Printer className="size-4" aria-hidden /> Print poster</Button>
           </div>
           <p className="no-print mx-auto max-w-lg px-2 pt-2 text-center text-[11px] text-neutral-600">On your phone, WhatsApp appears in the share sheet. Choose Status to post it for your customers.</p>
