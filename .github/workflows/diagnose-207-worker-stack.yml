@@ -12,6 +12,20 @@ jobs:
   map-worker-stack:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mudaala
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mudaala"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Check out exact production source
         uses: actions/checkout@v4
@@ -33,6 +47,17 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Create disposable PostgreSQL schema and restricted runtime role
+        run: |
+          npx prisma db push --skip-generate
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE ROLE anon NOLOGIN;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE ROLE authenticated NOLOGIN;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261017193000_restricted_runtime_role/migration.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "ALTER ROLE mudaala_runtime LOGIN PASSWORD 'runtime_test_only';"
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
       - name: Build the same OpenNext Worker bundle as production
         run: npx @opennextjs/cloudflare build
         env:
@@ -44,6 +69,39 @@ jobs:
 
       - name: Produce a local Wrangler dry-run bundle (never deploy)
         run: npx wrangler deploy --dry-run --outdir /tmp/mudaala-worker-dry-run
+
+      - name: Reproduce the not-found boundary failure in production-mode Next
+        run: |
+          NODE_ENV=production CI=true npx next start -p 3001 > /tmp/mudaala-next-production.log 2>&1 &
+          echo $! > /tmp/mudaala-next-production.pid
+          ready=0
+          for attempt in $(seq 1 45); do
+            if curl --silent --output /dev/null http://127.0.0.1:3001/; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != "1" ]; then
+            cat /tmp/mudaala-next-production.log
+            exit 1
+          fi
+          status=$(curl --silent --output /tmp/mudaala-missing-listing.html --write-out '%{http_code}' -H 'x-mudaala-path: /l/__mudaala_ci_missing_listing__' http://127.0.0.1:3001/l/__mudaala_ci_missing_listing__)
+          echo "Pre-fix missing-listing route returned HTTP $status"
+          grep -F 'Database access must run inside withRequestDb() in production' /tmp/mudaala-next-production.log
+          if [ "$status" != "500" ]; then
+            echo "Expected to reproduce the current 500 before the request-scope fix."
+            cat /tmp/mudaala-next-production.log
+            exit 1
+          fi
+        env:
+          DATABASE_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
+          CRON_SECRET: ci-only-cron-secret
+          SETTINGS_ENCRYPTION_KEY: ci-only-settings-encryption-key-32chars
+          ADMIN_PHONES: "+256700000000"
+          NEXT_PUBLIC_APP_URL: http://localhost:3001
+          APP_ORIGIN: http://localhost:3001
 
       - name: Map the production stack frames to generated code
         run: |
