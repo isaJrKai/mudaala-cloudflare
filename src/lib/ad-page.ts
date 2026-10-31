@@ -60,7 +60,17 @@ export function metaDescription(listing: { description: string; area: string | n
 // keyword-style URLs. Never throws or redirects - callers decide between
 // 308, 404 and render, so the not-found boundary can reuse it safely.
 export const loadAdRow = cache(async (param: string) => {
-  await expireOverdueListings()
+  // Expiry is maintained by the scheduled sweep and notification route. A
+  // transient failure in this opportunistic cleanup must never prevent a
+  // buyer from opening a public shop/listing link.
+  try {
+    await expireOverdueListings()
+  } catch (error) {
+    console.error(
+      '[ad-page] overdue-listing sweep failed; continuing public listing lookup:',
+      error instanceof Error ? error.message : 'unknown error',
+    )
+  }
 
   let listing = await db.listing.findUnique({
     where: { id: param },
