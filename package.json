@@ -8,6 +8,7 @@
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "test:content-policy": "bun test src/lib/*content-policy.test.mjs",
+    "test:whatsapp": "bun test src/lib/whatsapp-webhook.test.mjs",
     "db:push": "node scripts/guard-local-db.mjs && prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
