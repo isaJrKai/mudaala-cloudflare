@@ -47,8 +47,8 @@ export function metaTitle(listing: {
 }
 
 export function metaDescription(listing: { description: string; area: string | null; county: string }): string {
-  const base = listing.description.replace(/\\s+/g, ' ').trim()
-  const clipped = base.length > 140 ? `${base.slice(0, 140).replace(/\\s+\\S*$/, '')}…` : base
+  const base = listing.description.replace(/\s+/g, ' ').trim()
+  const clipped = base.length > 140 ? `${base.slice(0, 140).replace(/\s+\S*$/, '')}…` : base
   return `${clipped} · ${placeOf(listing)}, Uganda · on Mudaala`
 }
 
