@@ -323,6 +323,41 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Verify public listing pages in production-mode Next
+        run: |
+          set -euo pipefail
+          NODE_ENV=production CI=true ./node_modules/.bin/next start -p 3001 > /tmp/mudaala-next-production.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 45); do
+            status="$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3001/ || true)"
+            if [ "$status" != "000" ]; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != "1" ]; then
+            cat /tmp/mudaala-next-production.log
+            exit 1
+          fi
+          if ! node scripts/test-public-listing-route.mjs; then
+            cat /tmp/mudaala-next-production.log
+            exit 1
+          fi
+        env:
+          APP_URL: http://localhost:3001
+          DATABASE_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
+          CRON_SECRET: ci-only-cron-secret
+          SETTINGS_ENCRYPTION_KEY: ci-only-settings-encryption-key-32chars
+          ADMIN_PHONES: "+256712000001"
+          NEXT_PUBLIC_APP_URL: http://localhost:3001
+          APP_ORIGIN: http://localhost:3001
+          ALLOW_BEARER_AUTH: "1"
+          CSRF_TRUSTED_HOSTS: preview-sandbox.preview-platform.example
+
       - name: Start local app for API tests using restricted runtime role
         run: |
           npm run dev > /tmp/mudaala-dev.log 2>&1 &
