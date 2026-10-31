@@ -11,16 +11,9 @@ import { CategoryGlyph, categoryTint } from '@/components/commerce/category-icon
 import { loadAdRow, similarListings, photosOf, priceLabelOf, placeOf } from '@/lib/ad-page'
 import { categoryLabel } from '@/lib/constants'
 import { cn } from '@/lib/utils'
+import { withRequestDb } from '@/lib/db'
 
-export default async function ListingNotFound() {
-  let param = ''
-  try {
-    const path = (await headers()).get('x-mudaala-path') ?? ''
-    param = decodeURIComponent(path.split('/').pop() ?? '')
-  } catch {
-    param = ''
-  }
-
+async function renderListingNotFound(param: string) {
   const listing = param ? await loadAdRow(param) : null
   const similar = listing ? await similarListings(listing.category, listing.id) : []
 
@@ -83,4 +76,18 @@ export default async function ListingNotFound() {
       </main>
     </div>
   )
+}
+
+export default async function ListingNotFound() {
+  let param = ''
+  try {
+    const path = (await headers()).get('x-mudaala-path') ?? ''
+    param = decodeURIComponent(path.split('/').pop() ?? '')
+  } catch {
+    param = ''
+  }
+
+  // Next renders a segment not-found boundary after the page's request scope
+  // has unwound. Its listing/similar-listing reads need their own Prisma scope.
+  return withRequestDb(() => renderListingNotFound(param))
 }
