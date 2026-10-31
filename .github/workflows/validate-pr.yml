@@ -45,6 +45,9 @@ jobs:
       - name: Test marketplace content policy
         run: npm run test:content-policy
 
+      - name: Test public listing continues when expiry sweep fails
+        run: npm run test:public-listing-expiry
+
       - name: Run ESLint across the repository
         run: npm run lint
 
