@@ -4,7 +4,7 @@ const MESSAGE_ID_PATTERN = /^[A-Za-z0-9._:-]{1,256}$/
 
 /** Verify Meta's X-Hub-Signature-256 against the exact, unparsed request body. */
 export function verifyMetaWebhookSignature(
-  rawBody: string,
+  rawBody: string | Uint8Array,
   signatureHeader: string | null,
   appSecret: string | undefined,
 ): boolean {
@@ -13,7 +13,7 @@ export function verifyMetaWebhookSignature(
   if (!match) return false
 
   const supplied = Buffer.from(match[1]!, 'hex')
-  const expected = createHmac('sha256', appSecret).update(rawBody, 'utf8').digest()
+  const expected = createHmac('sha256', appSecret).update(rawBody).digest()
   return supplied.length === expected.length && timingSafeEqual(supplied, expected)
 }
 
