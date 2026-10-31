@@ -1,6 +1,6 @@
 // Shared server-side helpers for the public web pages (/l/[id], /s/[code]).
-// Everything here touches the database or the expiry sweep, so client
-// bundles must never import from this file.
+ // Everything here touches the database or the expiry sweep, so client
+ // bundles must never import from this file.
 
 import { cache } from 'react'
 import { db } from '@/lib/db'
@@ -32,9 +32,6 @@ export function priceLabelOf(listing: { price: number | null; unit: string | nul
   return formatPrice(listing.price, listing.unit ? unitLabel(listing.unit) : null, listing.currency)
 }
 
-// Metadata title in the agreed shape: "Red onions · USh 5,200 / kg · Mudaala".
-// A wanted ad is never titled like an offer, and an offer without a price
-// leads with where it is instead.
 export function metaTitle(listing: {
   type: string
   title: string
@@ -50,43 +47,55 @@ export function metaTitle(listing: {
 }
 
 export function metaDescription(listing: { description: string; area: string | null; county: string }): string {
-  const base = listing.description.replace(/\s+/g, ' ').trim()
-  const clipped = base.length > 140 ? `${base.slice(0, 140).replace(/\s+\S*$/, '')}…` : base
+  const base = listing.description.replace(/\\s+/g, ' ').trim()
+  const clipped = base.length > 140 ? `${base.slice(0, 140).replace(/\\s+\\S*$/, '')}…` : base
   return `${clipped} · ${placeOf(listing)}, Uganda · on Mudaala`
+}
+
+/**
+ * Expiry is scheduled maintenance, not a prerequisite for serving a public
+ * listing. If the opportunistic sweep fails, continue with the read path.
+ * Keeping the lookup callback inside this helper makes the fallback contract
+ * directly testable without mocking Prisma or touching a database.
+ */
+export async function withBestEffortExpirySweep<T>(
+  sweep: () => Promise<unknown>,
+  lookup: () => Promise<T>,
+  log: (message: string, detail: string) => void = (message, detail) => console.error(message, detail),
+): Promise<T> {
+  try {
+    await sweep()
+  } catch (error) {
+    log(
+      '[ad-page] overdue-listing sweep failed; continuing public listing lookup:',
+      error instanceof Error ? error.message : 'unknown error',
+    )
+  }
+  return lookup()
 }
 
 // One loader per request (React.cache dedupes the generateMetadata + page +
 // not-found trio). Resolves the bare id first, then the dash-tail of older
 // keyword-style URLs. Never throws or redirects - callers decide between
 // 308, 404 and render, so the not-found boundary can reuse it safely.
-export const loadAdRow = cache(async (param: string) => {
-  // Expiry is maintained by the scheduled sweep and notification route. A
-  // transient failure in this opportunistic cleanup must never prevent a
-  // buyer from opening a public shop/listing link.
-  try {
-    await expireOverdueListings()
-  } catch (error) {
-    console.error(
-      '[ad-page] overdue-listing sweep failed; continuing public listing lookup:',
-      error instanceof Error ? error.message : 'unknown error',
-    )
-  }
-
-  let listing = await db.listing.findUnique({
-    where: { id: param },
-    include: { user: { include: { profile: true } } },
-  })
-  if (!listing && param.includes('-')) {
-    const tail = param.slice(param.lastIndexOf('-') + 1)
-    if (tail) {
-      listing = await db.listing.findUnique({
-        where: { id: tail },
-        include: { user: { include: { profile: true } } },
-      })
+export const loadAdRow = cache(async (param: string) =>
+  withBestEffortExpirySweep(expireOverdueListings, async () => {
+    let listing = await db.listing.findUnique({
+      where: { id: param },
+      include: { user: { include: { profile: true } } },
+    })
+    if (!listing && param.includes('-')) {
+      const tail = param.slice(param.lastIndexOf('-') + 1)
+      if (tail) {
+        listing = await db.listing.findUnique({
+          where: { id: tail },
+          include: { user: { include: { profile: true } } },
+        })
+      }
     }
-  }
-  return listing
-})
+    return listing
+  }),
+)
 
 // Live ads a gone page can offer instead: same category, real stock, the
 // freshest first. At most four - a 404 is a doorway, not a marketplace.
