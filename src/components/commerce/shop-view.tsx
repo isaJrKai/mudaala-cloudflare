@@ -609,7 +609,7 @@ export function ShopView({ id }: { id: string }) {
               if (!posterRef.current || !shopUrl) return
               setPosterSharing(true); trackShopEngagement('SHARE_CLICK')
               try {
-                if (posterFile && navigator.share && navigator.canShare?.({ files: [posterFile] })) await navigator.share({ files: [posterFile], title: shop.name + ' on Mudaala', text: 'Discover ' + shop.name + ' on Mudaala — ' + shopUrl })
+                if (posterFile && navigator.share && navigator.canShare?.({ files: [posterFile] })) await navigator.share({ files: [posterFile], title: shop.name + ' on Mudaala', text: 'Discover ' + shop.name + ' on Mudaala - ' + shopUrl })
                 else window.location.assign('https://wa.me/?text=' + encodeURIComponent(copy.shop.shareTextOwner(shop.name, shop.shopCode!, shopUrl)))
               } catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) window.location.assign('https://wa.me/?text=' + encodeURIComponent(copy.shop.shareTextOwner(shop.name, shop.shopCode!, shopUrl))) }
               finally { setPosterSharing(false) }
