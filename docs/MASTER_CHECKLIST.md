@@ -10,6 +10,48 @@ This is the canonical project checklist. Use it across Mudaala conversations ins
 
 **Founder-approved one-slice product roadmap:** [issue #163](https://github.com/isaJrKai/mudaala-cloudflare/issues/163) records business insights, collections, promotions/bundles, product discovery, mixed feed, follows, buyer/business modes, FYP and later analytics alongside release/security obligations. Execute one batch at a time and update both this board and issue #163. Slice #1 ([PR #164](https://github.com/isaJrKai/mudaala-cloudflare/pull/164)) established trader insights and the collection data foundation; slice #2 ([PR #167](https://github.com/isaJrKai/mudaala-cloudflare/pull/167)) added ownership-checked collection management and public shop collection views. **Batch 1 is now closed with live evidence** for release health, API/privacy/photo behavior, My Business insights, search/recommendations response privacy, default category order, and mobile feedback-button usability (PRs #175, #176 and #178; evidence above). **Batch 2 is in progress:** PR [#180](https://github.com/isaJrKai/mudaala-cloudflare/pull/180) merged the shared active/start/end schedule filter across public `/collections/{id}` HTML, collection detail API, and shop collection list; exact-head CI [39632446096](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39632446096) passed, including fixture-backed tests for active, future, expired, and deactivated collections, active-page OG/Twitter metadata, product links, and WhatsApp/copy/social share links. Production deployment [39631811220](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39631811220) succeeded. PR [#181](https://github.com/isaJrKai/mudaala-cloudflare/pull/181) added a live read-only check; [run 39633177942](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/39633177942) passed the invalid direct collection route (HTTP 404 + noindex), public shop collection response shape, and zero-write assertion. The real shop has 0 active collections, so populated production page/WhatsApp preview remains unverified until a seller creates genuine data; do not fabricate customer data. Keep promotions/bundles for the later roadmap slice, and continue tracking the Wrangler `RateLimitShard` warning; live limiter smoke returned the expected HTTP 401 rather than 503.
 
+## Operations and security reconciliation — 2026-11-02 (Africa/Kampala)
+
+**Baseline:** `main` at `34db26b29a84f01b35f9f18e2f67f85c7b38279a`. This snapshot records read-only checks; it does not close founder/device-only or recovery gates.
+
+### Current verified evidence
+
+- **Cloudflare Worker:** deployment API reports Worker `mudaala-cloudflare` version `d9f8a2ee-a625-4526-bfd1-261b7e5e6cd6` at 100% traffic, deployment created `2026-10-31T21:36:38Z` (2026-11-01 00:36:38 EAT). Worker observability is enabled and invocation logs are persisted.
+- **Cloudflare detected issues:** read-only Observability issue summary for service `mudaala-cloudflare` reports 0 active issues / 0 active occurrences. This does not prove that every warning-level invocation log is harmless.
+- **Cloudflare account hardening:** account metadata reports `enforce_twofactor=false`. **Owner action required:** enable/enforce MFA for the Cloudflare account and all production-access users. No account setting was changed.
+- **Worker log privacy:** script settings currently report `observability.redact_query_string=false` and `traces.enabled=false`. Review and enable query-string redaction before increasing log sharing; consider traces only with an explicit privacy/retention review. No setting was changed.
+- **Supabase security:** fresh Security Advisor query returned 0 lints. Read-only catalog inspection found RLS enabled on all 24 public tables, 48 policies across all 24 tables, no direct table grants to `anon` or `authenticated`, and `mudaala_runtime` has CRUD only on the 24 application tables. The inspected runtime role is neither superuser nor RLS-bypass. `service_role` and `postgres` are privileged/RLS-bypass roles; their credentials must remain server-side. This is a configuration snapshot, not a penetration test.
+- **Supabase performance:** 11 INFO-level unused-index findings remain. Do not drop indexes solely from this advisory; assess query plans and workload first.
+
+### WhatsApp Merchant Assistant — PR audit
+
+- PR [#206](https://github.com/isaJrKai/mudaala-cloudflare/pull/206) is open/draft. Its head is 14 commits ahead and 3 commits behind `main` (diverged); GitHub reports it non-mergeable. Exact-head validation run [41182738331](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/41182738331) succeeded, but passing CI does not resolve branch divergence or code-review findings.
+- The PR adds Meta webhook challenge verification, raw-body HMAC verification, a nominal 1 MB payload cap, message-ID deduplication, and helper tests. It does **not** implement merchant linking, WhatsApp media retrieval, product drafts, confirmed publishing, replies, or a merchant UI.
+- **Security review finding:** POST reads the entire request via `request.arrayBuffer()` before checking `rawBody.byteLength`. The 1 MB check therefore rejects an oversized body only after it has already been buffered. Replace this with bounded streaming reads that stop/cancel as soon as the cap is exceeded; test missing/incorrect Content-Length and chunked bodies.
+- **Hardening review:** the webhook has no explicit shared rate limit in this route. HMAC verification protects POST authenticity, but add an edge/WAF or shared rate-limit policy for the public handshake and signed endpoint. The seven-day `AppSetting` marker cleanup currently runs as an unbounded `deleteMany` on every inbound message; evaluate a bounded cleanup strategy so webhook traffic cannot amplify database work.
+- PR [#214](https://github.com/isaJrKai/mudaala-cloudflare/pull/214) is a draft, documentation-only readiness plan based on current `main`; it is mergeable but is not the assistant implementation. Meta Business Portfolio/WABA approval remains UNKNOWN from connected repository/infrastructure access.
+- Do not configure production Meta secrets, migrate the existing WhatsApp Business app number, create production drafts, or deploy until the staged test-number journey and explicit release gates pass.
+
+### Open operational/security gates — retain as open
+
+1. Approved encrypted off-site production database backup, separate Storage-object backup, and isolated restore drill.
+2. Normal scheduled-sweep observation with genuinely due records; zero counters do not prove due-record paths work. Never manually invoke production maintenance for this check.
+3. Physical-device QR, mobile layout, call and WhatsApp journey verification.
+4. Feedback notification delivery confirmation; prior feedback/admin triage evidence does not prove a notification was delivered.
+5. Review/plan for legacy thumbnail optimization without destructive replacement.
+6. Upstream-blocked development-toolchain advisory [#132](https://github.com/isaJrKai/mudaala-cloudflare/issues/132).
+7. Deferred phone-verification lifecycle remains deferred pending explicit authorization.
+8. Populated real seller collection and share-preview verification when genuine seller data exists.
+
+### Immediate security and delivery priorities
+
+- Owner: enable Cloudflare account MFA; review MFA for every production-access identity.
+- Engineering: rework the webhook body cap to be genuinely streaming/bounded, add rate limiting and bounded idempotency cleanup, then rebase PR #206 onto current `main` and rerun exact-head CI.
+- Operations: enable query-string redaction after reviewing whether any current integrations rely on query parameters in diagnostics.
+- Product: continue the WhatsApp assistant as the next bounded product slice; do not start payment collection or merchant fees until payment-provider, settlement, refund, ledger and merchant-consent requirements are designed and reviewed.
+
+**Evidence boundary:** all checks above were read-only. No production secrets were read, no database rows were changed, no settings were changed, no maintenance was invoked, and no code was deployed.
+
 ## Operating rules
 
 - **Execution freeze:** until the P0 reliability and database-privilege gates are closed, do not implement unrelated catalogue/collection layouts, trending products, likes/engagement, or video. Preserve the current public shop design. **Founder-approved exceptions (2026-10-18 and 2026-10-20):** PR #116 adds the home Post an Ad CTA, explicit social/email sharing, and content-based related products; the founder explicitly authorized My Business and trader-records work, implemented in PRs #153 and #155. This exception covers business records, inventory, sales, analytics, exports, promotions/collections and AI-ready architecture, not unrelated storefront redesign. Customer-specific taste learning remains future work until interaction signals and privacy/retention rules are designed.
