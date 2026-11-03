@@ -191,8 +191,10 @@ export class S3Storage implements PhotoStorage {
     }
     const encodeSegment = (value: string) => encodeURIComponent(value).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase())
     const path = endpoint.pathname.replace(/\/$/, '') + '/' + encodeSegment(bucket) + '/' + objectKey.split('/').map(encodeSegment).join('/')
-    // S3 presigning requires the unsigned-payload marker in the canonical request.
-    const headers: Record<string, string> = { host: endpoint.host, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' }
+    // Keep browser presigned PUTs signed with the host header only. The S3
+    // presigner uses UNSIGNED-PAYLOAD for the payload hash; explicitly adding
+    // x-amz-content-sha256 here would require the browser to send that header,
+    // which is not part of the upload request.
     const request = new HttpRequest({
       protocol: endpoint.protocol,
       hostname: endpoint.hostname,
