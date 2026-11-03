@@ -176,7 +176,6 @@ export class S3Storage implements PhotoStorage {
     objectKey: string,
     method: 'PUT' | 'GET',
     expiresIn = 90,
-    contentType?: string,
   ): Promise<string> {
     if (!bucket || !objectKey || objectKey.startsWith('/') || objectKey.includes('..')) {
       throw new Error('Invalid signed storage object path')
@@ -185,7 +184,6 @@ export class S3Storage implements PhotoStorage {
     const encodeSegment = (value: string) => encodeURIComponent(value).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase())
     const path = endpoint.pathname.replace(/\/$/, '') + '/' + encodeSegment(bucket) + '/' + objectKey.split('/').map(encodeSegment).join('/')
     const headers: Record<string, string> = { host: endpoint.host }
-    if (contentType) headers['content-type'] = contentType
     const request = new HttpRequest({
       protocol: endpoint.protocol,
       hostname: endpoint.hostname,
@@ -194,10 +192,7 @@ export class S3Storage implements PhotoStorage {
       path,
       headers,
     })
-    const signed = await this.signer.presign(request, {
-      expiresIn,
-      ...(contentType ? { signableHeaders: new Set(['content-type']) } : {}),
-    })
+    const signed = await this.signer.presign(request, { expiresIn })
     const url = new URL(signed.path, endpoint.origin)
     for (const [name, value] of Object.entries(signed.query ?? {})) {
       if (Array.isArray(value)) value.forEach((item) => url.searchParams.append(name, String(item)))
