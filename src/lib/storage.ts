@@ -13,7 +13,7 @@
 // and MinIO alike.
 
 import { createHash, createHmac } from 'node:crypto'
-import { CopyObjectCommand, DeleteObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { Hash } from '@smithy/hash-node'
 import { HttpRequest } from '@smithy/protocol-http'
 import { SignatureV4 } from '@smithy/signature-v4'
@@ -206,11 +206,18 @@ export class S3Storage implements PhotoStorage {
     return url.toString()
   }
 
-  async inspectQuarantineObject(objectKey: string): Promise<{ size: number; contentType: string }> {
+  async inspectQuarantineObject(objectKey: string): Promise<{ size: number; contentType: string; header: Uint8Array }> {
     const bucket = this.env.quarantineBucket ?? 'mudaala-photo-quarantine'
     const result = await this.client.send(new HeadObjectCommand({ Bucket: bucket, Key: objectKey }))
     if (!Number.isFinite(result.ContentLength) || !result.ContentType) throw new Error('Uploaded object metadata is incomplete')
-    return { size: result.ContentLength!, contentType: result.ContentType }
+    const headerResult = await this.client.send(new GetObjectCommand({
+      Bucket: bucket,
+      Key: objectKey,
+      Range: 'bytes=0-11',
+    }))
+    if (!headerResult.Body) throw new Error('Uploaded object has no readable content')
+    const header = await headerResult.Body.transformToByteArray()
+    return { size: result.ContentLength!, contentType: result.ContentType, header }
   }
 
   async promoteQuarantineObject(objectKey: string, destinationKey: string, contentType: string): Promise<string> {
