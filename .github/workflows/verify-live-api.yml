@@ -272,7 +272,8 @@ jobs:
               });
               const allowedOrigin = preflight.headers.get('access-control-allow-origin');
               const allowedMethods = preflight.headers.get('access-control-allow-methods') || '';
-              if (!preflight.ok || (allowedOrigin !== '*' && allowedOrigin !== 'https://mudaala.store') || !allowedMethods.toUpperCase().includes('PUT')) {
+              const allowedHeaders = preflight.headers.get('access-control-allow-headers') || '';
+              if (!preflight.ok || (allowedOrigin !== '*' && allowedOrigin !== 'https://mudaala.store') || !allowedMethods.toUpperCase().includes('PUT') || (!allowedHeaders.includes('*') && !allowedHeaders.toLowerCase().includes('content-type'))) {
                 throw new Error('Supabase upload CORS preflight failed: HTTP ' + preflight.status + ', origin=' + allowedOrigin + ', methods=' + allowedMethods);
               }
               const transfer = await fetch(signed.json.original.url, {
