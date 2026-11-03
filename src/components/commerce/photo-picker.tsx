@@ -182,10 +182,50 @@ export function PhotoPicker({ value, onChange, max = 4, single = false, cover = 
     try {
       const prepared = await preparePhoto(file)
       const thumbnail = await prepareThumbnail(prepared)
-      const body = new FormData()
-      body.append('file', prepared)
-      if (thumbnail) body.append('thumbnail', thumbnail)
-      const res = await apiFetch<{ url: string }>('/api/upload', { method: 'POST', body })
+      const signed = await apiFetch<{
+        localUpload?: boolean
+        original?: { key: string; url: string; contentType: string }
+        thumbnail?: { key: string; url: string; contentType: string }
+      }>('/api/upload', {
+        method: 'POST',
+        body: JSON.stringify({
+          file: { type: prepared.type, size: prepared.size },
+          thumbnail: thumbnail ? { type: thumbnail.type, size: thumbnail.size } : null,
+        }),
+      })
+
+      if (signed.localUpload) {
+        const form = new FormData()
+        form.append('file', prepared, prepared.name)
+        if (thumbnail) form.append('thumbnail', thumbnail, thumbnail.name)
+        const local = await apiFetch<{ url: string }>('/api/upload/local', { method: 'POST', body: form })
+        onChange(single ? [local.url] : [...value, local.url].slice(0, max))
+        return
+      }
+      if (!signed.original) throw new Error('Secure photo upload could not be prepared. Please try again.')
+
+      // Image bytes go directly to the private Supabase quarantine bucket.
+      // The Worker only signs and verifies metadata; it never buffers the file.
+      const originalUpload = await fetch(signed.original.url, {
+        method: 'PUT',
+        headers: { 'Content-Type': signed.original.contentType },
+        body: prepared,
+      })
+      if (!originalUpload.ok) throw new Error('Photo transfer failed. Please try again.')
+
+      if (thumbnail && signed.thumbnail) {
+        const thumbnailUpload = await fetch(signed.thumbnail.url, {
+          method: 'PUT',
+          headers: { 'Content-Type': signed.thumbnail.contentType },
+          body: thumbnail,
+        })
+        if (!thumbnailUpload.ok) throw new Error('Photo preview transfer failed. Please try again.')
+      }
+
+      const res = await apiFetch<{ url: string }>('/api/upload/complete', {
+        method: 'POST',
+        body: JSON.stringify({ key: signed.original.key }),
+      })
       onChange(single ? [res.url] : [...value, res.url].slice(0, max))
     } catch (err) {
       toast({

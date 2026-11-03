@@ -524,10 +524,22 @@ async function main() {
     const PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
     const pngBytes = Buffer.from(PNG_B64, 'base64')
 
-    const anonUpload = await fetch(`${BASE}/api/upload`, { method: 'POST', body: (() => { const f = new FormData(); f.append('file', new Blob([pngBytes], { type: 'image/png' }), 'a.png'); return f })() })
-    ok('unauthenticated upload → 401', anonUpload.status === 401)
+    const anonSign = await call('POST', '/api/upload', { file: { type: 'image/png', size: pngBytes.length } })
+    ok('unauthenticated signed-upload request → 401', anonSign.status === 401)
 
-    const upload = await fetch(`${BASE}/api/upload`, {
+    const localSign = await call('POST', '/api/upload', { file: { type: 'image/png', size: pngBytes.length } }, alice)
+    ok('development upload-sign endpoint selects local fallback', localSign.status === 200 && localSign.json?.localUpload === true)
+
+    const invalidMime = await call('POST', '/api/upload', { file: { type: 'text/plain', size: 12 } }, alice)
+    ok('signed-upload endpoint rejects unsupported MIME type', invalidMime.status === 400)
+
+    const oversized = await call('POST', '/api/upload', { file: { type: 'image/png', size: 8 * 1024 * 1024 + 1 } }, alice)
+    ok('signed-upload endpoint rejects files over 8 MB', oversized.status === 413)
+
+    const anonUpload = await fetch(`${BASE}/api/upload/local`, { method: 'POST', body: (() => { const f = new FormData(); f.append('file', new Blob([pngBytes], { type: 'image/png' }), 'a.png'); return f })() })
+    ok('unauthenticated local upload → 401', anonUpload.status === 401)
+
+    const upload = await fetch(`${BASE}/api/upload/local`, {
       method: 'POST',
       headers: { cookie: alice.cookie, authorization: `Bearer ${alice.token}` },
       body: (() => { const f = new FormData(); f.append('file', new Blob([pngBytes], { type: 'image/png' }), 'a.png'); return f })(),
@@ -536,7 +548,7 @@ async function main() {
     ok('signed-in PNG upload → 201 with /uploads/ url', upload.status === 201 && typeof uploadJson?.url === 'string' && uploadJson.url.startsWith('/uploads/'))
     const photoUrl: string | undefined = uploadJson?.url
 
-    const fakePng = await fetch(`${BASE}/api/upload`, {
+    const fakePng = await fetch(`${BASE}/api/upload/local`, {
       method: 'POST',
       headers: { cookie: alice.cookie, authorization: `Bearer ${alice.token}` },
       body: (() => { const f = new FormData(); f.append('file', new Blob(['definitely not an image'], { type: 'image/png' }), 'fake.png'); return f })(),
@@ -549,7 +561,7 @@ async function main() {
     const BIG_PNG = await sharp({
       create: { width: 4000, height: 3000, channels: 3, background: { r: 120, g: 160, b: 90 } },
     }).png().toBuffer()
-    const bigUpload = await fetch(`${BASE}/api/upload`, {
+    const bigUpload = await fetch(`${BASE}/api/upload/local`, {
       method: 'POST',
       headers: { cookie: alice.cookie, authorization: `Bearer ${alice.token}` },
       body: (() => { const f = new FormData(); f.append('file', new Blob([new Uint8Array(BIG_PNG)], { type: 'image/png' }), 'big.png'); return f })(),
@@ -1574,7 +1586,7 @@ async function main() {
     // photos exists, alice uploads one photo and publishes a fixture listing.
     if (!offer) {
       const FIXTURE_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
-      const fixUp = await fetch(`${BASE}/api/upload`, {
+      const fixUp = await fetch(`${BASE}/api/upload/local`, {
         method: 'POST',
         headers: { cookie: alice.cookie },
         body: (() => { const f = new FormData(); f.append('file', new Blob([FIXTURE_PNG], { type: 'image/png' }), 'fixture.png'); return f })(),
@@ -2255,7 +2267,7 @@ async function main() {
     // ---- 15g. Upload flood: 30 photos per user per hour ----
     const tinyPng = await sharp({ create: { width: 8, height: 8, channels: 3, background: { r: 18, g: 52, b: 86 } } }).png().toBuffer()
     const upload = (jar: Jar) =>
-      fetch(`${BASE}/api/upload`, {
+      fetch(`${BASE}/api/upload/local`, {
         method: 'POST',
         headers: { cookie: jar.cookie, ...(jar.token ? { authorization: `Bearer ${jar.token}` } : {}), 'cf-connecting-ip': autoEdgeIp() },
         body: (() => {
@@ -2341,7 +2353,7 @@ async function main() {
       })
       .jpeg()
       .toBuffer()
-    const exifUpload = await fetch(`${BASE}/api/upload`, {
+    const exifUpload = await fetch(`${BASE}/api/upload/local`, {
       method: 'POST',
       headers: { cookie: termsJar.cookie, ...(termsJar.token ? { authorization: `Bearer ${termsJar.token}` } : {}), 'cf-connecting-ip': autoEdgeIp() },
       body: (() => {
@@ -3489,7 +3501,7 @@ async function main() {
     const leaverPhone = uniquePhone()
     await register(leaver, leaverPhone, 'Leaving Seller', 'quiet-harbor-31')
     const tinyPng23 = await sharp({ create: { width: 8, height: 8, channels: 3, background: { r: 90, g: 20, b: 40 } } }).png().toBuffer()
-    const upload23 = await fetch(`${BASE}/api/upload`, {
+    const upload23 = await fetch(`${BASE}/api/upload/local`, {
       method: 'POST',
       headers: { cookie: leaver.cookie, ...(leaver.token ? { authorization: `Bearer ${leaver.token}` } : {}), 'cf-connecting-ip': autoEdgeIp() },
       body: (() => {
@@ -3501,7 +3513,7 @@ async function main() {
     const upload23Json = (await upload23.json().catch(() => null)) as { url?: string } | null
     ok('23.1 fixture: photo uploaded, path known', upload23.status === 201 && typeof upload23Json?.url === 'string')
     const leaverPhotoUrl = upload23Json?.url ?? ''
-    const uploadCover23 = await fetch(`${BASE}/api/upload`, {
+    const uploadCover23 = await fetch(`${BASE}/api/upload/local`, {
       method: 'POST',
       headers: { cookie: leaver.cookie, ...(leaver.token ? { authorization: `Bearer ${leaver.token}` } : {}), 'cf-connecting-ip': autoEdgeIp() },
       body: (() => {
@@ -3512,7 +3524,7 @@ async function main() {
     })
     const uploadCover23Json = (await uploadCover23.json().catch(() => null)) as { url?: string } | null
     const leaverCoverPhotoUrl = uploadCover23Json?.url ?? ''
-    const uploadCollectionCover23 = await fetch(`${BASE}/api/upload`, {
+    const uploadCollectionCover23 = await fetch(`${BASE}/api/upload/local`, {
       method: 'POST',
       headers: { cookie: leaver.cookie, ...(leaver.token ? { authorization: `Bearer ${leaver.token}` } : {}), 'cf-connecting-ip': autoEdgeIp() },
       body: (() => {
