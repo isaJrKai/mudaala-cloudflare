@@ -158,6 +158,8 @@ export class S3Storage implements PhotoStorage {
       region: env.region ?? 'eu-west-2',
       service: 's3',
       sha256: Hash.bind(null, 'sha256'),
+      uriEscapePath: false,
+      applyChecksum: false,
     })
     this.client = new S3Client({
       region: env.region ?? 'eu-west-2',
@@ -189,7 +191,8 @@ export class S3Storage implements PhotoStorage {
     }
     const encodeSegment = (value: string) => encodeURIComponent(value).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase())
     const path = endpoint.pathname.replace(/\/$/, '') + '/' + encodeSegment(bucket) + '/' + objectKey.split('/').map(encodeSegment).join('/')
-    const headers: Record<string, string> = { host: endpoint.host }
+    // S3 presigning requires the unsigned-payload marker in the canonical request.
+    const headers: Record<string, string> = { host: endpoint.host, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' }
     const request = new HttpRequest({
       protocol: endpoint.protocol,
       hostname: endpoint.hostname,
