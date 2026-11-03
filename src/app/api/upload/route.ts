@@ -16,8 +16,8 @@ export async function POST(request: Request) {
   return route(async () => {
     const user = await requireUser('Sign in to upload photos')
     const ip = getClientIp(request)
-    const ipVerdict = await hit(`upload:ip:${ip}`, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS)
-    const userVerdict = await hit(`upload:user:${user.id}`, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS)
+    const ipVerdict = await hit(`upload-sign:ip:${ip}`, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS)
+    const userVerdict = await hit(`upload-sign:user:${user.id}`, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS)
     if (!ipVerdict.ok || !userVerdict.ok) {
       throw new ApiError(429, 'That is a lot of photos - please wait a while before uploading more')
     }
