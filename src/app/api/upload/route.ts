@@ -50,11 +50,11 @@ export async function POST(request: Request) {
     const ext = MIME_TO_EXT[fileType as ImageMime]
     const originalKey = `pending/${user.id}/${id}${hasThumbnail ? '-t' : ''}.${ext}`
     const bucket = process.env.STORAGE_QUARANTINE_BUCKET?.trim() || 'mudaala-photo-quarantine'
-    const originalUrl = await storage.createSignedObjectUrl(bucket, originalKey, 'PUT', 90, fileType)
+    const originalUrl = await storage.createSignedObjectUrl(bucket, originalKey, 'PUT', 90)
     let thumbnailUpload: { key: string; url: string; contentType: 'image/webp' } | undefined
     if (thumbnail) {
       const thumbnailKey = `pending/${user.id}/${id}-t.thumb.webp`
-      const url = await storage.createSignedObjectUrl(bucket, thumbnailKey, 'PUT', 90, 'image/webp')
+      const url = await storage.createSignedObjectUrl(bucket, thumbnailKey, 'PUT', 90)
       thumbnailUpload = { key: thumbnailKey, url, contentType: 'image/webp' }
     }
 

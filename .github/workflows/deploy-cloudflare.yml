@@ -185,7 +185,7 @@ jobs:
               headers: { 'content-type': signed.original.contentType },
               body: png,
             });
-            if (!transfer.ok) throw new Error(`Direct Supabase upload failed: HTTP ${transfer.status}`);
+            if (!transfer.ok) throw new Error(`Direct Supabase upload failed: HTTP ${transfer.status}; signedHost=${new URL(signed.original.url).host}; finalHost=${new URL(transfer.url).host}; redirected=${transfer.redirected}; ${(await transfer.text()).slice(0, 1000)}`);
             const upload = await fetch(`${base}/api/upload/complete`, {
               method: 'POST',
               headers: { cookie, 'content-type': 'application/json' },
