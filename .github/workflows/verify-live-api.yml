@@ -281,7 +281,7 @@ jobs:
                 headers: { 'content-type': signed.json.original.contentType },
                 body: png,
               });
-              if (!transfer.ok) throw new Error('Direct Supabase photo transfer failed with HTTP ' + transfer.status + ': ' + (await transfer.text()).slice(0, 1000));
+              if (!transfer.ok) throw new Error('Direct Supabase photo transfer failed with HTTP ' + transfer.status + '; signedHost=' + new URL(signed.json.original.url).host + '; finalHost=' + new URL(transfer.url).host + '; redirected=' + transfer.redirected + '; ' + (await transfer.text()).slice(0, 1000));
               const crossAccountFinalize = await api('/api/upload/complete', {
                 method: 'POST',
                 cookie: stranger.cookie,
