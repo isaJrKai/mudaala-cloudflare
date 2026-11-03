@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto'
 import { ApiError, route, jsonOk, requireUser } from '@/lib/api'
 import { hit, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
-import { chooseStorage, S3Storage } from '@/lib/storage'
+import { chooseStorage, LocalDiskStorage, S3Storage } from '@/lib/storage'
 
 const MAX_BYTES = 8 * 1024 * 1024
 const THUMBNAIL_MAX_BYTES = 250 * 1024
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     } | null
     const fileType = payload?.file?.type
     const fileSize = payload?.file?.size
-    if (!fileType || !(fileType in MIME_TO_EXT) || !Number.isInteger(fileSize) || !fileSize || fileSize < 1) {
+    if (!fileType || !Object.prototype.hasOwnProperty.call(MIME_TO_EXT, fileType) || !Number.isInteger(fileSize) || !fileSize || fileSize < 1) {
       throw new ApiError(400, 'Choose a JPEG, PNG or WebP photo')
     }
     if (fileSize > MAX_BYTES) throw new ApiError(413, 'That photo is too large - 8MB is the limit')
@@ -42,9 +42,8 @@ export async function POST(request: Request) {
     }
 
     const storage = chooseStorage()
-    if (!(storage instanceof S3Storage)) {
-      throw new ApiError(503, 'Secure photo storage is not configured. Please try again later.')
-    }
+    if (storage instanceof LocalDiskStorage) return jsonOk({ localUpload: true }, 200)
+    if (!(storage instanceof S3Storage)) throw new ApiError(503, 'Secure photo storage is not configured. Please try again later.')
 
     const id = `${randomBytes(4).toString('hex')}-${randomBytes(8).toString('hex')}`
     const hasThumbnail = Boolean(thumbnail)
