@@ -195,6 +195,7 @@ export class S3Storage implements PhotoStorage {
     // presigner uses UNSIGNED-PAYLOAD for the payload hash; explicitly adding
     // x-amz-content-sha256 here would require the browser to send that header,
     // which is not part of the upload request.
+    const headers: Record<string, string> = { host: endpoint.host }
     const request = new HttpRequest({
       protocol: endpoint.protocol,
       hostname: endpoint.hostname,
