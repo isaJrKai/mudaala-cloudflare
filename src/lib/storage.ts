@@ -181,6 +181,12 @@ export class S3Storage implements PhotoStorage {
       throw new Error('Invalid signed storage object path')
     }
     const endpoint = new URL(this.env.endpoint)
+    // Supabase recommends the direct storage hostname for S3 traffic. A
+    // redirect from the project API hostname changes the Host header and
+    // invalidates a presigned SigV4 URL, so sign against the storage hostname.
+    if (endpoint.hostname.endsWith('.supabase.co') && !endpoint.hostname.endsWith('.storage.supabase.co')) {
+      endpoint.hostname = endpoint.hostname.replace(/\.supabase\.co$/, '.storage.supabase.co')
+    }
     const encodeSegment = (value: string) => encodeURIComponent(value).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase())
     const path = endpoint.pathname.replace(/\/$/, '') + '/' + encodeSegment(bucket) + '/' + objectKey.split('/').map(encodeSegment).join('/')
     const headers: Record<string, string> = { host: endpoint.host }
