@@ -124,7 +124,7 @@ jobs:
             });
           '
 
-      - name: Verify live moderation accepts a safe disposable image
+      - name: Verify live authenticated photo upload, moderation, and public retrieval
         if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         env:
           APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
@@ -156,50 +156,24 @@ jobs:
               cookie = login.headers.get('set-cookie')?.split(';')[0] ?? '';
             }
             if (!cookie) throw new Error('No session cookie was issued; cannot safely clean up the disposable account');
+
             const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
-            const signedResponse = await fetch(`${base}/api/upload`, {
+            const form = new FormData();
+            form.append('file', new Blob([png], { type: 'image/png' }), 'release-smoke.png');
+            const upload = await fetch(`${base}/api/upload/local`, {
               method: 'POST',
-              headers: { cookie, 'content-type': 'application/json' },
-              body: JSON.stringify({ file: { type: 'image/png', size: png.length } }),
-            });
-            const signed = await signedResponse.json().catch(() => null);
-            if (signedResponse.status !== 201 || typeof signed?.original?.url !== 'string') {
-              throw new Error(`Safe-image signing failed: HTTP ${signedResponse.status}`);
-            }
-            const preflight = await fetch(signed.original.url, {
-              method: 'OPTIONS',
-              headers: {
-                origin: 'https://mudaala.store',
-                'access-control-request-method': 'PUT',
-                'access-control-request-headers': 'content-type',
-              },
-            });
-            const allowedOrigin = preflight.headers.get('access-control-allow-origin');
-            const allowedMethods = preflight.headers.get('access-control-allow-methods') || '';
-            const allowedHeaders = preflight.headers.get('access-control-allow-headers') || '';
-            if (!preflight.ok || (allowedOrigin !== '*' && allowedOrigin !== 'https://mudaala.store') || !allowedMethods.toUpperCase().includes('PUT') || (!allowedHeaders.includes('*') && !allowedHeaders.toLowerCase().includes('content-type'))) {
-              throw new Error('Supabase upload CORS preflight failed: HTTP ' + preflight.status + ', origin=' + allowedOrigin + ', methods=' + allowedMethods);
-            }
-            const transfer = await fetch(signed.original.url, {
-              method: 'PUT',
-              headers: { 'content-type': signed.original.contentType },
-              body: png,
-            });
-            if (!transfer.ok) throw new Error(`Direct Supabase upload failed: HTTP ${transfer.status}; signedHost=${new URL(signed.original.url).host}; finalHost=${new URL(transfer.url).host}; redirected=${transfer.redirected}; ${(await transfer.text()).slice(0, 1000)}`);
-            const upload = await fetch(`${base}/api/upload/complete`, {
-              method: 'POST',
-              headers: { cookie, 'content-type': 'application/json' },
-              body: JSON.stringify({ key: signed.original.key }),
+              headers: { cookie },
+              body: form,
             });
             const payload = await upload.json().catch(() => null);
             if (upload.status !== 201 || typeof payload?.url !== 'string' || !payload.url.startsWith('https://')) {
-              throw new Error(`Safe-image moderation/publication failed: HTTP ${upload.status}`);
+              throw new Error(`Authenticated photo upload/moderation failed: HTTP ${upload.status}`);
             }
             const imageCheck = await fetch(payload.url);
             if (!imageCheck.ok || !(imageCheck.headers.get('content-type') || '').startsWith('image/')) {
-              throw new Error('Published Supabase photo could not be fetched');
+              throw new Error('Published photo could not be fetched from its public URL');
             }
-            console.log(JSON.stringify({ liveSafeImageModeration: 'pass', directSupabaseUpload: 'pass', uploadStatus: upload.status }));
+            console.log(JSON.stringify({ authenticatedPhotoUpload: 'pass', moderation: 'pass', publicImageRetrieval: 'pass', uploadStatus: upload.status }));
           } catch (error) {
             failure = error;
           } finally {
