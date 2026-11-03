@@ -247,6 +247,20 @@ export class S3Storage implements PhotoStorage {
     await this.client.send(new DeleteObjectCommand({ Bucket: bucket, Key: objectKey }))
   }
 
+  /** Store untrusted bytes in the private quarantine bucket before publication. */
+  async putQuarantine(objectKey: string, data: Buffer, contentType: string): Promise<void> {
+    if (!objectKey || objectKey.startsWith('/') || objectKey.includes('..')) {
+      throw new Error('Invalid quarantine object path')
+    }
+    await this.client.send(new PutObjectCommand({
+      Bucket: this.env.quarantineBucket ?? 'mudaala-photo-quarantine',
+      Key: objectKey,
+      Body: data,
+      ContentType: contentType,
+      CacheControl: 'no-store',
+    }))
+  }
+
   /** PUT one object; exported so the one-off URL-migration script reuses it. */
   async put(
     objectKey: string,
