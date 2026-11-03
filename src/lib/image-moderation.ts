@@ -74,3 +74,42 @@ export async function moderateImageContent(
     return { status: 'unavailable' }
   }
 }
+
+
+/** Moderate an already-uploaded private object through a short-lived signed URL.
+ * This avoids base64-encoding image bytes inside the 10 ms Cloudflare Worker CPU budget.
+ */
+export async function moderateImageUrl(
+  imageUrl: string,
+  options: ModerationOptions = {},
+): Promise<ImageModerationResult> {
+  const apiKey = options.apiKey ?? process.env.OPENAI_MODERATION_API_KEY
+  if (!apiKey) return { status: 'not_configured' }
+  if (!/^https:\/\//i.test(imageUrl)) return { status: 'unavailable' }
+  const fetchImpl = options.fetchImpl ?? fetch
+  try {
+    const response = await fetchImpl('https://api.openai.com/v1/moderations', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'omni-moderation-latest',
+        input: [{ type: 'image_url', image_url: { url: imageUrl } }],
+      }),
+      signal: AbortSignal.timeout(options.timeoutMs ?? 12_000),
+    })
+    if (!response.ok) return { status: 'unavailable', providerStatus: response.status }
+    const payload = await response.json() as ModerationResponse
+    const categories = payload.results?.[0]?.categories
+    if (!categories || typeof categories.sexual !== 'boolean' || typeof categories['sexual/minors'] !== 'boolean') {
+      return { status: 'unavailable' }
+    }
+    if (categories['sexual/minors'] === true) return { status: 'blocked', category: 'sexual/minors' }
+    if (categories.sexual === true) return { status: 'blocked', category: 'sexual' }
+    return { status: 'safe' }
+  } catch {
+    return { status: 'unavailable' }
+  }
+}
