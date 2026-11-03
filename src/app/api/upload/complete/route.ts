@@ -113,6 +113,7 @@ export async function POST(request: Request) {
         await storage.promoteQuarantineObject(thumbnailKey, `photos/${id}-t.thumb.webp`, 'image/webp')
       } catch (error) {
         // The original remains valid; listing cards fall back to the full image.
+        await storage.discardQuarantineObject(thumbnailKey).catch(() => undefined)
         console.error('[upload] thumbnail promotion failed:', error instanceof Error ? error.name : 'unknown')
       }
     }
