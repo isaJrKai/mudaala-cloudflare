@@ -13,7 +13,10 @@
 // and MinIO alike.
 
 import { createHash, createHmac } from 'node:crypto'
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { CopyObjectCommand, DeleteObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { Hash } from '@smithy/hash-node'
+import { HttpRequest } from '@smithy/protocol-http'
+import { SignatureV4 } from '@smithy/signature-v4'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { randomBytes } from 'node:crypto'
@@ -78,6 +81,7 @@ export interface S3Env {
   secret: string
   publicUrl?: string // where saved objects are publicly served, e.g. https://cdn.example
   region?: string // Must match the Supabase project's configured region
+  quarantineBucket?: string // Private bucket used until image moderation approves an upload
 }
 
 function hmac(key: Buffer | string, data: string): Buffer {
@@ -144,10 +148,17 @@ export function signS3Put(
 export class S3Storage implements PhotoStorage {
   readonly name = 's3-compatible'
   private readonly client: S3Client
+  private readonly signer: SignatureV4
 
   constructor(private readonly env: S3Env) {
     // Let the AWS SDK own SigV4 signing. Supabase's S3 gateway is AWS-S3
     // compatible, and the SDK handles canonical URI/header rules reliably.
+    this.signer = new SignatureV4({
+      credentials: { accessKeyId: env.key, secretAccessKey: env.secret },
+      region: env.region ?? 'eu-west-2',
+      service: 's3',
+      sha256: Hash.bind(null, 'sha256'),
+    })
     this.client = new S3Client({
       region: env.region ?? 'eu-west-2',
       endpoint: env.endpoint,
@@ -157,6 +168,69 @@ export class S3Storage implements PhotoStorage {
         secretAccessKey: env.secret,
       },
     })
+  }
+
+  /** Create a short-lived, single-object S3 URL. The secret key never leaves this Worker. */
+  async createSignedObjectUrl(
+    bucket: string,
+    objectKey: string,
+    method: 'PUT' | 'GET',
+    expiresIn = 90,
+    contentType?: string,
+  ): Promise<string> {
+    if (!bucket || !objectKey || objectKey.startsWith('/') || objectKey.includes('..')) {
+      throw new Error('Invalid signed storage object path')
+    }
+    const endpoint = new URL(this.env.endpoint)
+    const encodeSegment = (value: string) => encodeURIComponent(value).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase())
+    const path = endpoint.pathname.replace(/\\/$/, '') + '/' + encodeSegment(bucket) + '/' + objectKey.split('/').map(encodeSegment).join('/')
+    const headers: Record<string, string> = { host: endpoint.host }
+    if (contentType) headers['content-type'] = contentType
+    const request = new HttpRequest({
+      protocol: endpoint.protocol,
+      hostname: endpoint.hostname,
+      port: endpoint.port ? Number(endpoint.port) : undefined,
+      method,
+      path,
+      headers,
+    })
+    const signed = await this.signer.presign(request, {
+      expiresIn,
+      ...(contentType ? { signableHeaders: new Set(['content-type']) } : {}),
+    })
+    const url = new URL(signed.path, endpoint.origin)
+    for (const [name, value] of Object.entries(signed.query ?? {})) {
+      if (Array.isArray(value)) value.forEach((item) => url.searchParams.append(name, String(item)))
+      else if (value !== undefined) url.searchParams.set(name, String(value))
+    }
+    return url.toString()
+  }
+
+  async inspectQuarantineObject(objectKey: string): Promise<{ size: number; contentType: string }> {
+    const bucket = this.env.quarantineBucket ?? 'mudaala_photo_quarantine'
+    const result = await this.client.send(new HeadObjectCommand({ Bucket: bucket, Key: objectKey }))
+    if (!Number.isFinite(result.ContentLength) || !result.ContentType) throw new Error('Uploaded object metadata is incomplete')
+    return { size: result.ContentLength!, contentType: result.ContentType }
+  }
+
+  async promoteQuarantineObject(objectKey: string, destinationKey: string, contentType: string): Promise<string> {
+    const sourceBucket = this.env.quarantineBucket ?? 'mudaala_photo_quarantine'
+    const copySource = '/' + encodeURIComponent(sourceBucket) + '/' + objectKey.split('/').map(encodeURIComponent).join('/')
+    await this.client.send(new CopyObjectCommand({
+      Bucket: this.env.bucket,
+      Key: destinationKey,
+      CopySource: copySource,
+      ContentType: contentType,
+      CacheControl: 'public, max-age=31536000, immutable',
+      MetadataDirective: 'REPLACE',
+    }))
+    await this.client.send(new DeleteObjectCommand({ Bucket: sourceBucket, Key: objectKey }))
+    return this.publicUrlFor(destinationKey)
+  }
+
+  async discardQuarantineObject(objectKey: string): Promise<void> {
+    const bucket = this.env.quarantineBucket ?? 'mudaala_photo_quarantine'
+    await this.client.send(new DeleteObjectCommand({ Bucket: bucket, Key: objectKey }))
   }
 
   /** PUT one object; exported so the one-off URL-migration script reuses it. */
@@ -275,6 +349,7 @@ export function readStorageEnv(env: Record<string, string | undefined> = process
     secret,
     publicUrl: env.STORAGE_PUBLIC_URL?.trim() || undefined,
     region: env.STORAGE_REGION?.trim() || 'eu-west-2',
+    quarantineBucket: env.STORAGE_QUARANTINE_BUCKET?.trim() || 'mudaala_photo_quarantine',
   }
 }
 
