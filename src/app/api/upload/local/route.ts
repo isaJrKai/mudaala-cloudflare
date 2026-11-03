@@ -12,10 +12,11 @@
 // writes to any S3-compatible bucket (Cloudflare R2, Supabase Storage) using
 // the STORAGE_* environment variables. The route itself never knows which.
 
+import { randomBytes } from 'node:crypto'
 import { ApiError, route, jsonOk, requireUser } from '@/lib/api'
 import { hit, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
-import { chooseStorage } from '@/lib/storage'
+import { chooseStorage, S3Storage } from '@/lib/storage'
 import { moderateImageContent } from '@/lib/image-moderation'
 
 const MAX_BYTES = 8 * 1024 * 1024 // 8MB upload limit
@@ -202,20 +203,50 @@ export async function POST(request: Request) {
 
     const storage = chooseStorage()
     let url: string
-    try {
-      url = await storage.save(input, detectedType, thumbnailInput !== null)
-    } catch (err) {
-      console.error('[upload] storage write failed:', err)
-      throw new ApiError(502, 'The photo could not be stored right now. Please try again')
-    }
-
-    if (thumbnailInput) {
+    if (storage instanceof S3Storage) {
+      // Keep production objects private until the byte-level and content
+      // moderation checks above have passed, then promote into the public bucket.
+      const id = randomBytes(8).toString('hex')
+      const ext = detectedType
+      const originalKey = `pending/${user.id}/${id}.${ext}`
+      const thumbnailKey = thumbnailInput ? `pending/${user.id}/${id}-t.thumb.webp` : null
       try {
-        await storage.saveThumbnail(url, thumbnailInput)
+        await storage.putQuarantine(originalKey, input, ext === 'jpg' ? 'image/jpeg' : ext === 'png' ? 'image/png' : 'image/webp')
+        if (thumbnailInput && thumbnailKey) {
+          await storage.putQuarantine(thumbnailKey, thumbnailInput, 'image/webp')
+        }
+        url = await storage.promoteQuarantineObject(
+          originalKey,
+          `photos/${id}.${ext}`,
+          ext === 'jpg' ? 'image/jpeg' : ext === 'png' ? 'image/png' : 'image/webp',
+        )
+        if (thumbnailInput && thumbnailKey) {
+          try {
+            await storage.promoteQuarantineObject(thumbnailKey, `photos/${id}-t.thumb.webp`, 'image/webp')
+          } catch (err) {
+            await storage.discardQuarantineObject(thumbnailKey).catch(() => undefined)
+            console.error('[upload] thumbnail promotion failed:', err instanceof Error ? err.name : 'unknown')
+          }
+        }
       } catch (err) {
-        // The original is still valid and stored; never lose a seller's photo
-        // because an optional rendition failed. The feed falls back gracefully.
-        console.error('[upload] thumbnail write failed:', err)
+        await storage.discardQuarantineObject(originalKey).catch(() => undefined)
+        if (thumbnailKey) await storage.discardQuarantineObject(thumbnailKey).catch(() => undefined)
+        console.error('[upload] quarantined storage write failed:', err instanceof Error ? err.name : 'unknown')
+        throw new ApiError(502, 'The photo could not be stored right now. Please try again')
+      }
+    } else {
+      try {
+        url = await storage.save(input, detectedType, thumbnailInput !== null)
+      } catch (err) {
+        console.error('[upload] storage write failed:', err)
+        throw new ApiError(502, 'The photo could not be stored right now. Please try again')
+      }
+      if (thumbnailInput) {
+        try {
+          await storage.saveThumbnail(url, thumbnailInput)
+        } catch (err) {
+          console.error('[upload] thumbnail write failed:', err)
+        }
       }
     }
 
