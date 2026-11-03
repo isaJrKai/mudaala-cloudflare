@@ -249,6 +249,11 @@ jobs:
               const reportsUser = await api('/api/admin/reports', { cookie: owner.cookie });
               if (reportsUser.status !== 403) throw new Error('Ordinary user admin reports should be 403; got ' + reportsUser.status);
 
+              const anonymousSign = await api('/api/upload', {
+                method: 'POST',
+                body: { file: { type: 'image/png', size: png.length } },
+              });
+              if (anonymousSign.status !== 401) throw new Error('Anonymous photo signing should be denied with 401; got ' + anonymousSign.status);
               const signed = await api('/api/upload', {
                 method: 'POST',
                 cookie: owner.cookie,
@@ -276,6 +281,14 @@ jobs:
                 body: png,
               });
               if (!transfer.ok) throw new Error('Direct Supabase photo transfer failed with HTTP ' + transfer.status);
+              const crossAccountFinalize = await api('/api/upload/complete', {
+                method: 'POST',
+                cookie: stranger.cookie,
+                body: { key: signed.json.original.key },
+              });
+              if (crossAccountFinalize.status !== 400) {
+                throw new Error('A different account must not finalize another seller photo; got HTTP ' + crossAccountFinalize.status);
+              }
               const uploaded = await api('/api/upload/complete', {
                 method: 'POST',
                 cookie: owner.cookie,
