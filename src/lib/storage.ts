@@ -207,14 +207,14 @@ export class S3Storage implements PhotoStorage {
   }
 
   async inspectQuarantineObject(objectKey: string): Promise<{ size: number; contentType: string }> {
-    const bucket = this.env.quarantineBucket ?? 'mudaala_photo_quarantine'
+    const bucket = this.env.quarantineBucket ?? 'mudaala-photo-quarantine'
     const result = await this.client.send(new HeadObjectCommand({ Bucket: bucket, Key: objectKey }))
     if (!Number.isFinite(result.ContentLength) || !result.ContentType) throw new Error('Uploaded object metadata is incomplete')
     return { size: result.ContentLength!, contentType: result.ContentType }
   }
 
   async promoteQuarantineObject(objectKey: string, destinationKey: string, contentType: string): Promise<string> {
-    const sourceBucket = this.env.quarantineBucket ?? 'mudaala_photo_quarantine'
+    const sourceBucket = this.env.quarantineBucket ?? 'mudaala-photo-quarantine'
     const copySource = '/' + encodeURIComponent(sourceBucket) + '/' + objectKey.split('/').map(encodeURIComponent).join('/')
     await this.client.send(new CopyObjectCommand({
       Bucket: this.env.bucket,
@@ -229,7 +229,7 @@ export class S3Storage implements PhotoStorage {
   }
 
   async discardQuarantineObject(objectKey: string): Promise<void> {
-    const bucket = this.env.quarantineBucket ?? 'mudaala_photo_quarantine'
+    const bucket = this.env.quarantineBucket ?? 'mudaala-photo-quarantine'
     await this.client.send(new DeleteObjectCommand({ Bucket: bucket, Key: objectKey }))
   }
 
@@ -349,7 +349,7 @@ export function readStorageEnv(env: Record<string, string | undefined> = process
     secret,
     publicUrl: env.STORAGE_PUBLIC_URL?.trim() || undefined,
     region: env.STORAGE_REGION?.trim() || 'eu-west-2',
-    quarantineBucket: env.STORAGE_QUARANTINE_BUCKET?.trim() || 'mudaala_photo_quarantine',
+    quarantineBucket: env.STORAGE_QUARANTINE_BUCKET?.trim() || 'mudaala-photo-quarantine',
   }
 }
 
