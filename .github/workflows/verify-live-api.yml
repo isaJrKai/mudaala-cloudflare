@@ -257,6 +257,19 @@ jobs:
               if (signed.status !== 201 || typeof signed.json?.original?.url !== 'string') {
                 throw new Error('Authenticated production photo signing failed with HTTP ' + signed.status + ': ' + JSON.stringify(signed.json ?? {}).slice(0, 300));
               }
+              const preflight = await fetch(signed.json.original.url, {
+                method: 'OPTIONS',
+                headers: {
+                  origin: 'https://mudaala.store',
+                  'access-control-request-method': 'PUT',
+                  'access-control-request-headers': 'content-type',
+                },
+              });
+              const allowedOrigin = preflight.headers.get('access-control-allow-origin');
+              const allowedMethods = preflight.headers.get('access-control-allow-methods') || '';
+              if (!preflight.ok || (allowedOrigin !== '*' && allowedOrigin !== 'https://mudaala.store') || !allowedMethods.toUpperCase().includes('PUT')) {
+                throw new Error('Supabase upload CORS preflight failed: HTTP ' + preflight.status + ', origin=' + allowedOrigin + ', methods=' + allowedMethods);
+              }
               const transfer = await fetch(signed.json.original.url, {
                 method: 'PUT',
                 headers: { 'content-type': signed.json.original.contentType },
