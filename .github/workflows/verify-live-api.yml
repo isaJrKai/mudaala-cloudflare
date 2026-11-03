@@ -249,11 +249,27 @@ jobs:
               const reportsUser = await api('/api/admin/reports', { cookie: owner.cookie });
               if (reportsUser.status !== 403) throw new Error('Ordinary user admin reports should be 403; got ' + reportsUser.status);
 
-              const form = new FormData();
-              form.append('file', new Blob([png], { type: 'image/png' }), 'audit-photo.png');
-              const uploaded = await api('/api/upload', { method: 'POST', cookie: owner.cookie, form });
+              const signed = await api('/api/upload', {
+                method: 'POST',
+                cookie: owner.cookie,
+                body: { file: { type: 'image/png', size: png.length } },
+              });
+              if (signed.status !== 201 || typeof signed.json?.original?.url !== 'string') {
+                throw new Error('Authenticated production photo signing failed with HTTP ' + signed.status + ': ' + JSON.stringify(signed.json ?? {}).slice(0, 300));
+              }
+              const transfer = await fetch(signed.json.original.url, {
+                method: 'PUT',
+                headers: { 'content-type': signed.json.original.contentType },
+                body: png,
+              });
+              if (!transfer.ok) throw new Error('Direct Supabase photo transfer failed with HTTP ' + transfer.status);
+              const uploaded = await api('/api/upload/complete', {
+                method: 'POST',
+                cookie: owner.cookie,
+                body: { key: signed.json.original.key },
+              });
               if (uploaded.status !== 201 || typeof uploaded.json?.url !== 'string' || !uploaded.json.url.startsWith('https://')) {
-                throw new Error('Authenticated production photo upload failed with HTTP ' + uploaded.status + ': ' + JSON.stringify(uploaded.json ?? {}).slice(0, 300));
+                throw new Error('Authenticated production photo publication failed with HTTP ' + uploaded.status + ': ' + JSON.stringify(uploaded.json ?? {}).slice(0, 300));
               }
               const photoUrl = uploaded.json.url;
               const title = 'Temporary Mudaala security audit ' + auditTag;
