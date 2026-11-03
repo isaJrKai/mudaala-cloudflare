@@ -2,14 +2,26 @@
 import { ApiError, route, jsonOk, requireUser } from '@/lib/api'
 import { moderateImageUrl } from '@/lib/image-moderation'
 import { chooseStorage, S3Storage } from '@/lib/storage'
+import { hit, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS } from '@/lib/rate-limit'
+import { getClientIp } from '@/lib/client-ip'
 
 const MAX_BYTES = 8 * 1024 * 1024
 const THUMBNAIL_MAX_BYTES = 250 * 1024
 const EXT_TO_MIME = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' } as const
 
+function validImageHeader(bytes: Uint8Array, extension: keyof typeof EXT_TO_MIME): boolean {
+  if (extension === 'jpg') return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+  if (extension === 'png') return bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a
+  return bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+}
+
 export async function POST(request: Request) {
   return route(async () => {
     const user = await requireUser('Sign in to finish uploading photos')
+    const ip = getClientIp(request)
+    const ipVerdict = await hit(`upload-complete:ip:${ip}`, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS)
+    const userVerdict = await hit(`upload-complete:user:${user.id}`, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS)
+    if (!ipVerdict.ok || !userVerdict.ok) throw new ApiError(429, 'That is a lot of photos - please wait a while before uploading more')
     const payload = await request.json().catch(() => null) as { key?: string } | null
     const key = payload?.key
     const prefix = `pending/${user.id}/`
@@ -40,12 +52,12 @@ export async function POST(request: Request) {
       throw new ApiError(400, 'The photo upload is incomplete or has expired. Please choose it again.')
     }
 
-    if (originalMeta.size < 1 || originalMeta.size > MAX_BYTES || originalMeta.contentType !== expectedMime) {
+    if (originalMeta.size < 1 || originalMeta.size > MAX_BYTES || originalMeta.contentType !== expectedMime || !validImageHeader(originalMeta.header, extension)) {
       await storage.discardQuarantineObject(key).catch(() => undefined)
       if (thumbnailKey) await storage.discardQuarantineObject(thumbnailKey).catch(() => undefined)
       throw new ApiError(400, 'The uploaded photo did not pass file checks. Please choose it again.')
     }
-    if (thumbnailMeta && (thumbnailMeta.size < 1 || thumbnailMeta.size > THUMBNAIL_MAX_BYTES || thumbnailMeta.contentType !== 'image/webp')) {
+    if (thumbnailMeta && (thumbnailMeta.size < 1 || thumbnailMeta.size > THUMBNAIL_MAX_BYTES || thumbnailMeta.contentType !== 'image/webp' || !validImageHeader(thumbnailMeta.header, 'webp'))) {
       await storage.discardQuarantineObject(key).catch(() => undefined)
       if (thumbnailKey) await storage.discardQuarantineObject(thumbnailKey).catch(() => undefined)
       throw new ApiError(400, 'The photo preview did not pass file checks. Please choose the photo again.')
