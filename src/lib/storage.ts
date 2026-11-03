@@ -183,7 +183,7 @@ export class S3Storage implements PhotoStorage {
     }
     const endpoint = new URL(this.env.endpoint)
     const encodeSegment = (value: string) => encodeURIComponent(value).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase())
-    const path = endpoint.pathname.replace(/\\/$/, '') + '/' + encodeSegment(bucket) + '/' + objectKey.split('/').map(encodeSegment).join('/')
+    const path = endpoint.pathname.replace(/\/$/, '') + '/' + encodeSegment(bucket) + '/' + objectKey.split('/').map(encodeSegment).join('/')
     const headers: Record<string, string> = { host: endpoint.host }
     if (contentType) headers['content-type'] = contentType
     const request = new HttpRequest({
