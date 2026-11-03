@@ -121,7 +121,7 @@ function concatBytes(parts: Uint8Array[]): Uint8Array {
 }
 
 export async function POST(request: Request) {
-  if (process.env.NODE_ENV === 'production') return new Response(null, { status: 404 })
+  if (process.env.NODE_ENV === 'production' || process.env.STORAGE_ENDPOINT?.trim()) return new Response(null, { status: 404 })
   return route(async () => {
     const user = await requireUser('Sign in to upload photos')
 
