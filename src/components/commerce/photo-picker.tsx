@@ -183,7 +183,8 @@ export function PhotoPicker({ value, onChange, max = 4, single = false, cover = 
       const prepared = await preparePhoto(file)
       const thumbnail = await prepareThumbnail(prepared)
       const signed = await apiFetch<{
-        original: { key: string; url: string; contentType: string }
+        localUpload?: boolean
+        original?: { key: string; url: string; contentType: string }
         thumbnail?: { key: string; url: string; contentType: string }
       }>('/api/upload', {
         method: 'POST',
@@ -192,6 +193,16 @@ export function PhotoPicker({ value, onChange, max = 4, single = false, cover = 
           thumbnail: thumbnail ? { type: thumbnail.type, size: thumbnail.size } : null,
         }),
       })
+
+      if (signed.localUpload) {
+        const form = new FormData()
+        form.append('file', prepared, prepared.name)
+        if (thumbnail) form.append('thumbnail', thumbnail, thumbnail.name)
+        const local = await apiFetch<{ url: string }>('/api/upload/local', { method: 'POST', body: form })
+        onChange(single ? [local.url] : [...value, local.url].slice(0, max))
+        return
+      }
+      if (!signed.original) throw new Error('Secure photo upload could not be prepared. Please try again.')
 
       // Image bytes go directly to the private Supabase quarantine bucket.
       // The Worker only signs and verifies metadata; it never buffers the file.
