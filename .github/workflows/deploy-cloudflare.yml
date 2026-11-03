@@ -157,14 +157,35 @@ jobs:
             }
             if (!cookie) throw new Error('No session cookie was issued; cannot safely clean up the disposable account');
             const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
-            const form = new FormData();
-            form.append('file', new Blob([png], { type: 'image/png' }), 'mudaala-safe-smoke.png');
-            const upload = await fetch(`${base}/api/upload`, { method: 'POST', headers: { cookie }, body: form });
-            const payload = await upload.json().catch(() => null);
-            if (upload.status !== 201 || typeof payload?.url !== 'string') {
-              throw new Error(`Safe-image upload/moderation failed: HTTP ${upload.status}`);
+            const signedResponse = await fetch(`${base}/api/upload`, {
+              method: 'POST',
+              headers: { cookie, 'content-type': 'application/json' },
+              body: JSON.stringify({ file: { type: 'image/png', size: png.length } }),
+            });
+            const signed = await signedResponse.json().catch(() => null);
+            if (signedResponse.status !== 201 || typeof signed?.original?.url !== 'string') {
+              throw new Error(`Safe-image signing failed: HTTP ${signedResponse.status}`);
             }
-            console.log(JSON.stringify({ liveSafeImageModeration: 'pass', uploadStatus: upload.status }));
+            const transfer = await fetch(signed.original.url, {
+              method: 'PUT',
+              headers: { 'content-type': signed.original.contentType },
+              body: png,
+            });
+            if (!transfer.ok) throw new Error(`Direct Supabase upload failed: HTTP ${transfer.status}`);
+            const upload = await fetch(`${base}/api/upload/complete`, {
+              method: 'POST',
+              headers: { cookie, 'content-type': 'application/json' },
+              body: JSON.stringify({ key: signed.original.key }),
+            });
+            const payload = await upload.json().catch(() => null);
+            if (upload.status !== 201 || typeof payload?.url !== 'string' || !payload.url.startsWith('https://')) {
+              throw new Error(`Safe-image moderation/publication failed: HTTP ${upload.status}`);
+            }
+            const imageCheck = await fetch(payload.url);
+            if (!imageCheck.ok || !(imageCheck.headers.get('content-type') || '').startsWith('image/')) {
+              throw new Error('Published Supabase photo could not be fetched');
+            }
+            console.log(JSON.stringify({ liveSafeImageModeration: 'pass', directSupabaseUpload: 'pass', uploadStatus: upload.status }));
           } catch (error) {
             failure = error;
           } finally {
