@@ -1,3 +1,5 @@
+// Authenticated same-origin photo upload. Image bytes are validated and moderated
+// before storage, avoiding browser-to-storage cross-origin transfers.
 // Photo upload - the ONLY way images enter Mudaala.
 // requireUser: uploads are a seller action, buyers never need this.
 // Trust is decided by magic bytes, never by the filename a client claims -
@@ -121,8 +123,7 @@ function concatBytes(parts: Uint8Array[]): Uint8Array {
 }
 
 export async function POST(request: Request) {
-  if (process.env.NODE_ENV === 'production' || process.env.STORAGE_ENDPOINT?.trim()) return new Response(null, { status: 404 })
-  return route(async () => {
+    return route(async () => {
     const user = await requireUser('Sign in to upload photos')
 
     // 30 photos per user per hour: a whole catalogue shoot in a sitting is
