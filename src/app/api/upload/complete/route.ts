@@ -43,8 +43,8 @@ export async function POST(request: Request) {
     const thumbnailKey = hasThumbnail ? `${prefix}${id}-t.thumb.webp` : null
     const quarantineBucket = process.env.STORAGE_QUARANTINE_BUCKET?.trim() || 'mudaala-photo-quarantine'
 
-    let originalMeta: { size: number; contentType: string }
-    let thumbnailMeta: { size: number; contentType: string } | null = null
+    let originalMeta: { size: number; contentType: string; header: Uint8Array }
+    let thumbnailMeta: { size: number; contentType: string; header: Uint8Array } | null = null
     try {
       originalMeta = await storage.inspectQuarantineObject(key)
       if (thumbnailKey) thumbnailMeta = await storage.inspectQuarantineObject(thumbnailKey)
