@@ -155,8 +155,8 @@ Never run `prisma db push`, `migrate reset`, ad hoc SQL, seed scripts or destruc
 - [x] Read-only review of current Prisma schema.
 - [x] Identify current model domains and highest-risk schema patterns.
 - [x] Confirm production rate limiting uses Cloudflare Durable Objects; Redis adapter is legacy/test and not an authority.
-- [ ] Inspect full application read/write paths for every P0/P1 finding.
-- [ ] Inspect migration history and actual PostgreSQL catalog using a read-only credential.
+- [x] Inspect the primary application read/write paths for the initial P0/P1 findings (see section 7); broader route/test coverage remains.
+- [~] Inventory repository migration history (PostgreSQL and legacy SQLite histories); actual PostgreSQL catalog inspection remains pending safe read-only access.
 - [ ] Establish data classification and retention schedule.
 - [ ] Approve canonical event envelope and transactional outbox design.
 - [ ] Produce migration plan with compatibility and rollback for the first additive schema change.
@@ -164,3 +164,62 @@ Never run `prisma db push`, `migrate reset`, ad hoc SQL, seed scripts or destruc
 - [ ] Obtain explicit approval before any database migration or production configuration change.
 
 Phase 0 is complete only when schema, code paths and actual database state agree. This document alone is not that proof.
+
+
+## 7. Application code-path audit — first pass
+
+**Scope:** Read-only inspection of the branch's current application code and repository migration files. This pass did not connect to PostgreSQL, read production rows, execute SQL, or change runtime behaviour. File paths below are relative to the repository root.
+
+### 7.1 Confirmed implementation facts
+
+| Area | Code evidence | Finding / consequence |
+|---|---|---|
+| Session token storage | `src/lib/auth.ts` — `createSession`, `getSessionUser`; `prisma/schema.prisma` — `Session.id` | A 32-byte random bearer token is stored verbatim as the Session primary key and is also the lookup key. The token is high entropy, but a read-only database disclosure exposes immediately usable session credentials. **P0 security hardening:** store a cryptographic hash/digest of the token, return the raw token only once, and support safe rotation/revocation with a compatibility plan for existing sessions. Do not change this until cookie/Bearer compatibility, logout, account deletion, and deployment overlap are mapped and tested. |
+| Session lifecycle | `src/lib/auth.ts`; `src/app/api/auth/login/route.ts`; `src/app/api/auth/logout/route.ts` | Sessions expire after 30 days; expired rows are deleted opportunistically on lookup and during session creation. Logout deletes only the current token. No explicit per-session rotation, last-used tracking or maximum concurrent-session policy is visible in these paths. Decide whether those controls are product requirements before expanding the schema. |
+| CSRF boundary | `src/proxy.ts`; `src/lib/api.ts` | State-changing API requests with an Origin header are checked against the deployment origin / explicit trusted-host allowlist; cross-site Fetch Metadata is also considered. Requests without Origin and without cross-site Fetch Metadata are intentionally allowed for server-to-server/test clients. This is a meaningful browser CSRF control, but it is not authentication and does not replace per-route authorization. |
+| Runtime database role | `prisma/migrations/20261017193000_restricted_runtime_role/migration.sql`; `prisma/migrations/20261020200000_business_records_rls/migration.sql` | The migration creates/validates a non-superuser, non-BYPASSRLS `mudaala_runtime` role and grants it table access. Its `mudaala_runtime_access` policies use `USING (true)` / `WITH CHECK (true)`; this is a restricted database role, **not per-user tenant isolation**. The migration explicitly delegates row ownership enforcement to application routes. Business-record tables additionally deny direct `anon` and `authenticated` Data API roles. |
+| Business-product ownership | `src/app/api/my/business-products/route.ts`; `src/app/api/my/business-products/[id]/stock/route.ts` | Reads are scoped by authenticated `userId`; stock mutations re-check product ownership inside the transaction and use conditional updates to prevent negative stock. The stock movement row records the same authenticated user and product. |
+| Sale ownership and atomicity | `src/app/api/my/sales/route.ts`; `src/app/api/my/sales/[id]/void/route.ts` | Sale creation loads only active products owned by the authenticated user, enforces one currency per sale, decrements tracked stock conditionally, writes SaleItem and StockMovement in one transaction, and supports an idempotency key. Voiding checks sale ownership and restores only stock with recorded SALE movements. This is stronger than the schema alone suggests. Remaining verification: concurrency/integration tests for duplicate idempotency requests, transaction retries, and void-vs-sale races. |
+| Listing ownership and policy | `src/app/api/listings/route.ts`; `src/app/api/listings/[id]/route.ts`; `src/lib/constants.ts` | Listing creation derives owner from the session, normalizes contact numbers, validates country/region, and applies a deterministic text prohibited-item check. Edits are owner-scoped and use optimistic concurrency via `updatedAt`. The prohibited-item matcher is a finite keyword/rule list, not comprehensive legal classification or image-level goods recognition. It must not be described as complete prohibited-goods detection. |
+| Image upload pipeline | `src/app/api/upload/route.ts`; `src/app/api/upload/complete/route.ts`; `src/lib/storage.ts`; `src/lib/image-moderation.ts` | Production upload uses short-lived signed URLs into a private quarantine bucket, validates owner-prefixed object keys, size, content type and file signatures, runs image moderation, then promotes to public storage. Moderation unavailable fails closed. This is a useful base for WhatsApp uploads, which must reuse the same pipeline. Current schema stores resulting URLs rather than a durable media-asset record with source, checksum, moderation version and lifecycle. |
+| Daily engagement | `src/lib/listing-analytics.ts`; listing/shop engagement API routes | Listing/shop interactions are aggregated by Uganda calendar day. The implementation intentionally avoids persisting viewer IDs and IP addresses in analytics. These aggregates are suitable as coarse reporting signals but cannot support unique-user claims or detailed attribution. |
+| Report intake and auto-hide | `src/lib/reports.ts`; `src/app/api/reports/route.ts` | A duplicate-open-report check and subsequent insert are separate operations, not one transaction. Without a matching database uniqueness invariant, concurrent duplicate requests may both insert. The three-distinct-reporter auto-hide is a community safety hold, not a confirmed violation; moderator confirmation is a separate path. **P1:** inspect existing data and add a concurrency-safe deduplication design (likely a partial unique index or equivalent keyed reporter identity) before relying on the one-open-report rule. Guest IP identity and retention also need privacy review. |
+| Moderation decisions | `src/app/api/admin/reports/[id]/action/route.ts`; `src/lib/reports.ts` | Confirmed violations are created only through explicit moderator action; active duplicate cases are keyed to one target/owner; overturns reverse the active case; serializable transactions are used for confirmation/reversal. AuditLog entries record action/actor/target, but this code does not attach evidence references, policy version, reason narrative, or a correlation ID. Some manual hide/restore paths and report intake are separate from a unified case/evidence workflow. |
+| Audit log writes | `src/lib/reports.ts`; `src/app/api/admin/reports/[id]/action/route.ts`; `src/app/api/account/route.ts` | AuditLog is written for selected moderation actions and actor IDs are nulled on account deletion. This first-pass search did not establish that every security-sensitive mutation is audited, nor that database permissions prevent UPDATE/DELETE. Treat the log as an application audit record, not yet tamper-evident evidence. |
+
+### 7.2 Migration-history inventory
+
+The branch contains a PostgreSQL history at `prisma/migrations/` with 18 timestamped migration directories (baseline plus subsequent incremental changes), and a separate `prisma/migrations-sqlite/` history used for SQLite. `prisma/migrations/migration_lock.toml` identifies the PostgreSQL provider. The two histories must not be mixed or treated as interchangeable.
+
+Notable PostgreSQL migrations visible in the repository include:
+- `20261002160000_postgres_baseline`
+- `20261017193000_restricted_runtime_role`
+- `20261020000000_business_records_foundation`
+- `20261020190000_listing_daily_analytics`
+- `20261020200000_business_records_rls`
+- `20261021100000_policy_violations`
+- `20261027080000_shop_showroom_items`
+
+This confirms what is committed in Git only. It does **not** confirm which migrations have been applied to the live Supabase PostgreSQL database, whether the live schema has drifted, or whether role grants/policies match these files.
+
+### 7.3 Revised priority register
+
+| Priority | Finding | Next safe action |
+|---|---|---|
+| P0 | Raw session token stored in `Session.id` | Design hashed-token migration and dual-version rollout; add tests for login, cookie, optional Bearer mode, logout, expiry, account deletion and session revocation. No schema change in this pass. |
+| P0 | Actual production database catalog and migration ledger are unverified | Obtain a least-privilege read-only credential or approved read-only query path; inspect `pg_catalog`, `pg_policies`, grants, indexes, constraints and `_prisma_migrations`. Do not expose or copy secrets into chat or source control. |
+| P1 | Open-report deduplication is vulnerable to concurrent check-then-insert | Design and test a database-enforced uniqueness strategy compatible with guest and signed-in reporter keys and existing rows. |
+| P1 | Runtime RLS policy is broad for the application role | Preserve the explicit distinction: DB role isolation blocks direct Data API access, while tenant ownership is enforced in server code. Evaluate request-scoped DB identity/RLS only as a separate architecture change, not by assuming current policies isolate tenants. |
+| P1 | Audit log lacks a demonstrated append-only boundary and rich provenance | Define privileged audit writer, immutable evidence references, policy version, reason and correlation ID; prove role permissions before claiming tamper resistance. |
+| P1 | Media URLs have no first-class asset/provenance record | Design an additive asset registry and backfill strategy; retain quarantine, moderation and public URL compatibility. |
+| P1 | Float monetary fields remain in listing/showroom/price history | Trace every writer, reader, serializer, search filter, sort and analytics consumer before any precision migration. |
+| P1 | Behavioural signals are currently intentionally coarse | Keep the current privacy-preserving aggregates; define consent, purpose, retention and deletion lineage before introducing richer event streams. |
+
+### 7.4 Next audit slice
+
+1. Trace every writer and reader of monetary fields and status/channel strings, including tests, seed scripts, cron jobs and exports.
+2. Inspect report schema indexes and existing migration SQL to design a safe concurrency invariant.
+3. Trace all AuditLog writes and all security-sensitive mutation endpoints; produce an audit coverage matrix.
+4. Inspect media deletion/reconciliation jobs and identify orphaned quarantine/public object lifecycle.
+5. Add regression tests on an isolated test database; never point test commands at production.
+6. Only after the above, request read-only production catalog inspection. Any migration remains a separately reviewed and explicitly approved change.
