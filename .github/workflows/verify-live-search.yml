@@ -77,8 +77,10 @@ jobs:
             // must never be fabricated or required by a smoke test.
             const queries = ['', 'perfume', 'perfume under 30k', 'cheap perfume'];
             const searchResults = {};
+            let browseItems = [];
             for (const query of queries) {
               const items = await search(query);
+              if (query === '') browseItems = items;
               searchResults[query || '<browse>'] = items.length;
               for (const item of items) {
                 if (!item || typeof item.id !== 'string' || typeof item.title !== 'string') {
@@ -128,9 +130,7 @@ jobs:
               collections = 'verified (' + payload.collections.length + ')';
             }
 
-            const offer = searchResults['<browse>'] >= 0
-              ? (await search('')).find(item => item.type === 'OFFER' && typeof item.id === 'string')
-              : null;
+            const offer = browseItems.find(item => item.type === 'OFFER' && typeof item.id === 'string') || null;
             let recommendations = 'not exercised: no active offer';
             if (offer) {
               const result = await getJson('/api/listings/' + encodeURIComponent(offer.id) + '/recommendations');
