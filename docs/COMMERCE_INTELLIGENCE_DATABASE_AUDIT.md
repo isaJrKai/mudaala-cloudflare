@@ -223,3 +223,27 @@ This confirms what is committed in Git only. It does **not** confirm which migra
 4. Inspect media deletion/reconciliation jobs and identify orphaned quarantine/public object lifecycle.
 5. Add regression tests on an isolated test database; never point test commands at production.
 6. Only after the above, request read-only production catalog inspection. Any migration remains a separately reviewed and explicitly approved change.
+
+
+### 7.5 Additional findings from the second code-search pass
+
+| Priority | Area | Evidence | Finding / next action |
+|---|---|---|---|
+| P1 | Media moderation bypass | `src/lib/listings.ts` (`sanitizePhotos`); `src/app/api/shops/[id]/showroom/route.ts`; `src/app/api/upload/complete/route.ts` | The signed-upload path does validate and moderate quarantine objects, but listing photo sanitization also permits pasted HTTP(S) URLs, and the showroom API accepts arbitrary HTTP(S) `photoUrl` values. Those external-image paths do not pass through the quarantine/moderation pipeline shown in `upload/complete`. Decide whether external images should be disallowed, proxied into quarantine, or separately moderated before publication. Do not claim all marketplace images are moderated until this is resolved. |
+| P1 | Audit log is not append-only in current application behaviour | `src/app/api/account/route.ts` updates `AuditLog.actorId` to null during account deletion; `scripts/remove-seed-data.ts` and `scripts/cleanup-test-data.ts` delete audit rows for fixture cleanup | A naive database rule forbidding all UPDATE/DELETE would break account anonymisation and cleanup workflows. Design a narrowly privileged anonymisation procedure or immutable actor pseudonym, and isolate test/fixture cleanup permissions. Audit immutability must preserve lawful privacy deletion/anonymisation requirements. |
+| P1 | Report reporter identity retention | `prisma/schema.prisma` (`Report.reporterIp`); `src/lib/reports.ts`; `src/app/api/reports/route.ts` | Guest IP addresses are persisted in Report rows for deduplication, while no retention/expiry policy is visible in the reviewed schema or these paths. Define a retention period and a privacy-preserving dedupe representation (for example a keyed digest with rotation/expiry) before expanding trust analytics. |
+| P2 | Price-snapshot sampling bound and clock basis | `src/lib/price-trends.ts`; `src/lib/listing-analytics.ts` | The snapshot sweep reads at most 5,000 active OFFER listings without pagination, computes in application memory, and uses UTC date keys; engagement aggregates use the Africa/Kampala calendar. At larger catalogue sizes, snapshot sample sets may be incomplete, and day boundaries differ. Define deterministic bounded pagination/batch semantics and explicitly choose the market-day timezone before using these figures for intelligence or advertising. |
+| P2 | Audit-log coverage is partial | `src/lib/reports.ts`; `src/app/api/admin/reports/[id]/action/route.ts`; GitHub code search for `db.auditLog` | Audit writes are concentrated in moderation workflows; account deletion anonymises actor references, and fixture scripts remove rows. There is not yet evidence of a shared audit wrapper covering all security-sensitive mutations (account/security settings, ownership changes, catalogue publication, product/stock/sale changes, integration linking). Build an action coverage matrix before treating AuditLog as a platform-wide security audit trail. |
+
+### 7.6 What this means for the 40-capability programme
+
+The first capabilities should not be model inference. The current codebase points to these foundational dependencies:
+
+1. **Identity Intelligence / Account Security:** session token hashing and lifecycle policy; safe migration preserving current login/logout behaviour.
+2. **Merchant Verification:** keep `BusinessProfile.verified` false until there is an evidence-backed process; current profile completeness and phone-confirmed display are not platform verification.
+3. **Prohibited Goods / Content Moderation:** one policy gateway for listings, showroom items, web uploads and future WhatsApp submissions; external image URLs must not bypass review.
+4. **Trust, Reports and Reputation:** concurrency-safe report intake, retained evidence, explicit moderator decisions, appeal/reversal and privacy-aware reporter identity.
+5. **Event / Platform Orchestration:** versioned event contracts and transactional outbox only after the data-purpose and retention rules are approved.
+6. **Commerce and Pricing Intelligence:** preserve Decimal-based merchant records; make listing/showroom price precision and snapshot sampling trustworthy before generating predictions.
+
+No capability should read raw private account or behavioural data merely because it exists in PostgreSQL. Each consumer needs a purpose, minimal field contract, permission boundary, retention rule and test.
