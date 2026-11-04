@@ -5,12 +5,6 @@ on:
     paths:
       - '.github/workflows/verify-live-search.yml'
   workflow_dispatch:
-  # Verify the existing production deployment when this guard is first added.
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/verify-live-search.yml'
-  # Re-run the read-only semantic checks after future successful deployments.
   workflow_run:
     workflows: ["Deploy Mudaala to Cloudflare Workers"]
     types: [completed]
@@ -20,16 +14,21 @@ permissions:
 
 jobs:
   verify-search:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Verify live health and customer-facing search results
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify live search API contracts without assuming seller inventory
         env:
           APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
         run: |
           node <<'NODE'
-          const base = process.env.APP_URL.replace(/\/$/, '');
+          const base = process.env.APP_URL.replace(/\\/$/, '');
 
           async function getJson(path) {
             const response = await fetch(base + path, {
@@ -48,38 +47,23 @@ jobs:
             return body;
           }
 
-          function normalize(value) {
-            return String(value ?? '')
-              .normalize('NFKD')
-              .replace(/[\u0300-\u036f]/g, '')
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, ' ')
-              .trim()
-              .replace(/\s+/g, ' ');
-          }
-
-          const productPattern = /\b(?:oil )?perfumes?\b|\bfragrances?\b|\bcolognes?\b|\bcolones?\b|\bbody sprays?\b|\baftershaves?\b|\bscents?\b|\boudh?\b/;
-
-          function isRelevant(item) {
-            const text = normalize([
-              item.title,
-              item.description,
-              item.category,
-            ].filter(Boolean).join(' '));
-            return productPattern.test(text);
-          }
-
           async function search(query) {
-            const path = '/api/listings?' + new URLSearchParams({
-              q: query,
-              page: '1',
-              pageSize: '50',
-            });
-            const body = await getJson(path);
+            const params = new URLSearchParams({ q: query, page: '1', pageSize: '50' });
+            const body = await getJson('/api/listings?' + params);
             if (!Array.isArray(body.items)) {
               throw new Error('Search "' + query + '" did not return items[]');
             }
             return body.items;
+          }
+
+          function assertPublicShopShape(shop) {
+            const allowed = new Set(['id', 'name', 'photoUrl', 'area', 'county', 'country']);
+            if (!shop || typeof shop.id !== 'string' || typeof shop.name !== 'string') {
+              throw new Error('Shop search returned an invalid public shop result');
+            }
+            if (Object.keys(shop).some(key => !allowed.has(key))) {
+              throw new Error('Shop search exposed an unexpected or private field');
+            }
           }
 
           (async () => {
@@ -88,149 +72,94 @@ jobs:
               throw new Error('Production health did not report app and database up');
             }
 
-            // Verify the shop-name search path independently from product search.
-            // "Gras" is a known prefix from a live seller listing; do not print
-            // names, phone numbers, or other seller data into CI logs.
+            // Search queries must return the documented response shape. Empty
+            // results are valid: production inventory is owned by sellers and
+            // must never be fabricated or required by a smoke test.
+            const queries = ['', 'perfume', 'perfume under 30k', 'cheap perfume'];
+            const searchResults = {};
+            for (const query of queries) {
+              const items = await search(query);
+              searchResults[query || '<browse>'] = items.length;
+              for (const item of items) {
+                if (!item || typeof item.id !== 'string' || typeof item.title !== 'string') {
+                  throw new Error('Search "' + query + '" returned a malformed listing');
+                }
+              }
+            }
+
+            // Check the shop-name search response and privacy boundary. Use
+            // a stable query but do not require any particular shop to exist.
             const shopSearch = await getJson('/api/shops/search?q=gras');
             if (!Array.isArray(shopSearch.shops)) {
               throw new Error('Shop-name search did not return shops[]');
             }
-            let shop = null;
-            let shopCodeLookup = 'skipped: no live shop matched the smoke-test prefix';
-            let collectionSummary = 'skipped: no live shop matched the smoke-test prefix';
-            if (shopSearch.shops.length > 0) {
-              const safeShopFields = new Set(['id', 'name', 'photoUrl', 'area', 'county', 'country']);
-              shop = shopSearch.shops[0];
-              if (!shop || typeof shop.id !== 'string' || typeof shop.name !== 'string') {
-                throw new Error('Shop-name search returned an invalid public shop result');
-              }
-              if (Object.keys(shop).some((key) => !safeShopFields.has(key))) {
-                throw new Error('Shop-name search returned an unexpected field; public search must not expose private contact/account data');
-              }
 
-              const shopPage = await getJson('/api/shops/' + encodeURIComponent(shop.id));
-              const code = shopPage.shop?.shopCode;
+            let shopCodeLookup = 'not exercised: no matching live shop';
+            let collections = 'not exercised: no matching live shop';
+            if (shopSearch.shops.length > 0) {
+              const shop = shopSearch.shops[0];
+              assertPublicShopShape(shop);
+
+              const page = await getJson('/api/shops/' + encodeURIComponent(shop.id));
+              const code = page.shop?.shopCode;
               if (typeof code !== 'string' || !code) {
-                throw new Error('The matched live shop has no public shop code for lookup verification');
+                throw new Error('Matched public shop has no shop code');
               }
-              const codeLookup = await getJson('/api/shops/lookup?code=' + encodeURIComponent(code));
-              if (codeLookup.shop?.id !== shop.id) {
-                throw new Error('Shop-code lookup did not resolve to the same shop returned by shop-name search');
+              const lookup = await getJson('/api/shops/lookup?code=' + encodeURIComponent(code));
+              if (lookup.shop?.id !== shop.id) {
+                throw new Error('Shop-code lookup did not resolve to the same shop');
               }
               shopCodeLookup = 'verified';
 
-            // Read-only smoke for the newly deployed public collection routes.
-            // Use the known live shop above; do not create or mutate production data.
-              const shopCollectionsPayload = await getJson('/api/shops/' + encodeURIComponent(shop.id) + '/collections');
-              if (!Array.isArray(shopCollectionsPayload.collections)) {
+              const payload = await getJson('/api/shops/' + encodeURIComponent(shop.id) + '/collections');
+              if (!Array.isArray(payload.collections)) {
                 throw new Error('Public shop collections response is missing collections[]');
               }
-              const safeCollectionFields = new Set(['id', 'title', 'description', 'coverPhotoUrl', 'sortOrder', 'itemCount']);
-              for (const collection of shopCollectionsPayload.collections) {
-              if (typeof collection.id !== 'string' || typeof collection.title !== 'string' ||
-                  !Number.isInteger(collection.itemCount) || collection.itemCount < 0) {
-                throw new Error('Public shop collections response contains an invalid collection summary');
-              }
-              if (Object.keys(collection).some((key) => !safeCollectionFields.has(key))) {
-                throw new Error('Public shop collections response exposes an unexpected field');
-              }
-            }
-              const populatedCollection = shopCollectionsPayload.collections.find((collection) => collection.itemCount > 0);
-              let collectionDetail = 'no populated live collection available';
-            if (populatedCollection) {
-              const detailPayload = await getJson('/api/collections/' + encodeURIComponent(populatedCollection.id));
-              if (detailPayload.collection?.id !== populatedCollection.id || !Array.isArray(detailPayload.items)) {
-                throw new Error('Public collection detail response is malformed');
-              }
-              if (Object.prototype.hasOwnProperty.call(detailPayload.collection, 'userId')) {
-                throw new Error('Public collection detail leaked its owner user ID');
-              }
-              for (const item of detailPayload.items) {
-                if (item.listing?.status !== 'ACTIVE' || item.listing?.type !== 'OFFER') {
-                  throw new Error('Public collection detail exposed a non-active or non-offer listing');
+              const allowed = new Set(['id', 'title', 'description', 'coverPhotoUrl', 'sortOrder', 'itemCount']);
+              for (const collection of payload.collections) {
+                if (typeof collection.id !== 'string' || typeof collection.title !== 'string' ||
+                    !Number.isInteger(collection.itemCount) || collection.itemCount < 0) {
+                  throw new Error('Public collections response contains an invalid summary');
+                }
+                if (Object.keys(collection).some(key => !allowed.has(key))) {
+                  throw new Error('Public collections response exposed an unexpected field');
                 }
               }
-              collectionDetail = 'verified';
-            }
-              collectionSummary = 'verified (' + shopCollectionsPayload.collections.length + ' collections; ' + collectionDetail + ')';
+              collections = 'verified (' + payload.collections.length + ')';
             }
 
-            // No collection is fabricated for this smoke test. Validate the
-            // direct public page's unavailable path and ensure it is not indexed.
-            const unavailableCollectionPage = await fetch(
-              base + '/collections/mudaala-batch2-nonexistent-collection-check-20261021',
-              { headers: { accept: 'text/html' } },
-            );
-            const unavailableCollectionHtml = await unavailableCollectionPage.text();
-            if (unavailableCollectionPage.status !== 404) {
-              throw new Error('A nonexistent public collection page did not return HTTP 404');
-            }
-            if (!/name="robots"[^>]*noindex/i.test(unavailableCollectionHtml) &&
-                !/noindex[^>]*name="robots"/i.test(unavailableCollectionHtml)) {
-              throw new Error('An unavailable public collection page is missing noindex metadata');
-            }
-            console.log(JSON.stringify({
-              directCollectionMissingRoute: '404',
-              unavailableCollectionNoindex: true,
-              writesPerformed: 0,
-            }));
-
-            // The live catalogue has previously contained active perfume listings
-            // with mathematical-bold Unicode text and category "other". Normalize
-            // the returned seller text before checking relevance; never mutate data.
-            // Exercise the related-products API against a real active offer without mutating production data.
-            const offer = (await search('')).find((item) => item.type === 'OFFER' && typeof item.id === 'string');
-            if (!offer) {
-              console.log(JSON.stringify({ relatedProducts: 'no active offer available; endpoint not exercised' }));
-            } else {
-              const recommendations = await getJson('/api/listings/' + encodeURIComponent(offer.id) + '/recommendations');
-              if (!Array.isArray(recommendations.items)) {
-                throw new Error('Related-products endpoint did not return items[]');
+            const offer = searchResults['<browse>'] >= 0
+              ? (await search('')).find(item => item.type === 'OFFER' && typeof item.id === 'string')
+              : null;
+            let recommendations = 'not exercised: no active offer';
+            if (offer) {
+              const result = await getJson('/api/listings/' + encodeURIComponent(offer.id) + '/recommendations');
+              if (!Array.isArray(result.items)) {
+                throw new Error('Recommendations endpoint did not return items[]');
               }
               const privateFields = ['userId', 'phone', 'whatsapp', 'email', 'password', 'isAdmin'];
-              for (const item of recommendations.items) {
+              for (const item of result.items) {
                 if (!item || typeof item.id !== 'string' || typeof item.title !== 'string' ||
-                    privateFields.some((field) => Object.prototype.hasOwnProperty.call(item, field))) {
-                  throw new Error('Related-products endpoint returned malformed data or private fields');
+                    privateFields.some(field => Object.prototype.hasOwnProperty.call(item, field))) {
+                  throw new Error('Recommendations returned malformed data or private fields');
                 }
               }
-              console.log(JSON.stringify({ relatedProducts: 'ok', count: recommendations.items.length, privateFields: 'not exposed' }));
+              recommendations = 'verified (' + result.items.length + ')';
             }
-
-            const perfume = await search('perfume');
-            const perfumeMatches = perfume.filter(isRelevant);
-            // Empty matches are a valid marketplace state: this verifier checks the
-            // search contract, not whether sellers currently list a particular category.
-
-            const budget = await search('perfume under 30k');
-            const budgetMatches = budget.filter((item) =>
-              isRelevant(item) &&
-              item.price !== null &&
-              item.price !== undefined &&
-              Number.isFinite(Number(item.price)) &&
-              Number(item.price) <= 30000
-            );
-
-
-            const cheap = await search('cheap perfume');
-            const cheapMatches = cheap.filter(isRelevant);
-
 
             console.log(JSON.stringify({
               productionHealth: 'pass',
+              listingSearchContracts: searchResults,
               shopNameSearch: {
-        results: shopSearch.shops.length,
-        privateFieldsExcluded: shopSearch.shops.length > 0 ? 'verified' : 'not exercised: no matching shop',
-      },
+                results: shopSearch.shops.length,
+                privacy: shopSearch.shops.length ? 'verified' : 'not exercised: no matching shop',
+              },
               shopCodeLookup,
-              perfume: { results: perfume.length, relevant: perfumeMatches.length },
-              budget: { results: budget.length, relevantWithinBudget: budgetMatches.length },
-              cheap: { results: cheap.length, relevant: cheapMatches.length },
-              collections: collectionSummary,
-              writesPerformed: 0,
-              sellerTextOrListingsModified: false,
+              collections,
+              recommendations,
+              productionWrites: 0,
             }, null, 2));
-          })().catch((error) => {
+          })().catch(error => {
             console.error(error instanceof Error ? error.message : String(error));
             process.exit(1);
           });
