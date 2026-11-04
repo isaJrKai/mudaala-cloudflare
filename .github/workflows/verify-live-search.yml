@@ -218,7 +218,10 @@ jobs:
 
             console.log(JSON.stringify({
               productionHealth: 'pass',
-              shopNameSearch: { results: shopSearch.shops.length, privateFieldsExcluded: true },
+              shopNameSearch: {
+        results: shopSearch.shops.length,
+        privateFieldsExcluded: shopSearch.shops.length > 0 ? 'verified' : 'not exercised: no matching shop',
+      },
               shopCodeLookup,
               perfume: { results: perfume.length, relevant: perfumeMatches.length },
               budget: { results: budget.length, relevantWithinBudget: budgetMatches.length },
