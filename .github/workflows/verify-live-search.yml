@@ -1,6 +1,9 @@
 name: Verify live shop and product search semantics
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/verify-live-search.yml'
   workflow_dispatch:
   # Verify the existing production deployment when this guard is first added.
   push:
