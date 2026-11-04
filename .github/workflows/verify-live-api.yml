@@ -1,6 +1,9 @@
 name: Verify live API, privacy boundaries, and photos
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/verify-live-api.yml'
   workflow_dispatch:
   workflow_run:
     workflows: ["Deploy Mudaala to Cloudflare Workers"]
@@ -11,7 +14,7 @@ permissions:
 
 jobs:
   verify-live:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
