@@ -17,7 +17,7 @@ import { ApiError, route, jsonOk, requireUser } from '@/lib/api'
 import { hit, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
 import { chooseStorage, S3Storage } from '@/lib/storage'
-import { moderateImageContent } from '@/lib/image-moderation'
+import { moderateImageContent, moderateImageUrl } from '@/lib/image-moderation'
 
 const MAX_BYTES = 8 * 1024 * 1024 // 8MB upload limit
 
@@ -176,76 +176,133 @@ export async function POST(request: Request) {
     const original = new Uint8Array(await file.arrayBuffer())
     const input = Buffer.from(stripImageMetadata(original, detectedType))
 
-    // Production uploads are held until the image classifier has explicitly
-    // cleared both the original and any browser-supplied thumbnail. Development
-    // can run without provider credentials, but production fails closed.
-    if (process.env.OPENAI_MODERATION_API_KEY || process.env.NODE_ENV === 'production') {
-      const moderation = await moderateImageContent(input, detectedType)
-      if (moderation.status === 'blocked') {
-        throw new ApiError(400, 'This photo appears to contain explicit sexual content, which is not allowed on Mudaala. Please choose another photo.')
-      }
-      if (moderation.status !== 'safe') {
-        console.error('[upload] image moderation unavailable', { status: moderation.status, providerStatus: moderation.status === 'unavailable' ? moderation.providerStatus : undefined })
-        throw new ApiError(503, 'Photo safety checks are temporarily unavailable. Please try again later.')
-      }
-
-      if (thumbnailInput) {
-        const thumbnailModeration = await moderateImageContent(thumbnailInput, 'webp')
-        if (thumbnailModeration.status === 'blocked') {
-          throw new ApiError(400, 'The photo preview appears to contain explicit sexual content. Please choose the photo again.')
-        }
-        if (thumbnailModeration.status !== 'safe') {
-          console.error('[upload] thumbnail moderation unavailable', { status: thumbnailModeration.status, providerStatus: thumbnailModeration.status === 'unavailable' ? thumbnailModeration.providerStatus : undefined })
-          throw new ApiError(503, 'Photo safety checks are temporarily unavailable. Please try again later.')
-        }
-      }
-    }
-
     const storage = chooseStorage()
     let url: string
+
     if (storage instanceof S3Storage) {
-      // Keep production objects private until the byte-level and content
-      // moderation checks above have passed, then promote into the public bucket.
+      // Cloudflare Workers have a 10 ms default CPU budget. Base64-encoding an
+      // image for moderation inside this request can exhaust it and return a
+      // platform-level 503 (exceededCpu). Keep the upload same-origin, store it
+      // privately first, then let the moderation provider fetch a short-lived
+      // signed URL. The image bytes never need to be base64-encoded by the Worker.
       const id = randomBytes(8).toString('hex')
       const ext = detectedType
       const originalKey = `pending/${user.id}/${id}.${ext}`
       const thumbnailKey = thumbnailInput ? `pending/${user.id}/${id}-t.thumb.webp` : null
+      const quarantineBucket = process.env.STORAGE_QUARANTINE_BUCKET?.trim() || 'mudaala-photo-quarantine'
+      const discardQuarantine = async () => {
+        await storage.discardQuarantineObject(originalKey).catch(() => undefined)
+        if (thumbnailKey) await storage.discardQuarantineObject(thumbnailKey).catch(() => undefined)
+      }
+
       try {
         await storage.putQuarantine(originalKey, input, ext === 'jpg' ? 'image/jpeg' : ext === 'png' ? 'image/png' : 'image/webp')
         if (thumbnailInput && thumbnailKey) {
           await storage.putQuarantine(thumbnailKey, thumbnailInput, 'image/webp')
         }
+      } catch (err) {
+        await discardQuarantine()
+        console.error('[upload] quarantined storage write failed:', err instanceof Error ? err.name : 'unknown')
+        throw new ApiError(502, 'The photo could not be stored right now. Please try again')
+      }
+
+      const moderateQuarantinedObject = async (key: string) => {
+        const readUrl = await storage.createSignedObjectUrl(quarantineBucket, key, 'GET', 60)
+        return moderateImageUrl(readUrl)
+      }
+
+      const moderation = await moderateQuarantinedObject(originalKey)
+      if (moderation.status === 'blocked') {
+        await discardQuarantine()
+        throw new ApiError(400, 'This photo appears to contain explicit sexual content, which is not allowed on Mudaala. Please choose another photo.')
+      }
+      if (moderation.status !== 'safe') {
+        await discardQuarantine()
+        console.error('[upload] image moderation unavailable', {
+          status: moderation.status,
+          providerStatus: moderation.status === 'unavailable' ? moderation.providerStatus : undefined,
+        })
+        throw new ApiError(503, 'Photo safety checks are temporarily unavailable. Please try again later.')
+      }
+
+      if (thumbnailKey) {
+        const thumbnailModeration = await moderateQuarantinedObject(thumbnailKey)
+        if (thumbnailModeration.status !== 'safe') {
+          await discardQuarantine()
+          if (thumbnailModeration.status === 'blocked') {
+            throw new ApiError(400, 'The photo preview appears to contain explicit sexual content. Please choose the photo again.')
+          }
+          console.error('[upload] thumbnail moderation unavailable', {
+            status: thumbnailModeration.status,
+            providerStatus: thumbnailModeration.status === 'unavailable' ? thumbnailModeration.providerStatus : undefined,
+          })
+          throw new ApiError(503, 'Photo safety checks are temporarily unavailable. Please try again later.')
+        }
+      }
+
+      try {
         url = await storage.promoteQuarantineObject(
           originalKey,
           `photos/${id}.${ext}`,
           ext === 'jpg' ? 'image/jpeg' : ext === 'png' ? 'image/png' : 'image/webp',
         )
-        if (thumbnailInput && thumbnailKey) {
-          try {
-            await storage.promoteQuarantineObject(thumbnailKey, `photos/${id}-t.thumb.webp`, 'image/webp')
-          } catch (err) {
-            await storage.discardQuarantineObject(thumbnailKey).catch(() => undefined)
-            console.error('[upload] thumbnail promotion failed:', err instanceof Error ? err.name : 'unknown')
-          }
-        }
       } catch (err) {
-        await storage.discardQuarantineObject(originalKey).catch(() => undefined)
-        if (thumbnailKey) await storage.discardQuarantineObject(thumbnailKey).catch(() => undefined)
-        console.error('[upload] quarantined storage write failed:', err instanceof Error ? err.name : 'unknown')
+        await discardQuarantine()
+        console.error('[upload] approved photo could not be published:', err instanceof Error ? err.name : 'unknown')
         throw new ApiError(502, 'The photo could not be stored right now. Please try again')
       }
+
+      if (thumbnailInput && thumbnailKey) {
+        try {
+          await storage.promoteQuarantineObject(thumbnailKey, `photos/${id}-t.thumb.webp`, 'image/webp')
+        } catch (err) {
+          await storage.discardQuarantineObject(thumbnailKey).catch(() => undefined)
+          console.error('[upload] thumbnail promotion failed:', err instanceof Error ? err.name : 'unknown')
+        }
+      }
     } else {
+      // Local development can still moderate in-memory bytes when configured.
+      // Production storage uses the URL-based path above to stay within the
+      // Worker CPU budget; production remains fail-closed if moderation is down.
+      if (process.env.OPENAI_MODERATION_API_KEY || process.env.NODE_ENV === 'production') {
+        const moderation = await moderateImageContent(input, detectedType)
+        if (moderation.status === 'blocked') {
+          throw new ApiError(400, 'This photo appears to contain explicit sexual content, which is not allowed on Mudaala. Please choose another photo.')
+        }
+        if (moderation.status !== 'safe') {
+          console.error('[upload] image moderation unavailable', {
+            status: moderation.status,
+            providerStatus: moderation.status === 'unavailable' ? moderation.providerStatus : undefined,
+          })
+          throw new ApiError(503, 'Photo safety checks are temporarily unavailable. Please try again later.')
+        }
+
+        if (thumbnailInput) {
+          const thumbnailModeration = await moderateImageContent(thumbnailInput, 'webp')
+          if (thumbnailModeration.status === 'blocked') {
+            throw new ApiError(400, 'The photo preview appears to contain explicit sexual content. Please choose the photo again.')
+          }
+          if (thumbnailModeration.status !== 'safe') {
+            console.error('[upload] thumbnail moderation unavailable', {
+              status: thumbnailModeration.status,
+              providerStatus: thumbnailModeration.status === 'unavailable' ? thumbnailModeration.providerStatus : undefined,
+            })
+            throw new ApiError(503, 'Photo safety checks are temporarily unavailable. Please try again later.')
+          }
+        }
+      }
+
       try {
         url = await storage.save(input, detectedType, thumbnailInput !== null)
       } catch (err) {
-        console.error('[upload] storage write failed:', err)
+        console.error('[upload] storage write failed:', err instanceof Error ? err.name : 'unknown')
         throw new ApiError(502, 'The photo could not be stored right now. Please try again')
       }
       if (thumbnailInput) {
         try {
           await storage.saveThumbnail(url, thumbnailInput)
         } catch (err) {
-          console.error('[upload] thumbnail write failed:', err)
+          console.error('[upload] thumbnail write failed:', err instanceof Error ? err.name : 'unknown')
         }
       }
     }
