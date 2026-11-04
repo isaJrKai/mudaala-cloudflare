@@ -1,6 +1,7 @@
 name: Verify live API, privacy boundaries, and photos
 
 on:
+  # Pull-request and post-deploy probes are intentionally read-only against the live app.
   pull_request:
     paths:
       - '.github/workflows/verify-live-api.yml'
