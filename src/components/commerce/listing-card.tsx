@@ -134,8 +134,8 @@ function PriceLead({ listing, large }: { listing: Listing; large?: boolean }) {
   const percentOff = discountPercent(listing)
   if (listing.type === 'OFFER') {
     return (
-      <div className="mt-1.5 inline-flex max-w-full flex-wrap items-baseline gap-x-2 rounded-lg border border-primary/25 border-l-4 border-l-primary/70 bg-primary/10 px-3 py-2 shadow-sm">
-        <p className={cn('font-extrabold leading-none text-primary tabular-nums', large ? 'text-lg' : 'text-base')}>
+      <div className="mt-1.5 inline-flex max-w-full flex-wrap items-baseline gap-x-2">
+        <p className={cn('font-extrabold leading-none text-foreground tabular-nums', large ? 'text-lg' : 'text-base')}>
           {formatPrice(listing.price, listing.unit ? unitLabel(listing.unit) : null, listing.currency)}
           {listing.priceNegotiable && listing.price !== null ? (
             <span className="ml-1 text-xs font-normal text-muted-foreground">{copy.common.negotiableShort}</span>
@@ -146,7 +146,7 @@ function PriceLead({ listing, large }: { listing: Listing; large?: boolean }) {
             <span className="text-xs text-muted-foreground line-through tabular-nums">
               {formatPrice(listing.compareAtPrice, null, listing.currency)}
             </span>
-            <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 ring-1 ring-inset ring-emerald-600/20">
+            <span className="text-[10px] font-semibold text-emerald-800">
               −{percentOff}%
             </span>
           </>
@@ -155,7 +155,7 @@ function PriceLead({ listing, large }: { listing: Listing; large?: boolean }) {
     )
   }
   return (
-    <p className={cn('mt-1 font-semibold leading-none text-foreground/80 tabular-nums', large ? 'text-sm' : 'text-sm')}>
+    <p className={cn('mt-1 font-semibold leading-none text-foreground tabular-nums', large ? 'text-base' : 'text-sm')}>
       {listing.price !== null
         ? `${copy.common.budget}: ${formatPrice(listing.price, listing.unit ? unitLabel(listing.unit) : null, listing.currency)}`
         : copy.common.askPrice}
