@@ -12,7 +12,7 @@
 // Path-style URLs (endpoint/bucket/key) work with R2, Supabase's S3 gateway
 // and MinIO alike.
 
-import { createHash, createHmac } from 'node:crypto'
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { Hash } from '@smithy/hash-node'
 import { HttpRequest } from '@smithy/protocol-http'
@@ -170,6 +170,36 @@ export class S3Storage implements PhotoStorage {
         secretAccessKey: env.secret,
       },
     })
+  }
+
+  /** Create a short-lived bearer URL token for the moderation image proxy. */
+  createModerationProxyToken(objectKey: string, expiresIn = 90): string {
+    if (!objectKey.startsWith('pending/') || objectKey.startsWith('/') || objectKey.includes('..')) {
+      throw new Error('Invalid moderation object path')
+    }
+    const payload = Buffer.from(JSON.stringify({ key: objectKey, exp: Date.now() + expiresIn * 1000 })).toString('base64url')
+    const signature = createHmac('sha256', this.env.secret).update(payload).digest('base64url')
+    return `${payload}.${signature}`
+  }
+
+  /** Resolve a signed moderation token to a private quarantine object stream. */
+  async readModerationProxyObject(token: string): Promise<{ body: ReadableStream<Uint8Array>; contentType: string } | null> {
+    const [payload, signature, extra] = token.split('.')
+    if (!payload || !signature || extra !== undefined) return null
+    const expected = createHmac('sha256', this.env.secret).update(payload).digest()
+    let supplied: Buffer
+    try { supplied = Buffer.from(signature, 'base64url') } catch { return null }
+    if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return null
+    let decoded: { key?: unknown; exp?: unknown }
+    try { decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) } catch { return null }
+    if (typeof decoded.key !== 'string' || !decoded.key.startsWith('pending/') || decoded.key.startsWith('/') || decoded.key.includes('..')) return null
+    if (typeof decoded.exp !== 'number' || !Number.isFinite(decoded.exp) || decoded.exp < Date.now()) return null
+    const result = await this.client.send(new GetObjectCommand({
+      Bucket: this.env.quarantineBucket ?? 'mudaala-photo-quarantine',
+      Key: decoded.key,
+    }))
+    if (!result.Body) return null
+    return { body: result.Body.transformToWebStream(), contentType: result.ContentType ?? 'application/octet-stream' }
   }
 
   /** Create a short-lived, single-object S3 URL. The secret key never leaves this Worker. */
