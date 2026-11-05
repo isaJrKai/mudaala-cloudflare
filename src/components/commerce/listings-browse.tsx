@@ -21,6 +21,7 @@ import { useCategoryPreferences } from '@/hooks/use-category-preferences'
 import { unlove, useLovedIds } from '@/lib/loved'
 import { useAddToBasket } from './basket-view'
 import { ListingBlock, HeartButton } from './listing-card'
+import { CategoryGlyph } from './category-icons'
 import { ListingGridSkeleton } from './skeletons'
 import { EmptyState } from './empty-state'
 import { MudaalaCurve } from './mudaala-curve'
@@ -261,41 +262,50 @@ export function ListingsBrowse() {
         </p>
       ) : null}
 
-      {/* Category pills - the aisle signs of the market, one tap under the
-          search bar. Same filter machinery as the FilterDialog dropdown
-          (filters.category, 'any' = All), just always visible. Horizontally
-          scrollable because eleven aisles don't fit a phone. */}
-      <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-slim pb-0.5" role="group" aria-label="Filter by category">
-        {([['any', 'All'], ...orderedCategories.map((c) => [c.key, c.label])] as Array<[string, string]>).map(([key, label]) => {
-          const active = filters.category === key
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => {
-                setFilters({ category: key })
-                if (key !== 'any') void recordCategorySelection(key)
-              }}
-              aria-pressed={active}
-              className={cn(
-                'press shrink-0 rounded-full border px-3 py-1 text-[13px] font-medium transition-colors',
-                active
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
-              )}
-            >
-              {label}
-            </button>
-          )
-        })}
-      </div>
-      {hasCategoryPreferences ? (
-        <div className="flex justify-end">
-          <button type="button" onClick={() => void resetCategoryPreferences()} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">
-            Reset category order
+      <section className="space-y-2" aria-labelledby="browse-categories-heading">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="browse-categories-heading" className="text-base font-semibold tracking-tight">Explore categories</h2>
+          <button
+            type="button"
+            onClick={() => setShowFilters(true)}
+            className="shrink-0 text-xs font-semibold text-primary underline underline-offset-2"
+          >
+            All categories
           </button>
         </div>
-      ) : null}
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6" role="group" aria-label="Explore product categories">
+          {orderedCategories.slice(0, 6).map((category) => {
+            const active = filters.category === category.key
+            return (
+              <button
+                key={category.key}
+                type="button"
+                onClick={() => {
+                  setFilters({ category: active ? 'any' : category.key })
+                  if (!active) void recordCategorySelection(category.key)
+                }}
+                aria-pressed={active}
+                className={cn(
+                  'press flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-lg border px-2 py-3 text-center transition-colors',
+                  active
+                    ? 'border-primary bg-accent/55 text-foreground'
+                    : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-secondary/40',
+                )}
+              >
+                <CategoryGlyph category={category.key} className="size-9 border-0 bg-transparent p-0 text-primary [&_svg]:size-5" />
+                <span className="text-xs font-medium leading-tight">{category.label}</span>
+              </button>
+            )
+          })}
+        </div>
+        {hasCategoryPreferences ? (
+          <div className="flex justify-end">
+            <button type="button" onClick={() => void resetCategoryPreferences()} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">
+              Reset category order
+            </button>
+          </div>
+        ) : null}
+      </section>
 
       {/* Active filter chips + sort */}
       <div className="flex items-center gap-2 overflow-x-auto scrollbar-slim pb-0.5">
@@ -431,11 +441,17 @@ export function ListingsBrowse() {
       ) : data ? (
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start lg:gap-4">
           <div className={isFetching ? 'space-y-3 opacity-60 transition-opacity' : 'space-y-3'}>
-            <p className="text-sm text-muted-foreground" role="status">
-              {copy.browse.resultsFound(data.total, data.pageCount > 1 ? { page: data.page, pageCount: data.pageCount } : undefined)}
-            </p>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-base font-semibold tracking-tight">
+                {filters.q.trim() || filters.category !== 'any' ? 'Products' : 'Discover products'}
+              </h2>
+              <p className="text-xs text-muted-foreground" role="status">
+                {copy.browse.resultsFound(data.total, data.pageCount > 1 ? { page: data.page, pageCount: data.pageCount } : undefined)}
+              </p>
+            </div>
             {/* Compact two-column product grid on phones; three columns on
-                wider screens. Keep this aligned with ListingGridSkeleton. */}
+                wider screens. Each card keeps the seller identity and direct
+                contact actions attached to the product. */}
             <div data-testid="listing-results-grid" className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
               {data.items.map((listing) => (
                 <ListingBlock
