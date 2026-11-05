@@ -207,8 +207,12 @@ export async function POST(request: Request) {
       }
 
       const moderateQuarantinedObject = async (key: string) => {
-        const readUrl = await storage.createSignedObjectUrl(quarantineBucket, key, 'GET', 60)
-        return moderateImageUrl(readUrl)
+        // The moderation provider cannot reliably fetch Supabase S3 presigned
+        // URLs. Give it a short-lived HTTPS URL on this Worker instead; the
+        // proxy validates an HMAC token and streams only this private object.
+        const token = storage.createModerationProxyToken(key, 90)
+        const proxyUrl = new URL(`/api/moderation-image/${encodeURIComponent(token)}`, request.url)
+        return moderateImageUrl(proxyUrl.toString())
       }
 
       const moderation = await moderateQuarantinedObject(originalKey)
