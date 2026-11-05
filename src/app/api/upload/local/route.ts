@@ -189,7 +189,6 @@ export async function POST(request: Request) {
       const ext = detectedType
       const originalKey = `pending/${user.id}/${id}.${ext}`
       const thumbnailKey = thumbnailInput ? `pending/${user.id}/${id}-t.thumb.webp` : null
-      const quarantineBucket = process.env.STORAGE_QUARANTINE_BUCKET?.trim() || 'mudaala-photo-quarantine'
       const discardQuarantine = async () => {
         await storage.discardQuarantineObject(originalKey).catch(() => undefined)
         if (thumbnailKey) await storage.discardQuarantineObject(thumbnailKey).catch(() => undefined)
