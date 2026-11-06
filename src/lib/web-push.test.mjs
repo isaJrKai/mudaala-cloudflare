@@ -18,7 +18,7 @@ describe('Web Push cryptography', () => {
       { name: 'ECDSA', namedCurve: 'P-256' },
       true,
       ['sign', 'verify'],
-    ) as CryptoKeyPair
+    )
     const privateJwk = await crypto.subtle.exportKey('jwk', pair.privateKey)
     const jwt = await createVapidJwt('https://fcm.googleapis.com/fcm/send/example', privateJwk)
     const [header, payload, signature] = jwt.split('.')
@@ -40,7 +40,7 @@ describe('Web Push cryptography', () => {
       { name: 'ECDH', namedCurve: 'P-256' },
       true,
       ['deriveBits'],
-    ) as CryptoKeyPair
+    )
     const publicKey = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey))
     const auth = crypto.getRandomValues(new Uint8Array(16))
     const encrypted = await encryptPushPayload({
