@@ -5,7 +5,7 @@ import { db } from '@/lib/db'
 const subscriptionSchema = z.object({
   endpoint: z.string().url().max(2048).refine((value) => {
     const url = new URL(value)
-    if (url.protocol !== 'https:') return false
+    if (url.protocol !== 'https:' || url.username || url.password || (url.port && url.port !== '443')) return false
     const host = url.hostname.toLowerCase()
     return host === 'fcm.googleapis.com'
       || host === 'android.googleapis.com'
