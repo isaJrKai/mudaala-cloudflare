@@ -17,6 +17,10 @@ const base = {
   posterGeneratedAt: null,
   posterSharedAt: null,
   posterShareInitiatedAt: null,
+  latestPhotoAddedAt: null,
+  latestPhotoListingId: null,
+  latestPhotoListingTitle: null,
+  productPhotosShareInitiatedAt: null,
 }
 
 describe('merchant Growth Coach recommendations', () => {
@@ -77,6 +81,26 @@ describe('merchant Growth Coach recommendations', () => {
       'create-shop-poster',
       'add-another-product',
     ])
+  })
+
+  it('recommends sharing product photos after a merchant adds them', () => {
+    const actions = recommendMerchantActions({
+      ...base,
+      activeProducts: [{ id: 'listing-7', title: 'Fresh tomatoes', photoCount: 3 }],
+      latestPhotoAddedAt: new Date('2026-11-06T07:00:00Z'),
+      latestPhotoListingId: 'listing-7',
+      latestPhotoListingTitle: 'Fresh tomatoes',
+    })
+    const share = actions.find((item) => item.type === 'GROWTH_SHARE_PRODUCT_PHOTOS')
+    expect(share?.actionUrl).toBe('/#/listing/listing-7')
+    expect(recommendMerchantActions({
+      ...base,
+      activeProducts: [{ id: 'listing-7', title: 'Fresh tomatoes', photoCount: 3 }],
+      latestPhotoAddedAt: new Date('2026-11-06T07:00:00Z'),
+      latestPhotoListingId: 'listing-7',
+      latestPhotoListingTitle: 'Fresh tomatoes',
+      productPhotosShareInitiatedAt: new Date('2026-11-06T07:30:00Z'),
+    }).map((item) => item.type)).not.toContain('GROWTH_SHARE_PRODUCT_PHOTOS')
   })
 
   it('routes poster actions to the merchant shop', () => {
