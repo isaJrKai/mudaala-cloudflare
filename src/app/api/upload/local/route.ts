@@ -189,7 +189,6 @@ export async function POST(request: Request) {
       const ext = detectedType
       const originalKey = `pending/${user.id}/${id}.${ext}`
       const thumbnailKey = thumbnailInput ? `pending/${user.id}/${id}-t.thumb.webp` : null
-      const quarantineBucket = process.env.STORAGE_QUARANTINE_BUCKET?.trim() || 'mudaala-photo-quarantine'
       const discardQuarantine = async () => {
         await storage.discardQuarantineObject(originalKey).catch(() => undefined)
         if (thumbnailKey) await storage.discardQuarantineObject(thumbnailKey).catch(() => undefined)
@@ -207,8 +206,12 @@ export async function POST(request: Request) {
       }
 
       const moderateQuarantinedObject = async (key: string) => {
-        const readUrl = await storage.createSignedObjectUrl(quarantineBucket, key, 'GET', 60)
-        return moderateImageUrl(readUrl)
+        // The moderation provider cannot reliably fetch Supabase S3 presigned
+        // URLs. Give it a short-lived HTTPS URL on this Worker instead; the
+        // proxy validates an HMAC token and streams only this private object.
+        const token = storage.createModerationProxyToken(key, 90)
+        const proxyUrl = new URL(`/api/moderation-image/${encodeURIComponent(token)}`, request.url)
+        return moderateImageUrl(proxyUrl.toString())
       }
 
       const moderation = await moderateQuarantinedObject(originalKey)
