@@ -65,7 +65,7 @@ export function PushNotificationControl() {
       const existing = await registration.pushManager.getSubscription()
       const subscription = existing ?? await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: decodeApplicationServerKey(publicKey),
+        applicationServerKey: decodeApplicationServerKey(publicKey) as unknown as BufferSource,
       })
       await apiPost('/api/push-subscriptions', {
         ...subscription.toJSON(),
