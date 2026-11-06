@@ -68,7 +68,8 @@ export async function POST() {
       },
       data: { snoozedUntil: null, read: false },
     })
-    const merchants = await db.user.findMany({
+    const [merchants, recentGrowth, recentGrowthCounts] = await Promise.all([
+      db.user.findMany({
       where: { isSeed: false, profile: { isNot: null } },
       select: {
         id: true,
@@ -96,7 +97,25 @@ export async function POST() {
           select: { eventType: true, entityId: true, createdAt: true },
         },
       },
-    })
+      }),
+      db.notification.findMany({
+        where: { category: 'GROWTH', createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60_000) } },
+        select: { userId: true, dedupeKey: true },
+      }),
+      db.notification.groupBy({
+        by: ['userId'],
+        where: { category: 'GROWTH', createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60_000) } },
+        _count: { _all: true },
+      }),
+    ])
+    const sentKeysByUser = new Map<string, Set<string>>()
+    for (const item of recentGrowth) {
+      if (!item.dedupeKey) continue
+      const keys = sentKeysByUser.get(item.userId) ?? new Set<string>()
+      keys.add(item.dedupeKey)
+      sentKeysByUser.set(item.userId, keys)
+    }
+    const countByUser = new Map(recentGrowthCounts.map((item) => [item.userId, item._count._all]))
 
     let created = 0
     let skipped = 0
@@ -118,13 +137,11 @@ export async function POST() {
         posterShareInitiatedAt: merchant.growthEvents.find((event) => event.eventType === 'POSTER_SHARE_INITIATED')?.createdAt ?? null,
         latestPhotoAddedAt: merchant.growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTO_ADDED')?.createdAt ?? null,
         latestPhotoListingId: merchant.growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTO_ADDED')?.entityId ?? null,
-        latestPhotoListingTitle: merchant.listings.find((listing) => listing.id === merchant.growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTO_ADDED')?.entityId)?.title ?? null,
+        latestPhotoListingTitle: (() => { const item = merchant.listings.find((listing) => listing.id === merchant.growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTO_ADDED')?.entityId); return item && photoCount(item.photos) > 0 ? item.title : null })(),
         productPhotosShareInitiatedAt: merchant.growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTOS_SHARE_INITIATED' && event.entityId === merchant.growthEvents.find((item) => item.eventType === 'PRODUCT_PHOTO_ADDED')?.entityId)?.createdAt ?? null,
       })
 
-      const growthCount = await db.notification.count({
-        where: { userId: merchant.id, category: 'GROWTH', createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60_000) } },
-      })
+      const growthCount = countByUser.get(merchant.id) ?? 0
       if (growthCount >= DAILY_GROWTH_CAP) {
         skipped += 1
         continue
@@ -132,11 +149,7 @@ export async function POST() {
 
       if (SCHEDULED_HOURS.has(local.hour) && recommendations.length > 0) {
         const keys = recommendations.map((item) => `growth:${local.day}:${item.key}`)
-        const existing = await db.notification.findMany({
-          where: { userId: merchant.id, dedupeKey: { in: keys } },
-          select: { dedupeKey: true },
-        })
-        const sentKeys = new Set(existing.map((item) => item.dedupeKey))
+        const sentKeys = sentKeysByUser.get(merchant.id) ?? new Set<string>()
         const next = recommendations.find((item) => !sentKeys.has(`growth:${local.day}:${item.key}`))
         if (next) {
           const dedupeKey = `growth:${local.day}:${next.key}`
@@ -156,6 +169,11 @@ export async function POST() {
             skipDuplicates: true,
           })
           created += result.count
+          if (result.count > 0) {
+            sentKeys.add(dedupeKey)
+            sentKeysByUser.set(merchant.id, sentKeys)
+            countByUser.set(merchant.id, growthCount + 1)
+          }
         }
       }
 
@@ -165,11 +183,8 @@ export async function POST() {
         )
         if (!openedToday) {
           const dedupeKey = `growth:${local.day}:inactive`
-          const existing = await db.notification.findUnique({
-            where: { userId_dedupeKey: { userId: merchant.id, dedupeKey } },
-            select: { id: true },
-          })
-          if (!existing) {
+          const sentKeys = sentKeysByUser.get(merchant.id) ?? new Set<string>()
+          if (!sentKeys.has(dedupeKey) && (countByUser.get(merchant.id) ?? 0) < DAILY_GROWTH_CAP) {
             const result = await db.notification.createMany({
               data: [{
                 userId: merchant.id,
@@ -186,6 +201,11 @@ export async function POST() {
               skipDuplicates: true,
             })
             created += result.count
+            if (result.count > 0) {
+              sentKeys.add(dedupeKey)
+              sentKeysByUser.set(merchant.id, sentKeys)
+              countByUser.set(merchant.id, (countByUser.get(merchant.id) ?? 0) + 1)
+            }
           }
         }
       }
