@@ -26,6 +26,7 @@ model User {
   updatedAt    DateTime         @updatedAt
 
   lastHomeVisitAt DateTime? // marker for the Home dashboard's "new matches since last visit" stat
+  timezone       String   @default("Africa/Kampala") // merchant-local Growth Coach schedule timezone
 
   // PLACEHOLDER RULE - seed marker. Rows the seed script created are
   // development fixtures, not real shops; scripts/remove-seed-data.ts
