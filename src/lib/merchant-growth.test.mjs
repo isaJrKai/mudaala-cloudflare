@@ -20,7 +20,7 @@ describe('recommendNextMerchantAction', () => {
 
   it('prioritizes the first product for an empty shop', () => {
     const result = recommendNextMerchantAction({
-      shopExists: true, activeProducts: [], profile: completeProfile,
+      shopExists: true, shopId: 'merchant-1', activeProducts: [], profile: completeProfile,
       posterGeneratedAt: null, posterSharedAt: null,
     })
     expect(result?.type).toBe('GROWTH_ADD_FIRST_PRODUCT')
@@ -30,7 +30,7 @@ describe('recommendNextMerchantAction', () => {
 
   it('asks for photos on a real active product before profile polish', () => {
     const result = recommendNextMerchantAction({
-      shopExists: true,
+      shopExists: true, shopId: 'merchant-1',
       activeProducts: [{ id: 'listing-1', title: 'Rice', photoCount: 0 }],
       profile: { ...completeProfile, description: null },
       posterGeneratedAt: null, posterSharedAt: null,
