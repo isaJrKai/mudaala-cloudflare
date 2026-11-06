@@ -175,13 +175,13 @@ The current branch now includes:
 - Poster generation/share event capture, shop-visit tracking, shop-creation welcome notification, and an 15-minute in-app notification scheduler.
 
 Still not implemented in this PR:
-- Native Web Push delivery, service-worker push handling, and permission onboarding.
-- Push subscription API wiring and VAPID key configuration.
+- Production VAPID key generation and Cloudflare Worker secret configuration.
+- Real Android/iOS/desktop browser delivery verification and cross-device QA.
 - Fully event-driven recommendation completion for every product/profile change.
 - A user-facing timezone and quiet-hours settings screen.
 - Cross-device delivery verification on real Android/iOS devices.
 
-The hourly scheduler currently persists notifications to the authenticated in-app inbox. It does not claim to deliver device pop-ups until the push-delivery phase is implemented and verified.
+The 15-minute scheduler persists notifications to the authenticated in-app inbox and attempts Web Push delivery when VAPID keys are configured. The service worker supports opening the relevant Mudaala screen and snoozing for 15, 30, or 60 minutes. Device pop-ups remain inactive until the production VAPID public key and private secret are configured.
 
 ## Non-negotiable release criteria
 
