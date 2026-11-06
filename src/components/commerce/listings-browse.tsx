@@ -104,7 +104,7 @@ export function ListingsBrowse() {
     if (nearMe.status === 'locating') return
     if (nearOn) {
       setNearMe(NEARME_IDLE)
-      if (filters.sort === 'nearest') setFilters({ sort: 'newest' })
+      if (filters.sort === 'nearest') setFilters({ sort: 'discovery' })
       return
     }
     if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
@@ -314,6 +314,7 @@ export function ListingsBrowse() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="discovery">Discover</SelectItem>
             <SelectItem value="newest">{copy.browse.sortNewest}</SelectItem>
             {nearOn ? <SelectItem value="nearest">{copy.browse.sortNearest}</SelectItem> : null}
             <SelectItem value="price_asc">{copy.browse.sortPriceAsc}</SelectItem>
