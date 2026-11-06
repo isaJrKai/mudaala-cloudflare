@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { BellRing, BellOff, LoaderCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { apiDelete, apiGet, apiPost, apiFetch } from '@/lib/client'
+import { apiGet, apiPost, apiFetch } from '@/lib/client'
 
 type PublicKeyResponse = { publicKey: string }
 
