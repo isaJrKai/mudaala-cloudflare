@@ -148,7 +148,6 @@ export async function POST() {
       }
 
       if (SCHEDULED_HOURS.has(local.hour) && recommendations.length > 0) {
-        const keys = recommendations.map((item) => `growth:${local.day}:${item.key}`)
         const sentKeys = sentKeysByUser.get(merchant.id) ?? new Set<string>()
         const next = recommendations.find((item) => !sentKeys.has(`growth:${local.day}:${item.key}`))
         if (next) {
