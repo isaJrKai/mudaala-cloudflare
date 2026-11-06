@@ -21,6 +21,7 @@ function openRecommendation(url: string, navigate: ReturnType<typeof useAppStore
   else if (url === '/#/account') navigate({ name: 'account' })
   else if (url === '/#/home') navigate({ name: 'home' })
   else if (url.startsWith('/#/shop/')) navigate({ name: 'shop', id: decodeURIComponent(url.slice('/#/shop/'.length)) })
+  else if (url.startsWith('/#/listing/')) navigate({ name: 'listing', id: decodeURIComponent(url.slice('/#/listing/'.length)) })
   else if (url.startsWith('/#/edit/')) navigate({ name: 'edit', id: decodeURIComponent(url.slice('/#/edit/'.length)) })
 }
 
