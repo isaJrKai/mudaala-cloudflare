@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 
 const eventSchema = z.object({
   eventType: z.enum([
+    'SHOP_CREATED',
     'PRODUCT_CREATED',
     'PRODUCT_PHOTO_ADDED',
     'POSTER_GENERATED',
