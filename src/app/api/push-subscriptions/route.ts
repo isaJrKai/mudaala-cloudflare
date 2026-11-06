@@ -18,8 +18,8 @@ const subscriptionSchema = z.object({
       || host.endsWith('.notify.windows.com')
   }, 'Unsupported browser push service'),
   keys: z.object({
-    p256dh: z.string().min(80).max(100),
-    auth: z.string().min(16).max(32),
+    p256dh: z.string().regex(/^[A-Za-z0-9_-]+$/).min(80).max(100),
+    auth: z.string().regex(/^[A-Za-z0-9_-]+$/).min(16).max(32),
   }),
   expirationTime: z.number().int().positive().nullable().optional(),
 })
@@ -28,7 +28,16 @@ export async function GET() {
   return route(async () => {
     await requireUser('Sign in to enable device notifications')
     const publicKey = process.env.VAPID_PUBLIC_KEY
-    if (!publicKey || !process.env.VAPID_PRIVATE_JWK) throw new ApiError(503, 'Device notifications are not configured yet')
+    const privateJwkText = process.env.VAPID_PRIVATE_JWK
+    if (!publicKey || !privateJwkText) throw new ApiError(503, 'Device notifications are not configured yet')
+    try {
+      const privateJwk = JSON.parse(privateJwkText) as JsonWebKey
+      if (privateJwk.kty !== 'EC' || privateJwk.crv !== 'P-256' || !privateJwk.d || !privateJwk.x || !privateJwk.y) {
+        throw new Error('Invalid VAPID key')
+      }
+    } catch {
+      throw new ApiError(503, 'Device notifications are not configured yet')
+    }
     return jsonOk({ publicKey })
   })
 }
@@ -36,6 +45,9 @@ export async function GET() {
 export async function POST(request: Request) {
   return route(async () => {
     const user = await requireUser('Sign in to enable device notifications')
+    if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_JWK) {
+      throw new ApiError(503, 'Device notifications are not configured yet')
+    }
     const body = await request.json().catch(() => {
       throw new ApiError(400, 'Send a valid push subscription')
     })
