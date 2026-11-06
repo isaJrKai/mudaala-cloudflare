@@ -53,15 +53,23 @@ function MetricCard({
 export function BusinessDashboard() {
   const { user, isLoading: sessionLoading } = useSession()
   const { navigate, setAuthOpen } = useAppStore()
+  const userId = user?.id
 
   useEffect(() => {
-    if (!user) return
-    const localDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(new Date())
+    if (!userId) return
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Kampala',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date())
+    const get = (type: string) => parts.find((part) => part.type === type)?.value ?? ''
+    const localDay = `${get('year')}-${get('month')}-${get('day')}`
     void apiPost('/api/growth/events', {
       eventType: 'SHOP_OPENED',
-      idempotencyKey: `shop-opened:${user.id}:${localDay}`,
+      idempotencyKey: `shop-opened:${userId}:${localDay}`,
     }).catch(() => undefined)
-  }, [user?.id])
+  }, [userId])
 
   const listingsQuery = useQuery({
     queryKey: ['my-listings'],
