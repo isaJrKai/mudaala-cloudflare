@@ -21,7 +21,9 @@ self.addEventListener('push', (event) => {
     },
     actions: [
       { action: 'open', title: payload.actionLabel || 'Open Mudaala' },
-      { action: 'snooze', title: 'Remind me in 30 min' },
+      { action: 'snooze15', title: '15 min' },
+      { action: 'snooze30', title: '30 min' },
+      { action: 'snooze60', title: '1 hour' },
     ],
   }
 
@@ -31,13 +33,14 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const data = event.notification.data || {}
+  const snoozeMinutes = { snooze15: 15, snooze30: 30, snooze60: 60 }[event.action]
 
-  if (event.action === 'snooze' && data.notificationId) {
+  if (snoozeMinutes && data.notificationId) {
     event.waitUntil(fetch('/api/notifications/' + encodeURIComponent(data.notificationId) + '/lifecycle', {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'snooze', minutes: 30 }),
+      body: JSON.stringify({ action: 'snooze', minutes: snoozeMinutes }),
     }).catch(() => undefined))
     return
   }
