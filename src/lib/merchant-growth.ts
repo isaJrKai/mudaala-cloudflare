@@ -20,11 +20,15 @@ export type MerchantGrowthSnapshot = {
   posterGeneratedAt: Date | null
   posterSharedAt: Date | null
   posterShareInitiatedAt: Date | null
+  latestPhotoAddedAt: Date | null
+  latestPhotoListingId: string | null
+  latestPhotoListingTitle: string | null
+  productPhotosShareInitiatedAt: Date | null
 }
 
 export type GrowthRecommendation = {
   key: string
-  type: 'GROWTH_ADD_FIRST_PRODUCT' | 'GROWTH_ADD_PRODUCT_PHOTOS' | 'GROWTH_COMPLETE_PROFILE' | 'GROWTH_CREATE_POSTER' | 'GROWTH_SHARE_POSTER' | 'GROWTH_ADD_PRODUCT'
+  type: 'GROWTH_ADD_FIRST_PRODUCT' | 'GROWTH_ADD_PRODUCT_PHOTOS' | 'GROWTH_COMPLETE_PROFILE' | 'GROWTH_CREATE_POSTER' | 'GROWTH_SHARE_POSTER' | 'GROWTH_ADD_PRODUCT' | 'GROWTH_SHARE_PRODUCT_PHOTOS'
   title: string
   body: string
   actionLabel: string
@@ -88,6 +92,25 @@ export function recommendMerchantActions(snapshot: MerchantGrowthSnapshot): Grow
       priority: 'NORMAL',
       reason: 'SHOP_PROFILE_INCOMPLETE',
     })
+  }
+
+  if (snapshot.latestPhotoAddedAt && snapshot.latestPhotoListingId && snapshot.latestPhotoListingTitle) {
+    const photosSharedAfterUpload = Boolean(snapshot.productPhotosShareInitiatedAt && snapshot.productPhotosShareInitiatedAt >= snapshot.latestPhotoAddedAt)
+    const recentShareAttempt = snapshot.productPhotosShareInitiatedAt
+      ? Date.now() - snapshot.productPhotosShareInitiatedAt.getTime() < 24 * 60 * 60_000
+      : false
+    if (!photosSharedAfterUpload && !recentShareAttempt) {
+      recommendations.push({
+        key: `share-product-photos:${snapshot.latestPhotoListingId}`,
+        type: 'GROWTH_SHARE_PRODUCT_PHOTOS',
+        title: 'Let customers see your new photos',
+        body: `You added photos to “${snapshot.latestPhotoListingTitle}”. Share the product so customers can discover it.`,
+        actionLabel: 'Share product photos',
+        actionUrl: `/#/listing/${encodeURIComponent(snapshot.latestPhotoListingId)}`,
+        priority: 'NORMAL',
+        reason: 'PRODUCT_PHOTOS_ADDED_NOT_SHARED',
+      })
+    }
   }
 
   if (!snapshot.posterGeneratedAt) {
