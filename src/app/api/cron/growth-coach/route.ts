@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 import { headers } from 'next/headers'
 import { route, jsonError, jsonOk } from '@/lib/api'
 import { db } from '@/lib/db'
-import { recommendNextMerchantAction } from '@/lib/merchant-growth'
+import { recommendMerchantActions } from '@/lib/merchant-growth'
 
 const SCHEDULED_HOURS = new Set([8, 11, 15])
 const DAILY_GROWTH_CAP = 4
@@ -104,7 +104,7 @@ export async function POST() {
       if (!merchant.profile) continue
       const timezone = merchant.timezone || 'Africa/Kampala'
       const local = localParts(now, timezone)
-      const recommendation = recommendNextMerchantAction({
+      const recommendations = recommendMerchantActions({
         shopExists: true,
         shopId: merchant.id,
         profile: merchant.profile,
@@ -126,24 +126,27 @@ export async function POST() {
         continue
       }
 
-      if (SCHEDULED_HOURS.has(local.hour) && recommendation) {
-        const dedupeKey = `growth:${local.day}:${recommendation.key}`
-        const existing = await db.notification.findUnique({
-          where: { userId_dedupeKey: { userId: merchant.id, dedupeKey } },
-          select: { id: true },
+      if (SCHEDULED_HOURS.has(local.hour) && recommendations.length > 0) {
+        const keys = recommendations.map((item) => `growth:${local.day}:${item.key}`)
+        const existing = await db.notification.findMany({
+          where: { userId: merchant.id, dedupeKey: { in: keys } },
+          select: { dedupeKey: true },
         })
-        if (!existing) {
+        const sentKeys = new Set(existing.map((item) => item.dedupeKey))
+        const next = recommendations.find((item) => !sentKeys.has(`growth:${local.day}:${item.key}`))
+        if (next) {
+          const dedupeKey = `growth:${local.day}:${next.key}`
           const result = await db.notification.createMany({
             data: [{
               userId: merchant.id,
-              type: recommendation.type,
+              type: next.type,
               category: 'GROWTH',
-              priority: recommendation.priority,
-              title: recommendation.title,
-              body: recommendation.body,
-              actionUrl: recommendation.actionUrl,
-              actionLabel: recommendation.actionLabel,
-              source: `SCHEDULED_${local.hour}:${recommendation.reason}`,
+              priority: next.priority,
+              title: next.title,
+              body: next.body,
+              actionUrl: next.actionUrl,
+              actionLabel: next.actionLabel,
+              source: `SCHEDULED_${local.hour}:${next.reason}`,
               dedupeKey,
             }],
             skipDuplicates: true,
@@ -170,9 +173,9 @@ export async function POST() {
                 category: 'GROWTH',
                 priority: 'NORMAL',
                 title: 'Your shop is waiting for you',
-                body: recommendation?.body ?? 'Take a moment to check your shop, refresh your products and share your latest photos or shop poster.',
-                actionUrl: recommendation?.actionUrl ?? `/#/shop/${encodeURIComponent(merchant.id)}`,
-                actionLabel: recommendation?.actionLabel ?? 'Open my shop',
+                body: recommendations[0]?.body ?? 'Take a moment to check your shop, refresh your products and share your latest photos or shop poster.',
+                actionUrl: recommendations[0]?.actionUrl ?? `/#/shop/${encodeURIComponent(merchant.id)}`,
+                actionLabel: recommendations[0]?.actionLabel ?? 'Open my shop',
                 source: 'DAILY_INACTIVITY',
                 dedupeKey,
               }],
