@@ -45,7 +45,6 @@ export function PushNotificationControl() {
     setBusy(true)
     setMessage('')
     try {
-      const { publicKey } = await apiGet<PublicKeyResponse>('/api/push-subscriptions')
       const result = Notification.permission === 'granted'
         ? 'granted'
         : await Notification.requestPermission()
@@ -54,6 +53,7 @@ export function PushNotificationControl() {
         setMessage(result === 'denied' ? 'Notifications are blocked in your browser settings.' : 'You can enable device alerts whenever you are ready.')
         return
       }
+      const { publicKey } = await apiGet<PublicKeyResponse>('/api/push-subscriptions')
       const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
       const existing = await registration.pushManager.getSubscription()
       const subscription = existing ?? await registration.pushManager.subscribe({
