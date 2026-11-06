@@ -65,6 +65,6 @@ export async function GET() {
       productPhotosShareInitiatedAt: growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTOS_SHARE_INITIATED' && event.entityId === growthEvents.find((item) => item.eventType === 'PRODUCT_PHOTO_ADDED')?.entityId)?.createdAt ?? null,
     })
 
-    return jsonOk({ recommendation })
+    return jsonOk({ shopExists: Boolean(profile), recommendation })
   })
 }
