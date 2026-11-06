@@ -56,6 +56,18 @@ export async function POST() {
     if (!secretMatches(hdrs.get('x-cron-secret'), configured)) return jsonError(403, 'Invalid cron secret')
 
     const now = new Date()
+    // Re-activate due snoozed Growth Coach reminders. The quarter-hour cron
+    // keeps 15-minute snoozes useful without a separate queue service.
+    const dueSnoozes = await db.notification.updateMany({
+      where: {
+        category: 'GROWTH',
+        snoozedUntil: { lte: now },
+        archivedAt: null,
+        dismissedAt: null,
+        completedAt: null,
+      },
+      data: { snoozedUntil: null, read: false },
+    })
     const merchants = await db.user.findMany({
       where: { isSeed: false, profile: { isNot: null } },
       select: {
@@ -172,6 +184,6 @@ export async function POST() {
       }
     }
 
-    return jsonOk({ merchantsChecked: merchants.length, notificationsCreated: created, merchantsAtDailyCap: skipped })
+    return jsonOk({ merchantsChecked: merchants.length, notificationsCreated: created, snoozesReactivated: dueSnoozes.count, merchantsAtDailyCap: skipped })
   })
 }
