@@ -28,7 +28,7 @@ export async function GET() {
   return route(async () => {
     await requireUser('Sign in to enable device notifications')
     const publicKey = process.env.VAPID_PUBLIC_KEY
-    if (!publicKey) throw new ApiError(503, 'Device notifications are not configured yet')
+    if (!publicKey || !process.env.VAPID_PRIVATE_JWK) throw new ApiError(503, 'Device notifications are not configured yet')
     return jsonOk({ publicKey })
   })
 }
