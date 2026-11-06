@@ -1,3 +1,5 @@
+ALTER TABLE "User" ADD COLUMN "timezone" TEXT NOT NULL DEFAULT 'Africa/Kampala';
+
 -- Growth Coach foundation: lifecycle metadata, push subscriptions, and
 -- explicit merchant-side activity events. Existing notifications remain valid.
 ALTER TABLE "Notification"
