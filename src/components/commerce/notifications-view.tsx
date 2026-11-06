@@ -203,6 +203,7 @@ export function NotificationsView() {
                   ) : (
                     <>
                       {n.actionUrl ? <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => { if (!n.read) markRead.mutate(n.id); openAction(n.actionUrl!) }}><ExternalLink className="size-3.5" aria-hidden /> {n.actionLabel || 'Open action'}</Button> : null}
+                      {n.actionUrl ? <Button size="sm" variant="ghost" className="h-8 gap-1 px-2 text-xs text-primary" onClick={() => lifecycle.mutate({ id: n.id, action: 'complete' })} disabled={lifecycle.isPending}><CheckCheck className="size-3.5" aria-hidden /> Mark done</Button> : null}
                       <div className="ml-auto flex flex-wrap items-center gap-1">
                         {snoozeFor === n.id ? (
                           <>
