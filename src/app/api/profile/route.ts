@@ -1,6 +1,7 @@
 import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
 import { businessProfileSchema, normalizePhone, type CountryKey } from '@/lib/validation'
 import { db } from '@/lib/db'
+import { deliverPushNotification } from '@/lib/push-delivery'
 import { shopChecklistFor, shopChecklistComplete, generateShopCode } from '@/lib/shop'
 
 export async function GET() {
@@ -69,6 +70,13 @@ export async function PUT(request: Request) {
           skipDuplicates: true,
         }),
       ])
+      const welcome = await db.notification.findUnique({
+        where: { userId_dedupeKey: { userId: user.id, dedupeKey } },
+        select: { id: true, userId: true, title: true, body: true, actionUrl: true, actionLabel: true, priority: true },
+      })
+      if (welcome) await deliverPushNotification(user.id, welcome).catch((error) =>
+        console.warn('[growth-coach] welcome push delivery failed', error instanceof Error ? error.message : 'unknown error'),
+      )
     }
     return jsonOk({ profile })
   })
