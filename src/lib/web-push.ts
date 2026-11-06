@@ -57,7 +57,6 @@ async function hkdfExpand(prk: Uint8Array, info: Uint8Array, length: number): Pr
 export async function createVapidJwt(
   endpoint: string,
   privateJwk: JsonWebKey,
-  publicKey: string,
   subject = 'https://mudaala.store',
 ): Promise<string> {
   const audience = new URL(endpoint).origin
@@ -145,7 +144,7 @@ export async function sendWebPush(
   if (!privateJwkText || !publicKey) return { skipped: true }
 
   const privateJwk = JSON.parse(privateJwkText) as JsonWebKey
-  const jwt = await createVapidJwt(subscription.endpoint, privateJwk, publicKey)
+  const jwt = await createVapidJwt(subscription.endpoint, privateJwk)
   const body = await encryptPushPayload(subscription, payload)
   const response = await fetch(subscription.endpoint, {
     method: 'POST',
