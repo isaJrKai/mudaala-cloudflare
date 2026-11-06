@@ -18,7 +18,7 @@ function photoCount(raw: string): number {
 export async function GET() {
   return route(async () => {
     const user = await requireUser('Sign in to see your shop recommendations')
-    const [profile, listings, posterGenerated, posterShared] = await Promise.all([
+    const [profile, listings, posterGenerated, posterShared, posterShareInitiated] = await Promise.all([
       db.businessProfile.findUnique({
         where: { userId: user.id },
         select: {
@@ -46,6 +46,11 @@ export async function GET() {
         orderBy: { createdAt: 'desc' },
         select: { createdAt: true },
       }),
+      db.merchantGrowthEvent.findFirst({
+        where: { userId: user.id, eventType: 'POSTER_SHARE_INITIATED' },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      }),
     ])
 
     const recommendation = recommendNextMerchantAction({
@@ -58,6 +63,7 @@ export async function GET() {
       })),
       posterGeneratedAt: posterGenerated?.createdAt ?? null,
       posterSharedAt: posterShared?.createdAt ?? null,
+      posterShareInitiatedAt: posterShareInitiated?.createdAt ?? null,
     })
 
     return jsonOk({ recommendation })
