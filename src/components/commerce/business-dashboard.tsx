@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowRight,
@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { apiGet, type BusinessProfileT, type Listing } from '@/lib/client'
+import { apiGet, apiPost, type BusinessProfileT, type Listing } from '@/lib/client'
 import { useAppStore } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -53,6 +53,15 @@ function MetricCard({
 export function BusinessDashboard() {
   const { user, isLoading: sessionLoading } = useSession()
   const { navigate, setAuthOpen } = useAppStore()
+
+  useEffect(() => {
+    if (!user) return
+    const localDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(new Date())
+    void apiPost('/api/growth/events', {
+      eventType: 'SHOP_OPENED',
+      idempotencyKey: `shop-opened:${user.id}:${localDay}`,
+    }).catch(() => undefined)
+  }, [user?.id])
 
   const listingsQuery = useQuery({
     queryKey: ['my-listings'],
