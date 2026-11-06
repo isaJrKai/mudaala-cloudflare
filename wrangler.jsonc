@@ -13,7 +13,7 @@
   "vars": {
     "RATE_LIMIT_REQUIRE_SHARED": "1",
     "APP_ORIGIN": "https://mudaala-cloudflare.kaisoisaac.workers.dev",
-    "VAPID_PUBLIC_KEY": "BBaTwp2Gl0k_"
+    "VAPID_PUBLIC_KEY": "BBaTwp2Gl0k_arUjxhG-0gOXpqjGyZgrnMgM19Dm0CjXjWe4yLc_TORu8RK7nyCex-zAdvEgrbF_jm4u-aiSej0"
   },
   "durable_objects": {
     "bindings": [
