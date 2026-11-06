@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { recommendNextMerchantAction } from './merchant-growth.ts'
+import { recommendMerchantActions, recommendNextMerchantAction } from './merchant-growth.ts'
 
 const completeProfile = {
   photoUrl: 'https://example.test/shop.jpg',
@@ -10,19 +10,24 @@ const completeProfile = {
   shopCode: 'MD-1234',
 }
 
-describe('recommendNextMerchantAction', () => {
+const base = {
+  shopExists: true,
+  shopId: 'merchant-1',
+  profile: completeProfile,
+  posterGeneratedAt: null,
+  posterSharedAt: null,
+  posterShareInitiatedAt: null,
+}
+
+describe('merchant Growth Coach recommendations', () => {
   it('does not invent a shop when no profile exists', () => {
     expect(recommendNextMerchantAction({
-      shopExists: false, activeProducts: [], profile: null,
-      posterGeneratedAt: null, posterSharedAt: null,
+      ...base, shopExists: false, activeProducts: [], profile: null,
     })).toBeNull()
   })
 
   it('prioritizes the first product for an empty shop', () => {
-    const result = recommendNextMerchantAction({
-      shopExists: true, shopId: 'merchant-1', activeProducts: [], profile: completeProfile,
-      posterGeneratedAt: null, posterSharedAt: null,
-    })
+    const result = recommendNextMerchantAction({ ...base, activeProducts: [] })
     expect(result?.type).toBe('GROWTH_ADD_FIRST_PRODUCT')
     expect(result?.actionUrl).toBe('/#/publish')
     expect(result?.priority).toBe('HIGH')
@@ -30,21 +35,23 @@ describe('recommendNextMerchantAction', () => {
 
   it('asks for photos on a real active product before profile polish', () => {
     const result = recommendNextMerchantAction({
-      shopExists: true, shopId: 'merchant-1',
+      ...base,
       activeProducts: [{ id: 'listing-1', title: 'Rice', photoCount: 0 }],
       profile: { ...completeProfile, description: null },
-      posterGeneratedAt: null, posterSharedAt: null,
     })
     expect(result?.type).toBe('GROWTH_ADD_PRODUCT_PHOTOS')
     expect(result?.actionUrl).toContain('/#/edit/listing-1')
   })
 
-  it('recommends profile completion only when the product catalogue has photos', () => {
+  it('recommends profile completion when product photos are present', () => {
     const result = recommendNextMerchantAction({
-      shopExists: true,
-      activeProducts: [{ id: 'listing-1', title: 'Rice', photoCount: 2 }],
+      ...base,
+      activeProducts: [
+        { id: 'listing-1', title: 'Rice', photoCount: 2 },
+        { id: 'listing-2', title: 'Beans', photoCount: 1 },
+        { id: 'listing-3', title: 'Sugar', photoCount: 1 },
+      ],
       profile: { ...completeProfile, hours: null },
-      posterGeneratedAt: null, posterSharedAt: null,
     })
     expect(result?.type).toBe('GROWTH_COMPLETE_PROFILE')
     expect(result?.body).toContain('1 missing shop detail')
@@ -52,13 +59,31 @@ describe('recommendNextMerchantAction', () => {
 
   it('distinguishes poster generation from an actual share event', () => {
     const snapshot = {
-      shopExists: true,
+      ...base,
       activeProducts: [{ id: 'listing-1', title: 'Rice', photoCount: 1 }],
-      profile: completeProfile,
       posterGeneratedAt: new Date('2026-11-01T08:00:00Z'),
-      posterSharedAt: null,
     }
-    expect(recommendNextMerchantAction(snapshot)?.type).toBe('GROWTH_SHARE_POSTER')
-    expect(recommendNextMerchantAction({ ...snapshot, posterSharedAt: new Date() })).toBeNull()
+    expect(recommendMerchantActions(snapshot).map((item) => item.type)).toContain('GROWTH_SHARE_POSTER')
+    expect(recommendMerchantActions({ ...snapshot, posterSharedAt: new Date() }).map((item) => item.type)).not.toContain('GROWTH_SHARE_POSTER')
+  })
+
+  it('offers different eligible actions across the three daily slots', () => {
+    const actions = recommendMerchantActions({
+      ...base,
+      activeProducts: [{ id: 'listing-1', title: 'Rice', photoCount: 1 }],
+    })
+    expect(actions.map((item) => item.key)).toEqual([
+      'complete-shop-profile',
+      'create-shop-poster',
+      'add-another-product',
+    ])
+  })
+
+  it('routes poster actions to the merchant shop', () => {
+    const action = recommendMerchantActions({
+      ...base,
+      activeProducts: [{ id: 'listing-1', title: 'Rice', photoCount: 1 }],
+    }).find((item) => item.type === 'GROWTH_CREATE_POSTER')
+    expect(action?.actionUrl).toBe('/#/shop/merchant-1')
   })
 })
