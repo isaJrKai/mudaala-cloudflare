@@ -1,6 +1,7 @@
 import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
 import { businessProfileSchema, normalizePhone, type CountryKey } from '@/lib/validation'
 import { db } from '@/lib/db'
+import { deliverPushNotification } from '@/lib/push-delivery'
 import { shopChecklistFor, shopChecklistComplete, generateShopCode } from '@/lib/shop'
 
 export async function GET() {
@@ -37,6 +38,7 @@ export async function PUT(request: Request) {
       })
     }
 
+    const existingProfile = await db.businessProfile.findUnique({ where: { userId: user.id }, select: { id: true } })
     const profile = await db.businessProfile.upsert({
       where: { userId: user.id },
       create: { userId: user.id, ...data, phone, whatsapp, verified: false, shopCode: await generateShopCode() },
@@ -44,6 +46,40 @@ export async function PUT(request: Request) {
       // permanent identity, never recycled or re-rolled.
       update: { ...data, phone, whatsapp, verified: false },
     })
+
+    if (!existingProfile) {
+      const dedupeKey = `growth:welcome:${user.id}`
+      const [, welcomeCreated] = await Promise.all([
+        db.merchantGrowthEvent.createMany({
+          data: [{ userId: user.id, eventType: 'SHOP_CREATED', entityId: profile.id, idempotencyKey: `shop-created:${user.id}` }],
+          skipDuplicates: true,
+        }),
+        db.notification.createMany({
+          data: [{
+            userId: user.id,
+            type: 'GROWTH_WELCOME',
+            category: 'GROWTH',
+            priority: 'HIGH',
+            title: `Welcome to Mudaala, ${profile.businessName}`,
+            body: 'Your shop is open. Add or improve your products, upload clear photos and share your shop poster so customers can find you.',
+            actionUrl: `/#/shop/${encodeURIComponent(user.id)}`,
+            actionLabel: 'Open my shop',
+            source: 'SHOP_CREATED',
+            dedupeKey,
+          }],
+          skipDuplicates: true,
+        }),
+      ])
+      if (welcomeCreated.count > 0) {
+        const welcome = await db.notification.findUnique({
+          where: { userId_dedupeKey: { userId: user.id, dedupeKey } },
+          select: { id: true, userId: true, title: true, body: true, actionUrl: true, actionLabel: true, priority: true },
+        })
+        if (welcome) await deliverPushNotification(user.id, welcome).catch((error) =>
+          console.warn('[growth-coach] welcome push delivery failed', error instanceof Error ? error.message : 'unknown error'),
+        )
+      }
+    }
     return jsonOk({ profile })
   })
 }

@@ -112,6 +112,7 @@ async function createShopPosterFile(
 export function ShopView({ id }: { id: string }) {
   const { navigate } = useAppStore()
   const { user, isLoading: sessionLoading } = useSession()
+  const isOwner = !sessionLoading && user?.id === id
   const addToBasket = useAddToBasket()
   const [posterOpen, setPosterOpen] = useState(false)
   const posterRef = useRef<HTMLDivElement>(null)
@@ -162,6 +163,22 @@ export function ShopView({ id }: { id: string }) {
     return () => { cancelled = true }
   }, [posterOpen, data, shopUrl])
 
+  // A poster is considered generated only when its real image file is ready.
+  // Download/creation is distinct from the merchant sharing it externally.
+  useEffect(() => {
+    if (!posterOpen || !posterFileReady || !posterFile || !isOwner) return
+    const dayKey = new Date().toISOString().slice(0, 10)
+    void apiFetch('/api/growth/events', {
+      method: 'POST',
+      body: JSON.stringify({
+        eventType: 'POSTER_GENERATED',
+        entityId: id,
+        idempotencyKey: `poster-generated:${id}:${dayKey}`,
+      }),
+      keepalive: true,
+    }).catch(() => undefined)
+  }, [posterOpen, posterFileReady, posterFile, isOwner, id])
+
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -194,7 +211,6 @@ export function ShopView({ id }: { id: string }) {
   }
   const whatsappNumber = shop.whatsapp ?? shop.phone
   const doneCount = Object.values(shop.checklist).filter(Boolean).length
-  const isOwner = !sessionLoading && user?.id === shop.id
   // Copy the till-style code. If the clipboard refuses (permissions), nothing
   // breaks - the code sits right there in big monospace; typing it was always
   // the honest fallback.
@@ -609,10 +625,19 @@ export function ShopView({ id }: { id: string }) {
               if (!posterRef.current || !shopUrl) return
               setPosterSharing(true); trackShopEngagement('SHARE_CLICK')
               try {
-                if (posterFile && navigator.share && navigator.canShare?.({ files: [posterFile] })) await navigator.share({ files: [posterFile], title: shop.name + ' on Mudaala', text: 'Discover ' + shop.name + ' on Mudaala - ' + shopUrl })
-                else window.location.assign('https://wa.me/?text=' + encodeURIComponent(copy.shop.shareTextOwner(shop.name, shop.shopCode!, shopUrl)))
-              } catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) window.location.assign('https://wa.me/?text=' + encodeURIComponent(copy.shop.shareTextOwner(shop.name, shop.shopCode!, shopUrl))) }
-              finally { setPosterSharing(false) }
+                if (posterFile && navigator.share && navigator.canShare?.({ files: [posterFile] })) {
+                  await navigator.share({ files: [posterFile], title: shop.name + ' on Mudaala', text: 'Discover ' + shop.name + ' on Mudaala - ' + shopUrl })
+                  if (isOwner) void apiFetch('/api/growth/events', { method: 'POST', body: JSON.stringify({ eventType: 'POSTER_SHARED', entityId: shop.id, idempotencyKey: `poster-shared:${shop.id}:${Date.now()}` }), keepalive: true }).catch(() => undefined)
+                } else {
+                  if (isOwner) void apiFetch('/api/growth/events', { method: 'POST', body: JSON.stringify({ eventType: 'POSTER_SHARE_INITIATED', entityId: shop.id, idempotencyKey: `poster-share-attempt:${shop.id}:${Date.now()}` }), keepalive: true }).catch(() => undefined)
+                  window.location.assign('https://wa.me/?text=' + encodeURIComponent(copy.shop.shareTextOwner(shop.name, shop.shopCode!, shopUrl)))
+                }
+              } catch (error) {
+                if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                  if (isOwner) void apiFetch('/api/growth/events', { method: 'POST', body: JSON.stringify({ eventType: 'POSTER_SHARE_INITIATED', entityId: shop.id, idempotencyKey: `poster-share-attempt:${shop.id}:${Date.now()}` }), keepalive: true }).catch(() => undefined)
+                  window.location.assign('https://wa.me/?text=' + encodeURIComponent(copy.shop.shareTextOwner(shop.name, shop.shopCode!, shopUrl)))
+                }
+              } finally { setPosterSharing(false) }
             }}><WhatsAppIcon className="size-5" />{posterSharing || !posterFileReady ? 'Preparing…' : posterFile ? 'Share on WhatsApp' : 'Share shop link'}</Button>
             <Button variant="outline" className="h-12 gap-2 border-[#d4b45d] bg-[#fffdf7] text-[#174a35]" onClick={() => window.print()}><Printer className="size-4" aria-hidden /> Print poster</Button>
           </div>

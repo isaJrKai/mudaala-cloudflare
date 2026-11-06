@@ -17,53 +17,52 @@ interface ScheduledContextLike {
   waitUntil(promise: Promise<unknown>): void
 }
 
-async function runScheduledSweep(event: ScheduledEventLike, env: MudaalaWorkerEnv): Promise<void> {
-  if (!env.CRON_SECRET) {
-    throw new Error('CRON_SECRET is not bound; refusing to run the scheduled sweep')
-  }
-
+function getCronOrigin(env: MudaalaWorkerEnv): string {
   const origin = env.APP_ORIGIN ?? env.NEXT_PUBLIC_APP_URL
-  if (!origin) {
-    throw new Error('APP_ORIGIN or NEXT_PUBLIC_APP_URL must be configured for the scheduled sweep')
+  if (!origin) throw new Error('APP_ORIGIN or NEXT_PUBLIC_APP_URL must be configured for scheduled jobs')
+  const parsed = new URL(origin)
+  if (parsed.protocol !== 'https:' && parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') {
+    throw new Error('Scheduled job origin must use HTTPS outside local development')
   }
+  return parsed.origin
+}
 
-  const target = new URL('/api/cron/sweep', origin)
-  if (target.protocol !== 'https:' && target.hostname !== 'localhost' && target.hostname !== '127.0.0.1') {
-    throw new Error('Scheduled sweep origin must use HTTPS outside local development')
-  }
-
+async function postCronEndpoint(path: string, event: ScheduledEventLike, env: MudaalaWorkerEnv): Promise<void> {
+  if (!env.CRON_SECRET) throw new Error('CRON_SECRET is not bound; refusing to run scheduled jobs')
+  const target = new URL(path, getCronOrigin(env))
   const response = await fetch(target, {
     method: 'POST',
-    headers: {
-      accept: 'application/json',
-      'x-cron-secret': env.CRON_SECRET,
-    },
+    headers: { accept: 'application/json', 'x-cron-secret': env.CRON_SECRET },
   })
   const responseText = await response.text()
   if (!response.ok) {
-    // Include only the bounded response body; never log the secret.
-    throw new Error('Scheduled sweep endpoint failed with HTTP ' + response.status + ': ' + responseText.slice(0, 250))
+    throw new Error(path + ' failed with HTTP ' + response.status + ': ' + responseText.slice(0, 250))
   }
-
   let result: unknown = responseText
-  try {
-    result = JSON.parse(responseText)
-  } catch {
-    // Preserve a bounded text response for diagnostics if the endpoint changes.
-  }
-
+  try { result = JSON.parse(responseText) } catch { /* bounded text is enough */ }
   console.log(JSON.stringify({
-    event: 'mudaala_scheduled_sweep_completed',
+    event: 'mudaala_scheduled_job_completed',
     cron: event.cron,
     scheduledTime: event.scheduledTime,
+    path,
     status: response.status,
     result,
   }))
 }
 
+async function runScheduledJobs(event: ScheduledEventLike, env: MudaalaWorkerEnv): Promise<void> {
+  // Hourly opportunities are evaluated against each merchant's own timezone.
+  await postCronEndpoint('/api/cron/growth-coach', event, env)
+
+  // Preserve the existing daily expiry/price-snapshot maintenance at 03:00 UTC.
+  if (new Date(event.scheduledTime).getUTCHours() === 3 && new Date(event.scheduledTime).getUTCMinutes() === 0) {
+    await postCronEndpoint('/api/cron/sweep', event, env)
+  }
+}
+
 export default {
   fetch: handler.fetch,
   scheduled(event: ScheduledEventLike, env: MudaalaWorkerEnv, ctx: ScheduledContextLike) {
-    ctx.waitUntil(runScheduledSweep(event, env))
+    ctx.waitUntil(runScheduledJobs(event, env))
   },
 }

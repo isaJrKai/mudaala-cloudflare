@@ -173,11 +173,21 @@ export interface SavedSearchT {
 
 export interface NotificationT {
   id: string
-  type: 'NEW_MATCH' | 'LISTING_EXPIRED' | 'LISTING_EXPIRING' | 'LISTING_HIDDEN'
+  type: string
+  category: 'GENERAL' | 'GROWTH' | 'SYSTEM' | 'SOCIAL'
+  priority: 'LOW' | 'NORMAL' | 'HIGH'
   title: string
   body: string
   listingId: string | null
+  actionUrl: string | null
+  actionLabel: string | null
+  source: string | null
   read: boolean
+  scheduledFor: string | null
+  snoozedUntil: string | null
+  archivedAt: string | null
+  dismissedAt: string | null
+  completedAt: string | null
   createdAt: string
 }
 

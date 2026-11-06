@@ -391,7 +391,26 @@ export function ListingDetail({ id }: { id: string }) {
           price and the shop, not a dead app fragment. */}
       {shareUrl ? (
         <section className="rounded-lg border bg-card p-4 sm:p-5" aria-label={copy.listing.shareAria}>
-          <ShareAdRow title={listing.title} url={shareUrl} priceLabel={sharePriceLabel} onShare={() => trackEngagement('SHARE_CLICK')} />
+          <ShareAdRow
+            title={listing.title}
+            url={shareUrl}
+            priceLabel={sharePriceLabel}
+            onShare={() => {
+              trackEngagement('SHARE_CLICK')
+              if (user?.id === listing.userId && listing.photos.length > 0) {
+                const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(new Date())
+                void apiFetch('/api/growth/events', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    eventType: 'PRODUCT_PHOTOS_SHARE_INITIATED',
+                    entityId: listing.id,
+                    idempotencyKey: `product-photos-share:${listing.id}:${day}`,
+                  }),
+                  keepalive: true,
+                }).catch(() => undefined)
+              }
+            }}
+          />
         </section>
       ) : null}
 

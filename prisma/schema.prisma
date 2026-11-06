@@ -26,6 +26,7 @@ model User {
   updatedAt    DateTime         @updatedAt
 
   lastHomeVisitAt DateTime? // marker for the Home dashboard's "new matches since last visit" stat
+  timezone       String   @default("Africa/Kampala") // merchant-local Growth Coach schedule timezone
 
   // PLACEHOLDER RULE - seed marker. Rows the seed script created are
   // development fixtures, not real shops; scripts/remove-seed-data.ts
@@ -42,6 +43,8 @@ model User {
   listings       Listing[]
   savedSearches  SavedSearch[]
   notifications  Notification[]
+  pushSubscriptions PushSubscription[]
+  growthEvents MerchantGrowthEvent[]
   feedbackSubmissions Feedback[]
   policyViolations PolicyViolation[]
   profile        BusinessProfile?
@@ -269,17 +272,67 @@ model SavedSearch {
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String // NEW_MATCH | LISTING_EXPIRED | LISTING_EXPIRING
-  title     String
-  body      String
-  listingId String?
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         String // NEW_MATCH | LISTING_EXPIRED | LISTING_EXPIRING | GROWTH_*
+  category     String   @default("GENERAL") // GENERAL | GROWTH | SYSTEM | SOCIAL
+  priority     String   @default("NORMAL") // LOW | NORMAL | HIGH
+  title        String
+  body         String
+  listingId    String?
+  actionUrl    String? // allowlisted same-origin destination, validated by server
+  actionLabel  String?
+  source       String? // event or recommendation rule that created this notification
+  dedupeKey    String? // idempotency key scoped to user
+  scheduledFor DateTime?
+  snoozedUntil DateTime?
+  archivedAt   DateTime?
+  dismissedAt  DateTime?
+  completedAt  DateTime?
+  read         Boolean  @default(false)
+  createdAt    DateTime @default(now())
 
+  @@unique([userId, dedupeKey])
   @@index([userId, read])
+  @@index([userId, createdAt])
+  @@index([userId, category, archivedAt, createdAt])
+  @@index([userId, scheduledFor])
+  @@index([userId, snoozedUntil])
+}
+
+// A browser push endpoint belongs to exactly one authenticated user. The
+// endpoint is unique so a device can be reassigned safely after sign-out.
+model PushSubscription {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint       String   @unique
+  p256dh         String
+  auth           String
+  expirationTime DateTime?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+// Explicit merchant-side events are distinct from buyer engagement analytics.
+// A listing share click by a buyer is not proof that a merchant shared a shop
+// poster. These events power explainable Growth Coach recommendations.
+model MerchantGrowthEvent {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType      String // SHOP_CREATED | PRODUCT_CREATED | PRODUCT_PHOTO_ADDED | PRODUCT_PHOTOS_SHARE_INITIATED | POSTER_GENERATED | POSTER_SHARED | POSTER_SHARE_INITIATED | SHOP_OPENED | RECOMMENDATION_COMPLETED
+  entityId       String?
+  idempotencyKey String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, eventType, createdAt])
   @@index([userId, createdAt])
 }
 
