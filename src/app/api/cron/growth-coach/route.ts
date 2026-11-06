@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { route, jsonError, jsonOk } from '@/lib/api'
 import { db } from '@/lib/db'
 import { recommendMerchantActions } from '@/lib/merchant-growth'
+import { deliverPushNotification } from '@/lib/push-delivery'
 
 const SCHEDULED_HOURS = new Set([8, 11, 15])
 const DAILY_GROWTH_CAP = 4
@@ -58,6 +59,16 @@ export async function POST() {
     const now = new Date()
     // Re-activate due snoozed Growth Coach reminders. The quarter-hour cron
     // keeps 15-minute snoozes useful without a separate queue service.
+    const dueNotifications = await db.notification.findMany({
+      where: {
+        category: 'GROWTH',
+        snoozedUntil: { lte: now },
+        archivedAt: null,
+        dismissedAt: null,
+        completedAt: null,
+      },
+      select: { id: true, userId: true, title: true, body: true, actionUrl: true, actionLabel: true, priority: true },
+    })
     const dueSnoozes = await db.notification.updateMany({
       where: {
         category: 'GROWTH',
@@ -68,6 +79,12 @@ export async function POST() {
       },
       data: { snoozedUntil: null, read: false },
     })
+    for (const notification of dueNotifications) {
+      await deliverPushNotification(notification.userId, notification).catch((error) =>
+        console.warn('[growth-coach] snooze push delivery failed', error instanceof Error ? error.message : 'unknown error'),
+      )
+    }
+
     const [merchants, recentGrowth, recentGrowthCounts] = await Promise.all([
       db.user.findMany({
       where: { isSeed: false, profile: { isNot: null } },
@@ -169,6 +186,11 @@ export async function POST() {
           })
           created += result.count
           if (result.count > 0) {
+            const notification = await db.notification.findUnique({
+              where: { userId_dedupeKey: { userId: merchant.id, dedupeKey } },
+              select: { id: true, userId: true, title: true, body: true, actionUrl: true, actionLabel: true, priority: true },
+            })
+            if (notification) await deliverPushNotification(merchant.id, notification)
             sentKeys.add(dedupeKey)
             sentKeysByUser.set(merchant.id, sentKeys)
             countByUser.set(merchant.id, growthCount + 1)
@@ -201,6 +223,11 @@ export async function POST() {
             })
             created += result.count
             if (result.count > 0) {
+              const notification = await db.notification.findUnique({
+                where: { userId_dedupeKey: { userId: merchant.id, dedupeKey } },
+                select: { id: true, userId: true, title: true, body: true, actionUrl: true, actionLabel: true, priority: true },
+              })
+              if (notification) await deliverPushNotification(merchant.id, notification)
               sentKeys.add(dedupeKey)
               sentKeysByUser.set(merchant.id, sentKeys)
               countByUser.set(merchant.id, (countByUser.get(merchant.id) ?? 0) + 1)
