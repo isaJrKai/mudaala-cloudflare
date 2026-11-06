@@ -79,10 +79,12 @@ export async function POST() {
       },
       data: { snoozedUntil: null, read: false },
     })
-    for (const notification of dueNotifications) {
-      await deliverPushNotification(notification.userId, notification).catch((error) =>
-        console.warn('[growth-coach] snooze push delivery failed', error instanceof Error ? error.message : 'unknown error'),
-      )
+    if (dueSnoozes.count > 0) {
+      for (const notification of dueNotifications) {
+        await deliverPushNotification(notification.userId, notification).catch((error) =>
+          console.warn('[growth-coach] snooze push delivery failed', error instanceof Error ? error.message : 'unknown error'),
+        )
+      }
     }
 
     const [merchants, recentGrowth, recentGrowthCounts] = await Promise.all([
