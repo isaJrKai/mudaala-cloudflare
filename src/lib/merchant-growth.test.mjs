@@ -104,6 +104,18 @@ describe('merchant Growth Coach recommendations', () => {
     }).map((item) => item.type)).not.toContain('GROWTH_SHARE_PRODUCT_PHOTOS')
   })
 
+  it('does not suppress a new photo-share prompt with an older share attempt', () => {
+    const actions = recommendMerchantActions({
+      ...base,
+      activeProducts: [{ id: 'listing-7', title: 'Fresh tomatoes', photoCount: 3 }],
+      latestPhotoAddedAt: new Date(),
+      latestPhotoListingId: 'listing-7',
+      latestPhotoListingTitle: 'Fresh tomatoes',
+      productPhotosShareInitiatedAt: new Date(Date.now() - 60 * 60_000),
+    })
+    expect(actions.map((item) => item.type)).toContain('GROWTH_SHARE_PRODUCT_PHOTOS')
+  })
+
   it('routes poster actions to the merchant shop', () => {
     const action = recommendMerchantActions({
       ...base,
