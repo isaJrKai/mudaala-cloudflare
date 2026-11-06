@@ -53,7 +53,6 @@ export async function POST() {
   return route(async () => {
     const hdrs = await headers()
     const configured = process.env.CRON_SECRET
-    if (!configured) return jsonError(503, 'Growth Coach scheduler is not configured')
     if (!secretMatches(hdrs.get('x-cron-secret'), configured)) return jsonError(403, 'Invalid cron secret')
 
     const now = new Date()
