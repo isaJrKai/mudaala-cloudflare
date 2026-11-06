@@ -18,7 +18,7 @@ function photoCount(raw: string): number {
 export async function GET() {
   return route(async () => {
     const user = await requireUser('Sign in to see your shop recommendations')
-    const [profile, listings, posterGenerated, posterShared, posterShareInitiated] = await Promise.all([
+    const [profile, listings, growthEvents] = await Promise.all([
       db.businessProfile.findUnique({
         where: { userId: user.id },
         select: {
@@ -36,20 +36,14 @@ export async function GET() {
         orderBy: { publishedAt: 'desc' },
         take: 100,
       }),
-      db.merchantGrowthEvent.findFirst({
-        where: { userId: user.id, eventType: 'POSTER_GENERATED' },
+      db.merchantGrowthEvent.findMany({
+        where: {
+          userId: user.id,
+          eventType: { in: ['POSTER_GENERATED', 'POSTER_SHARED', 'POSTER_SHARE_INITIATED', 'PRODUCT_PHOTO_ADDED', 'PRODUCT_PHOTOS_SHARE_INITIATED'] },
+        },
         orderBy: { createdAt: 'desc' },
-        select: { createdAt: true },
-      }),
-      db.merchantGrowthEvent.findFirst({
-        where: { userId: user.id, eventType: 'POSTER_SHARED' },
-        orderBy: { createdAt: 'desc' },
-        select: { createdAt: true },
-      }),
-      db.merchantGrowthEvent.findFirst({
-        where: { userId: user.id, eventType: 'POSTER_SHARE_INITIATED' },
-        orderBy: { createdAt: 'desc' },
-        select: { createdAt: true },
+        take: 40,
+        select: { eventType: true, entityId: true, createdAt: true },
       }),
     ])
 
@@ -62,9 +56,13 @@ export async function GET() {
         title: listing.title,
         photoCount: photoCount(listing.photos),
       })),
-      posterGeneratedAt: posterGenerated?.createdAt ?? null,
-      posterSharedAt: posterShared?.createdAt ?? null,
-      posterShareInitiatedAt: posterShareInitiated?.createdAt ?? null,
+      posterGeneratedAt: growthEvents.find((event) => event.eventType === 'POSTER_GENERATED')?.createdAt ?? null,
+      posterSharedAt: growthEvents.find((event) => event.eventType === 'POSTER_SHARED')?.createdAt ?? null,
+      posterShareInitiatedAt: growthEvents.find((event) => event.eventType === 'POSTER_SHARE_INITIATED')?.createdAt ?? null,
+      latestPhotoAddedAt: growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTO_ADDED')?.createdAt ?? null,
+      latestPhotoListingId: growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTO_ADDED')?.entityId ?? null,
+      latestPhotoListingTitle: listings.find((listing) => listing.id === growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTO_ADDED')?.entityId)?.title ?? null,
+      productPhotosShareInitiatedAt: growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTOS_SHARE_INITIATED' && event.entityId === growthEvents.find((item) => item.eventType === 'PRODUCT_PHOTO_ADDED')?.entityId)?.createdAt ?? null,
     })
 
     return jsonOk({ recommendation })
