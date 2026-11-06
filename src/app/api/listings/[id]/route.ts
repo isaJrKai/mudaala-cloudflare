@@ -210,7 +210,14 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
 
     const nextPhotos = data.photos !== undefined ? sanitizePhotos(data.photos) : null
-    const photosAdded = nextPhotos !== null && nextPhotos.length > 0 && JSON.stringify(nextPhotos) !== listing.photos
+    let previousPhotos: string[] = []
+    try {
+      const parsed: unknown = JSON.parse(listing.photos)
+      if (Array.isArray(parsed)) previousPhotos = parsed.filter((photo): photo is string => typeof photo === 'string')
+    } catch {
+      previousPhotos = []
+    }
+    const photosAdded = nextPhotos !== null && nextPhotos.some((photo) => !previousPhotos.includes(photo))
 
     const changed = await db.listing.updateMany({
       where: { id, userId: user.id, status: 'ACTIVE', updatedAt: listing.updatedAt },
