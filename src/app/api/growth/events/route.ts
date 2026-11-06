@@ -8,6 +8,7 @@ const eventSchema = z.object({
     'PRODUCT_PHOTO_ADDED',
     'POSTER_GENERATED',
     'POSTER_SHARED',
+    'POSTER_SHARE_INITIATED',
     'SHOP_OPENED',
     'RECOMMENDATION_COMPLETED',
   ]),
