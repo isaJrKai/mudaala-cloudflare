@@ -12,6 +12,7 @@ import { apiPost, clearSessionToken } from '@/lib/client'
 import { useAppStore } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { EmptyState } from './empty-state'
+import { PushNotificationControl } from './push-notification-control'
 import { ListingListSkeleton } from './skeletons'
 
 export function SettingsView() {
@@ -87,12 +88,18 @@ export function SettingsView() {
         <Button variant="outline" onClick={() => navigate({ name: 'account' })}>Manage shop profile</Button>
       </Section>
 
-      <Section icon={<Bell className="size-4" aria-hidden />} title="Notifications" description="Manage saved searches and review alerts in their existing sections, with no duplicate controls.">
+      <Section icon={<Bell className="size-4" aria-hidden />} title="Notifications" description="Choose how Mudaala reaches you and review your shop updates.">
         <div className="divide-y rounded-lg border bg-card">
           <SettingsLink icon={<Search className="size-4" aria-hidden />} title="Saved-search alerts" description="Manage searches that generate new-match alerts." onClick={() => navigate({ name: 'saved' })} />
-          <SettingsLink icon={<Bell className="size-4" aria-hidden />} title="Your alerts" description="Review new matches and listing-expiry notifications." onClick={() => navigate({ name: 'notifications' })} />
+          <SettingsLink icon={<Bell className="size-4" aria-hidden />} title="Your alerts" description="Review shop updates, customer activity and reminders." onClick={() => navigate({ name: 'notifications' })} />
         </div>
-        <p className="text-xs text-muted-foreground">SMS and browser-push delivery switches are not available yet, so we have not added controls that would not actually change delivery.</p>
+        <div className="rounded-lg border bg-card p-4">
+          <div className="mb-3">
+            <p className="text-sm font-medium">Device notifications</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">Receive important Mudaala updates on this phone or computer.</p>
+          </div>
+          <PushNotificationControl />
+        </div>
       </Section>
 
       <Section icon={<Globe2 className="size-4" aria-hidden />} title="Language" description="Mudaala's interface is currently available in English.">

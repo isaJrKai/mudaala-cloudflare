@@ -48,7 +48,6 @@ import { useToast } from '@/hooks/use-toast'
 import { PlaceholderTile } from './placeholder-tile'
 import { cn } from '@/lib/utils'
 import { copy } from '@/lib/copy'
-import { MerchantGrowthCoachCard } from './merchant-growth-coach-card'
 
 // The chosen "near" location persists between visits; the profile default is
 // what the server suggests when nothing is stored.
@@ -179,8 +178,6 @@ function SignedInHome() {
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">{copy.home.dashSub}</p>
       </header>
-
-      <MerchantGrowthCoachCard />
 
       {data.staleListings.length > 0 ? (
         <FreshnessTip
