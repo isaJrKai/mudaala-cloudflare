@@ -47,13 +47,23 @@ self.addEventListener('notificationclick', (event) => {
 
   const target = new URL(data.url || '/#/home', self.location.origin)
   if (target.origin !== self.location.origin) return
-  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+  event.waitUntil((async () => {
+    if (data.notificationId) {
+      await fetch('/api/notifications/' + encodeURIComponent(data.notificationId) + '/lifecycle', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'read' }),
+      }).catch(() => undefined)
+    }
+    return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
     for (const client of windows) {
       if ('focus' in client) {
         client.navigate(target.href)
         return client.focus()
       }
     }
-    return self.clients.openWindow(target.href)
-  }))
+      return self.clients.openWindow(target.href)
+    })
+  })())
 })
