@@ -125,7 +125,7 @@ export async function encryptPushPayload(
   // 0x02 marks the final record in the aes128gcm content encoding.
   const plaintext = concatBytes(utf8(JSON.stringify(payload)), Uint8Array.of(2))
   const ciphertext = new Uint8Array(await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: nonce, tagLength: 128 },
+    { name: 'AES-GCM', iv: nonce as unknown as BufferSource, tagLength: 128 },
     contentKey,
     plaintext,
   ))
@@ -155,7 +155,7 @@ export async function sendWebPush(
       TTL: '3600',
       Urgency: payload.priority === 'HIGH' ? 'high' : 'normal',
     },
-    body,
+    body: body as unknown as BodyInit,
   })
   return { status: response.status, ok: response.ok }
 }
