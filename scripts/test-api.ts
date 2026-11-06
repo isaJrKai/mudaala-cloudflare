@@ -1239,6 +1239,11 @@ async function main() {
     const wrongHeader = await call('POST', '/api/cron/sweep', undefined, undefined, { 'x-cron-secret': 'not-the-secret' })
     ok('sweep with wrong secret → 403', wrongHeader.status === 403)
 
+    const growthNoHeader = await call('POST', '/api/cron/growth-coach')
+    ok('Growth Coach scheduler without header → 403', growthNoHeader.status === 403)
+    const growthWrongHeader = await call('POST', '/api/cron/growth-coach', undefined, undefined, { 'x-cron-secret': 'not-the-secret' })
+    ok('Growth Coach scheduler with wrong secret → 403', growthWrongHeader.status === 403)
+
     const cronSecret = process.env.CRON_SECRET
     if (cronSecret) {
       const rightHeader = await call('POST', '/api/cron/sweep', undefined, undefined, { 'x-cron-secret': cronSecret })
