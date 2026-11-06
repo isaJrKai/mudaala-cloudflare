@@ -209,6 +209,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       })
     }
 
+    const nextPhotos = data.photos !== undefined ? sanitizePhotos(data.photos) : null
+    const photosAdded = nextPhotos !== null && nextPhotos.length > 0 && JSON.stringify(nextPhotos) !== listing.photos
+
     const changed = await db.listing.updateMany({
       where: { id, userId: user.id, status: 'ACTIVE', updatedAt: listing.updatedAt },
       data: { ...merged },
@@ -222,6 +225,16 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
     const updated = await db.listing.findFirst({ where: { id, userId: user.id } })
     if (!updated) throw new ApiError(404, 'Listing not found')
+    if (photosAdded) {
+      await db.merchantGrowthEvent.create({
+        data: {
+          userId: user.id,
+          eventType: 'PRODUCT_PHOTO_ADDED',
+          entityId: listing.id,
+          idempotencyKey: `product-photo-added:${listing.id}:${Date.now()}`,
+        },
+      }).catch((err) => console.error('[growth-coach] product photo event recording failed:', err))
+    }
     return jsonOk({ listing: serializeListing(updated) })
   })
 }
