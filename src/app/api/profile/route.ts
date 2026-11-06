@@ -37,6 +37,7 @@ export async function PUT(request: Request) {
       })
     }
 
+    const existingProfile = await db.businessProfile.findUnique({ where: { userId: user.id }, select: { id: true } })
     const profile = await db.businessProfile.upsert({
       where: { userId: user.id },
       create: { userId: user.id, ...data, phone, whatsapp, verified: false, shopCode: await generateShopCode() },
@@ -44,6 +45,31 @@ export async function PUT(request: Request) {
       // permanent identity, never recycled or re-rolled.
       update: { ...data, phone, whatsapp, verified: false },
     })
+
+    if (!existingProfile) {
+      const dedupeKey = `growth:welcome:${user.id}`
+      await Promise.all([
+        db.merchantGrowthEvent.createMany({
+          data: [{ userId: user.id, eventType: 'SHOP_CREATED', entityId: profile.id, idempotencyKey: `shop-created:${user.id}` }],
+          skipDuplicates: true,
+        }),
+        db.notification.createMany({
+          data: [{
+            userId: user.id,
+            type: 'GROWTH_WELCOME',
+            category: 'GROWTH',
+            priority: 'HIGH',
+            title: `Welcome to Mudaala, ${profile.businessName}`,
+            body: 'Your shop is open. Add your first products, upload clear photos and share your shop poster to help customers find you.',
+            actionUrl: '/#/publish',
+            actionLabel: 'Add your first product',
+            source: 'SHOP_CREATED',
+            dedupeKey,
+          }],
+          skipDuplicates: true,
+        }),
+      ])
+    }
     return jsonOk({ profile })
   })
 }
