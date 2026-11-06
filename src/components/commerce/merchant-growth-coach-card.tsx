@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { apiGet } from '@/lib/client'
 import { useAppStore } from '@/lib/store'
+import { PushNotificationControl } from './push-notification-control'
 
 type Recommendation = {
   key: string
@@ -55,6 +56,7 @@ export function MerchantGrowthCoachCard() {
           {recommendation.actionLabel}
         </Button>
       </div>
+      <PushNotificationControl />
     </section>
   )
 }
