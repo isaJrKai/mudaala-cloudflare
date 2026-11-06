@@ -23,29 +23,39 @@ export function PushNotificationControl() {
   const [unsupportedMessage, setUnsupportedMessage] = useState('')
 
   useEffect(() => {
-    const available = typeof window !== 'undefined'
-      && 'serviceWorker' in navigator
-      && 'PushManager' in window
-      && 'Notification' in window
-    setSupported(available)
-    if (!available) {
-      setPermission('unsupported')
-      setConfigured(false)
-      const isAppleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent)
-      const standalone = window.matchMedia('(display-mode: standalone)').matches
-        || Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
-      setUnsupportedMessage(isAppleMobile && !standalone
-        ? 'On iPhone or iPad, add Mudaala to your Home Screen first. Device alerts work from the installed app.'
-        : 'This browser does not support device alerts. Your in-app notification centre will still work.')
-      return
+    let cancelled = false
+    const frame = window.requestAnimationFrame(() => {
+      const available = 'serviceWorker' in navigator
+        && 'PushManager' in window
+        && 'Notification' in window
+      if (cancelled) return
+      setSupported(available)
+      if (!available) {
+        setPermission('unsupported')
+        setConfigured(false)
+        const isAppleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent)
+        const standalone = window.matchMedia('(display-mode: standalone)').matches
+          || Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+        setUnsupportedMessage(isAppleMobile && !standalone
+          ? 'On iPhone or iPad, add Mudaala to your Home Screen first. Device alerts work from the installed app.'
+          : 'This browser does not support device alerts. Your in-app notification centre will still work.')
+        return
+      }
+      setPermission(Notification.permission)
+      void apiGet<PublicKeyResponse>('/api/push-subscriptions').then(async () => {
+        if (cancelled) return
+        setConfigured(true)
+        const registration = await navigator.serviceWorker.getRegistration('/')
+        const subscription = await registration?.pushManager.getSubscription()
+        if (!cancelled) setEnabled(Boolean(subscription))
+      }).catch(() => {
+        if (!cancelled) setConfigured(false)
+      })
+    })
+    return () => {
+      cancelled = true
+      window.cancelAnimationFrame(frame)
     }
-    setPermission(Notification.permission)
-    void apiGet<PublicKeyResponse>('/api/push-subscriptions').then(async () => {
-      setConfigured(true)
-      const registration = await navigator.serviceWorker.getRegistration('/')
-      const subscription = await registration?.pushManager.getSubscription()
-      setEnabled(Boolean(subscription))
-    }).catch(() => setConfigured(false))
   }, [])
 
   async function enable() {
@@ -102,7 +112,7 @@ export function PushNotificationControl() {
     }
   }
 
-  if (!supported) return unsupportedMessage ? <p className="border-t border-[#dfcfaa]/70 pt-3 text-[11px] leading-relaxed text-[#6b6c60]">{unsupportedMessage}</p> : null
+  if (!supported) return unsupportedMessage ? <p className="border-t border-[#dfcfaa]/70 pt-3 text-[11px]] leading-relaxed text-[#6b6c60]">{unsupportedMessage}</p> : null
   if (configured === false) return null
 
   return (
