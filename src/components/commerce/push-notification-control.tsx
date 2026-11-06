@@ -20,6 +20,7 @@ export function PushNotificationControl() {
   const [enabled, setEnabled] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  const [unsupportedMessage, setUnsupportedMessage] = useState('')
 
   useEffect(() => {
     const available = typeof window !== 'undefined'
@@ -30,6 +31,12 @@ export function PushNotificationControl() {
     if (!available) {
       setPermission('unsupported')
       setConfigured(false)
+      const isAppleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent)
+      const standalone = window.matchMedia('(display-mode: standalone)').matches
+        || Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+      setUnsupportedMessage(isAppleMobile && !standalone
+        ? 'On iPhone or iPad, add Mudaala to your Home Screen first. Device alerts work from the installed app.'
+        : 'This browser does not support device alerts. Your in-app notification centre will still work.')
       return
     }
     setPermission(Notification.permission)
@@ -95,7 +102,8 @@ export function PushNotificationControl() {
     }
   }
 
-  if (!supported || configured === false) return null
+  if (!supported) return unsupportedMessage ? <p className="border-t border-[#dfcfaa]/70 pt-3 text-[11px] leading-relaxed text-[#6b6c60]">{unsupportedMessage}</p> : null
+  if (configured === false) return null
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#dfcfaa]/70 pt-3">
