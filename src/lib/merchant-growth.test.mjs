@@ -97,10 +97,10 @@ describe('merchant Growth Coach recommendations', () => {
     expect(recommendMerchantActions({
       ...base,
       activeProducts: [{ id: 'listing-7', title: 'Fresh tomatoes', photoCount: 3 }],
-      latestPhotoAddedAt: new Date('2026-11-06T07:00:00Z'),
+      latestPhotoAddedAt: new Date(Date.now() - 60 * 60_000),
       latestPhotoListingId: 'listing-7',
       latestPhotoListingTitle: 'Fresh tomatoes',
-      productPhotosShareInitiatedAt: new Date('2026-11-06T07:30:00Z'),
+      productPhotosShareInitiatedAt: new Date(),
     }).map((item) => item.type)).not.toContain('GROWTH_SHARE_PRODUCT_PHOTOS')
   })
 
