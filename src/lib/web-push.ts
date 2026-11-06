@@ -152,7 +152,7 @@ export async function sendWebPush(
       Authorization: `vapid t=${jwt}, k=${publicKey}`,
       'Content-Encoding': 'aes128gcm',
       'Content-Type': 'application/octet-stream',
-      TTL: '60',
+      TTL: '3600',
       Urgency: payload.priority === 'HIGH' ? 'high' : 'normal',
     },
     body,
