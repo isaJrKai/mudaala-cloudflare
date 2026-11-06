@@ -35,7 +35,7 @@ export interface BrowseFilters {
   minPrice: string
   maxPrice: string
   // 'nearest' only appears while the buyer's "Near me" position is on.
-  sort: 'newest' | 'price_asc' | 'price_desc' | 'nearest'
+  sort: 'discovery' | 'newest' | 'price_asc' | 'price_desc' | 'nearest'
   sortExplicit: boolean
   page: number
 }
@@ -48,7 +48,7 @@ export const DEFAULT_FILTERS: BrowseFilters = {
   unit: 'any',
   minPrice: '',
   maxPrice: '',
-  sort: 'newest',
+  sort: 'discovery',
   sortExplicit: false,
   page: 1,
 }
@@ -149,7 +149,7 @@ export function filtersToQuery(f: BrowseFilters): string {
   if (f.unit !== 'any') params.set('unit', f.unit)
   if (f.minPrice.trim() !== '') params.set('minPrice', f.minPrice)
   if (f.maxPrice.trim() !== '') params.set('maxPrice', f.maxPrice)
-  if (f.sortExplicit || f.sort !== 'newest') params.set('sort', f.sort)
+  if (f.sortExplicit || f.sort !== 'discovery') params.set('sort', f.sort)
   params.set('page', String(f.page))
   return params.toString()
 }
