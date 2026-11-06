@@ -95,7 +95,7 @@ export function recommendMerchantActions(snapshot: MerchantGrowthSnapshot): Grow
   }
 
   if (snapshot.latestPhotoAddedAt && snapshot.latestPhotoListingId && snapshot.latestPhotoListingTitle) {
-    const recentShareAttempt = snapshot.productPhotosShareInitiatedAt
+    const recentShareAttempt = snapshot.productPhotosShareInitiatedAt && snapshot.productPhotosShareInitiatedAt >= snapshot.latestPhotoAddedAt
       ? Date.now() - snapshot.productPhotosShareInitiatedAt.getTime() < 24 * 60 * 60_000
       : false
     if (!recentShareAttempt) {
@@ -124,7 +124,7 @@ export function recommendMerchantActions(snapshot: MerchantGrowthSnapshot): Grow
       reason: 'POSTER_NOT_GENERATED',
     })
   } else if (!snapshot.posterSharedAt) {
-    const shareAttemptIsRecent = snapshot.posterShareInitiatedAt
+    const shareAttemptIsRecent = snapshot.posterShareInitiatedAt && snapshot.posterShareInitiatedAt >= snapshot.posterGeneratedAt
       ? Date.now() - snapshot.posterShareInitiatedAt.getTime() < 24 * 60 * 60_000
       : false
     if (!shareAttemptIsRecent) {
