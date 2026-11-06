@@ -165,9 +165,10 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     : intent.minPrice === undefined ? query.minPrice : Math.max(query.minPrice, intent.minPrice)
   const maxPrice = query.maxPrice === undefined ? intent.maxPrice
     : intent.maxPrice === undefined ? query.maxPrice : Math.min(query.maxPrice, intent.maxPrice)
+  // Unqualified Browse uses fair discovery; text search keeps relevance ranking.
   const effectiveSort = intent.sort && query.sort === undefined
     ? intent.sort
-    : query.sort
+    : query.sort ?? (searchText ? 'newest' : 'discovery')
 
   const where: Prisma.ListingWhereInput = { status: { in: includeStatuses } }
 
@@ -202,6 +203,60 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
   // requested page plus the total count. Do not scan hundreds of listings just
   // to rank an ordinary feed page; that adds database work and can stall Worker
   // requests as the catalogue grows.
+  if (effectiveSort === 'discovery' && !searchText) {
+    // Rotate shop order daily and interleave products so every shop gets a
+    // first-slot opportunity before any shop receives a second one.
+    const [candidates, total] = await Promise.all([
+      db.listing.findMany({ where, select: { id: true, userId: true, refreshedAt: true } }),
+      db.listing.count({ where }),
+    ])
+    const day = new Date().toISOString().slice(0, 10)
+    const stableHash = (value: string): number => {
+      let hash = 2166136261
+      for (let i = 0; i < value.length; i += 1) {
+        hash ^= value.charCodeAt(i)
+        hash = Math.imul(hash, 16777619)
+      }
+      return hash >>> 0
+    }
+    const shops = new Map<string, typeof candidates>()
+    for (const candidate of candidates) {
+      const group = shops.get(candidate.userId) ?? []
+      group.push(candidate)
+      shops.set(candidate.userId, group)
+    }
+    const orderedShops = [...shops.entries()].sort(
+      ([a], [b]) => stableHash(`${day}:${a}`) - stableHash(`${day}:${b}`),
+    )
+    for (const [, products] of orderedShops) {
+      products.sort((a, b) => b.refreshedAt.getTime() - a.refreshedAt.getTime() || a.id.localeCompare(b.id))
+    }
+    const pageStart = (page - 1) * pageSize
+    const pageIds: string[] = []
+    const maxProducts = Math.max(0, ...orderedShops.map(([, products]) => products.length))
+    for (let round = 0; round < maxProducts && pageIds.length < pageStart + pageSize; round += 1) {
+      for (const [, products] of orderedShops) {
+        if (products[round]) pageIds.push(products[round].id)
+        if (pageIds.length >= pageStart + pageSize) break
+      }
+    }
+    const visibleIds = pageIds.slice(pageStart, pageStart + pageSize)
+    const fullRows = visibleIds.length
+      ? await db.listing.findMany({ where: { id: { in: visibleIds } }, include: SHOP_OWNER_INCLUDE })
+      : []
+    const rowsById = new Map(fullRows.map((row) => [row.id, row]))
+    return {
+      items: visibleIds.flatMap((id) => {
+        const row = rowsById.get(id)
+        return row ? [serializeListing(row)] : []
+      }),
+      total,
+      page,
+      pageSize,
+      pageCount: Math.max(1, Math.ceil(total / pageSize)),
+    }
+  }
+
   if ((effectiveSort === 'newest' || effectiveSort === undefined) && !searchText) {
     const pageStart = (page - 1) * pageSize
     const [pageRows, total] = await Promise.all([
