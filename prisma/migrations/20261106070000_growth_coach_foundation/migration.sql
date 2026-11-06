@@ -57,3 +57,19 @@ CREATE INDEX "MerchantGrowthEvent_userId_eventType_createdAt_idx"
   ON "MerchantGrowthEvent"("userId", "eventType", "createdAt");
 CREATE INDEX "MerchantGrowthEvent_userId_createdAt_idx"
   ON "MerchantGrowthEvent"("userId", "createdAt");
+
+-- Preserve the same Supabase Data API deny boundary and least-privilege
+-- Worker runtime access used by the other application-owned tables.
+ALTER TABLE public."PushSubscription" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY deny_direct_api_clients ON public."PushSubscription"
+  FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."PushSubscription" TO mudaala_runtime;
+CREATE POLICY mudaala_runtime_access ON public."PushSubscription"
+  FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
+
+ALTER TABLE public."MerchantGrowthEvent" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY deny_direct_api_clients ON public."MerchantGrowthEvent"
+  FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."MerchantGrowthEvent" TO mudaala_runtime;
+CREATE POLICY mudaala_runtime_access ON public."MerchantGrowthEvent"
+  FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
