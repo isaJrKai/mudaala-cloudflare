@@ -43,7 +43,7 @@ export async function PATCH(request: Request, { params }: Params) {
         data = { read: true, archivedAt: now, snoozedUntil: null }
         break
       case 'restore':
-        data = { archivedAt: null, dismissedAt: null }
+        data = { archivedAt: null, dismissedAt: null, read: false }
         break
       case 'dismiss':
         data = { read: true, dismissedAt: now, snoozedUntil: null }
