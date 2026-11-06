@@ -14,6 +14,7 @@ const subscriptionSchema = z.object({
       || host.endsWith('.push.services.mozilla.com')
       || host === 'web.push.apple.com'
       || host.endsWith('.push.apple.com')
+      || host === 'notify.windows.com'
       || host.endsWith('.notify.windows.com')
   }, 'Unsupported browser push service'),
   keys: z.object({
