@@ -61,7 +61,7 @@ export async function GET() {
       posterShareInitiatedAt: growthEvents.find((event) => event.eventType === 'POSTER_SHARE_INITIATED')?.createdAt ?? null,
       latestPhotoAddedAt: growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTO_ADDED')?.createdAt ?? null,
       latestPhotoListingId: growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTO_ADDED')?.entityId ?? null,
-      latestPhotoListingTitle: listings.find((listing) => listing.id === growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTO_ADDED')?.entityId)?.title ?? null,
+      latestPhotoListingTitle: (() => { const item = listings.find((listing) => listing.id === growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTO_ADDED')?.entityId); return item && photoCount(item.photos) > 0 ? item.title : null })(),
       productPhotosShareInitiatedAt: growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTOS_SHARE_INITIATED' && event.entityId === growthEvents.find((item) => item.eventType === 'PRODUCT_PHOTO_ADDED')?.entityId)?.createdAt ?? null,
     })
 
