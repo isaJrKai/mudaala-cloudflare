@@ -48,6 +48,9 @@ jobs:
       - name: Test merchant Growth Coach recommendation rules
         run: npm run test:merchant-growth
 
+      - name: Test Web Push VAPID and encryption
+        run: npm run test:web-push
+
       - name: Test public listing continues when expiry sweep fails
         run: npm run test:public-listing-expiry
 
