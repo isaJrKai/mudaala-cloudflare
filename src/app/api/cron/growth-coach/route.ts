@@ -90,10 +90,10 @@ export async function POST() {
           take: 100,
         },
         growthEvents: {
-          where: { eventType: { in: ['POSTER_GENERATED', 'POSTER_SHARED', 'POSTER_SHARE_INITIATED', 'SHOP_OPENED'] } },
+          where: { eventType: { in: ['POSTER_GENERATED', 'POSTER_SHARED', 'POSTER_SHARE_INITIATED', 'PRODUCT_PHOTO_ADDED', 'PRODUCT_PHOTOS_SHARE_INITIATED', 'SHOP_OPENED'] } },
           orderBy: { createdAt: 'desc' },
           take: 40,
-          select: { eventType: true, createdAt: true },
+          select: { eventType: true, entityId: true, createdAt: true },
         },
       },
     })
@@ -116,6 +116,10 @@ export async function POST() {
         posterGeneratedAt: merchant.growthEvents.find((event) => event.eventType === 'POSTER_GENERATED')?.createdAt ?? null,
         posterSharedAt: merchant.growthEvents.find((event) => event.eventType === 'POSTER_SHARED')?.createdAt ?? null,
         posterShareInitiatedAt: merchant.growthEvents.find((event) => event.eventType === 'POSTER_SHARE_INITIATED')?.createdAt ?? null,
+        latestPhotoAddedAt: merchant.growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTO_ADDED')?.createdAt ?? null,
+        latestPhotoListingId: merchant.growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTO_ADDED')?.entityId ?? null,
+        latestPhotoListingTitle: merchant.listings.find((listing) => listing.id === merchant.growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTO_ADDED')?.entityId)?.title ?? null,
+        productPhotosShareInitiatedAt: merchant.growthEvents.find((event) => event.eventType === 'PRODUCT_PHOTOS_SHARE_INITIATED' && event.entityId === merchant.growthEvents.find((item) => item.eventType === 'PRODUCT_PHOTO_ADDED')?.entityId)?.createdAt ?? null,
       })
 
       const growthCount = await db.notification.count({
