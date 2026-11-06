@@ -112,7 +112,7 @@ export function PushNotificationControl() {
     }
   }
 
-  if (!supported) return unsupportedMessage ? <p className="border-t border-[#dfcfaa]/70 pt-3 text-[11px]] leading-relaxed text-[#6b6c60]">{unsupportedMessage}</p> : null
+  if (!supported) return unsupportedMessage ? <p className="border-t border-[#dfcfaa]/70 pt-3 text-[11px] leading-relaxed text-[#6b6c60]">{unsupportedMessage}</p> : null
   if (configured === false) return null
 
   return (
