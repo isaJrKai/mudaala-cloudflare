@@ -168,7 +168,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
   // Unqualified Browse uses fair discovery; text search keeps relevance ranking.
   const effectiveSort = intent.sort && query.sort === undefined
     ? intent.sort
-    : query.sort ?? (searchText ? 'newest' : 'discovery')
+    : (searchText && query.sort === 'discovery' ? 'newest' : query.sort) ?? (searchText ? 'newest' : 'discovery')
 
   const where: Prisma.ListingWhereInput = { status: { in: includeStatuses } }
 
@@ -226,14 +226,14 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
       shops.set(candidate.userId, group)
     }
     const orderedShops = [...shops.entries()].sort(
-      ([a], [b]) => stableHash(`${day}:${a}`) - stableHash(`${day}:${b}`),
+      ([a], [b]) => stableHash(`${day}:${a}`) - stableHash(`${day}:${b}`) || a.localeCompare(b),
     )
     for (const [, products] of orderedShops) {
       products.sort((a, b) => b.refreshedAt.getTime() - a.refreshedAt.getTime() || a.id.localeCompare(b.id))
     }
     const pageStart = (page - 1) * pageSize
     const pageIds: string[] = []
-    const maxProducts = Math.max(0, ...orderedShops.map(([, products]) => products.length))
+    const maxProducts = orderedShops.reduce((max, [, products]) => Math.max(max, products.length), 0)
     for (let round = 0; round < maxProducts && pageIds.length < pageStart + pageSize; round += 1) {
       for (const [, products] of orderedShops) {
         if (products[round]) pageIds.push(products[round].id)
