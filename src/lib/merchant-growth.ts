@@ -7,6 +7,7 @@
  */
 export type MerchantGrowthSnapshot = {
   shopExists: boolean
+  shopId: string
   activeProducts: Array<{ id: string; title: string; photoCount: number }>
   profile: {
     photoUrl: string | null
@@ -35,7 +36,7 @@ export type GrowthRecommendation = {
 const DESTINATIONS = {
   publish: '/#/publish',
   profile: '/#/account',
-  poster: '/#/home',
+  poster: (shopId: string) => `/#/shop/${encodeURIComponent(shopId)}`,
 } as const
 
 /**
@@ -101,7 +102,7 @@ export function recommendNextMerchantAction(snapshot: MerchantGrowthSnapshot): G
       title: 'Put your shop on the map',
       body: 'Create your Mudaala shop poster with its QR code, ready to share or print.',
       actionLabel: 'Create shop poster',
-      actionUrl: DESTINATIONS.poster,
+      actionUrl: DESTINATIONS.poster(snapshot.shopId),
       priority: 'NORMAL',
       reason: 'POSTER_NOT_GENERATED',
     }
