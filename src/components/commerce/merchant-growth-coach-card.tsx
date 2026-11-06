@@ -30,12 +30,12 @@ export function MerchantGrowthCoachCard() {
   const { navigate } = useAppStore()
   const query = useQuery({
     queryKey: ['growth-recommendation'],
-    queryFn: () => apiGet<{ recommendation: Recommendation | null }>('/api/growth/recommendation'),
+    queryFn: () => apiGet<{ shopExists: boolean; recommendation: Recommendation | null }>('/api/growth/recommendation'),
     staleTime: 5 * 60_000,
   })
 
   const recommendation = query.data?.recommendation
-  if (query.isLoading || query.isError) return null
+  if (query.isLoading || query.isError || !query.data?.shopExists) return null
 
   return (
     <section className="relative overflow-hidden rounded-xl border border-[#dfcfaa] bg-[#fbf6e9] p-4 shadow-[0_1px_2px_rgba(46,55,39,0.05)] sm:p-5" aria-label="Mudaala Growth Coach">
