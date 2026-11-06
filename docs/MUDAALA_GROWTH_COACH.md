@@ -68,7 +68,7 @@ A server-side snapshot combines:
 - BusinessProfile completeness and shop identity.
 - Active offer listings, product photos, and listing freshness.
 - Shop and listing daily analytics.
-- Explicit merchant actions: poster generated/downloaded/shared, product created/edited, and profile completed.
+- Explicit merchant actions: shop created/opened, poster generated/shared, product created, product photos added, and product-photo share attempts.
 - Merchant activity timestamps and local timezone/preferences.
 
 Keep public buyer analytics distinct from merchant-side actions. A buyer sharing a listing is not the same as a merchant sharing their poster.
@@ -172,7 +172,7 @@ The current branch now includes:
 - A deterministic next-best-action engine and unit tests.
 - A premium merchant-home recommendation card.
 - A notification centre with snooze, archive/restore, dismiss, and category views.
-- Poster generation/share event capture, shop-visit tracking, shop-creation welcome notification, and an hourly in-app notification scheduler.
+- Poster generation/share event capture, shop-visit tracking, shop-creation welcome notification, and an 15-minute in-app notification scheduler.
 
 Still not implemented in this PR:
 - Native Web Push delivery, service-worker push handling, and permission onboarding.
