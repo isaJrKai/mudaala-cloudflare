@@ -163,6 +163,22 @@ export function ShopView({ id }: { id: string }) {
     return () => { cancelled = true }
   }, [posterOpen, data, shopUrl])
 
+  // A poster is considered generated only when its real image file is ready.
+  // Download/creation is distinct from the merchant sharing it externally.
+  useEffect(() => {
+    if (!posterOpen || !posterFileReady || !posterFile || !isOwner) return
+    const dayKey = new Date().toISOString().slice(0, 10)
+    void apiFetch('/api/growth/events', {
+      method: 'POST',
+      body: JSON.stringify({
+        eventType: 'POSTER_GENERATED',
+        entityId: id,
+        idempotencyKey: `poster-generated:${id}:${dayKey}`,
+      }),
+      keepalive: true,
+    }).catch(() => undefined)
+  }, [posterOpen, posterFileReady, posterFile, isOwner, id])
+
   if (isLoading) {
     return (
       <div className="space-y-3">
