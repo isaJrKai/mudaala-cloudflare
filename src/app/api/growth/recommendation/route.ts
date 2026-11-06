@@ -55,6 +55,7 @@ export async function GET() {
 
     const recommendation = recommendNextMerchantAction({
       shopExists: Boolean(profile),
+      shopId: user.id,
       profile,
       activeProducts: listings.map((listing) => ({
         id: listing.id,
