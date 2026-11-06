@@ -325,7 +325,7 @@ model MerchantGrowthEvent {
   id             String   @id @default(cuid())
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  eventType      String // PRODUCT_CREATED | PRODUCT_PHOTO_ADDED | POSTER_GENERATED | POSTER_SHARED | SHOP_OPENED | RECOMMENDATION_COMPLETED
+  eventType      String // SHOP_CREATED | PRODUCT_CREATED | PRODUCT_PHOTO_ADDED | POSTER_GENERATED | POSTER_SHARED | POSTER_SHARE_INITIATED | SHOP_OPENED | RECOMMENDATION_COMPLETED
   entityId       String?
   idempotencyKey String?
   metadata       Json?
