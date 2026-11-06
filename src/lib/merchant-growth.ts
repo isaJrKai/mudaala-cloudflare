@@ -18,6 +18,7 @@ export type MerchantGrowthSnapshot = {
   } | null
   posterGeneratedAt: Date | null
   posterSharedAt: Date | null
+  posterShareInitiatedAt: Date | null
 }
 
 export type GrowthRecommendation = {
@@ -107,6 +108,12 @@ export function recommendNextMerchantAction(snapshot: MerchantGrowthSnapshot): G
   }
 
   if (!snapshot.posterSharedAt) {
+    // A share-sheet handoff is not proof the merchant completed an external
+    // share. Give the merchant a day before prompting again.
+    const shareAttemptIsRecent = snapshot.posterShareInitiatedAt
+      ? Date.now() - snapshot.posterShareInitiatedAt.getTime() < 24 * 60 * 60_000
+      : false
+    if (shareAttemptIsRecent) return null
     return {
       key: 'share-shop-poster',
       type: 'GROWTH_SHARE_POSTER',
