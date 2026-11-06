@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'bun:test'
 import { createVapidJwt, encryptPushPayload } from './web-push.ts'
 
-function toBase64Url(value: Uint8Array): string {
+function toBase64Url(value) {
   let binary = ''
   for (const byte of value) binary += String.fromCharCode(byte)
   return btoa(binary).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
 
-function fromBase64Url(value: string): Uint8Array {
+function fromBase64Url(value) {
   const base64 = value.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(value.length / 4) * 4, '=')
   return Uint8Array.from(atob(base64), (character) => character.charCodeAt(0))
 }
