@@ -8,7 +8,7 @@ This is the active deployment runbook for Mudaala. Production runs on **Cloudfla
 - Public URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
 - Database: Supabase PostgreSQL, connected from the Worker through the `HYPERDRIVE` binding in `wrangler.jsonc`
 - Photo bucket: `mudaala-photos`
-- Scheduled trigger: `0 3 * * *` UTC, configured in `wrangler.jsonc`
+- Scheduled trigger: `*/15 * * * *` UTC. The Worker evaluates merchant-local Growth Coach slots and snoozes every 15 minutes, and preserves the daily maintenance sweep at 03:00 UTC.
 
 Do not put database passwords, Supabase service-role keys, Cloudflare API tokens, or other secrets in source control or in public issue comments.
 
