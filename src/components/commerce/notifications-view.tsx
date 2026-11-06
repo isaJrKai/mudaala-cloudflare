@@ -23,7 +23,6 @@ import { ListingListSkeleton } from './skeletons'
 import { EmptyState } from './empty-state'
 import { ErrorState } from './listings-browse'
 import { cn } from '@/lib/utils'
-import { useState as useReactState } from 'react'
 import { copy } from '@/lib/copy'
 
 type InboxTab = 'new' | 'action' | 'scheduled' | 'completed' | 'archived'
@@ -43,7 +42,7 @@ export function NotificationsView() {
   const queryClient = useQueryClient()
   const [confirmClear, setConfirmClear] = useState(false)
   const [tab, setTab] = useState<InboxTab>('new')
-  const [snoozeFor, setSnoozeFor] = useReactState<string | null>(null)
+  const [snoozeFor, setSnoozeFor] = useState<string | null>(null)
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['notifications', 'list'],
