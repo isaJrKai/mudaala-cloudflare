@@ -26,7 +26,7 @@ function encodeBase64Url(value: Uint8Array): string {
   return btoa(binary).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
 
-function concatBytes(...parts: Uint8Array[]): Uint8Array {
+function concatBytes(...parts: Uint8Array[]): Uint8Array<ArrayBuffer> {
   const length = parts.reduce((total, part) => total + part.length, 0)
   const result = new Uint8Array(length)
   let offset = 0
@@ -38,13 +38,13 @@ function concatBytes(...parts: Uint8Array[]): Uint8Array {
 }
 
 async function hmacSha256(keyBytes: Uint8Array, message: Uint8Array): Promise<Uint8Array> {
-  const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-  return new Uint8Array(await crypto.subtle.sign('HMAC', key, message))
+  const key = await crypto.subtle.importKey('raw', keyBytes as unknown as BufferSource, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  return new Uint8Array(await crypto.subtle.sign('HMAC', key, message as unknown as BufferSource))
 }
 
 async function hkdfExpand(prk: Uint8Array, info: Uint8Array, length: number): Promise<Uint8Array> {
   const blocks: Uint8Array[] = []
-  let previous = new Uint8Array()
+  let previous: Uint8Array<ArrayBufferLike> = new Uint8Array()
   let generated = 0
   for (let counter = 1; generated < length; counter += 1) {
     previous = await hmacSha256(prk, concatBytes(previous, info, Uint8Array.of(counter)))
@@ -77,7 +77,7 @@ export async function createVapidJwt(
   const signature = await crypto.subtle.sign(
     { name: 'ECDSA', hash: 'SHA-256' },
     privateKey,
-    utf8(signingInput),
+    utf8(signingInput) as unknown as BufferSource,
   )
   return `${signingInput}.${encodeBase64Url(new Uint8Array(signature))}`
 }
@@ -95,7 +95,7 @@ export async function encryptPushPayload(
 
   const userAgentPublicKey = await crypto.subtle.importKey(
     'raw',
-    userAgentPublicBytes,
+    userAgentPublicBytes as unknown as BufferSource,
     { name: 'ECDH', namedCurve: 'P-256' },
     false,
     [],
@@ -120,7 +120,7 @@ export async function encryptPushPayload(
   const contentPrk = await hmacSha256(salt, inputKeyMaterial)
   const contentKeyBytes = await hkdfExpand(contentPrk, utf8('Content-Encoding: aes128gcm\0'), 16)
   const nonce = await hkdfExpand(contentPrk, utf8('Content-Encoding: nonce\0'), 12)
-  const contentKey = await crypto.subtle.importKey('raw', contentKeyBytes, 'AES-GCM', false, ['encrypt'])
+  const contentKey = await crypto.subtle.importKey('raw', contentKeyBytes as unknown as BufferSource, 'AES-GCM', false, ['encrypt'])
 
   // 0x02 marks the final record in the aes128gcm content encoding.
   const plaintext = concatBytes(utf8(JSON.stringify(payload)), Uint8Array.of(2))
