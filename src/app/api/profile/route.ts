@@ -49,7 +49,7 @@ export async function PUT(request: Request) {
 
     if (!existingProfile) {
       const dedupeKey = `growth:welcome:${user.id}`
-      await Promise.all([
+      const [, welcomeCreated] = await Promise.all([
         db.merchantGrowthEvent.createMany({
           data: [{ userId: user.id, eventType: 'SHOP_CREATED', entityId: profile.id, idempotencyKey: `shop-created:${user.id}` }],
           skipDuplicates: true,
@@ -70,13 +70,15 @@ export async function PUT(request: Request) {
           skipDuplicates: true,
         }),
       ])
-      const welcome = await db.notification.findUnique({
-        where: { userId_dedupeKey: { userId: user.id, dedupeKey } },
-        select: { id: true, userId: true, title: true, body: true, actionUrl: true, actionLabel: true, priority: true },
-      })
-      if (welcome) await deliverPushNotification(user.id, welcome).catch((error) =>
-        console.warn('[growth-coach] welcome push delivery failed', error instanceof Error ? error.message : 'unknown error'),
-      )
+      if (welcomeCreated.count > 0) {
+        const welcome = await db.notification.findUnique({
+          where: { userId_dedupeKey: { userId: user.id, dedupeKey } },
+          select: { id: true, userId: true, title: true, body: true, actionUrl: true, actionLabel: true, priority: true },
+        })
+        if (welcome) await deliverPushNotification(user.id, welcome).catch((error) =>
+          console.warn('[growth-coach] welcome push delivery failed', error instanceof Error ? error.message : 'unknown error'),
+        )
+      }
     }
     return jsonOk({ profile })
   })
