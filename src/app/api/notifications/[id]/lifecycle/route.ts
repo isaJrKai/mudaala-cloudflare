@@ -32,6 +32,9 @@ export async function PATCH(request: Request, { params }: Params) {
     }
 
     switch (body.action) {
+      case 'read':
+        data = { read: true }
+        break
       case 'snooze': {
         if (!('minutes' in body) || typeof body.minutes !== 'number' || !snoozeMinutes.has(body.minutes)) {
           throw new ApiError(400, 'Choose 15, 30, 60, or 1440 minutes')
