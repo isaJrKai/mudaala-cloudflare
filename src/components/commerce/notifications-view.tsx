@@ -201,7 +201,7 @@ export function NotificationsView() {
                     <span className="px-2 text-xs text-muted-foreground">Completed</span>
                   ) : (
                     <>
-                      {n.actionUrl ? <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => openAction(n.actionUrl!)}><ExternalLink className="size-3.5" aria-hidden /> {n.actionLabel || 'Open action'}</Button> : null}
+                      {n.actionUrl ? <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => { if (!n.read) markRead.mutate(n.id); openAction(n.actionUrl!) }}><ExternalLink className="size-3.5" aria-hidden /> {n.actionLabel || 'Open action'}</Button> : null}
                       <div className="ml-auto flex flex-wrap items-center gap-1">
                         {snoozeFor === n.id ? (
                           <>
