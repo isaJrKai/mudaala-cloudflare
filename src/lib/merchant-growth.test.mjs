@@ -74,6 +74,7 @@ describe('merchant Growth Coach recommendations', () => {
   it('offers different eligible actions across the three daily slots', () => {
     const actions = recommendMerchantActions({
       ...base,
+      profile: { ...completeProfile, hours: null },
       activeProducts: [{ id: 'listing-1', title: 'Rice', photoCount: 1 }],
     })
     expect(actions.map((item) => item.key)).toEqual([
