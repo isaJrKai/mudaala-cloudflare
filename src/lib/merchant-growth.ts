@@ -95,11 +95,10 @@ export function recommendMerchantActions(snapshot: MerchantGrowthSnapshot): Grow
   }
 
   if (snapshot.latestPhotoAddedAt && snapshot.latestPhotoListingId && snapshot.latestPhotoListingTitle) {
-    const photosSharedAfterUpload = Boolean(snapshot.productPhotosShareInitiatedAt && snapshot.productPhotosShareInitiatedAt >= snapshot.latestPhotoAddedAt)
     const recentShareAttempt = snapshot.productPhotosShareInitiatedAt
       ? Date.now() - snapshot.productPhotosShareInitiatedAt.getTime() < 24 * 60 * 60_000
       : false
-    if (!photosSharedAfterUpload && !recentShareAttempt) {
+    if (!recentShareAttempt) {
       recommendations.push({
         key: `share-product-photos:${snapshot.latestPhotoListingId}`,
         type: 'GROWTH_SHARE_PRODUCT_PHOTOS',
