@@ -154,7 +154,7 @@ Do not equate notification delivery/opening with business success. Do not expose
 - Controlled experiments on copy/timing, never on manipulative pressure.
 - Tune recommendation priority using observed completion and business outcomes.
 
-## Current repository facts and constraints
+## Repository baseline at branch start
 
 - Mudaala already has an authenticated in-app Notification model/API and a notification centre.
 - The current Notification model supports only type/title/body/listingId/read/createdAt; it does not yet support action destinations, snoozing, archival, completion, or deduplication.
@@ -163,6 +163,25 @@ Do not equate notification delivery/opening with business success. Do not expose
 - Existing Cloudflare Cron currently runs the maintenance sweep at 03:00 UTC (06:00 Uganda time). Schedule changes must be coordinated with the new orchestration endpoint and must preserve the existing expiry/price-snapshot sweep.
 - Production currently uses Supabase/Postgres through the existing Prisma/Hyperdrive path. Do not add a second database or external notification vendor without a concrete need.
 - No push provider secrets or VAPID credentials should be assumed to exist. Push delivery must remain disabled until keys are configured and opt-in flows are verified.
+
+## Implementation status in PR #230
+
+The current branch now includes:
+- Additive Prisma models and migration for notification lifecycle fields, push subscription records, merchant growth events, and a default merchant timezone.
+- Authenticated event and recommendation endpoints.
+- A deterministic next-best-action engine and unit tests.
+- A premium merchant-home recommendation card.
+- A notification centre with snooze, archive/restore, dismiss, and category views.
+- Poster generation/share event capture, shop-visit tracking, shop-creation welcome notification, and an hourly in-app notification scheduler.
+
+Still not implemented in this PR:
+- Native Web Push delivery, service-worker push handling, and permission onboarding.
+- Push subscription API wiring and VAPID key configuration.
+- Fully event-driven recommendation completion for every product/profile change.
+- A user-facing timezone and quiet-hours settings screen.
+- Cross-device delivery verification on real Android/iOS devices.
+
+The hourly scheduler currently persists notifications to the authenticated in-app inbox. It does not claim to deliver device pop-ups until the push-delivery phase is implemented and verified.
 
 ## Non-negotiable release criteria
 
