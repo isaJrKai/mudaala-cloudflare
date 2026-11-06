@@ -91,6 +91,7 @@ export async function POST(request: Request) {
     }
 
     const now = new Date()
+    const photos = sanitizePhotos(data.photos)
     const listing = await db.listing.create({
       data: {
         userId: user.id,
@@ -109,13 +110,20 @@ export async function POST(request: Request) {
         area: data.area,
         contactPhone,
         contactWhatsapp,
-        photos: JSON.stringify(sanitizePhotos(data.photos)),
+        photos: JSON.stringify(photos),
         status: 'ACTIVE',
         publishedAt: now,
         refreshedAt: now,
         expiresAt: new Date(now.getTime() + LISTING_ACTIVE_DAYS * 24 * 60 * 60 * 1000),
       },
     })
+
+    // Record merchant-side creation and photo upload separately from buyer analytics.
+    const growthEvents = [{ userId: user.id, eventType: 'PRODUCT_CREATED', entityId: listing.id, idempotencyKey: `product-created:${listing.id}` }]
+    if (photos.length > 0) growthEvents.push({ userId: user.id, eventType: 'PRODUCT_PHOTO_ADDED', entityId: listing.id, idempotencyKey: `product-photo-added:${listing.id}` })
+    await db.merchantGrowthEvent.createMany({ data: growthEvents, skipDuplicates: true }).catch((err) =>
+      console.error('[growth-coach] product event recording failed:', err),
+    )
 
     // Real saved-search notifications (never fake counts).
     await notifySavedSearchMatches(listing).catch((err) =>
