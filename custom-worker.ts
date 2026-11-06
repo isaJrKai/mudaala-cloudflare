@@ -55,7 +55,7 @@ async function runScheduledJobs(event: ScheduledEventLike, env: MudaalaWorkerEnv
   await postCronEndpoint('/api/cron/growth-coach', event, env)
 
   // Preserve the existing daily expiry/price-snapshot maintenance at 03:00 UTC.
-  if (new Date(event.scheduledTime).getUTCHours() === 3) {
+  if (new Date(event.scheduledTime).getUTCHours() === 3 && new Date(event.scheduledTime).getUTCMinutes() === 0) {
     await postCronEndpoint('/api/cron/sweep', event, env)
   }
 }
