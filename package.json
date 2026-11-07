@@ -16,6 +16,7 @@
     "db:seed": "node scripts/guard-local-db.mjs && bun scripts/seed.ts",
     "test:public-listing-expiry": "bun test scripts/test-public-listing-expiry.test.mjs",
     "test:merchant-growth": "bun test src/lib/merchant-growth.test.mjs",
+    "test:recommendations": "bun test src/lib/commerce-intelligence/recommendations.test.mjs",
     "test:web-push": "bun test src/lib/web-push.test.mjs"
   },
   "dependencies": {
@@ -30,7 +31,6 @@
     "@radix-ui/react-select": "^2.2.5",
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
-    "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-toast": "^1.2.14",
     "@tanstack/react-query": "^5.82.0",
     "class-variance-authority": "^0.7.1",
@@ -70,7 +70,7 @@
   "allowScripts": {
     "prisma@6.19.3": true,
     "@prisma/engines@6.19.3": true,
-    "@prisma/client@6.19.3": true,
+    "@prisma/client": true,
     "sharp@0.35.5": true,
     "unrs-resolver": true
   },

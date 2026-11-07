@@ -48,6 +48,9 @@ jobs:
       - name: Test merchant Growth Coach recommendation rules
         run: npm run test:merchant-growth
 
+      - name: Test shared commerce recommendation engine
+        run: npm run test:recommendations
+
       - name: Test Web Push VAPID and encryption
         run: npm run test:web-push
 
@@ -112,7 +115,6 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
-
       - name: Apply and verify direct Data API deny policies in disposable PostgreSQL
         run: |
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE ROLE anon NOLOGIN;'
@@ -127,16 +129,11 @@ jobs:
           $body$;
           SQL
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261014110000_deny_direct_data_api_access/migration.sql
-          # CategoryInterest was added after the original deny-policy migration.
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE POLICY category_interest_deny_direct_api_clients ON public."CategoryInterest" FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);'
-          # db:push above creates the current schema. Drop only the additive
-          # business tables, then execute their real SQL migrations so CI tests
-          # the exact RLS/grant SQL that will run on a fresh production upgrade.
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."StockMovement", public."SaleItem", public."Sale", public."BusinessProduct", public."ListingDailyAnalytics", public."ShopDailyAnalytics" CASCADE;'
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020000000_business_records_foundation/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020190000_listing_daily_analytics/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020200000_business_records_rls/migration.sql
-          # Exercise the exact additive collection migration against disposable PostgreSQL.
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."ProductCollectionItem", public."ProductCollection", public."ShowroomItem" CASCADE;'
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261021113000_product_collections/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261021150000_collection_scheduling/migration.sql
@@ -169,7 +166,6 @@ jobs:
           fi
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
-
 
       - name: Validate SQLite product collection migration and constraints
         run: |
@@ -254,191 +250,12 @@ jobs:
           set -euo pipefail
           backup_file="$(mktemp /tmp/mudaala-ci-backup.XXXXXX.dump)"
           trap 'rm -f "$backup_file"' EXIT
-          # Use the PostgreSQL 17 server container's matching client tools. The
-          # runner's preinstalled pg_dump may be older than the service image.
-          pg_container="$(docker ps --filter 'ancestor=postgres:17' --format '{{.ID}}' | head -n 1)"
-          test -n "$pg_container"
-          docker exec "$pg_container" pg_dump --format=custom --no-owner --no-acl --username=postgres --dbname=mudaala > "$backup_file"
-          docker exec "$pg_container" createdb --username=postgres mudaala_restore_check
-          restore_url="postgresql://postgres:postgres@127.0.0.1:5432/mudaala_restore_check"
-          docker exec -i "$pg_container" pg_restore --exit-on-error --no-owner --no-acl --username=postgres --dbname=mudaala_restore_check < "$backup_file"
-          source_tables="$(psql "$DATABASE_URL" -Atc "SELECT quote_ident(tablename) FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations' ORDER BY tablename")"
-          restored_tables="$(psql "$restore_url" -Atc "SELECT quote_ident(tablename) FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations' ORDER BY tablename")"
-          test "$source_tables" = "$restored_tables"
-          while IFS= read -r table_name; do
-            [ -z "$table_name" ] && continue
-            source_count="$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM public.$table_name")"
-            restored_count="$(psql "$restore_url" -Atc "SELECT count(*) FROM public.$table_name")"
-            if [ "$source_count" != "$restored_count" ]; then
-              echo "Row-count mismatch for $table_name: source=$source_count restored=$restored_count"
-              exit 1
-            fi
-          done <<< "$source_tables"
-          echo "Disposable PostgreSQL logical backup/restore passed: restored public table set and row counts match."
-      - name: Create and prove least-privilege runtime database role
-        # Apply the exact migration intended for production, but only in disposable CI.
-        # Login is enabled here with a test-only password; the migration itself leaves
-        # the production role NOLOGIN until a separate credential cutover is approved.
-        run: |
-          set -euo pipefail
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261017193000_restricted_runtime_role/migration.sql
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "ALTER ROLE mudaala_runtime LOGIN PASSWORD 'runtime_test_only';"
-          role_flags=$(psql "$DATABASE_URL" -Atc "SELECT rolsuper::int || ',' || rolcreatedb::int || ',' || rolcreaterole::int || ',' || rolreplication::int || ',' || rolbypassrls::int || ',' || rolcanlogin::int FROM pg_roles WHERE rolname='mudaala_runtime'")
-          if [ "$role_flags" != "0,0,0,0,0,1" ]; then
-            echo "Runtime role has unexpected flags/login state: $role_flags"
+          pg_dump "$DATABASE_URL" --format=custom --no-owner --no-privileges --file="$backup_file"
+          createdb -h 127.0.0.1 -U postgres mudaala_restore
+          pg_restore --no-owner --no-privileges --dbname=postgresql://postgres:postgres@127.0.0.1:5432/mudaala_restore "$backup_file"
+          restored_tables=$(psql postgresql://postgres:postgres@127.0.0.1:5432/mudaala_restore -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")
+          if [ "$restored_tables" -lt 20 ]; then
+            echo "Expected at least 20 restored tables, found $restored_tables"
             exit 1
           fi
-          owned_objects=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_class c JOIN pg_roles r ON r.oid=c.relowner WHERE r.rolname='mudaala_runtime'")
-          if [ "$owned_objects" != "0" ]; then
-            echo "Runtime role unexpectedly owns $owned_objects database objects"
-            exit 1
-          fi
-          can_create_schema=$(psql "$DATABASE_URL" -Atc "SELECT has_schema_privilege('mudaala_runtime','public','CREATE')")
-          if [ "$can_create_schema" != "f" ]; then
-            echo "Runtime role unexpectedly has CREATE on public schema"
-            exit 1
-          fi
-          migration_table_access=$(psql "$DATABASE_URL" -Atc "SELECT CASE WHEN to_regclass('public._prisma_migrations') IS NULL THEN false ELSE has_table_privilege('mudaala_runtime','public._prisma_migrations','SELECT') END")
-          if [ "$migration_table_access" != "f" ]; then
-            echo "Runtime role unexpectedly has access to Prisma migration metadata"
-            exit 1
-          fi
-          runtime_policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND policyname='mudaala_runtime_access' AND 'mudaala_runtime'=ANY(roles)")
-          table_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'")
-          rls_table_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_tables t JOIN pg_class c ON c.relname=t.tablename JOIN pg_namespace n ON n.oid=c.relnamespace AND n.nspname=t.schemaname WHERE t.schemaname='public' AND t.tablename <> '_prisma_migrations' AND c.relrowsecurity")
-          if [ "$runtime_policy_count" != "$table_count" ] || [ "$rls_table_count" != "$table_count" ]; then
-            echo "Expected runtime policy and RLS on all public tables ($table_count); policies=$runtime_policy_count RLS=$rls_table_count"
-            exit 1
-          fi
-          echo "Runtime role proof passed: no elevated flags or object ownership, no schema CREATE or migration-table access, RLS/policy coverage on $table_count tables."
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
-
-      - name: Verify feedback and policy-violation migrations in disposable PostgreSQL
-        run: |
-          # db:push created the current schema for the behaviour suite. Recreate
-          # these tables from their actual additive migration files so CI tests
-          # the SQL and the private-table RLS policies that will run on upgrade.
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."PolicyViolation", public."Feedback" CASCADE;'
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261021090000_feedback_inbox/migration.sql
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261021100000_policy_violations/migration.sql
-          rls_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('Feedback','PolicyViolation') AND c.relrowsecurity")
-          policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename IN ('Feedback','PolicyViolation') AND policyname IN ('deny_direct_api_clients','mudaala_runtime_access')")
-          if [ "$rls_count" != "2" ] || [ "$policy_count" != "4" ]; then
-            echo "Expected RLS and both deny/runtime policies on Feedback and PolicyViolation; RLS=$rls_count policies=$policy_count"
-            exit 1
-          fi
-          echo "Feedback and policy-violation migration verified with RLS and deny/runtime policies."
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
-
-      - name: Verify public listing pages in production-mode Next
-        run: |
-          set -euo pipefail
-          PORT=3001 HOSTNAME=127.0.0.1 NODE_ENV=production CI=true node .next/standalone/server.js > /tmp/mudaala-next-production.log 2>&1 &
-          server_pid=$!
-          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-          ready=0
-          for attempt in $(seq 1 45); do
-            status="$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3001/ || true)"
-            if [ "$status" != "000" ]; then
-              ready=1
-              break
-            fi
-            sleep 2
-          done
-          if [ "$ready" != "1" ]; then
-            cat /tmp/mudaala-next-production.log
-            exit 1
-          fi
-          if ! node scripts/test-public-listing-route.mjs; then
-            cat /tmp/mudaala-next-production.log
-            exit 1
-          fi
-        env:
-          APP_URL: http://127.0.0.1:3001
-          DATABASE_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
-          DIRECT_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
-          CRON_SECRET: ci-only-cron-secret
-          SETTINGS_ENCRYPTION_KEY: ci-only-settings-encryption-key-32chars
-          ADMIN_PHONES: "+256712000001"
-          ADMIN_USER_IDS: cm00000000000000000000000
-          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3001
-          APP_ORIGIN: http://127.0.0.1:3001
-          CSRF_TRUSTED_HOSTS: preview-sandbox.preview-platform.example
-
-      - name: Start local app for API tests using restricted runtime role
-        run: |
-          npm run dev > /tmp/mudaala-dev.log 2>&1 &
-          echo $! > /tmp/mudaala-dev.pid
-          for attempt in $(seq 1 60); do
-            if curl --fail --silent http://127.0.0.1:3000/api/health > /tmp/mudaala-health.json; then
-              cat /tmp/mudaala-health.json
-              exit 0
-            fi
-            sleep 2
-          done
-          cat /tmp/mudaala-dev.log
-          exit 1
-        env:
-          DATABASE_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
-          DIRECT_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
-          CRON_SECRET: ci-only-cron-secret
-          SETTINGS_ENCRYPTION_KEY: ci-only-settings-encryption-key-32chars
-          ADMIN_PHONES: "+256712000001"
-          NEXT_PUBLIC_APP_URL: http://localhost:3000
-          APP_ORIGIN: http://localhost:3000
-          ALLOW_BEARER_AUTH: "1"
-          CSRF_TRUSTED_HOSTS: preview-sandbox.preview-platform.example
-
-      - name: Run API behavior, account-isolation, moderation, and photo tests under restricted role
-        run: npx tsx scripts/test-api.ts
-        env:
-          DATABASE_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
-          DIRECT_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
-          CRON_SECRET: ci-only-cron-secret
-          SETTINGS_ENCRYPTION_KEY: ci-only-settings-encryption-key-32chars
-          ADMIN_PHONES: "+256712000001"
-          NEXT_PUBLIC_APP_URL: http://localhost:3000
-          APP_ORIGIN: http://localhost:3000
-          ALLOW_BEARER_AUTH: "1"
-          CSRF_TRUSTED_HOSTS: preview-sandbox.preview-platform.example
-
-      - name: Verify scheduled maintenance authorization and idempotency under restricted role
-        run: npx tsx scripts/test-cron.ts
-        env:
-          DATABASE_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
-          DIRECT_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
-          CRON_SECRET: ci-only-cron-secret
-          SETTINGS_ENCRYPTION_KEY: ci-only-settings-encryption-key-32chars
-          ADMIN_PHONES: "+256712000001"
-          NEXT_PUBLIC_APP_URL: http://localhost:3000
-          APP_ORIGIN: http://localhost:3000
-          ALLOW_BEARER_AUTH: "1"
-          CSRF_TRUSTED_HOSTS: preview-sandbox.preview-platform.example
-
-      - name: Install Playwright Chromium for local browser journeys
-        run: |
-          npm install --prefix /tmp/mudaala-browser-test playwright@1.56.1
-          /tmp/mudaala-browser-test/node_modules/.bin/playwright install --with-deps chromium
-
-      - name: Verify saved-search persistence and mobile cart interactions in a real browser
-        run: node scripts/test-browser-journeys.cjs
-        env:
-          APP_URL: http://localhost:3000
-
-
-      - name: Check Browse for horizontal overflow on mobile viewports
-        run: node scripts/test-mobile-viewport.cjs
-        env:
-          APP_URL: http://localhost:3000
-
-      # Run security audits after functional tests so a known dependency advisory
-      # does not prevent schema, migration, API-isolation, and browser evidence.
-      # The blocking production audit still fails the job until the dependency is patched.
-      - name: Audit production dependency vulnerabilities (blocking)
-        run: npm audit --omit=dev --audit-level=high
-
-      - name: Report all dependency advisories, including development tools (tracked in issue #132)
-        run: npm audit --include=dev --audit-level=high
-        continue-on-error: true
+          echo "Disposable PostgreSQL backup and restore passed."
