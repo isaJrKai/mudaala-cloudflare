@@ -70,8 +70,8 @@ describe('shared commerce recommendation baseline', () => {
 
   it('never compares prices across different currencies', () => {
     const similarPrice = candidate({
-      title: 'Office desk',
-      description: 'Wooden work desk',
+      title: 'Dining table',
+      description: 'Solid wood dining table',
       currency: 'KES',
       price: 250000,
     })
