@@ -70,7 +70,7 @@ function tokens(value: string): Set<string> {
   return new Set(
     value.normalize('NFKD')
       .replace(/\p{M}/gu, '')
-      .toLocaleLowerCase()
+      .toLowerCase()
       .split(/[^\p{L}\p{N}]+/u)
       .filter((word) => word.length >= 3 && !STOP_WORDS.has(word)),
   )
@@ -93,7 +93,7 @@ function isEligible(listing: RecommendationListing, now: number): boolean {
 }
 
 function normalized(value: string | null | undefined): string {
-  return (value ?? '').normalize('NFKD').replace(/\p{M}/gu, '').trim().toLocaleLowerCase()
+  return (value ?? '').normalize('NFKD').replace(/\p{M}/gu, '').trim().toLowerCase()
 }
 
 /**
