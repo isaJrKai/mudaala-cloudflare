@@ -356,25 +356,28 @@ Foundational rules:
 
 ## 13. Suggested progression
 
-These stages are a strategic sequence, not a commitment to build everything now.
+These stages are a strategic sequence, not a commitment to build everything now. They should be validated against existing merchant coverage, real buyer demand, response rates, operating costs and the team's capacity.
 
 ### Foundation
-Make existing shop and product discovery accurate, fast, local and useful. Maintain trustworthy merchant identity, product data, price and availability freshness.
+Make existing shop and product discovery accurate, fast, local and useful. Maintain trustworthy merchant identity, product data, price and availability freshness. Establish a clear, progressive trust/verification model and measure where local supply is genuinely sufficient.
+
+### First liquidity proof
+Start with inbound buyer demand and existing Mudaala supply. Select a focused city/category pilot using merchant coverage, unmet demand, product comparability, responsiveness, repeat behaviour and cost to serve—not assumptions about which category is largest. Prove that real buyers can find useful options and connect with responsive merchants.
 
 ### Connection
-Deliver the buyer's choice-preserving comparison and private shortlist, explicit enquiry / reservation flow, and qualified merchant notifications.
+Deliver the buyer's choice-preserving comparison and private shortlist, explicit enquiry / reservation flow, and qualified merchant notifications. Preserve the distinction between discovery, enquiry, confirmation, reservation and fulfilment.
 
 ### Channel access
-Establish a channel-independent gateway and make the WhatsApp buyer experience work well; then add the WhatsApp Merchant Assistant using existing merchant and catalogue infrastructure.
+Make one channel experience genuinely useful and reliable before expanding to others. WhatsApp is a strong candidate for buyer access and the Merchant Assistant, using existing merchant and catalogue infrastructure. Confirm provider permissions, message economics and opt-in requirements before committing to scope.
 
 ### Merchant growth
-Add useful analytics, product distribution, restock recovery and supplier discovery.
+Add useful analytics, product distribution, restock recovery and supplier discovery. Test who receives value and who may pay before introducing monetisation or paid placement.
 
 ### Intelligence
-Introduce permitted demand detection, external source adapters, intent understanding and opportunity matching.
+Introduce permitted demand understanding, matching and decision support. Begin with inbound requests and Mudaala's own catalogue. Broad external social listening and proactive public-demand discovery are later-stage capabilities, dependent on official platform access, permissions, economics and demonstrated value; they are not prerequisites for the first useful network.
 
 ### Network expansion
-Add more social channels, wholesale procurement, delivery partnerships and business collaboration when access, traction and economics justify them.
+Add more social channels, wholesale procurement, delivery partnerships and business collaboration when access, traction, trust and unit economics justify them.
 
 ## 14. Success measures
 
@@ -414,6 +417,25 @@ Network:
 - Which merchant promotion surfaces are useful and fair, and how are sponsored placements labelled?
 - What evidence is required before an enquiry, reservation or sale is counted as a completed outcome?
 - Which capabilities should be piloted first based on actual merchant and buyer behaviour?
+
+
+## 16. Deliberate product and operating discipline
+
+The companion **Mudaala Product Constitution** in `docs/product/MUDAALA_PRODUCT_CONSTITUTION.md` defines the decision standards that govern product, design, engineering, AI, distribution and growth. It is the operating counterpart to this strategic vision.
+
+In summary:
+- Start with a user problem and intended outcome, not a feature or technology.
+- Separate long-term ambition from immediate implementation commitments.
+- Design and verify complete user journeys, including failure states.
+- Use proportionate decision gates covering necessity, fit, evidence, feasibility, economics, consequences and reversibility.
+- Treat trust, privacy, data quality, local relevance and buyer choice as product requirements.
+- Prove local supply-demand liquidity before expanding categories and channels.
+- Start with inbound demand and existing Mudaala supply; external social listening is later-stage and permission-dependent.
+- Measure qualified connections and reported outcomes rather than activity or vanity metrics.
+- Follow Investigate → Define → Design → Implement → Test → Deploy → Verify → Evaluate.
+- Keep the process lightweight enough to preserve speed.
+
+This constitution does not turn every strategic opportunity in this document into an implementation commitment. Each initiative still requires evidence-led prioritisation.
 
 ---
 
