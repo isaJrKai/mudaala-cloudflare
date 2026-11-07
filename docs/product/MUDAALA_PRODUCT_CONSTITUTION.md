@@ -258,6 +258,113 @@ At the final step, choose deliberately:
 
 Record important decisions and the reasoning behind them so future work does not repeatedly reopen settled questions.
 
+
+## 16. Establish merchant trust through evidence
+
+Merchant trust is a continuously earned, evidence-based understanding of a business's legitimacy, operating discipline, customer conduct, commercial activity and integrity.
+
+It is not a one-time badge, a popularity contest or a single opaque score. It helps Mudaala determine which merchants and individual products are eligible for recommendations, and helps buyers understand the evidence behind those recommendations.
+
+### 16.1 What merchant trust must establish
+
+Assess merchants across six distinct dimensions:
+
+1. **Business legitimacy:** Is this a genuine business or identifiable business operator? Consider consistent business identity, reachable contact details, physical location where applicable, declared delivery or service area, genuine products or services, category fit and evidence that the person controls or is authorised to represent the business. Do not make formal company registration or a public physical storefront compulsory for every small or informal trader.
+2. **Product and catalogue discipline:** Are product photographs genuine and useful? Are names, descriptions, specifications, variants and prices meaningful? Is quotation-based pricing clearly stated? Are availability, stock changes and corrections maintained? Reward catalogue accuracy and maintenance, not raw listing volume.
+3. **Mudaala commitment and engagement:** Does the merchant meaningfully maintain its shop? Consider publishing genuine products, updating prices and availability, correcting errors, responding to enquiries, maintaining contact details, reviewing useful analytics and returning to keep the catalogue current. Measure meaningful actions and consistency, not logins, screen views or superficial activity.
+4. **Customer treatment and service reliability:** Does the merchant respond to genuine enquiries, provide accurate information, honour quoted prices, communicate stock changes, follow through on commitments and handle delivery, collection and complaints responsibly? Consider credible feedback and repeat customers. Distinguish enquiry experiences from completed purchases.
+5. **Commercial track record:** Is there credible evidence of actual trading? Consider the duration, frequency and recency of completed sales, repeat customers, revenue evidence and consistency appropriate to the business category and business model. Do not impose one universal revenue target across dissimilar businesses.
+6. **Platform integrity and conduct:** Does the merchant avoid misleading listings, impersonation, duplicate shops, fabricated sales or reviews, artificial engagement, manipulated prices or locations, misuse of customer information and attempts to manipulate recommendations? Consider how the merchant responds to warnings and corrects genuine mistakes. Serious deliberate misconduct may disqualify a merchant regardless of popularity or sales.
+
+Business legitimacy and platform integrity are foundational safeguards. Strength in one dimension must not compensate for serious failure in another. In particular, popularity or sales volume must never offset deception or serious customer harm.
+
+### 16.2 Keep different trust signals separate
+
+Do not collapse the following into one score:
+
+- **Audience:** genuine followers and meaningful interest in a shop or its products.
+- **Operational reliability:** catalogue accuracy, availability freshness, responsiveness and follow-through.
+- **Commercial performance:** substantiated completed transactions, revenue evidence and repeat business.
+- **Trust and integrity:** business legitimacy, honest conduct, customer outcomes and policy compliance.
+
+A popular merchant is not automatically reliable. A merchant with modest sales may still serve customers exceptionally well. A merchant's audience, activity and commercial performance should be represented accurately and separately.
+
+### 16.3 Treat the 21-day and 100-follower milestone as a provisional Emerging route
+
+A proposed route to **Emerging Merchant** recognition is:
+
+- At least 21 days of Mudaala presence.
+- At least 100 genuine Mudaala shop followers.
+- An established, reachable business identity.
+- Eligible published products.
+- Meaningful shop-management activity during the qualifying period.
+- No serious unresolved integrity concerns.
+- Reasonable safeguards against purchased, automated, duplicate or otherwise artificial followers.
+
+These thresholds are hypotheses to validate with real merchant and buyer data, not permanent universal rules. Twenty-one days demonstrates a period of presence; 100 followers indicates audience interest. Neither proves sales, service quality or trustworthiness.
+
+This milestone must not prevent a new or smaller merchant from appearing in ordinary relevant discovery or earning recognition through other evidence. A merchant with fewer followers may demonstrate strong reliability or commercial activity. Do not make follower count a substitute for the six-dimensional assessment.
+
+### 16.4 Use transparent merchant recognition states
+
+The proposed recognition vocabulary is:
+
+- **Listed:** has an active Mudaala shop and eligible published products. This indicates platform presence, not endorsement.
+- **Established:** has demonstrated a credible business identity, reachable contact details and meaningful operating activity.
+- **Emerging:** has demonstrated audience interest and meaningful Mudaala engagement; the proposed 21-day and 100-follower route is one qualification path.
+- **Trading:** has credible evidence of completed commercial activity.
+- **Proven:** has a sustained, substantiated trading record and positive customer outcomes.
+- **Trusted:** has strong evidence across all six dimensions, including responsible conduct and sustained reliability.
+
+These are recognition states, not necessarily a rigid progression. Merchants may demonstrate commercial activity before reaching an audience milestone. Explain what each state establishes and what it does not guarantee. Recognition is subject to ongoing review and must not imply a guarantee of authenticity, stock, fulfilment or transaction outcome.
+
+### 16.5 Assess merchant and product eligibility separately
+
+A merchant's overall standing does not automatically make every listing recommendable.
+
+**Merchant-level checks** should consider business identity, reachable contact and operating information, good standing and the absence of disqualifying integrity concerns.
+
+**Product-level checks** should consider genuine representation, useful photographs and descriptions, clear pricing or quotation status, sufficiently recent or explicitly unconfirmed availability, understandable location and delivery or collection details, and the absence of misleading or restricted content.
+
+A shop without eligible published products is not eligible for product recommendations. A merchant may remain listed while an individual product is corrected, marked unavailable or temporarily excluded from recommendations.
+
+### 16.6 Maintain an explainable evidence history
+
+Where the platform has a legitimate basis to observe or collect an event, maintain a proportionate, time-stamped merchant evidence history. Relevant events may include:
+
+- Product created, updated or removed.
+- Price or availability confirmed or changed.
+- Enquiry received and response recorded, where the interaction is observable.
+- Buyer-confirmed purchase or platform-recorded transaction.
+- Complaint submitted, investigated and resolved.
+- Verification completed, expired or challenged.
+- Merchant correction, appeal or review outcome.
+
+For each material assessment, retain the evidence source, date, confidence or verification level, relevant time window and any correction or dispute. Distinguish platform-observed events, independently confirmed evidence, merchant-provided records and unverified merchant claims.
+
+Do not infer a completed sale from a view, click, follower, enquiry or WhatsApp handoff. Do not claim a verified purchase unless there is adequate evidence. Collect only information needed for the assessment, protect private merchant and buyer records, and show buyers concise explanations rather than confidential documents or private revenue data.
+
+### 16.7 Make assessments fair, contextual and reviewable
+
+- Measure meaningful behaviour over relevant periods; account for seasonality, business category, transaction frequency, connectivity and business model.
+- Do not penalise a merchant solely for having fewer followers, fewer enquiries or lower revenue.
+- Exclude spam, duplicate and invalid enquiries from responsiveness measures where they can be identified reliably.
+- Distinguish deliberate deception from ordinary mistakes that are promptly corrected.
+- Use evidence proportionate to the claim being made.
+- Tell merchants what is assessed and how they can improve.
+- Provide a way to correct inaccurate records and appeal material decisions.
+- Reassess trust over time; do not let old positive activity permanently outweigh recent serious problems.
+- Never sell trust status or allow payment to buy a higher trust assessment.
+
+### 16.8 Apply trust to recommendations
+
+Mudaala should recommend only shops that exist on Mudaala and have eligible published products. Recommendation eligibility should consider the specific product, buyer relevance, location or service coverage, price clarity, availability freshness, merchant standing and evidence-backed trust signals.
+
+Recommendation ranking must not equate popularity with reliability or let paid placement silently override relevance and buyer interests. Explain meaningful trust signals to buyers and preserve their freedom to compare and choose.
+
+**Governing principle:** Mudaala should not recommend a shop simply because it is popular. It should recommend a shop because there is sufficient, relevant evidence that the business and the specific product listing can reasonably serve the buyer's need.
+
+
 ---
 
 ## The standard
