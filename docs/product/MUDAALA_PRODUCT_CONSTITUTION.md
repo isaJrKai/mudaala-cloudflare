@@ -365,6 +365,18 @@ Recommendation ranking must not equate popularity with reliability or let paid p
 **Governing principle:** Mudaala should not recommend a shop simply because it is popular. It should recommend a shop because there is sufficient, relevant evidence that the business and the specific product listing can reasonably serve the buyer's need.
 
 
+
+## 17. Govern platform behaviour through operating principles
+
+The Product Constitution defines Mudaala's purpose, boundaries and decision discipline. Detailed principles for how discovery, ranking, buyer personalisation, merchant visibility, notifications, experimentation and recommendation systems should behave are maintained separately in `docs/product/MUDAALA_PLATFORM_OPERATING_PRINCIPLES.md`.
+
+These operating principles are working strategic guidance. They are intended to evolve as Mudaala learns from merchants and buyers. Recording them does not authorise immediate implementation, establish final algorithm weights or make provisional thresholds permanent.
+
+The recommendation system must distinguish buyer personalisation from merchant and product evaluation. Meaningful buyer interactions should improve relevance; credible completed sales may strengthen commercial evidence; neither should become an excuse to maximise attention, reward popularity without limit or override product eligibility, customer outcomes, fairness and buyer choice.
+
+Keep the operating principles and algorithm decisions explicit, explainable, measurable and open to revision as evidence develops.
+
+
 ---
 
 ## The standard
