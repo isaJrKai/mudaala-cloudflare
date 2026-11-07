@@ -52,12 +52,12 @@ export interface ChannelInboundMessage {
   mediaRefs?: string[]
 }
 
-export interface ChannelAdapter<TProviderPayload = unknown, TProviderMessage = unknown> {
+export interface ChannelAdapter<TProviderPayload = unknown, TProviderMessage = unknown, TRecommendation = unknown> {
   readonly channel: CommerceChannel
   /** Verify provider signatures/tokens before accepting the payload. */
   verifyInbound(payload: TProviderPayload, signature: string | null): Promise<boolean>
   /** Convert provider data into a channel-neutral message. */
   normalizeInbound(payload: TProviderPayload): Promise<ChannelInboundMessage>
   /** Convert shared results into a provider-specific response. */
-  presentRecommendations(message: ChannelInboundMessage, results: unknown[]): Promise<TProviderMessage>
+  presentRecommendations(message: ChannelInboundMessage, results: TRecommendation[]): Promise<TProviderMessage>
 }
