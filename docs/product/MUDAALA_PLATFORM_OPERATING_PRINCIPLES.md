@@ -3,7 +3,7 @@
 
 **Status:** Working strategic principles — evolving, not implementation approval  
 **Applies to:** Buyer discovery, merchant recommendations, ranking, personalisation, notifications, search, feeds, merchant visibility, trust signals, experimentation and future recommendation systems  
-**Relationship:** Complements `MUDAALA_PRODUCT_CONSTITUTION.md`, `MUDAALA_COMMERCE_DISCOVERY_NETWORK.md` and the Merchant Trust Framework in the Product Constitution. The constitution establishes what Mudaala stands for; these operating principles describe how the platform should behave.
+**Relationship:** Complements `MUDAALA_PRODUCT_CONSTITUTION.md`, `MUDAALA_COMMERCE_DISCOVERY_NETWORK.md` and the Merchant Trust Framework in the Product Constitution. The companion architecture document, `docs/architecture/MUDAALA_RECOMMENDATION_AND_PERSONALISATION_ENGINE.md`, develops the functional and architectural design. The constitution establishes what Mudaala stands for; these operating principles describe how the platform should behave.
 
 ---
 
