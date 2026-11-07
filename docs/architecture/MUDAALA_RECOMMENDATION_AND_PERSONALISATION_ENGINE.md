@@ -440,6 +440,157 @@ The following should be resolved through product research, data inspection and p
 - Which recommendation surfaces should be prioritised first?
 - What privacy, consent, retention and access controls are required for each event?
 
+## 19. Recommended implementation stack
+
+The recommendation engine should be implemented as a capability inside the existing Mudaala application. It should not begin as a separate service, database or independently deployed product.
+
+### Application language and framework
+
+- **TypeScript** is the primary implementation language for candidate retrieval orchestration, eligibility checks, contextual ranking, personalisation and API contracts.
+- **Next.js App Router** remains the application and server-route framework.
+- Use the existing project conventions, dependency versions, test runner and deployment configuration. Do not introduce a second framework merely for the recommendation engine.
+- Keep core ranking functions deterministic, typed and independently testable. A ranking decision should be reproducible from its inputs and versioned rules.
+
+Python or a dedicated machine-learning runtime is not required for the initial system. Reconsider another language only when a demonstrated workload—such as offline model training or large-scale feature processing—cannot be handled appropriately by the existing stack.
+
+### Database and data access
+
+- **Supabase PostgreSQL** remains the system of record.
+- **Prisma**, using the repository's existing configuration, is the default typed application data-access layer.
+- **Cloudflare Hyperdrive** remains the configured database connectivity layer for the deployed Worker where the current application uses it.
+- Use SQL for database constraints, indexes, carefully reviewed queries, migrations and row-level security policies.
+- Reuse existing merchant, shop, product, account and analytics records. Do not create shadow copies of the catalogue or merchant identity.
+- Add recommendation-specific tables only after repository and schema inspection proves the data is not already represented.
+
+The production database connection must use a dedicated least-privilege role appropriate to the application. Verify the actual role and grants used by Prisma through Hyperdrive before implementation. Do not assume that an application connection automatically carries the end user's Supabase identity into PostgreSQL.
+
+### Data ownership boundaries
+
+The engine may own recommendation-specific state such as explicit buyer preference records, recommendation experiment assignments or carefully defined impression/outcome events if equivalent records do not already exist.
+
+It must not become the owner of:
+- Merchant identity or account ownership.
+- Shop and product source data.
+- Product prices or stock truth.
+- Authentication credentials or session state.
+- Transaction truth that belongs to a separate verified transaction workflow.
+
+Recommendation outputs are derived decisions, not a new source of truth for the underlying commerce records.
+
+## 20. API route and service boundaries
+
+All recommendation decisions that require trusted data or ranking logic must execute on the server.
+
+The browser should call narrow, purpose-specific application routes. It must not connect directly to privileged database credentials or submit arbitrary ranking instructions.
+
+Potential route responsibilities—not a commitment to create every endpoint—include:
+
+- **Recommendation retrieval:** return a bounded set of eligible results for a defined surface and buyer context.
+- **Interaction/event intake:** accept only recognised event types and validated references; derive the actor from the authenticated session or a controlled anonymous-session mechanism.
+- **Preference management:** let a buyer read, change or reset their own personalisation preferences.
+- **Merchant correction and evidence workflows:** allow authorised merchants to correct their own business or product information through existing product workflows.
+- **Internal evaluation and administration:** restricted operational functions for monitoring experiments and diagnosing recommendation quality.
+
+Keep route handlers thin. They should authenticate, validate, authorise, apply rate limits and call domain services. Ranking logic belongs in reusable server-side modules, not duplicated inside route handlers.
+
+Do not create public endpoints for changing merchant trust, sales evidence, ranking weights, eligibility or recommendation outcomes.
+
+## 21. API and route security requirements
+
+Every route must apply the following controls according to its purpose:
+
+1. **Authentication:** identify the caller using a verified server-side session or token. Never trust a user ID supplied in the request body as proof of identity.
+2. **Object-level authorisation:** verify that the caller may access the specific buyer profile, shop, product, event or preference being requested. Being signed in is not sufficient.
+3. **Input validation:** validate request bodies, query parameters, identifiers, enum values, lengths, pagination and payload sizes against explicit schemas.
+4. **Allowlisted events:** accept only defined event types and permitted fields. Never allow clients to invent a purchase, fulfilment, trust or merchant-performance event.
+5. **Rate and abuse controls:** apply per-account, per-session and appropriate IP-based limits. Protect event intake and expensive recommendation queries from automated abuse.
+6. **Safe mutations:** use appropriate origin/CSRF protections for cookie-authenticated mutations, idempotency where retries could duplicate outcomes, and explicit confirmation for consequential actions.
+7. **Output minimisation:** return only fields required by the client. Never expose private buyer histories, confidential merchant evidence, internal fraud signals, credentials or raw ranking features.
+8. **Error discipline:** return safe, consistent errors without SQL, stack traces, tokens or private records.
+9. **Auditability:** record security-sensitive administrative changes, evidence corrections and material ranking configuration changes.
+10. **Operational controls:** use feature flags, monitoring and rollback for ranking changes; secrets remain in server-side environment bindings and secret stores.
+
+Public catalogue discovery and private buyer personalisation are different access classes. Anonymous browsing may receive a safe, non-personalised result set; private preferences and histories require the appropriate authenticated or session-bound access.
+
+## 22. PostgreSQL security and row-level access policies
+
+Row-Level Security (RLS) is a database enforcement layer, not a replacement for application authorisation.
+
+### Required database rules
+
+- Enable RLS on every table exposed through Supabase's Data API.
+- Review grants separately from RLS: a policy does not itself grant table access.
+- Use explicit policies for each table and operation. Do not apply a generic policy to every table.
+- Scope buyer preference and private interaction records to their actual owner.
+- Scope merchant-managed records to the merchant/shop relationship verified by trusted database relationships, not a client-supplied shop ID alone.
+- Keep internal ranking evidence, experiment configuration and administrative records inaccessible to public and ordinary buyer roles.
+- Use restrictive grants and a least-privilege runtime database role.
+- Review views, functions, triggers and storage policies as separate security surfaces.
+
+For Supabase RLS policies:
+- Target roles explicitly, such as `TO authenticated` or `TO anon`, as appropriate.
+- Combine authentication with ownership or relationship predicates; `TO authenticated` alone is not authorisation.
+- For updates, enforce both row visibility (`USING`) and the resulting row state (`WITH CHECK`).
+- Do not use user-editable JWT user metadata for authorisation decisions.
+- Treat views carefully because ordinary views can bypass RLS; use security-invoker views where supported and appropriate.
+- Avoid `SECURITY DEFINER` functions as a shortcut around access errors. Any genuinely necessary privileged function requires restricted execution grants, a fixed safe search path, explicit authorisation checks and security review.
+
+### Important Prisma and Hyperdrive qualification
+
+Supabase's `auth.uid()` is available when a request reaches PostgreSQL with the appropriate Supabase user JWT context. A conventional Prisma connection through Hyperdrive using a database username/password does not automatically establish that per-user context.
+
+Therefore, before relying on RLS for Prisma-originated user queries, inspect and prove the actual connection and transaction model. Do not assume that an RLS policy based on `auth.uid()` will work simply because the application user is signed in.
+
+The initial safe design must combine:
+- Verified application authentication.
+- Explicit server-side object-level authorisation.
+- A least-privilege database role.
+- RLS for exposed Data API access and as database defence-in-depth where the connection context is correctly established.
+
+If per-user RLS context is deliberately introduced for pooled connections, it must be transaction-scoped, set from verified server-side identity, and tested to prove that context cannot leak between pooled requests. Never set it from an untrusted request field.
+
+### Secrets and credentials
+
+- Never expose Supabase service-role or secret keys in browser bundles or `NEXT_PUBLIC_*` variables.
+- Do not place database passwords in source code, logs, error messages or client responses.
+- Rotate credentials if exposure is suspected.
+- Keep local, preview and production credentials separated.
+- Review privileges and revoke unused grants.
+
+## 23. Database integrity and migration rules
+
+Database rules should protect the meaning of commerce data, not just its shape.
+
+- Use foreign keys for real relationships and appropriate unique constraints to prevent duplicate identities or duplicate event processing where applicable.
+- Use check constraints for valid states and bounded values.
+- Use indexes based on measured query patterns, including the access paths used by buyer, merchant, category and location queries.
+- Use timestamps consistently and define how stale product information is treated.
+- Make event ingestion idempotent where retries are possible.
+- Preserve provenance and correction history for important commercial evidence.
+- Do not let a browser write directly to authoritative sales, trust, fulfilment or ranking fields.
+- Make schema changes through reviewed, version-controlled migrations with rollback considerations.
+- Test migrations against a representative non-production database before production rollout.
+
+Do not create tables or policies based solely on this conceptual document. Inspect the current Prisma schema, Supabase schema, existing migrations, grants, RLS policies and production connection role first.
+
+## 24. Security and architecture verification gates
+
+Before the engine is exposed to real users, verify at minimum:
+
+- An anonymous buyer cannot read another buyer's preferences or history.
+- An authenticated buyer cannot access or alter another buyer's records by changing an ID.
+- A merchant can manage only shops and products they are authorised to manage.
+- A merchant cannot manufacture confirmed sales, buyer feedback or trust evidence through event submission.
+- Public clients cannot access service-role credentials or privileged database operations.
+- RLS policies and table grants behave as intended through every enabled access path.
+- Prisma/Hyperdrive connection context does not leak identity between pooled requests.
+- Invalid, oversized, replayed and high-volume event submissions are handled safely.
+- Recommendation responses do not expose private or internal evidence.
+- Ranking and eligibility logic have automated tests for fairness, relevance and ineligible listings.
+- Security advisors and relevant application tests are run after schema or policy changes.
+
+A security test is not complete merely because a route returns HTTP 200. Verify both allowed and denied access paths.
+
 ## 19. Governing standard
 
 Mudaala should recommend a product because it is relevant to the buyer and the listing is eligible. It should give merchants greater opportunity when reliable evidence shows that they serve demand well. It should learn a buyer's preferences from meaningful interactions without turning attention into the objective.
