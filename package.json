@@ -16,6 +16,7 @@
     "db:seed": "node scripts/guard-local-db.mjs && bun scripts/seed.ts",
     "test:public-listing-expiry": "bun test scripts/test-public-listing-expiry.test.mjs",
     "test:merchant-growth": "bun test src/lib/merchant-growth.test.mjs",
+    "test:recommendations": "bun test src/lib/commerce-intelligence/recommendations.test.mjs",
     "test:web-push": "bun test src/lib/web-push.test.mjs"
   },
   "dependencies": {

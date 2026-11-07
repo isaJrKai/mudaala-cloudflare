@@ -48,6 +48,9 @@ jobs:
       - name: Test merchant Growth Coach recommendation rules
         run: npm run test:merchant-growth
 
+      - name: Test shared commerce recommendation engine
+        run: npm run test:recommendations
+
       - name: Test Web Push VAPID and encryption
         run: npm run test:web-push
 
