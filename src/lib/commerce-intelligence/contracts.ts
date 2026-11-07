@@ -10,6 +10,7 @@ export const COMMERCE_CHANNELS = [
   'PWA',
   'WHATSAPP',
   'FACEBOOK',
+  'MESSENGER',
   'INSTAGRAM',
   'X',
   'LINKEDIN',
