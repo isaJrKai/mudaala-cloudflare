@@ -5,7 +5,7 @@ This is the active deployment runbook for Mudaala. Production runs on **Cloudfla
 ## Production resources
 
 - Worker: `mudaala-cloudflare`
-- Public URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+- Public URL: https://mudaala.store
 - Database: Supabase PostgreSQL, connected from the Worker through the `HYPERDRIVE` binding in `wrangler.jsonc`
 - Photo bucket: `mudaala-photos`
 - Scheduled trigger: `*/15 * * * *` UTC. The Worker evaluates merchant-local Growth Coach slots and snoozes every 15 minutes, and preserves the daily maintenance sweep at 03:00 UTC.
@@ -47,7 +47,7 @@ Check the production health endpoint after a deployment:
 
 ```bash
 curl --fail --silent --show-error \
-  https://mudaala-cloudflare.kaisoisaac.workers.dev/api/health
+  https://mudaala.store/api/health
 ```
 
 The response must indicate that the app and database are up. Health checks confirm connectivity, not the correctness of every customer flow; use the API tests and explicit shop-owner/public-shop verification for those.
