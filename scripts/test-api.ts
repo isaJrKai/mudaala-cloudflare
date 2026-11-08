@@ -45,8 +45,7 @@ const db = new PrismaClient()
 // knobs this suite needs are visible here too.
 function loadDotEnv(file = '.env') {
   try {
-    for (const line of fs.readFileSync(file, 'utf8').split('
-')) {
+    for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
       const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line)
       if (m && process.env[m[1]!] === undefined) {
         process.env[m[1]!] = m[2]!.replace(/^["']|["']$/g, '')
@@ -173,8 +172,7 @@ async function main() {
   let unicodeFragranceListingId = ''
   let phoneOnlyListingId = ''
   let luxuryCologneListingId = ''
-  console.log('
-== 1. Authentication ==')
+  console.log('\n== 1. Authentication ==')
   const alice: Jar = { cookie: '' }
   const alicePhone = uniquePhone()
   {
@@ -205,8 +203,7 @@ async function main() {
     const anonMe = await call('GET', '/api/auth/me')
     ok('GET /me without session → user null', anonMe.json?.user === null)
 
-    console.log('
-== 1a. Personalized category memory + account isolation ==')
+    console.log('\n== 1a. Personalized category memory + account isolation ==')
     const anonymousPreferences = await call('GET', '/api/category-preferences')
     ok('category preferences require sign-in', anonymousPreferences.status === 401)
 
@@ -235,8 +232,7 @@ async function main() {
     ok('reset clears only the current account category memory', resetPreferences.status === 200 && afterReset.status === 200 && afterReset.json.interests.length === 0)
   }
 
-  console.log('
-== 1b. Ugandan phone formats + Bearer transport ==')
+  console.log('\n== 1b. Ugandan phone formats + Bearer transport ==')
   {
     // Seeded dev fixtures: same local-format numbers a real user would type.
     const ugLogin = await call('POST', '/api/auth/login', { phone: '0772123456', password: 'demo1234' })
@@ -264,8 +260,7 @@ async function main() {
     ok('logout revokes the Bearer-only session too', bearerLogout.status === 200 && meAfterBearerLogout.json?.user === null)
   }
 
-  console.log('
-== 1c. Login rate limiting ==')
+  console.log('\n== 1c. Login rate limiting ==')
   {
     // A throwaway account (deleted right after) proves the lockout: 5 wrong
     // passwords are allowed, the 6th attempt is 429 even with the RIGHT one.
@@ -307,8 +302,7 @@ async function main() {
     if (rlUser) await db.user.delete({ where: { id: rlUser.id } })
   }
 
-  console.log('
-== 2. Listing creation & validation ==')
+  console.log('\n== 2. Listing creation & validation ==')
   {
     const anon = await call('POST', '/api/listings', validListing)
     ok('unauthenticated create → 401', anon.status === 401)
@@ -394,8 +388,7 @@ async function main() {
     ok('unsupported currency → 400', badCurrency.status === 400)
   }
 
-  console.log('
-== 3. Search, filters, pagination ==')
+  console.log('\n== 3. Search, filters, pagination ==')
   {
     const search = await call('GET', '/api/listings?q=' + encodeURIComponent('test copper scrap'))
     ok('text search finds the created listing', search.json.items.some((l: any) => l.id === createdListingId))
@@ -525,8 +518,7 @@ async function main() {
     ok('invalid query params → 400', badParams.status === 400)
   }
 
-  console.log('
-== 3b. Photos, upload & shop identity ==')
+  console.log('\n== 3b. Photos, upload & shop identity ==')
   {
     // 1x1 transparent PNG (valid magic bytes) and a fake "png" that is text.
     const PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
@@ -708,8 +700,7 @@ async function main() {
     await call('DELETE', `/api/listings/${withPhotos.json.listing.id}`, undefined, alice)
   }
 
-  console.log('
-== 3c. Shop page (public catalogue), discounts & checklist ==')
+  console.log('\n== 3c. Shop page (public catalogue), discounts & checklist ==')
   {
     // Alice's profile exists from 3b: photo set, description/area/hours/whatsapp empty.
     const anonProfile = await call('GET', '/api/profile')
@@ -842,8 +833,7 @@ async function main() {
     await call('DELETE', `/api/listings/${bobListing.json.listing.id}`, undefined, bob)
   }
 
-  console.log('
-== 3d. Shop identity codes & same-name guard ==')
+  console.log('\n== 3d. Shop identity codes & same-name guard ==')
   {
     // Alice's profile was created in 3b, so it already carries a code.
     const profileState = await call('GET', '/api/profile', undefined, alice)
@@ -919,8 +909,7 @@ async function main() {
     await call('DELETE', `/api/listings/${doraListing.json.listing.id}`, undefined, dora)
   }
 
-  console.log('
-== 3e. Shop location & nearest sort ==')
+  console.log('\n== 3e. Shop location & nearest sort ==')
   {
     // Permission + validation boundaries.
     const anonLoc = await call('PUT', '/api/profile/location', { lat: 0.335, lng: 32.586 })
@@ -992,8 +981,7 @@ async function main() {
     await call('DELETE', `/api/listings/${nelaListing.json.listing.id}`, undefined, nela)
   }
 
-  console.log('
-== 3f. Shop code lookup (the till-number path) ==')
+  console.log('\n== 3f. Shop code lookup (the till-number path) ==')
   {
     // The lookup is public - no jar, no cookie: buyers never sign in.
     const meProf = await call('GET', '/api/profile', undefined, alice)
@@ -1038,8 +1026,7 @@ async function main() {
         !JSON.stringify(hit.json).toLowerCase().includes('password'))
   }
 
-  console.log('
-== 4. Ownership & permission boundaries ==')
+  console.log('\n== 4. Ownership & permission boundaries ==')
   const bob: Jar = { cookie: '' }
   const bobPhone = uniquePhone()
   {
@@ -1089,8 +1076,7 @@ async function main() {
     ok('owner edit works (200)', ownerEdit.status === 200 && ownerEdit.json.listing.price === 510)
   }
 
-  console.log('
-== 5. Status transitions ==')
+  console.log('\n== 5. Status transitions ==')
   {
     const fulfilled = await call('PATCH', `/api/listings/${createdListingId}`, { status: 'FULFILLED' }, alice)
     ok('ACTIVE → FULFILLED allowed', fulfilled.status === 200 && fulfilled.json.listing.status === 'FULFILLED')
@@ -1109,8 +1095,7 @@ async function main() {
     ok('FULFILLED → EXPIRED forbidden (sweep owns that transition)', toExpired.status === 409 && fulfillAgain.status === 200)
   }
 
-  console.log('
-== 6. Refresh cooldown ==')
+  console.log('\n== 6. Refresh cooldown ==')
   {
     // The listing is FULFILLED at this point (section 5); reactivate explicitly.
     const reactivate = await call('PATCH', `/api/listings/${createdListingId}`, { status: 'ACTIVE' }, alice)
@@ -1143,8 +1128,7 @@ async function main() {
     ok('simultaneous refreshes produce one success and one cooldown response', refreshStatuses[0] === 200 && refreshStatuses[1] === 429, refreshStatuses.join(', '))
   }
 
-  console.log('
-== 7. Saved searches & real matching ==')
+  console.log('\n== 7. Saved searches & real matching ==')
   {
     const ss: Jar = { cookie: '' }
     await register(ss, uniquePhone(), 'Carol Watcher', 'password789')
@@ -1205,8 +1189,7 @@ async function main() {
     ok('notification list is empty after clear', afterClear.json.notifications.length === 0 && afterClear.json.unreadCount === 0)
   }
 
-  console.log('
-== 8. Expiry is real ==')
+  console.log('\n== 8. Expiry is real ==')
   {
     // Force an overdue ACTIVE listing directly in the DB (simulates time passing).
     const overdue = await db.listing.create({
@@ -1248,8 +1231,7 @@ async function main() {
     await call('DELETE', `/api/listings/${overdue.id}`, undefined, alice)
   }
 
-  console.log('
-== 8b. Sweep endpoint needs the cron secret ==')
+  console.log('\n== 8b. Sweep endpoint needs the cron secret ==')
   {
     const noHeader = await call('POST', '/api/cron/sweep')
     ok('sweep without header → 403', noHeader.status === 403)
@@ -1275,8 +1257,7 @@ async function main() {
     }
   }
 
-  console.log('
-== 9. Settings → Advanced Settings (PostgreSQL) ==')
+  console.log('\n== 9. Settings → Advanced Settings (PostgreSQL) ==')
   {
     const anon = await call('GET', '/api/settings/postgres')
     ok('settings require sign-in → 401', anon.status === 401)
@@ -1389,8 +1370,7 @@ async function main() {
     ok('test without saved config → 400', afterClear.status === 400)
   }
 
-  console.log('
-== 10. Sign out ==')
+  console.log('\n== 10. Sign out ==')
   {
     const out = await call('POST', '/api/auth/logout', undefined, alice)
     ok('logout clears session', out.status === 200)
@@ -1398,8 +1378,7 @@ async function main() {
     ok('session gone after logout', meAfter.json?.user === null)
   }
 
-  console.log('
-== 11. Home dashboard + price trends ==')
+  console.log('\n== 11. Home dashboard + price trends ==')
   {
     // Hermetic cleanup: the sweep aggregates every ACTIVE OFFER per
     // (category, unit, currency), so leftovers from earlier runs (a restore
@@ -1524,8 +1503,7 @@ async function main() {
     // Cron secret: CI injects it; local runs read the dev .env.
     const cronSecret = process.env.CRON_SECRET ?? (() => {
       try {
-        const line = fs.readFileSync(path.resolve(process.cwd(), '.env'), 'utf8').split('
-').find((l) => l.startsWith('CRON_SECRET='))
+        const line = fs.readFileSync(path.resolve(process.cwd(), '.env'), 'utf8').split('\n').find((l) => l.startsWith('CRON_SECRET='))
         return line ? line.slice('CRON_SECRET='.length).trim() : undefined
       } catch {
         return undefined
@@ -1585,8 +1563,7 @@ async function main() {
     await db.listing.updateMany({ where: { status: 'ACTIVE', type: 'OFFER', category: 'food-groceries', unit: 'kg' }, data: { status: 'ARCHIVED' } })
   }
 
-  console.log('
-== 12. Ad pages (/l/[id], /s/[code]) ==')
+  console.log('\n== 12. Ad pages (/l/[id], /s/[code]) ==')
   {
     // Section 10 signed alice out on purpose; the publish-backed tests below
     // need her session again, so sign back in first. call() does not auto-
@@ -1774,8 +1751,7 @@ async function main() {
     }
   }
 
-  console.log('
-== 13. Reports & moderation ==')
+  console.log('\n== 13. Reports & moderation ==')
   {
     // Roles: a seller whose ads get reported, three independent buyers, one
     // volume reporter for the daily cap, and the seeded admin (ADMIN_PHONES).
@@ -1997,8 +1973,7 @@ async function main() {
     console.log('  (section 13 fixtures cleaned up)')
   }
 
-  console.log('
-== 14. Password reset by SMS code ==')
+  console.log('\n== 14. Password reset by SMS code ==')
   {
     // The dev "inbox": the console SMS provider prints each message to the
     // dev server console, which this run captures in dev.log. Codes are read
@@ -2010,8 +1985,7 @@ async function main() {
       for (let attempt = 0; attempt < 4; attempt++) {
         try {
           const log = fs.readFileSync(DEV_LOG, 'utf8')
-          const lines = log.split('
-').filter((l) => l.includes(`[sms:console] to ${phone}: `))
+          const lines = log.split('\n').filter((l) => l.includes(`[sms:console] to ${phone}: `))
           const m = lines.length > 0 ? /reset code is (\d{6})/.exec(lines[lines.length - 1]!) : null
           if (m) return m[1]
         } catch {
@@ -2069,8 +2043,7 @@ async function main() {
     const codeA = await readDevCode(pwA.user!.phone)
     ok('code delivered to the dev console inbox, and absent from the API body', typeof codeA === 'string' && /^\d{6}$/.test(codeA ?? '') && !/\d{6}/.test(JSON.stringify(forgotReal.json)))
     const smsLineA = fs.existsSync(DEV_LOG)
-      ? (fs.readFileSync(DEV_LOG, 'utf8').split('
-').filter((l) => l.includes(`[sms:console] to ${pwA.user!.phone}: `)).pop() ?? '')
+      ? (fs.readFileSync(DEV_LOG, 'utf8').split('\n').filter((l) => l.includes(`[sms:console] to ${pwA.user!.phone}: `)).pop() ?? '')
       : ''
     ok('the SMS text names the app and is honest about expiry', smsLineA.includes('Mudaala password reset code') && smsLineA.includes('10 minutes'))
 
@@ -2173,8 +2146,7 @@ async function main() {
     console.log('  (section 14 fixtures cleaned up)')
   }
 
-  console.log('
-== 15. Legal pages, terms acceptance & phase-1 security ==')
+  console.log('\n== 15. Legal pages, terms acceptance & phase-1 security ==')
   {
     // ---- 15a. Pure-function units: the bearer gate and env validation ----
     const gate = (env: Record<string, string | undefined>) => bearerAuthEnabled(env)
@@ -2662,8 +2634,7 @@ async function main() {
     }
   }
 
-  console.log('
-== 16. Real hosting: health, storage interface, Postgres search ==')
+  console.log('\n== 16. Real hosting: health, storage interface, Postgres search ==')
   {
     // ---- 16a. Health endpoint: app + database reachable ----
     const health = await fetch(`${BASE}/api/health`)
@@ -2759,8 +2730,7 @@ async function main() {
   // == 17. PLACEHOLDER RULE - seed flag, sitemap/OG exclusions,   ==
   // ==    neutral tile, one-step seed-removal dry-run             ==
   // ===============================================================
-  console.log('
-== 17. Placeholder rule: seed flag, sitemap/OG exclusions, neutral tile ==')
+  console.log('\n== 17. Placeholder rule: seed flag, sitemap/OG exclusions, neutral tile ==')
   {
     const ph17: Jar = { cookie: '' }
     await register(ph17, uniquePhone(), 'Placeholder Fixture', 'quiet-harbor-31')
@@ -2878,8 +2848,7 @@ async function main() {
   // in the codebase itself. The repo simply contains none: the scan below
   // fails the suite the moment one lands, so the discipline is enforced, not
   // remembered.
-  console.log(`
-== 18. Copy discipline: no em/en dashes, no template words ==`)
+  console.log(`\n== 18. Copy discipline: no em/en dashes, no template words ==`)
   {
     // The suite always runs from the repo root (bugprobe.sh), the same
     // convention every other section uses for path resolution.
@@ -2926,13 +2895,11 @@ async function main() {
     // The UI voice lives in copy.ts; template-speak is banned there.
     const copyText = fs.readFileSync(path.join(root, 'src', 'lib', 'copy.ts'), 'utf8')
     const bannedWords = /seamless|empower|discover|unlock/i
-    const bannedHits = copyText.split('
-').filter((l) => bannedWords.test(l) && l.trim().startsWith('//') === false)
+    const bannedHits = copyText.split('\n').filter((l) => bannedWords.test(l) && l.trim().startsWith('//') === false)
     ok('18.2 copy.ts carries no banned template words (seamless, empower, discover, unlock)', bannedHits.length === 0, bannedHits.slice(0, 3).join(' | '))
   }
 
-  console.log(`
-== 19. Market movers - pickMovers (pure logic, no db) ==`)
+  console.log(`\n== 19. Market movers - pickMovers (pure logic, no db) ==`)
   {
     const label = (key: string) => (key === 'farm-produce' ? 'Farm Produce' : key)
     const row = (category: string, date: string, medianPrice: number, sampleSize = 6) =>
@@ -2985,8 +2952,7 @@ async function main() {
     )
   }
 
-  console.log(`
-== 20. Basket store - removing one line and putting it back (pure, no db) ==`)
+  console.log(`\n== 20. Basket store - removing one line and putting it back (pure, no db) ==`)
   {
     // The store persists to localStorage in the browser; in Node that write
     // is a caught no-op and the in-memory state is the whole truth, which is
@@ -3072,8 +3038,7 @@ async function main() {
     )
   }
 
-  console.log(`
-== 21. Merchant code schema - the pay sheet's guardrails (pure, no db) ==`)
+  console.log(`\n== 21. Merchant code schema - the pay sheet's guardrails (pure, no db) ==`)
   {
     const base = {
       businessName: 'Kisenyi Scrap Dealers',
@@ -3137,8 +3102,7 @@ async function main() {
     )
   }
 
-  console.log('
-== 21a. My Business records, ownership and accounting truth ==')
+  console.log('\n== 21a. My Business records, ownership and accounting truth ==')
   {
     const seller: Jar = { cookie: '' }
     const otherSeller: Jar = { cookie: '' }
@@ -3246,8 +3210,7 @@ async function main() {
     ok('21a.17 exports use CSV content type and preserve void history', exportProducts.headers.get('content-type')?.includes('text/csv') === true && exportSales.headers.get('content-type')?.includes('text/csv') === true && exportStock.headers.get('content-type')?.includes('text/csv') === true && productsCsv.includes('Business ledger test product') && salesCsv.includes('VOIDED') && stockCsv.includes('RESTOCK'))
   }
 
-  console.log('
-== 21b. Privacy-safe listing and shop engagement analytics ==')
+  console.log('\n== 21b. Privacy-safe listing and shop engagement analytics ==')
   {
     const engagementSeller: Jar = { cookie: '' }
     const engagementViewer: Jar = { cookie: '' }
@@ -3309,8 +3272,7 @@ async function main() {
     }
   }
 
-  console.log('
-== 24. Product collections: ownership, curation and public visibility ==')
+  console.log('\n== 24. Product collections: ownership, curation and public visibility ==')
   {
     const collectionOwner: Jar = { cookie: '' }
     const collectionStranger: Jar = { cookie: '' }
@@ -3495,8 +3457,7 @@ async function main() {
   }
 
     
-  console.log(`
-== 22. Hermetic sweep - this run leaves no fixtures behind ==`)
+  console.log(`\n== 22. Hermetic sweep - this run leaves no fixtures behind ==`)
   {
     const ids = [...createdUserIds]
     // Targets the fixtures own or were reported about: listings + shop
@@ -3548,8 +3509,7 @@ async function main() {
     ok('22.2 zero users from this run remain', leftovers === 0)
   }
 
-  console.log(`
-== 23. Account ownership: export everything, leave with nothing ==`)
+  console.log(`\n== 23. Account ownership: export everything, leave with nothing ==`)
   {
     // One seller with one photo, one shop, one ad, one saved search, one
     // filed report and one audit row - everything a real account accumulates.
@@ -3708,12 +3668,10 @@ async function main() {
     await db.auditLog.delete({ where: { id: leaverAudit.id } }).catch(() => undefined)
   }
 
-  console.log(`
-========================================`)
+  console.log(`\n========================================`)
   console.log(`RESULT: ${passed} passed, ${failed} failed`)
   if (failures.length > 0) {
-    console.log('
-Failures:')
+    console.log('\nFailures:')
     for (const f of failures) console.log(`  ✗ ${f}`)
     process.exitCode = 1
   }
