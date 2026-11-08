@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     // Seller-reported attribution is queried independently from anonymous
     // contact taps and ordinary recorded sales. A deleted listing keeps its
     // title snapshot, so historical revenue remains reportable.
-    const attributedRows = await db.$queryRaw<AttributedSalesAggregate[]>\x60
+    const attributedRows = await db.$queryRaw<AttributedSalesAggregate[]>`
       SELECT
         s."currency" AS currency,
         s."sourceListingId" AS listing_id,
@@ -69,7 +69,7 @@ export async function GET(request: Request) {
         AND s."soldAt" >= \x24{since}
       GROUP BY s."currency", s."sourceListingId", s."sourceListingTitle"
       ORDER BY SUM(i."lineTotal") DESC
-    \x60
+    `
     const attributedByCurrency = new Map<string, { currency: string; salesCount: number; revenue: number }>()
     for (const row of attributedRows) {
       const current = attributedByCurrency.get(row.currency) ?? { currency: row.currency, salesCount: 0, revenue: 0 }
