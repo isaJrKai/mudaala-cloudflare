@@ -23,7 +23,7 @@ jobs:
 
       - name: Verify production category order in a clean guest session
         env:
-          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+          APP_URL: https://mudaala.store
         run: |
           node <<'NODE'
           const { chromium } = require('/tmp/mudaala-category-check/node_modules/playwright');
