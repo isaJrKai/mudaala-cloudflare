@@ -1,6 +1,6 @@
 # Phase 1 — Commerce attribution
 
-**Status:** design contract for review; implementation has not started.
+**Status:** implementation in progress on `feat/phase-1-contact-attribution`; seller-reported listing attribution is the first implementation slice.
 **Branch:** `feat/phase-1-commerce-attribution`
 **Product outcome:** a trader can distinguish ordinary enquiries from sales they report as originating from a specific Mudaala listing.
 
@@ -24,12 +24,12 @@ These terms must remain distinct in database fields, API responses, analytics la
 | Buyer-confirmed trade | A buyer separately confirms a specific seller-reported trade through a future consent-based flow | Payment settlement or independently verified fulfilment |
 | Independently verified trade | Evidence has been reviewed under a separately defined verification policy | Must never be inferred from a click or seller assertion |
 
-**Phase 1 implements only seller-reported listing attribution.** It must not label these records as verified, confirmed, completed-through-Mudaala in an independently proven sense, or unique customers.
+**The first Phase 1 slice implements only seller-reported listing attribution.** It must not label these records as verified, confirmed, completed-through-Mudaala in an independently proven sense, or unique customers.
 
 ## 3. Reuse existing domain models
 
 - `ListingDailyAnalytics` remains the aggregate source for views, call clicks, WhatsApp clicks and shares. Do not add a raw viewer/event identity stream.
-- `Sale` remains the seller's transaction record and source of truth for seller-entered revenue.
+- `Sale` remains the seller's transaction record and source of truth for seller-entered revenue. The nullable `sourceListingId` and immutable `sourceListingTitle` identify the listing the seller explicitly attributes as the source.
 - `SaleItem` remains the line-item and inventory accounting record.
 - `BusinessProduct.listingId` remains the catalogue-to-public-listing relationship. It describes which listing represents a catalogue product; it does **not** prove that a particular sale came from that listing.
 - `StockMovement` remains append-preserving inventory history.
@@ -44,7 +44,7 @@ Add nullable source fields to `Sale`:
 - `sourceListingTitle String?`: immutable title snapshot captured when the attribution is recorded, so historical reporting remains intelligible if the listing is later renamed or removed.
 - Optional relation from `Sale` to `Listing`, with deletion behavior that preserves the sale and title snapshot (the relation is cleared, not the financial record).
 
-The relation is optional because existing sales and sales from other channels have no listing attribution. No historical sale is backfilled or guessed.
+The relation is optional because existing sales and sales from other channels have no listing attribution. The FK uses `ON DELETE SET NULL`; the title snapshot remains. No historical sale is backfilled or guessed.
 
 ### Invariants
 
@@ -144,7 +144,7 @@ Do not calculate a conversion rate by dividing attributed sales by aggregate con
 - Trust scores, merchant ranking changes or public verification badges.
 - Claiming that seller-reported attribution is independently verified.
 
-A later buyer-confirmation slice must have its own consent, token security, replay protection, abuse controls, retention policy and evidence semantics. It must not be smuggled into this migration.
+A later contact-reference slice may add an opaque, non-personal WhatsApp attempt reference so a seller can match a sale to a real inbound message. The current daily aggregate cannot provide that join; a click is not an inbound message. Any such event record must avoid buyer identity, phone, IP and message content, and must separately define expiry, replay, abuse and retention rules. Buyer confirmation remains a separate future flow with explicit consent and its own token security. Neither is smuggled into the seller-reported attribution migration.
 
 ## 11. Definition of done
 
