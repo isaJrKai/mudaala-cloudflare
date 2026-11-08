@@ -3141,6 +3141,7 @@ async function main() {
     const attributionListingId = attributionListingRes.json?.listing?.id ?? ''
     ok('21a.5a seller fixture has a real non-seed Mudaala listing', attributionListingRes.status === 201 && attributionListingId !== '')
 
+    await db.listing.update({ where: { id: attributionListingId }, data: { status: 'ARCHIVED' } })
     const saleKey = randomUUID()
     const saleBody = { idempotencyKey: saleKey, channel: 'WHATSAPP', sourceListingId: attributionListingId, items: [{ productId, quantity: 2, unitPrice: 50000 }] }
     const saleRes = await call('POST', '/api/my/sales', saleBody, seller)
@@ -3181,6 +3182,9 @@ async function main() {
     const voidSummary = analyticsAfterVoid.json?.sales?.find((row: any) => row.currency === 'UGX')
     ok('21a.12 voided sales are excluded from active revenue', analyticsAfterVoid.status === 200 && (!voidSummary || (voidSummary.recordedRevenue === 0 && voidSummary.completedSales === 0)))
     ok('21a.12a voided seller-reported sales are excluded from attributed counts and revenue', analyticsAfterVoid.status === 200 && (analyticsAfterVoid.json?.sellerReportedAttribution?.byCurrency ?? []).every((row: any) => row.salesCount === 0 && row.revenue === 0))
+    await db.listing.delete({ where: { id: attributionListingId } })
+    const preservedAttribution = await db.sale.findUnique({ where: { id: saleId }, select: { sourceListingId: true, sourceListingTitle: true } })
+    ok('21a.12b listing deletion clears the relation but preserves the historical source title', preservedAttribution?.sourceListingId === null && preservedAttribution?.sourceListingTitle === 'Attribution test listing')
 
     const restock = await call('POST', '/api/my/business-products/' + productId + '/stock', { type: 'RESTOCK', quantity: 2, note: 'Test delivery' }, seller)
     const threshold = await call('PATCH', '/api/my/business-products/' + productId, { reorderLevel: 8 }, seller)
