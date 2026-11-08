@@ -7,7 +7,7 @@ Mudaala gives small shops in Uganda a simple digital identity and public catalog
 - **Web app:** Next.js App Router + TypeScript, built for Cloudflare Workers with OpenNext.
 - **Database:** PostgreSQL on Supabase, reached by the Worker through Cloudflare Hyperdrive and Prisma's PostgreSQL adapter.
 - **Photos:** Supabase Storage, using the `mudaala-photos` bucket and public URLs where configured.
-- **Hosting:** Cloudflare Workers. The production URL is [mudaala-cloudflare.kaisoisaac.workers.dev](https://mudaala-cloudflare.kaisoisaac.workers.dev).
+- **Hosting:** Cloudflare Workers. The production URL is [mudaala.store](https://mudaala.store).
 - **Deployment:** GitHub Actions validates pull requests. Pushes to `main` build and deploy the Worker, check `/api/health`, and attempt to roll back if the deploy or health check fails.
 
 The current production path is **Cloudflare Workers + Supabase**. The old Render and always-on-VM deployment instructions are no longer the production runbook.
