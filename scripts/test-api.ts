@@ -3150,6 +3150,12 @@ async function main() {
     const invalidChannelSale = await db.sale.findFirst({ where: { userId: seller.user?.id, idempotencyKey: invalidChannelKey } })
     const stockAfterInvalidChannel = await db.businessProduct.findUnique({ where: { id: productId }, select: { stockOnHand: true } })
     ok('21a.5a1 listing attribution requires the Mudaala channel and makes no sale or stock change otherwise', invalidChannelAttribution.status === 400 && invalidChannelSale === null && Number(stockAfterInvalidChannel?.stockOnHand) === Number(stockBeforeInvalidChannel?.stockOnHand))
+    const seedKey = randomUUID()
+    await db.listing.update({ where: { id: attributionListingId }, data: { isSeed: true } })
+    const seedAttribution = await call('POST', '/api/my/sales', { ...saleBody, idempotencyKey: seedKey }, seller)
+    const seedSale = await db.sale.findFirst({ where: { userId: seller.user?.id, idempotencyKey: seedKey } })
+    await db.listing.update({ where: { id: attributionListingId }, data: { isSeed: false } })
+    ok('21a.5a2 seed listings cannot be attributed and do not create a sale', seedAttribution.status === 404 && seedSale === null)
     const saleRes = await call('POST', '/api/my/sales', saleBody, seller)
     const saleId = saleRes.json?.sale?.id ?? ''
     ok('21a.5 record completed sale captures revenue and seller-reported listing attribution', saleRes.status === 201 && saleId !== '' && saleRes.json?.sale?.revenue === 100000 && saleRes.json?.sale?.grossProfit === 40000 && saleRes.json?.sale?.sourceListingId === attributionListingId && saleRes.json?.sale?.sourceListingTitle === 'Attribution test listing')
