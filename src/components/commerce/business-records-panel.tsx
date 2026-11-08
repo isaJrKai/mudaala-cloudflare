@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 type Product = { id: string; name: string; sku: string | null; unit: string; currency: string; sellingPrice: number; costPrice: number | null; stockOnHand: number; reorderLevel: number; trackInventory: boolean; archived: boolean }
-type OwnerListing = { id: string; title: string; status: string; isSeed: boolean }\ntype Sale = { id: string; status: string; channel: string; currency: string; soldAt: string; sourceListingId: string | null; sourceListingTitle: string | null; notes: string | null; revenue: number; grossProfit: number | null; items: { productName: string; quantity: number; unit: string; unitPrice: number }[] }
+type OwnerListing = { id: string; title: string; status: string; isSeed: boolean }
+type Sale = { id: string; status: string; channel: string; currency: string; soldAt: string; sourceListingId: string | null; sourceListingTitle: string | null; notes: string | null; revenue: number; grossProfit: number | null; items: { productName: string; quantity: number; unit: string; unitPrice: number }[] }
 type BusinessAnalytics = { period: string; since: string; sellerReportedAttribution: { byCurrency: { currency: string; salesCount: number; revenue: number }[]; byListing: { listingId: string | null; listingTitle: string; currency: string; salesCount: number; revenue: number }[]; evidence: string }; sales: { currency: string; completedSales: number; recordedRevenue: number; estimatedGrossProfit: number | null; saleLines: number; linesWithKnownCost: number; costCoverage: number | null }[]; listingViews: number; listingCount: number; engagement: { views: number; callClicks: number; whatsappClicks: number; shareClicks: number; contactClicks: number; topListings: { listingId: string; title: string; views: number; callClicks: number; whatsappClicks: number; shareClicks: number }[]; definitions: Record<string, string> }; shopEngagement: { views: number; callClicks: number; whatsappClicks: number; shareClicks: number; contactClicks: number }; activeBusinessProducts: number; inventoryTrackedProducts: number }
 const ugx = (amount: number) => new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(amount)
 
@@ -28,7 +29,8 @@ export function BusinessRecordsPanel() {
   const [saleQty, setSaleQty] = useState('1')
   const [saleRequestKey, setSaleRequestKey] = useState('')
   const [salePrice, setSalePrice] = useState('')
-  const [channel, setChannel] = useState('IN_PERSON')\n  const [sourceListingId, setSourceListingId] = useState('')
+  const [channel, setChannel] = useState('IN_PERSON')
+  const [sourceListingId, setSourceListingId] = useState('')
   const [stockProductId, setStockProductId] = useState('')
   const [stockQty, setStockQty] = useState('')
   const [stockNote, setStockNote] = useState('')
@@ -36,7 +38,8 @@ export function BusinessRecordsPanel() {
   const [thresholdValue, setThresholdValue] = useState('0')
   const [error, setError] = useState('')
 
-  const listingsQuery = useQuery({ queryKey: ['my-listings-for-sale-attribution'], queryFn: () => apiGet<{ listings: OwnerListing[] }>('/api/my/listings'), staleTime: 30000 })\n  const productsQuery = useQuery({ queryKey: ['business-products'], queryFn: () => apiGet<{ products: Product[] }>('/api/my/business-products'), staleTime: 15000 })
+  const listingsQuery = useQuery({ queryKey: ['my-listings-for-sale-attribution'], queryFn: () => apiGet<{ listings: OwnerListing[] }>('/api/my/listings'), staleTime: 30000 })
+  const productsQuery = useQuery({ queryKey: ['business-products'], queryFn: () => apiGet<{ products: Product[] }>('/api/my/business-products'), staleTime: 15000 })
   const salesQuery = useQuery({ queryKey: ['business-sales'], queryFn: () => apiGet<{ sales: Sale[] }>('/api/my/sales?limit=20'), staleTime: 15000 })
   const analyticsQuery = useQuery({ queryKey: ['business-analytics'], queryFn: () => apiGet<BusinessAnalytics>('/api/my/business-analytics?period=30d'), staleTime: 30000 })
   const products = productsQuery.data?.products ?? []
