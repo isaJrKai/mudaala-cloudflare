@@ -109,6 +109,17 @@ export function BusinessRecordsPanel() {
     </div>
 
     <Card>
+      <CardHeader><CardTitle>Sales you reported from Mudaala listings</CardTitle><p className="text-sm text-muted-foreground">These are your own attributions, not buyer-confirmed or independently verified trades.</p></CardHeader>
+      <CardContent className="space-y-3">
+        {(analyticsQuery.data?.sellerReportedAttribution.byCurrency ?? []).length === 0 ? <p className="text-sm text-muted-foreground">No sales have been attributed to a Mudaala listing in this period. When recording a sale, select the listing that brought the customer.</p> : <>
+          <div className="flex flex-wrap gap-6">{analyticsQuery.data!.sellerReportedAttribution.byCurrency.map((row) => <div key={row.currency}><p className="text-xs text-muted-foreground">Seller-reported sales · {row.currency}</p><p className="text-xl font-semibold tabular-nums">{row.salesCount}</p><p className="text-sm">{row.revenue.toLocaleString('en-UG')} {row.currency}</p></div>)}</div>
+          <div className="divide-y">{analyticsQuery.data!.sellerReportedAttribution.byListing.map((row, index) => <div key={(row.listingId ?? row.listingTitle) + row.currency + index} className="flex items-center justify-between gap-3 py-2"><div className="min-w-0"><p className="truncate text-sm font-medium">{row.listingTitle}</p><p className="text-xs text-muted-foreground">{row.salesCount} seller-reported sale(s)</p></div><p className="shrink-0 text-sm font-semibold tabular-nums">{row.revenue.toLocaleString('en-UG')} {row.currency}</p></div>)}</div>
+        </>}
+        <p className="text-xs text-muted-foreground">{analyticsQuery.data?.sellerReportedAttribution.evidence}</p>
+      </CardContent>
+    </Card>
+
+    <Card>
       <CardHeader>
         <CardTitle>Products getting attention · 30 days</CardTitle>
         <p className="text-sm text-muted-foreground">Ranked by recorded product-page views. Clicks show interest, not sales.</p>
