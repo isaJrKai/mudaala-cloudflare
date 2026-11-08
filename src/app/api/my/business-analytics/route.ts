@@ -2,6 +2,14 @@ import { route, jsonOk, requireUser, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { ugandaCalendarDay } from '@/lib/listing-analytics'
 
+type AttributedSalesAggregate = {
+  currency: string
+  listing_id: string | null
+  listing_title: string
+  sales_count: number
+  revenue: string
+}
+
 type SalesAggregate = {
   currency: string
   sales_count: number
@@ -43,6 +51,43 @@ export async function GET(request: Request) {
         AND s."soldAt" >= ${since}
       GROUP BY s."currency"
     `
+    // Seller-reported attribution is queried independently from anonymous
+    // contact taps and ordinary recorded sales. A deleted listing keeps its
+    // title snapshot, so historical revenue remains reportable.
+    const attributedRows = await db.$queryRaw<AttributedSalesAggregate[]>\x60
+      SELECT
+        s."currency" AS currency,
+        s."sourceListingId" AS listing_id,
+        s."sourceListingTitle" AS listing_title,
+        COUNT(DISTINCT s."id")::int AS sales_count,
+        COALESCE(SUM(i."lineTotal"), 0)::text AS revenue
+      FROM "Sale" s
+      INNER JOIN "SaleItem" i ON i."saleId" = s."id"
+      WHERE s."userId" = \x24{user.id}
+        AND s."status" = 'COMPLETED'
+        AND s."sourceListingTitle" IS NOT NULL
+        AND s."soldAt" >= \x24{since}
+      GROUP BY s."currency", s."sourceListingId", s."sourceListingTitle"
+      ORDER BY SUM(i."lineTotal") DESC
+    \x60
+    const attributedByCurrency = new Map<string, { currency: string; salesCount: number; revenue: number }>()
+    for (const row of attributedRows) {
+      const current = attributedByCurrency.get(row.currency) ?? { currency: row.currency, salesCount: 0, revenue: 0 }
+      current.salesCount += row.sales_count
+      current.revenue += Number(row.revenue)
+      attributedByCurrency.set(row.currency, current)
+    }
+    const sellerReportedAttribution = {
+      byCurrency: [...attributedByCurrency.values()].map((row) => ({ ...row, revenue: Number(row.revenue.toFixed(2)) })),
+      byListing: attributedRows.map((row) => ({
+        listingId: row.listing_id,
+        listingTitle: row.listing_title,
+        currency: row.currency,
+        salesCount: row.sales_count,
+        revenue: Number(row.revenue),
+      })),
+      evidence: 'Seller-reported attribution: the authenticated shop owner selected this listing when recording the sale. It is not buyer-confirmed or independently verified.',
+    }
     const listingStats = await db.listing.aggregate({
       where: { userId: user.id },
       _sum: { viewCount: true },
@@ -95,7 +140,7 @@ export async function GET(request: Request) {
     return jsonOk({
       period,
       since: since.toISOString(),
-      sales: sales.map((row) => ({
+      sellerReportedAttribution,\n      sales: sales.map((row) => ({
         currency: row.currency,
         completedSales: row.sales_count,
         recordedRevenue: Number(row.revenue),
