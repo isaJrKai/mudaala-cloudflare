@@ -63,10 +63,10 @@ export async function GET(request: Request) {
         COALESCE(SUM(i."lineTotal"), 0)::text AS revenue
       FROM "Sale" s
       INNER JOIN "SaleItem" i ON i."saleId" = s."id"
-      WHERE s."userId" = \x24{user.id}
+      WHERE s."userId" = ${user.id}
         AND s."status" = 'COMPLETED'
         AND s."sourceListingTitle" IS NOT NULL
-        AND s."soldAt" >= \x24{since}
+        AND s."soldAt" >= ${since}
       GROUP BY s."currency", s."sourceListingId", s."sourceListingTitle"
       ORDER BY SUM(i."lineTotal") DESC
     `
@@ -140,7 +140,8 @@ export async function GET(request: Request) {
     return jsonOk({
       period,
       since: since.toISOString(),
-      sellerReportedAttribution,\n      sales: sales.map((row) => ({
+      sellerReportedAttribution,
+      sales: sales.map((row) => ({
         currency: row.currency,
         completedSales: row.sales_count,
         recordedRevenue: Number(row.revenue),
