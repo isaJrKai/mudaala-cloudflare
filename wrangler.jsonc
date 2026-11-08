@@ -12,7 +12,8 @@
   // separately as a Cloudflare Worker secret; never commit its value here.
   "vars": {
     "RATE_LIMIT_REQUIRE_SHARED": "1",
-    "APP_ORIGIN": "https://mudaala-cloudflare.kaisoisaac.workers.dev",
+    // Canonical public origin: custom domain is active on this Worker.
+    "APP_ORIGIN": "https://mudaala.store",
     "VAPID_PUBLIC_KEY": "BBaTwp2Gl0k_arUjxhG-0gOXpqjGyZgrnMgM19Dm0CjXjWe4yLc_TORu8RK7nyCex-zAdvEgrbF_jm4u-aiSej0"
   },
   "durable_objects": {
