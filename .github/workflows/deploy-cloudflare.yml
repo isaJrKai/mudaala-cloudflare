@@ -103,7 +103,7 @@ jobs:
       - name: Smoke test live app and database connection (read-only)
         if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         env:
-          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+          APP_URL: https://mudaala.store
         run: |
           set -euo pipefail
           body="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 --retry-connrefused "$APP_URL/api/health")"
@@ -127,7 +127,7 @@ jobs:
       - name: Verify live authenticated photo upload, moderation, and public retrieval
         if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         env:
-          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+          APP_URL: https://mudaala.store
         run: |
           node --input-type=module <<'NODE'
           import { randomInt, randomUUID } from 'node:crypto';
@@ -204,7 +204,7 @@ jobs:
       - name: Smoke test public Browse and shop-name search
         if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         env:
-          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+          APP_URL: https://mudaala.store
         run: |
           set -euo pipefail
           listings_body="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 --retry-connrefused "$APP_URL/api/listings?page=1&pageSize=10")"
@@ -240,7 +240,7 @@ jobs:
       - name: Smoke test public shop page and showroom response shape (read-only)
         if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         env:
-          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+          APP_URL: https://mudaala.store
         run: |
           node --input-type=module <<'NODE'
           const base = process.env.APP_URL;
@@ -268,7 +268,7 @@ jobs:
       - name: Smoke test public shop collections response shape (read-only)
         if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         env:
-          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+          APP_URL: https://mudaala.store
         run: |
           node --input-type=module <<'NODE'
           const base = process.env.APP_URL;
@@ -309,7 +309,7 @@ jobs:
       - name: Verify shared rate-limit binding is reachable (no customer-data writes)
         if: ${{ steps.deploy.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         env:
-          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+          APP_URL: https://mudaala.store
         run: |
           set -euo pipefail
           # A deliberately invalid phone format yields no phone candidates, so
@@ -353,7 +353,7 @@ jobs:
       - name: Verify rollback health (read-only)
         if: ${{ always() && steps.rollback.outcome == 'success' }}
         env:
-          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+          APP_URL: https://mudaala.store
         run: |
           set -euo pipefail
           body="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 --retry-connrefused "$APP_URL/api/health")"
