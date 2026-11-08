@@ -3143,13 +3143,19 @@ async function main() {
 
     await db.listing.update({ where: { id: attributionListingId }, data: { status: 'ARCHIVED' } })
     const saleKey = randomUUID()
-    const saleBody = { idempotencyKey: saleKey, channel: 'WHATSAPP', sourceListingId: attributionListingId, items: [{ productId, quantity: 2, unitPrice: 50000 }] }
+    const saleBody = { idempotencyKey: saleKey, channel: 'MUDAALA', sourceListingId: attributionListingId, items: [{ productId, quantity: 2, unitPrice: 50000 }] }
+    const invalidChannelKey = randomUUID()
+    const stockBeforeInvalidChannel = await db.businessProduct.findUnique({ where: { id: productId }, select: { stockOnHand: true } })
+    const invalidChannelAttribution = await call('POST', '/api/my/sales', { ...saleBody, idempotencyKey: invalidChannelKey, channel: 'WHATSAPP' }, seller)
+    const invalidChannelSale = await db.sale.findFirst({ where: { userId: seller.user?.id, idempotencyKey: invalidChannelKey } })
+    const stockAfterInvalidChannel = await db.businessProduct.findUnique({ where: { id: productId }, select: { stockOnHand: true } })
+    ok('21a.5a1 listing attribution requires the Mudaala channel and makes no sale or stock change otherwise', invalidChannelAttribution.status === 400 && invalidChannelSale === null && Number(stockAfterInvalidChannel?.stockOnHand) === Number(stockBeforeInvalidChannel?.stockOnHand))
     const saleRes = await call('POST', '/api/my/sales', saleBody, seller)
     const saleId = saleRes.json?.sale?.id ?? ''
     ok('21a.5 record completed sale captures revenue and seller-reported listing attribution', saleRes.status === 201 && saleId !== '' && saleRes.json?.sale?.revenue === 100000 && saleRes.json?.sale?.grossProfit === 40000 && saleRes.json?.sale?.sourceListingId === attributionListingId && saleRes.json?.sale?.sourceListingTitle === 'Attribution test listing')
     const conflictingAttributionRetry = await call('POST', '/api/my/sales', { ...saleBody, sourceListingId: undefined }, seller)
     ok('21a.5b idempotency replay cannot silently remove original listing attribution', conflictingAttributionRetry.status === 409)
-    const foreignAttribution = await call('POST', '/api/my/sales', { idempotencyKey: randomUUID(), sourceListingId: attributionListingId, items: [{ productId: 'not-owned', quantity: 1 }] }, otherSeller)
+    const foreignAttribution = await call('POST', '/api/my/sales', { idempotencyKey: randomUUID(), channel: 'MUDAALA', sourceListingId: attributionListingId, items: [{ productId: 'not-owned', quantity: 1 }] }, otherSeller)
     ok('21a.5c another seller cannot attribute a sale to this listing', foreignAttribution.status === 404)
     const afterSale = await db.businessProduct.findUnique({ where: { id: productId } })
     ok('21a.6 sale and stock decrement commit together', Number(afterSale?.stockOnHand) === 3)
