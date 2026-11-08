@@ -50,6 +50,11 @@ export async function POST(request: Request) {
   return route(async () => {
     const user = await requireUser()
     const data = await parseBody(request, saleCreateSchema)
+    // A listing attribution is only valid when the seller says the sale came
+    // through Mudaala. Enforce this before idempotency replay as well.
+    if (data.sourceListingId && data.channel !== 'MUDAALA') {
+      throw new ApiError(400, 'Choose “Found on Mudaala” as the sale channel to attribute a Mudaala listing')
+    }
     const productIds = data.items.map((item) => item.productId)
     let result
     try {
