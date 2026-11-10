@@ -143,6 +143,7 @@ export interface ListingShopOwner {
   profile: {
     businessName: string
     photoUrl: string | null
+    category: string | null
     area: string | null
     county: string | null
     lat: number | null
