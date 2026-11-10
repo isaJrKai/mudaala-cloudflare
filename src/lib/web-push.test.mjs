@@ -22,8 +22,18 @@ describe('Web Push cryptography', () => {
     const privateJwk = await crypto.subtle.exportKey('jwk', pair.privateKey)
     const publicKey = vapidPublicKeyFromJwk(privateJwk)
     expect(publicKey).toHaveLength(87)
-    expect(() => assertVapidKeyPair(privateJwk, publicKey)).not.toThrow()
-    expect(() => assertVapidKeyPair(privateJwk, 'B'.repeat(87))).toThrow('VAPID public and private keys do not match')
+    await expect(assertVapidKeyPair(privateJwk, publicKey)).resolves.toBeUndefined()
+    await expect(assertVapidKeyPair(privateJwk, 'B'.repeat(87))).rejects.toThrow('VAPID public and private keys do not match')
+
+    const mismatchedPrivateJwk = {
+      ...privateJwk,
+      d: (await crypto.subtle.exportKey('jwk', (await crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        ['sign', 'verify'],
+      )).privateKey)).d,
+    }
+    await expect(assertVapidKeyPair(mismatchedPrivateJwk, publicKey)).rejects.toThrow('VAPID public and private keys do not match')
   })
 
   it('creates a verifiable VAPID ES256 JWT for the push service audience', async () => {
