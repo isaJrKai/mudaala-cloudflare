@@ -594,7 +594,9 @@ svg.mango-stroke { stroke: currentColor; }
   }
 
   main :where(h1, h2, h3, p, a, button, span) {
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+    word-break: normal;
+    hyphens: manual;
   }
 }
 
