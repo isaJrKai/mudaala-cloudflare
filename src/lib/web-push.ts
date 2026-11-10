@@ -54,6 +54,58 @@ async function hkdfExpand(prk: Uint8Array, info: Uint8Array, length: number): Pr
   return concatBytes(...blocks).slice(0, length)
 }
 
+export function vapidPublicKeyFromJwk(privateJwk: JsonWebKey): string {
+  if (privateJwk.kty !== 'EC' || privateJwk.crv !== 'P-256' || !privateJwk.x || !privateJwk.y || !privateJwk.d) {
+    throw new Error('VAPID private key must be an EC P-256 signing JWK')
+  }
+  const x = decodeBase64Url(privateJwk.x)
+  const y = decodeBase64Url(privateJwk.y)
+  if (x.length !== 32 || y.length !== 32) {
+    throw new Error('VAPID private key has invalid P-256 coordinates')
+  }
+  return encodeBase64Url(concatBytes(Uint8Array.of(4), x, y))
+}
+
+export async function assertVapidKeyPair(privateJwk: JsonWebKey, configuredPublicKey: string): Promise<void> {
+  if (vapidPublicKeyFromJwk(privateJwk) !== configuredPublicKey) {
+    throw new Error('VAPID public and private keys do not match')
+  }
+
+  // A JWK carries x/y and d independently. Verify that d actually signs for x/y;
+  // matching only the configured x/y would not detect an internally inconsistent JWK.
+  try {
+    const privateKey = await crypto.subtle.importKey(
+      'jwk',
+      privateJwk,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      false,
+      ['sign'],
+    )
+    const publicKey = await crypto.subtle.importKey(
+      'raw',
+      decodeBase64Url(configuredPublicKey) as unknown as BufferSource,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      false,
+      ['verify'],
+    )
+    const challenge = utf8('mudaala-vapid-key-pair-check')
+    const signature = await crypto.subtle.sign(
+      { name: 'ECDSA', hash: 'SHA-256' },
+      privateKey,
+      challenge as unknown as BufferSource,
+    )
+    const matches = await crypto.subtle.verify(
+      { name: 'ECDSA', hash: 'SHA-256' },
+      publicKey,
+      signature,
+      challenge as unknown as BufferSource,
+    )
+    if (!matches) throw new Error('VAPID public and private keys do not match')
+  } catch {
+    throw new Error('VAPID public and private keys do not match')
+  }
+}
+
 export async function createVapidJwt(
   endpoint: string,
   privateJwk: JsonWebKey,
@@ -144,6 +196,7 @@ export async function sendWebPush(
   if (!privateJwkText || !publicKey) return { skipped: true }
 
   const privateJwk = JSON.parse(privateJwkText) as JsonWebKey
+  await assertVapidKeyPair(privateJwk, publicKey)
   const jwt = await createVapidJwt(subscription.endpoint, privateJwk)
   const body = await encryptPushPayload(subscription, payload)
   const response = await fetch(subscription.endpoint, {
