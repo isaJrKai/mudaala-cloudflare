@@ -233,15 +233,6 @@ export function ListingsBrowse() {
 
   return (
     <div className="space-y-3">
-      <section aria-labelledby="browse-heading" className="space-y-1">
-        <h1 id="browse-heading" className="text-xl font-bold leading-tight tracking-tight sm:text-2xl">
-          Products near you
-        </h1>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          Discover products, local shops and showrooms around you.
-        </p>
-      </section>
-
       <div className="flex gap-2">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -418,7 +409,7 @@ export function ListingsBrowse() {
           <div className={isFetching ? 'space-y-3 opacity-60 transition-opacity' : 'space-y-3'}>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-base font-semibold tracking-tight">
-                {filters.q.trim() || filters.category !== 'any' ? 'Products' : 'Discover products'}
+                {filters.q.trim() || activeFilterCount > 0 ? 'Products' : 'Products near you'}
               </h2>
               <p className="text-xs text-muted-foreground" role="status">
                 {copy.browse.resultsFound(data.total, data.pageCount > 1 ? { page: data.page, pageCount: data.pageCount } : undefined)}
