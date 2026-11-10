@@ -1580,6 +1580,10 @@ async function main() {
     // (404 with similar ads, contact phone never leaked) and the shop page
     // by code, plus the paged sitemap of ACTIVE listings and live shops.
     const ldJson = (html: string) => /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)?.[1] ?? ''
+    const canonicalHref = (html: string) => {
+      const link = /<link\\b[^>]*rel="canonical"[^>]*>/i.exec(html)?.[0] ?? ''
+      return /\\bhref="([^"]+)"/i.exec(link)?.[1] ?? ''
+    }
 
     const realPhotos = (l: any) => Array.isArray(l.photos) && l.photos.length > 0 && l.photos.every((p: string) => !p.includes('/uploads/seed/'))
     // Seed fixtures are never the test target: the app deliberately keeps their
@@ -1620,8 +1624,8 @@ async function main() {
     const offerRow = await db.listing.findUnique({ where: { id: offer.id } })
     ok('ad page /l/{id} → 200', page.status === 200)
     ok('ad page renders the listing title', html.includes(offer.title))
-    ok('ad page carries a canonical link to itself',
-      head.includes('rel="canonical"') && head.includes(`/l/${offer.id}"`))
+    ok('ad page canonical URL uses the configured origin and exact listing path',
+      canonicalHref(head) === `${BASE}/l/${offer.id}`)
     ok('ad page title ends with the Mudaala suffix', /<title>[^<]*· Mudaala<\/title>/.test(head))
     ok('og:title carries the price with the USh symbol',
       /property="og:title" content="[^"]+ · USh [^"]+ · Mudaala"/.test(head))
@@ -1721,8 +1725,8 @@ async function main() {
       const shopVisible = shopHtml.replace(/<script[^>]*>[\s\S]*?<\/script>/g, '')
       ok('shop page /s/{code} → 200', shopPage.status === 200)
       ok('shop page renders the shop name', shopHtml.includes('Alice Test Shop'))
-      ok('shop page carries a canonical link to the code',
-        shopHead.includes('rel="canonical"') && shopHead.includes(`/s/${aliceCode}"`))
+      ok('shop page canonical URL uses the configured origin and exact shop path',
+        canonicalHref(shopHead) === `${BASE}/s/${aliceCode}`)
       ok('shop page lists the live stock', shopOfferId !== '' && shopVisible.includes(`/l/${shopOfferId}`))
       ok('shop page hides the expired listing', !shopVisible.includes(`/l/${goneId}`))
       ok('shop page never shows a contact phone', !shopVisible.includes('+256700000222'))
