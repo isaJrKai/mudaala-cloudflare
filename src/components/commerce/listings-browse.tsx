@@ -225,8 +225,8 @@ export function ListingsBrowse() {
     )
   }, [discoveryQuery.data?.shops, orderedCategories])
 
-  const renderListingGrid = (items: ListingsPage['items']) => items.length > 0 ? (
-    <div data-testid="listing-results-grid" className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+  const renderListingGrid = (items: ListingsPage['items'], primary = false) => items.length > 0 ? (
+    <div data-testid={primary ? 'listing-results-grid' : 'listing-feed-grid'} className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
       {items.map((listing) => (
         <ListingBlock
           key={listing.id}
@@ -427,7 +427,7 @@ export function ListingsBrowse() {
             </div>
             {showDiscoverySections ? (
               <>
-                {renderListingGrid(data.items.slice(0, 6))}
+                {renderListingGrid(data.items.slice(0, 6), true)}
                 <ExploreShopsSection
                   shops={discoveryShops}
                   loading={discoveryQuery.isLoading}
@@ -449,7 +449,7 @@ export function ListingsBrowse() {
                 />
               </>
             ) : (
-              renderListingGrid(data.items)
+              renderListingGrid(data.items, true)
             )}
 
             {data.pageCount > 1 ? (
