@@ -243,12 +243,12 @@ export function ListingsBrowse() {
       </section>
 
       <div className="flex gap-2">
-        <div className="relative flex-1">
+        <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
             type="search"
             placeholder="Search products, shops, and things near you"
-            className="pl-9"
+            className="min-w-0 pl-9 text-xs sm:text-sm"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             aria-label={copy.browse.searchLabel}
@@ -439,7 +439,7 @@ export function ListingsBrowse() {
                 />
                 {data.items.length > 12 ? renderListingGrid(data.items.slice(12)) : null}
                 <SpecialOffersSection
-                  items={data.items.filter((item) => item.compareAtPrice !== null && item.price !== null && item.compareAtPrice > item.price)}
+                  items={data.items.filter((item) => item.type === 'OFFER' && item.compareAtPrice !== null && item.price !== null && item.compareAtPrice > item.price)}
                   shopLabels={shopLabels}
                   distanceLabels={distanceLabels}
                   onOpen={(id) => navigate({ name: 'listing', id })}
@@ -475,7 +475,7 @@ type ShopDiscoveryResponse = {
   }>
 }
 
-function ExploreShopsSection({
+function shopCategoryLabel(category: string | null): string {\n  if (!category) return 'Local shop'\n  const labels: Record<string, string> = {\n    'textiles-clothing': 'Fashion & shoes',\n    electronics: 'Electronics',\n    'beauty-personal-care': 'Beauty',\n    'home-kitchen': 'Home & living',\n    'household-essentials': 'Home essentials',\n    'hardware-building': 'Hardware',\n    'food-groceries': 'Food & groceries',\n  }\n  return labels[category] ?? categoryLabel(category)\n}\n\nfunction ExploreShopsSection({
   shops,
   loading,
   onOpenShop,
@@ -500,7 +500,7 @@ function ExploreShopsSection({
               role="listitem"
               onClick={() => onOpenShop(shop.id)}
               className="press flex w-[84px] shrink-0 flex-col items-center gap-1.5 rounded-lg px-1 py-1 text-center hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              aria-label={`Explore ${shop.name}${shop.category ? `, ${categoryLabel(shop.category)} shop` : ' shop'}`}
+              aria-label={`Explore ${shop.name}${shop.category ? `, ${shopCategoryLabel(shop.category)} shop` : ' shop'}`}
             >
               {shop.photoUrl ? (
                 <img src={shop.photoUrl} alt="" loading="lazy" className="size-16 rounded-full border border-border object-cover" />
@@ -511,7 +511,7 @@ function ExploreShopsSection({
               )}
               <span className="line-clamp-2 w-full break-words text-xs font-semibold leading-tight">{shop.name}</span>
               <span className="line-clamp-1 w-full text-[10px] leading-tight text-muted-foreground">
-                {shop.category ? categoryLabel(shop.category) : 'Local shop'}
+                {shopCategoryLabel(shop.category)}
               </span>
             </button>
           ))}
