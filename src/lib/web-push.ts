@@ -73,33 +73,37 @@ export async function assertVapidKeyPair(privateJwk: JsonWebKey, configuredPubli
 
   // A JWK carries x/y and d independently. Verify that d actually signs for x/y;
   // matching only the configured x/y would not detect an internally inconsistent JWK.
-  const privateKey = await crypto.subtle.importKey(
-    'jwk',
-    privateJwk,
-    { name: 'ECDSA', namedCurve: 'P-256' },
-    false,
-    ['sign'],
-  )
-  const publicKey = await crypto.subtle.importKey(
-    'raw',
-    decodeBase64Url(configuredPublicKey) as unknown as BufferSource,
-    { name: 'ECDSA', namedCurve: 'P-256' },
-    false,
-    ['verify'],
-  )
-  const challenge = utf8('mudaala-vapid-key-pair-check')
-  const signature = await crypto.subtle.sign(
-    { name: 'ECDSA', hash: 'SHA-256' },
-    privateKey,
-    challenge as unknown as BufferSource,
-  )
-  const matches = await crypto.subtle.verify(
-    { name: 'ECDSA', hash: 'SHA-256' },
-    publicKey,
-    signature,
-    challenge as unknown as BufferSource,
-  )
-  if (!matches) throw new Error('VAPID public and private keys do not match')
+  try {
+    const privateKey = await crypto.subtle.importKey(
+      'jwk',
+      privateJwk,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      false,
+      ['sign'],
+    )
+    const publicKey = await crypto.subtle.importKey(
+      'raw',
+      decodeBase64Url(configuredPublicKey) as unknown as BufferSource,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      false,
+      ['verify'],
+    )
+    const challenge = utf8('mudaala-vapid-key-pair-check')
+    const signature = await crypto.subtle.sign(
+      { name: 'ECDSA', hash: 'SHA-256' },
+      privateKey,
+      challenge as unknown as BufferSource,
+    )
+    const matches = await crypto.subtle.verify(
+      { name: 'ECDSA', hash: 'SHA-256' },
+      publicKey,
+      signature,
+      challenge as unknown as BufferSource,
+    )
+    if (!matches) throw new Error('VAPID public and private keys do not match')
+  } catch {
+    throw new Error('VAPID public and private keys do not match')
+  }
 }
 
 export async function createVapidJwt(
