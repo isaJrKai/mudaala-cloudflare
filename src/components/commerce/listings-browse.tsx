@@ -475,7 +475,21 @@ type ShopDiscoveryResponse = {
   }>
 }
 
-function shopCategoryLabel(category: string | null): string {\n  if (!category) return 'Local shop'\n  const labels: Record<string, string> = {\n    'textiles-clothing': 'Fashion & shoes',\n    electronics: 'Electronics',\n    'beauty-personal-care': 'Beauty',\n    'home-kitchen': 'Home & living',\n    'household-essentials': 'Home essentials',\n    'hardware-building': 'Hardware',\n    'food-groceries': 'Food & groceries',\n  }\n  return labels[category] ?? categoryLabel(category)\n}\n\nfunction ExploreShopsSection({
+function shopCategoryLabel(category: string | null): string {
+  if (!category) return 'Local shop'
+  const labels: Record<string, string> = {
+    'textiles-clothing': 'Fashion & shoes',
+    electronics: 'Electronics',
+    'beauty-personal-care': 'Beauty',
+    'home-kitchen': 'Home & living',
+    'household-essentials': 'Home essentials',
+    'hardware-building': 'Hardware',
+    'food-groceries': 'Food & groceries',
+  }
+  return labels[category] ?? categoryLabel(category)
+}
+
+function ExploreShopsSection({
   shops,
   loading,
   onOpenShop,
