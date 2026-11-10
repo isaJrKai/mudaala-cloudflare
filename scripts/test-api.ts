@@ -1581,8 +1581,8 @@ async function main() {
     // by code, plus the paged sitemap of ACTIVE listings and live shops.
     const ldJson = (html: string) => /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)?.[1] ?? ''
     const canonicalHref = (html: string) => {
-      const link = /<link\\b[^>]*rel="canonical"[^>]*>/i.exec(html)?.[0] ?? ''
-      return /\\bhref="([^"]+)"/i.exec(link)?.[1] ?? ''
+      const link = /<link\b[^>]*rel="canonical"[^>]*>/i.exec(html)?.[0] ?? ''
+      return /\bhref="([^"]+)"/i.exec(link)?.[1] ?? ''
     }
 
     const realPhotos = (l: any) => Array.isArray(l.photos) && l.photos.length > 0 && l.photos.every((p: string) => !p.includes('/uploads/seed/'))
