@@ -383,7 +383,8 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
               className="press inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border bg-card text-xs font-semibold text-foreground hover:bg-secondary"
               aria-label={copy.card.callAria(shopDisplayName, listing.title)}
             >
-              <Phone className="size-3.5 text-primary" aria-hidden /> {copy.common.call}
+              <Phone className="size-3.5 text-primary" aria-hidden />
+              <span className="hidden min-[360px]:inline">{copy.common.call}</span>
             </a>
             {whatsappNumber ? (
               <a
@@ -393,7 +394,8 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
                 className="whatsapp-brand press inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-0.5 rounded-md border text-[10px] font-semibold"
                 aria-label={copy.card.whatsappAria(shopDisplayName, listing.title)}
               >
-                <WhatsAppIcon className="size-3 shrink-0" aria-hidden /> {copy.common.whatsapp}
+                <WhatsAppIcon className="size-3.5 shrink-0" aria-hidden />
+                <span className="hidden min-[360px]:inline">{copy.common.whatsapp}</span>
               </a>
             ) : null}
           </div>
