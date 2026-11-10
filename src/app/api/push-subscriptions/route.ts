@@ -33,7 +33,7 @@ export async function GET() {
     if (!publicKey || !privateJwkText) throw new ApiError(503, 'Device notifications are not configured yet')
     try {
       const privateJwk = JSON.parse(privateJwkText) as JsonWebKey
-      assertVapidKeyPair(privateJwk, publicKey)
+      await assertVapidKeyPair(privateJwk, publicKey)
     } catch {
       throw new ApiError(503, 'Device notifications are not configured yet')
     }
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       throw new ApiError(503, 'Device notifications are not configured yet')
     }
     try {
-      assertVapidKeyPair(JSON.parse(privateJwkText) as JsonWebKey, publicKey)
+      await assertVapidKeyPair(JSON.parse(privateJwkText) as JsonWebKey, publicKey)
     } catch {
       throw new ApiError(503, 'Device notifications are not configured yet')
     }
