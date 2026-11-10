@@ -408,9 +408,9 @@ export function ListingsBrowse() {
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start lg:gap-4">
           <div className={isFetching ? 'space-y-3 opacity-60 transition-opacity' : 'space-y-3'}>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-base font-semibold tracking-tight">
+              <h1 className="text-xl font-bold leading-tight tracking-tight">
                 {filters.q.trim() || activeFilterCount > 0 ? 'Products' : 'Products near you'}
-              </h2>
+              </h1>
               <p className="text-xs text-muted-foreground" role="status">
                 {copy.browse.resultsFound(data.total, data.pageCount > 1 ? { page: data.page, pageCount: data.pageCount } : undefined)}
               </p>
