@@ -657,6 +657,6 @@ function shopOwnerFrom(shop: ShopPageT['shop']): ListingShopOwner {
   return {
     id: shop.id,
     name: shop.name,
-    profile: { businessName: shop.name, photoUrl: shop.photoUrl, area: shop.area, county: shop.county, lat: null, lng: null },
+    profile: { businessName: shop.name, photoUrl: shop.photoUrl, category: shop.category, area: shop.area, county: shop.county, lat: null, lng: null },
   }
 }
