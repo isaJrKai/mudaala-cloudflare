@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { ApiError, jsonOk, requireUser, route } from '@/lib/api'
 import { db } from '@/lib/db'
+import { assertVapidKeyPair } from '@/lib/web-push'
 
 const subscriptionSchema = z.object({
   endpoint: z.string().url().max(2048).refine((value) => {
@@ -32,9 +33,7 @@ export async function GET() {
     if (!publicKey || !privateJwkText) throw new ApiError(503, 'Device notifications are not configured yet')
     try {
       const privateJwk = JSON.parse(privateJwkText) as JsonWebKey
-      if (privateJwk.kty !== 'EC' || privateJwk.crv !== 'P-256' || !privateJwk.d || !privateJwk.x || !privateJwk.y) {
-        throw new Error('Invalid VAPID key')
-      }
+      assertVapidKeyPair(privateJwk, publicKey)
     } catch {
       throw new ApiError(503, 'Device notifications are not configured yet')
     }
@@ -45,7 +44,14 @@ export async function GET() {
 export async function POST(request: Request) {
   return route(async () => {
     const user = await requireUser('Sign in to enable device notifications')
-    if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_JWK) {
+    const publicKey = process.env.VAPID_PUBLIC_KEY
+    const privateJwkText = process.env.VAPID_PRIVATE_JWK
+    if (!publicKey || !privateJwkText) {
+      throw new ApiError(503, 'Device notifications are not configured yet')
+    }
+    try {
+      assertVapidKeyPair(JSON.parse(privateJwkText) as JsonWebKey, publicKey)
+    } catch {
       throw new ApiError(503, 'Device notifications are not configured yet')
     }
     const body = await request.json().catch(() => {
