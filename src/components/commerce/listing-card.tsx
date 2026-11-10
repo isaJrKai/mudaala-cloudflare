@@ -395,7 +395,7 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
                 aria-label={copy.card.whatsappAria(shopDisplayName, listing.title)}
               >
                 <WhatsAppIcon className="size-3.5 shrink-0" aria-hidden />
-                <span className="hidden min-[360px]:inline">{copy.common.whatsapp}</span>
+                <span className="hidden min-[400px]:inline">{copy.common.whatsapp}</span>
               </a>
             ) : null}
           </div>
