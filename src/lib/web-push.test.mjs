@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { createVapidJwt, encryptPushPayload } from './web-push.ts'
+import { assertVapidKeyPair, createVapidJwt, encryptPushPayload, vapidPublicKeyFromJwk } from './web-push.ts'
 
 function toBase64Url(value) {
   let binary = ''
@@ -13,6 +13,19 @@ function fromBase64Url(value) {
 }
 
 describe('Web Push cryptography', () => {
+  it('rejects a VAPID private key that does not match the configured public key', async () => {
+    const pair = await crypto.subtle.generateKey(
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      true,
+      ['sign', 'verify'],
+    )
+    const privateJwk = await crypto.subtle.exportKey('jwk', pair.privateKey)
+    const publicKey = vapidPublicKeyFromJwk(privateJwk)
+    expect(publicKey).toHaveLength(87)
+    expect(() => assertVapidKeyPair(privateJwk, publicKey)).not.toThrow()
+    expect(() => assertVapidKeyPair(privateJwk, 'B'.repeat(87))).toThrow('VAPID public and private keys do not match')
+  })
+
   it('creates a verifiable VAPID ES256 JWT for the push service audience', async () => {
     const pair = await crypto.subtle.generateKey(
       { name: 'ECDSA', namedCurve: 'P-256' },
