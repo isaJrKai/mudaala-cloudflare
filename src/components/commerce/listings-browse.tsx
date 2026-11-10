@@ -218,7 +218,8 @@ export function ListingsBrowse() {
   })
   // Reuse the buyer's saved category order to prioritize relevant shop circles.
   const discoveryShops = useMemo(() => {
-    const rank = new Map(orderedCategories.map((category, index) => [category.key, index]))
+    const rank = new Map<string, number>()
+    orderedCategories.forEach((category, index) => rank.set(category.key, index))
     return [...(discoveryQuery.data?.shops ?? [])].sort(
       (a, b) => (rank.get(a.category ?? '') ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.category ?? '') ?? Number.MAX_SAFE_INTEGER),
     )
