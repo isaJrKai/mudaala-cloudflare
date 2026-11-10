@@ -253,10 +253,10 @@ export function ListingCard({ listing, onOpen, actions, showStatus, onOpenShop, 
               href={whatsappLink(whatsappNumber, listing.title, listing.type)}
               target="_blank"
               rel="noopener noreferrer"
-              className="whatsapp-brand inline-flex h-9 shrink-0 items-center gap-0.5 rounded-md border px-2 text-[11px] font-semibold transition-colors"
+              className="whatsapp-brand inline-flex h-9 shrink-0 items-center gap-0 rounded-md border px-2 text-[10px] font-semibold transition-colors"
               aria-label={copy.card.whatsappAria(shopDisplayName, listing.title)}
             >
-              <WhatsAppIcon className="size-3.5" aria-hidden /> {copy.common.whatsapp}
+              <WhatsAppIcon className="size-3" aria-hidden /> {copy.common.whatsapp}
             </a>
           ) : null}
         </div>
@@ -383,17 +383,19 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
               className="press inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border bg-card text-xs font-semibold text-foreground hover:bg-secondary"
               aria-label={copy.card.callAria(shopDisplayName, listing.title)}
             >
-              <Phone className="size-3.5 text-primary" aria-hidden /> {copy.common.call}
+              <Phone className="size-3.5 text-primary" aria-hidden />
+              <span className="hidden min-[360px]:inline">{copy.common.call}</span>
             </a>
             {whatsappNumber ? (
               <a
                 href={whatsappLink(whatsappNumber, listing.title, listing.type)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="whatsapp-brand press inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-0.5 rounded-md border text-[11px] font-semibold"
+                className="whatsapp-brand press inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-0 rounded-md border text-[9px] font-semibold"
                 aria-label={copy.card.whatsappAria(shopDisplayName, listing.title)}
               >
-                <WhatsAppIcon className="size-3.5" aria-hidden /> {copy.common.whatsapp}
+                <WhatsAppIcon className="size-3 shrink-0" aria-hidden />
+                <span className="hidden min-[400px]:inline">{copy.common.whatsapp}</span>
               </a>
             ) : null}
           </div>

@@ -21,10 +21,8 @@ import { useCategoryPreferences } from '@/hooks/use-category-preferences'
 import { unlove, useLovedIds } from '@/lib/loved'
 import { useAddToBasket } from './basket-view'
 import { ListingBlock, HeartButton } from './listing-card'
-import { CategoryGlyph } from './category-icons'
 import { ListingGridSkeleton } from './skeletons'
 import { EmptyState } from './empty-state'
-import { MudaalaCurve } from './mudaala-curve'
 import { PlaceholderTile } from './placeholder-tile'
 import { copy } from '@/lib/copy'
 import QRCode from 'react-qr-code'
@@ -77,7 +75,7 @@ const NEARME_IDLE: NearMeState = { status: 'idle', lat: null, lng: null }
 // Browse - the primary user task: find who buys/sells what, nearby.
 export function ListingsBrowse() {
   const { filters, setFilters, resetFilters, navigate } = useAppStore()
-  const { orderedCategories, recordCategorySelection, resetCategoryPreferences, hasCategoryPreferences } = useCategoryPreferences()
+  const { orderedCategories } = useCategoryPreferences()
   const addToBasket = useAddToBasket()
   const lovedIds = useLovedIds()
   const [lovedOnly, setLovedOnly] = useState(false)
@@ -199,37 +197,59 @@ export function ListingsBrowse() {
     filters.maxPrice !== '' ? 1 : 0,
   ].reduce<number>((a, b) => a + b, 0)
 
+  // Discovery is inserted only into the unfiltered first-page feed. A search
+  // or explicit filter stays focused on the results the buyer asked for.
+  const showDiscoverySections = !filters.q.trim() && activeFilterCount === 0 && (data?.page ?? 1) === 1
+  const discoveryShopIds = useMemo(() => {
+    const seen = new Set<string>()
+    return (data?.items ?? []).flatMap((listing) => {
+      const id = listing.user?.id
+      if (!id || seen.has(id)) return []
+      seen.add(id)
+      return [id]
+    }).slice(0, 8)
+  }, [data?.items])
+  const discoveryQuery = useQuery({
+    queryKey: ['browse-shop-discovery', discoveryShopIds.join(',')],
+    enabled: showDiscoverySections && discoveryShopIds.length > 0,
+    staleTime: 5 * 60_000,
+    retry: 1,
+    queryFn: () => apiGet<ShopDiscoveryResponse>(`/api/shops/discover?ids=${discoveryShopIds.map(encodeURIComponent).join(',')}`),
+  })
+  // Reuse the buyer's saved category order to prioritize relevant shop circles.
+  const discoveryShops = useMemo(() => {
+    const rank = new Map<string, number>()
+    orderedCategories.forEach((category, index) => rank.set(category.key, index))
+    return [...(discoveryQuery.data?.shops ?? [])].sort(
+      (a, b) => (rank.get(a.category ?? '') ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.category ?? '') ?? Number.MAX_SAFE_INTEGER),
+    )
+  }, [discoveryQuery.data?.shops, orderedCategories])
+
+  const renderListingGrid = (items: ListingsPage['items'], primary = false) => items.length > 0 ? (
+    <div data-testid={primary ? 'listing-results-grid' : 'listing-feed-grid'} className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+      {items.map((listing) => (
+        <ListingBlock
+          key={listing.id}
+          listing={listing}
+          shopLabel={shopLabels.get(listing.id)}
+          distanceLabel={distanceLabels.get(listing.id)}
+          onOpen={(id) => navigate({ name: 'listing', id })}
+          onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
+          onAdd={addToBasket}
+        />
+      ))}
+    </div>
+  ) : null
+
   return (
     <div className="space-y-3">
-      {/* The front door - one green ribbon and the words that matter:
-          what this place is and what to do first. No eyebrow labels, no
-          slogan chips, no photo slot: the grey "coming soon" tile read as
-          unfinished, so the ribbon stands on its words alone. */}
-      <section aria-labelledby="browse-heading">
-        <MudaalaCurve className="block h-6 w-full text-primary sm:h-9" />
-        <div className="bg-primary text-primary-foreground">
-          <div className="px-5 py-5 sm:px-8 sm:py-9">
-            <h1 id="browse-heading" className="text-[22px] font-bold leading-tight tracking-tight sm:text-3xl">
-              {copy.browse.heading}
-            </h1>
-            <p className="mt-1.5 max-w-xl text-[13px] leading-relaxed text-primary-foreground/85 sm:text-sm">
-              {/* One line on the phone keeps the whole ribbon ~150px tall;
-                  the full sentence earns its space where there's room. */}
-              <span className="sm:hidden">Shops post what they sell. You call them direct.</span>
-              <span className="hidden sm:inline">{copy.browse.sub}</span>
-            </p>
-          </div>
-        </div>
-        <MudaalaCurve className="block h-6 w-full text-background sm:h-9" />
-      </section>
-
       <div className="flex gap-2">
-        <div className="relative flex-1">
+        <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
             type="search"
-            placeholder={copy.browse.searchPlaceholder}
-            className="pl-9"
+            placeholder="Search products, shops, and things near you"
+            className="min-w-0 pl-9 text-xs sm:text-sm"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             aria-label={copy.browse.searchLabel}
@@ -261,51 +281,6 @@ export function ListingsBrowse() {
           {priceSortHint ? ` · ${priceSortHint}` : ''}
         </p>
       ) : null}
-
-      <section className="space-y-2" aria-labelledby="browse-categories-heading">
-        <div className="flex items-center justify-between gap-3">
-          <h2 id="browse-categories-heading" className="text-base font-semibold tracking-tight">Explore categories</h2>
-          <button
-            type="button"
-            onClick={() => setShowFilters(true)}
-            className="shrink-0 text-xs font-semibold text-primary underline underline-offset-2"
-          >
-            All categories
-          </button>
-        </div>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6" role="group" aria-label="Explore product categories">
-          {orderedCategories.slice(0, 6).map((category) => {
-            const active = filters.category === category.key
-            return (
-              <button
-                key={category.key}
-                type="button"
-                onClick={() => {
-                  setFilters({ category: active ? 'any' : category.key })
-                  if (!active) void recordCategorySelection(category.key)
-                }}
-                aria-pressed={active}
-                className={cn(
-                  'press flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-lg border px-2 py-3 text-center transition-colors',
-                  active
-                    ? 'border-primary bg-accent/55 text-foreground'
-                    : 'border-border bg-card text-foreground hover:border-primary/40 hover:bg-secondary/40',
-                )}
-              >
-                <CategoryGlyph category={category.key} className="size-9 border-0 bg-transparent p-0 text-primary [&_svg]:size-5" />
-                <span className="text-xs font-medium leading-tight">{category.label}</span>
-              </button>
-            )
-          })}
-        </div>
-        {hasCategoryPreferences ? (
-          <div className="flex justify-end">
-            <button type="button" onClick={() => void resetCategoryPreferences()} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">
-              Reset category order
-            </button>
-          </div>
-        ) : null}
-      </section>
 
       {/* Active filter chips + sort */}
       <div className="flex items-center gap-2 overflow-x-auto scrollbar-slim pb-0.5">
@@ -443,29 +418,39 @@ export function ListingsBrowse() {
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start lg:gap-4">
           <div className={isFetching ? 'space-y-3 opacity-60 transition-opacity' : 'space-y-3'}>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-base font-semibold tracking-tight">
-                {filters.q.trim() || filters.category !== 'any' ? 'Products' : 'Discover products'}
-              </h2>
+              <h1 className="text-xl font-bold leading-tight tracking-tight">
+                {filters.q.trim() || activeFilterCount > 0 ? 'Products' : 'Products near you'}
+              </h1>
               <p className="text-xs text-muted-foreground" role="status">
                 {copy.browse.resultsFound(data.total, data.pageCount > 1 ? { page: data.page, pageCount: data.pageCount } : undefined)}
               </p>
             </div>
-            {/* Compact two-column product grid on phones; three columns on
-                wider screens. Each card keeps the seller identity and direct
-                contact actions attached to the product. */}
-            <div data-testid="listing-results-grid" className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-              {data.items.map((listing) => (
-                <ListingBlock
-                  key={listing.id}
-                  listing={listing}
-                  shopLabel={shopLabels.get(listing.id)}
-                  distanceLabel={distanceLabels.get(listing.id)}
+            {showDiscoverySections ? (
+              <>
+                {renderListingGrid(data.items.slice(0, 6), true)}
+                <ExploreShopsSection
+                  shops={discoveryShops}
+                  loading={discoveryQuery.isLoading}
+                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
+                />
+                {data.items.length > 6 ? renderListingGrid(data.items.slice(6, 12)) : null}
+                <ExploreShowroomsSection
+                  shops={discoveryQuery.data?.shops ?? []}
+                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
+                />
+                {data.items.length > 12 ? renderListingGrid(data.items.slice(12)) : null}
+                <SpecialOffersSection
+                  items={data.items.filter((item) => item.type === 'OFFER' && item.compareAtPrice !== null && item.price !== null && item.compareAtPrice > item.price)}
+                  shopLabels={shopLabels}
+                  distanceLabels={distanceLabels}
                   onOpen={(id) => navigate({ name: 'listing', id })}
                   onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
                   onAdd={addToBasket}
                 />
-              ))}
-            </div>
+              </>
+            ) : (
+              renderListingGrid(data.items, true)
+            )}
 
             {data.pageCount > 1 ? (
               <Pagination page={data.page} pageCount={data.pageCount} onPage={(p) => setFilters({ page: p })} />
@@ -476,6 +461,166 @@ export function ListingsBrowse() {
         </div>
       ) : null}
     </div>
+  )
+}
+
+type ShopDiscoveryResponse = {
+  shops: Array<{
+    id: string
+    name: string
+    photoUrl: string | null
+    category: string | null
+    area: string | null
+    county: string | null
+    showroomItems: ShopPageT['showroomItems']
+  }>
+}
+
+function shopCategoryLabel(category: string | null): string {
+  if (!category) return 'Local shop'
+  const labels: Record<string, string> = {
+    'textiles-clothing': 'Fashion & shoes',
+    electronics: 'Electronics',
+    'beauty-personal-care': 'Beauty',
+    'home-kitchen': 'Home & living',
+    'household-essentials': 'Home essentials',
+    'hardware-building': 'Hardware',
+    'food-groceries': 'Food & groceries',
+  }
+  return labels[category] ?? categoryLabel(category)
+}
+
+function ExploreShopsSection({
+  shops,
+  loading,
+  onOpenShop,
+}: {
+  shops: ShopDiscoveryResponse['shops']
+  loading: boolean
+  onOpenShop: (shopId: string) => void
+}) {
+  if (shops.length === 0 && !loading) return null
+  return (
+    <section className="min-w-0 space-y-3 py-1" aria-labelledby="explore-shops-heading">
+      <div className="flex items-center justify-between gap-3">
+        <h2 id="explore-shops-heading" className="text-base font-semibold tracking-tight">Explore shops</h2>
+        <span className="text-xs text-muted-foreground">Meet local sellers</span>
+      </div>
+      {shops.length > 0 ? (
+        <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2 scrollbar-slim" role="list" aria-label="Shops on Mudaala">
+          {shops.map((shop) => (
+            <button
+              key={shop.id}
+              type="button"
+              role="listitem"
+              onClick={() => onOpenShop(shop.id)}
+              className="press flex w-[84px] shrink-0 flex-col items-center gap-1.5 rounded-lg px-1 py-1 text-center hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label={`Explore ${shop.name}${shop.category ? `, ${shopCategoryLabel(shop.category)} shop` : ' shop'}`}
+            >
+              {shop.photoUrl ? (
+                <img src={shop.photoUrl} alt="" loading="lazy" className="size-16 rounded-full border border-border object-cover" />
+              ) : (
+                <span className="flex size-16 items-center justify-center rounded-full border border-border bg-secondary text-primary">
+                  <Store className="size-6" aria-hidden />
+                </span>
+              )}
+              <span className="line-clamp-2 w-full break-words text-xs font-semibold leading-tight">{shop.name}</span>
+              <span className="line-clamp-1 w-full text-[10px] leading-tight text-muted-foreground">
+                {shopCategoryLabel(shop.category)}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="flex gap-3 overflow-hidden" aria-hidden>
+          {[0, 1, 2, 3, 4].map((key) => <span key={key} className="size-16 shrink-0 animate-pulse rounded-full bg-muted" />)}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function ExploreShowroomsSection({
+  shops,
+  onOpenShop,
+}: {
+  shops: ShopDiscoveryResponse['shops']
+  onOpenShop: (shopId: string) => void
+}) {
+  const entries = shops.flatMap((shop) =>
+    shop.showroomItems.slice(0, 2).map((item) => ({ shop, item })),
+  ).slice(0, 8)
+  if (entries.length === 0) return null
+
+  return (
+    <section className="min-w-0 space-y-3 py-1" aria-labelledby="explore-showrooms-heading">
+      <div className="flex items-center justify-between gap-3">
+        <h2 id="explore-showrooms-heading" className="text-base font-semibold tracking-tight">Explore showrooms</h2>
+        <span className="text-xs text-muted-foreground">More from local shops</span>
+      </div>
+      <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 scrollbar-slim">
+        {entries.map(({ shop, item }) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onOpenShop(shop.id)}
+            className="press w-40 shrink-0 overflow-hidden rounded-lg border bg-card text-left hover:border-primary/40"
+            aria-label={`View ${item.title} in ${shop.name}'s showroom`}
+          >
+            {item.photoUrl ? (
+              <img src={item.photoUrl} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover" />
+            ) : (
+              <span className="flex aspect-[4/3] w-full items-center justify-center bg-secondary text-primary">
+                <Store className="size-7" aria-hidden />
+              </span>
+            )}
+            <span className="block space-y-1 p-2.5">
+              <span className="block truncate text-xs font-semibold">{item.title}</span>
+              <span className="block truncate text-[11px] text-muted-foreground">{shop.name}</span>
+              <span className="block text-xs font-semibold text-primary">
+                {item.price === null ? 'Ask for price' : `UGX ${Math.round(item.price).toLocaleString('en-UG')}`}
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function SpecialOffersSection({
+  items,
+  shopLabels,
+  distanceLabels,
+  onOpen,
+  onOpenShop,
+  onAdd,
+}: {
+  items: ListingsPage['items']
+  shopLabels: Map<string, string>
+  distanceLabels: Map<string, string>
+  onOpen: (id: string) => void
+  onOpenShop: (shopId: string) => void
+  onAdd: (listing: Listing & { user?: ListingShopOwnerT }) => boolean | void
+}) {
+  if (items.length === 0) return null
+  return (
+    <section className="min-w-0 space-y-3 py-1" aria-labelledby="special-offers-heading">
+      <h2 id="special-offers-heading" className="text-base font-semibold tracking-tight">Special offers</h2>
+      <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+        {items.slice(0, 6).map((listing) => (
+          <ListingBlock
+            key={listing.id}
+            listing={listing}
+            shopLabel={shopLabels.get(listing.id)}
+            distanceLabel={distanceLabels.get(listing.id)}
+            onOpen={onOpen}
+            onOpenShop={onOpenShop}
+            onAdd={onAdd}
+          />
+        ))}
+      </div>
+    </section>
   )
 }
 

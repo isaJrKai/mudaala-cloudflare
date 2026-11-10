@@ -83,7 +83,7 @@ export const SHOP_OWNER_INCLUDE = {
       name: true,
       // profile.lat/lng arrive PRE-ROUNDED to ~100 m (see profile/location
       // route) - enough to order and label distances, never a precise spot.
-      profile: { select: { businessName: true, photoUrl: true, area: true, county: true, lat: true, lng: true } },
+      profile: { select: { businessName: true, photoUrl: true, category: true, area: true, county: true, lat: true, lng: true } },
     },
   },
 } as const
