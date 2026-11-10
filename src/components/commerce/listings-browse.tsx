@@ -17,6 +17,7 @@ import { CATEGORIES, COUNTIES, UNITS, categoryLabel } from '@/lib/constants'
 import { getSearchTermGroups, parseSearchIntent } from '@/lib/search'
 import { useAppStore, filtersToQuery, DEFAULT_FILTERS } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
+import { useCategoryPreferences } from '@/hooks/use-category-preferences'
 import { unlove, useLovedIds } from '@/lib/loved'
 import { useAddToBasket } from './basket-view'
 import { ListingBlock, HeartButton } from './listing-card'
@@ -74,6 +75,7 @@ const NEARME_IDLE: NearMeState = { status: 'idle', lat: null, lng: null }
 // Browse - the primary user task: find who buys/sells what, nearby.
 export function ListingsBrowse() {
   const { filters, setFilters, resetFilters, navigate } = useAppStore()
+  const { orderedCategories } = useCategoryPreferences()
   const addToBasket = useAddToBasket()
   const lovedIds = useLovedIds()
   const [lovedOnly, setLovedOnly] = useState(false)
@@ -214,6 +216,13 @@ export function ListingsBrowse() {
     retry: 1,
     queryFn: () => apiGet<ShopDiscoveryResponse>(`/api/shops/discover?ids=${discoveryShopIds.map(encodeURIComponent).join(',')}`),
   })
+  // Reuse the buyer's saved category order to prioritize relevant shop circles.
+  const discoveryShops = useMemo(() => {
+    const rank = new Map(orderedCategories.map((category, index) => [category.key, index]))
+    return [...(discoveryQuery.data?.shops ?? [])].sort(
+      (a, b) => (rank.get(a.category ?? '') ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.category ?? '') ?? Number.MAX_SAFE_INTEGER),
+    )
+  }, [discoveryQuery.data?.shops, orderedCategories])
 
   const renderListingGrid = (items: ListingsPage['items']) => items.length > 0 ? (
     <div data-testid="listing-results-grid" className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
@@ -419,7 +428,7 @@ export function ListingsBrowse() {
               <>
                 {renderListingGrid(data.items.slice(0, 6))}
                 <ExploreShopsSection
-                  shops={discoveryQuery.data?.shops ?? []}
+                  shops={discoveryShops}
                   loading={discoveryQuery.isLoading}
                   onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
                 />
