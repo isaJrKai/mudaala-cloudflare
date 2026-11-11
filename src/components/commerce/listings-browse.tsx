@@ -897,6 +897,7 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
     queryFn: () => apiGet<ShopPageT>(`/api/shops/${shopId}`),
   })
   const shop = shopQuery.data?.shop ?? null
+  const shopListings = shopQuery.data?.listings ?? []
   const shopUrl = useMemo(
     () => (origin && shop ? `${origin}/#/shop/${shop.id}` : ''),
     [origin, shop],
@@ -919,9 +920,9 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
             {shop.area || shop.county ? (
               <p className="mt-0.5 text-xs text-primary-foreground/75">{[shop.area, shop.county].filter(Boolean).join(', ')}</p>
             ) : null}
-            {shop.listings.length > 0 ? (
+            {shopListings.length > 0 ? (
               <div className="mt-3 grid grid-cols-3 gap-2">
-                {shop.listings.slice(0, 3).map((listing) => (
+                {shopListings.slice(0, 3).map((listing) => (
                   <div key={listing.id} className="min-w-0 overflow-hidden rounded-md border border-primary-foreground/20 bg-primary-foreground/10">
                     {listing.photos[0] ? <img src={listing.photos[0]} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover" /> : <div className="aspect-[4/3] bg-muted" />}
                     <p className="line-clamp-2 p-1.5 text-[11px] font-medium text-primary-foreground">{listing.title}</p>
