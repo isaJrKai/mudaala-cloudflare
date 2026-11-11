@@ -59,25 +59,15 @@ const EMPTY_FORM: FormState = {
   photos: [],
 }
 
-// Keep the selected publish mode as a component identity. When navigation
-// opens the form in a different mode, React starts a fresh form with the right
-// defaults instead of synchronizing derived route state through an effect.
-export function PublishForm() {
-  const { view } = useAppStore()
-  const initialType = view.id === 'request' ? 'REQUEST' : 'OFFER'
-
-  return <PublishFormContent key={view.id} initialType={initialType} />
-}
-
 // Publish (and edit) a listing. Required fields are validated with the SAME
 // shared schema the API uses; failed submissions preserve everything typed.
-function PublishFormContent({ initialType }: { initialType: FormState['type'] }) {
+export function PublishForm() {
   const { navigate, setAuthOpen } = useAppStore()
   const { user, isLoading: sessionLoading } = useSession()
   const { toast } = useToast()
   const queryClient = useQueryClient()
 
-  const [form, setForm] = useState<FormState>(() => ({ ...EMPTY_FORM, type: initialType }))
+  const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
 

@@ -2,9 +2,9 @@
  * Deterministic, privacy-safe rotation for the existing Browse featured-shop rail.
  * Only shops represented by eligible public listing results are candidates.
  * Sorting IDs before selecting makes the rotation stable for a given result set
- * and day; no per-user tracking or persisted impressions are required.
+ * and time window; no per-user tracking or persisted impressions are required.
  */
-export const FEATURED_SHOP_ROTATION_INTERVAL_MS = 24 * 60 * 60 * 1000
+export const FEATURED_SHOP_ROTATION_INTERVAL_MS = 30 * 60 * 1000
 
 type FeaturedShopListing = {
   user?: {
