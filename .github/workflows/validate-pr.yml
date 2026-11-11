@@ -54,6 +54,9 @@ jobs:
       - name: Test public listing continues when expiry sweep fails
         run: npm run test:public-listing-expiry
 
+      - name: Test read-only listing expiry visibility
+        run: npm run test:listing-visibility
+
       - name: Run ESLint across the repository
         run: npm run lint
 
