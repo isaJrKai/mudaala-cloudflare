@@ -54,6 +54,9 @@ jobs:
       - name: Test public listing continues when expiry sweep fails
         run: npm run test:public-listing-expiry
 
+      - name: Test read-only listing expiry visibility
+        run: npm run test:listing-visibility
+
       - name: Run ESLint across the repository
         run: npm run lint
 
@@ -420,7 +423,9 @@ jobs:
       - name: Install Playwright Chromium for local browser journeys
         run: |
           npm install --prefix /tmp/mudaala-browser-test playwright@1.56.1
-          /tmp/mudaala-browser-test/node_modules/.bin/playwright install --with-deps chromium
+          # GitHub-hosted Ubuntu images already include Chromium's system libraries.
+          # Avoid apt's mirror/DNS dependency here; install only the pinned browser binary.
+          /tmp/mudaala-browser-test/node_modules/.bin/playwright install chromium
 
       - name: Verify saved-search persistence and mobile cart interactions in a real browser
         run: node scripts/test-browser-journeys.cjs

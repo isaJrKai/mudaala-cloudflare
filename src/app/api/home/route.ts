@@ -9,16 +9,16 @@
 
 import { route, jsonOk, requireUser } from '@/lib/api'
 import { db } from '@/lib/db'
-import { expireOverdueListings } from '@/lib/listings'
 import { STALE_LISTING_DAYS } from '@/lib/constants'
+import { activeListingExpiryFilter } from '@/lib/listing-visibility'
 
 export async function GET() {
   return route(async () => {
     const user = await requireUser('Sign in to see your home dashboard')
-    // Sweeps keep every count below truthful even if the user hasn't browsed.
-    await expireOverdueListings()
-
-    const staleCutoff = new Date(Date.now() - STALE_LISTING_DAYS * 24 * 60 * 60 * 1000)
+    // Scheduled maintenance changes persisted status; reads enforce expiry directly.
+    const now = new Date()
+    const activeExpiry = activeListingExpiryFilter(now)
+    const staleCutoff = new Date(now.getTime() - STALE_LISTING_DAYS * 24 * 60 * 60 * 1000)
     const [savedSearches, savedSearchCount, activeListings, lastListing, staleListings, staleCount, lastMatchNotifications] =
       await Promise.all([
         db.savedSearch.findMany({
@@ -28,19 +28,19 @@ export async function GET() {
           select: { id: true, name: true, queryJson: true, lastMatchCount: true },
         }),
         db.savedSearch.count({ where: { userId: user.id } }),
-        db.listing.count({ where: { userId: user.id, status: 'ACTIVE' } }),
+        db.listing.count({ where: { userId: user.id, status: 'ACTIVE', ...activeExpiry } }),
         db.listing.findFirst({
           where: { userId: user.id },
           orderBy: { updatedAt: 'desc' },
           select: { updatedAt: true },
         }),
         db.listing.findMany({
-          where: { userId: user.id, status: 'ACTIVE', refreshedAt: { lt: staleCutoff } },
+          where: { userId: user.id, status: 'ACTIVE', ...activeExpiry, refreshedAt: { lt: staleCutoff } },
           orderBy: { refreshedAt: 'asc' },
           select: { id: true, title: true, refreshedAt: true },
           take: 3,
         }),
-        db.listing.count({ where: { userId: user.id, status: 'ACTIVE', refreshedAt: { lt: staleCutoff } } }),
+        db.listing.count({ where: { userId: user.id, status: 'ACTIVE', ...activeExpiry, refreshedAt: { lt: staleCutoff } } }),
         // "New matches" = DISTINCT listings that matched one of this user's
         // saved searches since their last visit, as recorded by the real
         // NEW_MATCH notifications the publish flow already sends.
@@ -59,15 +59,17 @@ export async function GET() {
     // own shop area (their felt location), falling back to the district of
     // their most recent listing. Their blurred shop spot (~100 m) also powers
     // nearest-first ordering and distance chips when present.
-    const profile = await db.businessProfile.findUnique({
-      where: { userId: user.id },
-      select: { area: true, county: true, lat: true, lng: true },
-    })
-    const recentListing = await db.listing.findFirst({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-      select: { county: true },
-    })
+    const [profile, recentListing] = await Promise.all([
+      db.businessProfile.findUnique({
+        where: { userId: user.id },
+        select: { area: true, county: true, lat: true, lng: true },
+      }),
+      db.listing.findFirst({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        select: { county: true },
+      }),
+    ])
     const location = profile?.county
       ? { area: profile.area, county: profile.county, lat: profile.lat, lng: profile.lng, source: 'profile' as const }
       : recentListing?.county

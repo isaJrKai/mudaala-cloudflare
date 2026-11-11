@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server'
 import { route, jsonOk, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
-import { expireOverdueListings, serializeListing } from '@/lib/listings'
+import { serializeListing } from '@/lib/listings'
+import { activeListingExpiryFilter } from '@/lib/listing-visibility'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -11,8 +12,6 @@ type Params = { params: Promise<{ id: string }> }
 export async function GET(_request: NextRequest, { params }: Params) {
   return route(async () => {
     const { id } = await params
-    await expireOverdueListings()
-
     const seller = await db.user.findUnique({
       where: { id },
       select: { id: true, name: true, createdAt: true, country: true },
@@ -22,32 +21,33 @@ export async function GET(_request: NextRequest, { params }: Params) {
     // This legacy public endpoint must not spread the full profile row. Keep its
     // public storefront fields, but never serialize internal ownership,
     // verification, seed, or database bookkeeping fields.
-    const profile = await db.businessProfile.findUnique({
-      where: { userId: id },
-      select: {
-        businessName: true,
-        photoUrl: true,
-        coverPhotoUrl: true,
-        category: true,
-        description: true,
-        county: true,
-        area: true,
-        websiteUrl: true,
-        phone: true,
-        whatsapp: true,
-        hours: true,
-        shopCode: true,
-        momoMerchantCode: true,
-        momoNetwork: true,
-        momoMerchantName: true,
-      },
-    })
-
-    const listings = await db.listing.findMany({
-      where: { userId: id, status: 'ACTIVE' },
-      orderBy: { refreshedAt: 'desc' },
-      take: 50,
-    })
+    const [profile, listings] = await Promise.all([
+      db.businessProfile.findUnique({
+        where: { userId: id },
+        select: {
+          businessName: true,
+          photoUrl: true,
+          coverPhotoUrl: true,
+          category: true,
+          description: true,
+          county: true,
+          area: true,
+          websiteUrl: true,
+          phone: true,
+          whatsapp: true,
+          hours: true,
+          shopCode: true,
+          momoMerchantCode: true,
+          momoNetwork: true,
+          momoMerchantName: true,
+        },
+      }),
+      db.listing.findMany({
+        where: { userId: id, status: 'ACTIVE', ...activeListingExpiryFilter() },
+        orderBy: { refreshedAt: 'desc' },
+        take: 50,
+      }),
+    ])
 
     return jsonOk({
       seller,

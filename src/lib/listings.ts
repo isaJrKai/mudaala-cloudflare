@@ -10,6 +10,7 @@ import { haversineMeters } from '@/lib/geo'
 import type { Listing, Prisma } from '@prisma/client'
 import type { ListingQuery } from '@/lib/validation'
 import { getSearchTermGroups, searchTextMatchesGroup, scoreListingSearch, parseSearchIntent } from '@/lib/search'
+import { activeListingExpiryFilter } from '@/lib/listing-visibility'
 
 function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000)
@@ -171,6 +172,11 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     : (searchText && query.sort === 'discovery' ? 'newest' : query.sort) ?? (searchText ? 'newest' : 'discovery')
 
   const where: Prisma.ListingWhereInput = { status: { in: includeStatuses } }
+  // ACTIVE is a persisted state updated by the scheduled sweep; expiry itself
+  // is enforced here so a delayed sweep cannot surface stale public inventory.
+  if (includeStatuses.length === 1 && includeStatuses[0] === 'ACTIVE') {
+    Object.assign(where, activeListingExpiryFilter())
+  }
 
   if (searchText) {
     // Every meaningful word must match, but each word may use customer-language
