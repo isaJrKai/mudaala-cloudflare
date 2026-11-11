@@ -25,7 +25,7 @@ jobs:
 
       - name: Verify live search API contracts without assuming seller inventory
         env:
-          APP_URL: https://mudaala-cloudflare.kaisoisaac.workers.dev
+          APP_URL: https://mudaala.store
         run: |
           node <<'NODE'
           const base = process.env.APP_URL.endsWith('/') ? process.env.APP_URL.slice(0, -1) : process.env.APP_URL;
