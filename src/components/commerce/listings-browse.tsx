@@ -454,18 +454,11 @@ export function ListingsBrowse() {
             </div>
             {showDiscoverySections ? (
               <>
-                {renderListingGrid(loadedItems.slice(0, 6), true)}
                 <ExploreShopsSection
                   shops={discoveryShops}
                   loading={discoveryQuery.isLoading}
                   onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
                 />
-                {loadedItems.length > 6 ? renderListingGrid(loadedItems.slice(6, 12)) : null}
-                <ExploreShowroomsSection
-                  shops={discoveryQuery.data?.shops ?? []}
-                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
-                />
-                {loadedItems.length > 12 ? renderListingGrid(loadedItems.slice(12)) : null}
                 <SpecialOffersSection
                   items={loadedItems.filter((item) => item.type === 'OFFER' && item.compareAtPrice !== null && item.price !== null && item.compareAtPrice > item.price)}
                   shopLabels={shopLabels}
@@ -481,10 +474,18 @@ export function ListingsBrowse() {
                   onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
                   onAdd={addToBasket}
                 />
+                <ExploreShowroomsSection
+                  shops={discoveryQuery.data?.shops ?? []}
+                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
+                />
                 <BuyersAskingSection
                   items={loadedItems.filter((item) => item.type === 'REQUEST')}
                   onPostRequest={() => navigate({ name: 'publish' })}
                 />
+                <section className="space-y-2" aria-label="Latest listings">
+                  <h2 className="text-base font-semibold">Latest listings</h2>
+                  {renderListingGrid(loadedItems.filter((item) => item.type === 'OFFER'), true)}
+                </section>
               </>
             ) : (
               renderListingGrid(loadedItems, true)
@@ -717,7 +718,7 @@ function SpecialOffersSection({
   if (items.length === 0) return null
   return (
     <section id="special-offers" className="min-w-0 space-y-3 py-1" aria-labelledby="special-offers-heading">
-      <h2 id="special-offers-heading" className="text-base font-semibold tracking-tight">Special offers</h2>
+      <h2 id="special-offers-heading" className="text-base font-semibold tracking-tight">Hot deals</h2>
       <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         {items.slice(0, 6).map((listing) => (
           <ListingBlock
