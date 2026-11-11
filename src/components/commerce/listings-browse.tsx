@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Search, SlidersHorizontal, Bookmark, X, ChevronLeft, ChevronRight, Hash, Heart, MapPin, Info, Phone, Store } from 'lucide-react'
+import { Search, SlidersHorizontal, Bookmark, X, ChevronRight, Hash, Heart, MapPin, Info, Phone, Store } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { apiGet, apiPost } from '@/lib/client'
 import type { ListingsPage, ShopLookupResponse, ShopNameSearchResponse, ListingDetail as ListingDetailT, Listing, ListingShopOwner as ListingShopOwnerT, ShopPage as ShopPageT } from '@/lib/client'
-import { normalizeShopName, normalizeShopCode, telLink } from '@/lib/format'
+import { normalizeShopName, normalizeShopCode, telLink, whatsappLink } from '@/lib/format'
 import { haversineMeters, formatDistance } from '@/lib/geo'
 import { CATEGORIES, COUNTIES, UNITS, categoryLabel } from '@/lib/constants'
 import { getSearchTermGroups, parseSearchIntent } from '@/lib/search'
@@ -78,6 +78,7 @@ export function ListingsBrowse() {
   const { orderedCategories } = useCategoryPreferences()
   const addToBasket = useAddToBasket()
   const lovedIds = useLovedIds()
+  const queryClient = useQueryClient()
   const [lovedOnly, setLovedOnly] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [searchInput, setSearchInput] = useState(filters.q)
@@ -164,6 +165,32 @@ export function ListingsBrowse() {
     placeholderData: (prev) => prev,
   })
 
+  // Build the accumulated feed from React Query's page cache. This keeps
+  // pagination append-only without mirroring query data into component state.
+  // Comparing all filters except page prevents stale results from another
+  // search/filter set from leaking into the visible feed.
+  const loadedItems = useMemo(() => {
+    const currentParams = new URLSearchParams(query)
+    currentParams.delete('page')
+    const currentFilterKey = currentParams.toString()
+    const pages = queryClient.getQueriesData<ListingsPage>({ queryKey: ['listings'] })
+      .flatMap(([key, pageData]) => {
+        if (!pageData || key[2] !== nearParams || typeof key[1] !== 'string') return []
+        const pageParams = new URLSearchParams(key[1])
+        const page = Number(pageParams.get('page') ?? 1)
+        pageParams.delete('page')
+        if (page > filters.page || pageParams.toString() !== currentFilterKey) return []
+        return [{ page, items: pageData.items }]
+      })
+      .sort((a, b) => a.page - b.page)
+    const seen = new Set<string>()
+    return pages.flatMap(({ items }) => items.filter((item) => {
+      if (seen.has(item.id)) return false
+      seen.add(item.id)
+      return true
+    }))
+  }, [queryClient, query, nearParams, filters.page, data])
+
   const codeLookup = useQuery({
     queryKey: ['shop-code', codeQuery],
     queryFn: () => apiGet<ShopLookupResponse>(`/api/shops/lookup?code=${encodeURIComponent(codeQuery)}`),
@@ -173,20 +200,20 @@ export function ListingsBrowse() {
   })
   const codeShop = codeQuery !== '' && codeLookup.data ? codeLookup.data.shop : null
 
-  const shopLabels = useMemo(() => computeShopLabels(data?.items), [data])
+  const shopLabels = useMemo(() => computeShopLabels(loadedItems), [loadedItems])
 
   // Distance chips - computed from the same blurred coords the server used,
   // so the label a buyer reads always matches the order they see.
   const distanceLabels = useMemo(() => {
     const map = new Map<string, string>()
-    if (!data || nearMe.lat === null || nearMe.lng === null) return map
-    for (const listing of data.items) {
+    if (nearMe.lat === null || nearMe.lng === null) return map
+    for (const listing of loadedItems) {
       const spot = listing.user?.profile
       if (!spot || spot.lat === null || spot.lng === null) continue
       map.set(listing.id, formatDistance(haversineMeters({ lat: nearMe.lat, lng: nearMe.lng }, { lat: spot.lat, lng: spot.lng })))
     }
     return map
-  }, [data, nearMe.lat, nearMe.lng])
+  }, [loadedItems, nearMe.lat, nearMe.lng])
 
   const activeFilterCount = [
     filters.type !== 'any' ? 1 : 0,
@@ -199,16 +226,16 @@ export function ListingsBrowse() {
 
   // Discovery is inserted only into the unfiltered first-page feed. A search
   // or explicit filter stays focused on the results the buyer asked for.
-  const showDiscoverySections = !filters.q.trim() && activeFilterCount === 0 && (data?.page ?? 1) === 1
+  const showDiscoverySections = !filters.q.trim() && activeFilterCount === 0
   const discoveryShopIds = useMemo(() => {
     const seen = new Set<string>()
-    return (data?.items ?? []).flatMap((listing) => {
+    return loadedItems.flatMap((listing) => {
       const id = listing.user?.id
       if (!id || seen.has(id)) return []
       seen.add(id)
       return [id]
     }).slice(0, 8)
-  }, [data?.items])
+  }, [loadedItems])
   const discoveryQuery = useQuery({
     queryKey: ['browse-shop-discovery', discoveryShopIds.join(',')],
     enabled: showDiscoverySections && discoveryShopIds.length > 0,
@@ -225,21 +252,48 @@ export function ListingsBrowse() {
     )
   }, [discoveryQuery.data?.shops, orderedCategories])
 
-  const renderListingGrid = (items: ListingsPage['items'], primary = false) => items.length > 0 ? (
-    <div data-testid={primary ? 'listing-results-grid' : 'listing-feed-grid'} className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-      {items.map((listing) => (
-        <ListingBlock
-          key={listing.id}
-          listing={listing}
-          shopLabel={shopLabels.get(listing.id)}
-          distanceLabel={distanceLabels.get(listing.id)}
-          onOpen={(id) => navigate({ name: 'listing', id })}
-          onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
-          onAdd={addToBasket}
-        />
-      ))}
-    </div>
-  ) : null
+  const renderListingGrid = (items: ListingsPage['items'], primary = false, cluster = false) => {
+    if (items.length === 0) return null
+    const clustersByFirstId = new Map<string, ListingsPage['items']>()
+    const hiddenIds = new Set<string>()
+    if (cluster) {
+      const groups = new Map<string, ListingsPage['items']>()
+      for (const item of items) {
+        const ownerId = item.user?.id
+        if (!ownerId) continue
+        const key = `${ownerId}::${normalizeShopName(item.title)}`
+        const group = groups.get(key) ?? []
+        group.push(item)
+        groups.set(key, group)
+      }
+      for (const group of groups.values()) {
+        if (group.length < 3) continue
+        clustersByFirstId.set(group[0].id, group)
+        for (const item of group.slice(1)) hiddenIds.add(item.id)
+      }
+    }
+    return (
+      <div data-testid={primary ? 'listing-results-grid' : 'listing-feed-grid'} className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+        {items.map((listing) => {
+          if (hiddenIds.has(listing.id)) return null
+          const clusterItems = clustersByFirstId.get(listing.id)
+          return clusterItems ? (
+            <ShopClusterCard key={listing.id} items={clusterItems} onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })} />
+          ) : (
+            <ListingBlock
+              key={listing.id}
+              listing={listing}
+              shopLabel={shopLabels.get(listing.id)}
+              distanceLabel={distanceLabels.get(listing.id)}
+              onOpen={(id) => navigate({ name: 'listing', id })}
+              onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
+              onAdd={addToBasket}
+            />
+          )
+        })}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-3">
@@ -281,6 +335,18 @@ export function ListingsBrowse() {
           {priceSortHint ? ` · ${priceSortHint}` : ''}
         </p>
       ) : null}
+
+      {/* Category shortcuts use the canonical category registry and preserve the full filter dialog. */}
+      <nav aria-label="Browse categories" className="-mx-1 flex min-w-0 gap-2 overflow-x-auto px-1 pb-1 scrollbar-slim">
+        <button type="button" onClick={() => setFilters({ category: 'any', page: 1 })} aria-pressed={filters.category === 'any'} className={cn('press min-h-11 shrink-0 rounded-full border px-4 text-sm font-semibold transition-colors', filters.category === 'any' ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground hover:bg-secondary')}>
+          All
+        </button>
+        {orderedCategories.map((category) => (
+          <button key={category.key} type="button" onClick={() => setFilters({ category: category.key, page: 1 })} aria-pressed={filters.category === category.key} className={cn('press min-h-11 shrink-0 rounded-full border px-4 text-sm font-medium transition-colors', filters.category === category.key ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground hover:bg-secondary')}>
+            {category.label}
+          </button>
+        ))}
+      </nav>
 
       {/* Active filter chips + sort */}
       <div className="flex items-center gap-2 overflow-x-auto scrollbar-slim pb-0.5">
@@ -415,7 +481,13 @@ export function ListingsBrowse() {
           }
         />
       ) : data ? (
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start lg:gap-4">
+        <div className="space-y-4">
+          {showDiscoverySections ? (
+            <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(220px,1fr)]">
+              <FeaturedShopPanel items={loadedItems} />
+              <BrowseActionTiles onSell={() => navigate({ name: 'publish' })} />
+            </div>
+          ) : null}
           <div className={isFetching ? 'space-y-3 opacity-60 transition-opacity' : 'space-y-3'}>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h1 className="text-xl font-bold leading-tight tracking-tight">
@@ -427,37 +499,47 @@ export function ListingsBrowse() {
             </div>
             {showDiscoverySections ? (
               <>
-                {renderListingGrid(data.items.slice(0, 6), true)}
                 <ExploreShopsSection
                   shops={discoveryShops}
                   loading={discoveryQuery.isLoading}
                   onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
                 />
-                {data.items.length > 6 ? renderListingGrid(data.items.slice(6, 12)) : null}
-                <ExploreShowroomsSection
-                  shops={discoveryQuery.data?.shops ?? []}
-                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
-                />
-                {data.items.length > 12 ? renderListingGrid(data.items.slice(12)) : null}
                 <SpecialOffersSection
-                  items={data.items.filter((item) => item.type === 'OFFER' && item.compareAtPrice !== null && item.price !== null && item.compareAtPrice > item.price)}
+                  items={loadedItems.filter((item) => item.type === 'OFFER' && item.compareAtPrice !== null && item.price !== null && item.compareAtPrice > item.price)}
                   shopLabels={shopLabels}
                   distanceLabels={distanceLabels}
                   onOpen={(id) => navigate({ name: 'listing', id })}
                   onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
                   onAdd={addToBasket}
                 />
+                <CategoryDiscoveryRows
+                  items={loadedItems.filter((item) => item.type === 'OFFER')}
+                  onSeeAll={(category) => setFilters({ category, type: 'OFFER', page: 1 })}
+                  onOpen={(id) => navigate({ name: 'listing', id })}
+                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
+                  onAdd={addToBasket}
+                />
+                <ExploreShowroomsSection
+                  shops={discoveryQuery.data?.shops ?? []}
+                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
+                />
+                <BuyersAskingSection
+                  items={loadedItems.filter((item) => item.type === 'REQUEST')}
+                  onPostRequest={() => navigate({ name: 'publish', id: 'request' })}
+                />
+                <section className="space-y-2" aria-label="Latest listings">
+                  <h2 className="text-base font-semibold">Latest listings</h2>
+                  {renderListingGrid(loadedItems.filter((item) => item.type === 'OFFER'), true, true)}
+                </section>
               </>
             ) : (
-              renderListingGrid(data.items, true)
+              renderListingGrid(loadedItems, true)
             )}
 
-            {data.pageCount > 1 ? (
-              <Pagination page={data.page} pageCount={data.pageCount} onPage={(p) => setFilters({ page: p })} />
+            {data.page < data.pageCount ? (
+              <Pagination loading={isFetching} onLoadMore={() => setFilters({ page: data.page + 1 })} />
             ) : null}
           </div>
-
-          <FeaturedShopPanel items={data.items} />
         </div>
       ) : null}
     </div>
@@ -490,6 +572,130 @@ function shopCategoryLabel(category: string | null): string {
   return labels[category] ?? categoryLabel(category)
 }
 
+function ShopClusterCard({
+  items,
+  onOpenShop,
+}: {
+  items: ListingsPage['items']
+  onOpenShop: (shopId: string) => void
+}) {
+  const first = items[0]
+  const shop = first?.user
+  if (!first || !shop) return null
+  const name = shop.profile?.businessName?.trim() || shop.name
+  return (
+    <article className="flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card p-2.5">
+      <div className="grid grid-cols-2 gap-1.5">
+        {items.slice(0, 4).map((item) => (
+          <div key={item.id} className="aspect-square overflow-hidden rounded-md bg-secondary">
+            {item.photos[0] ? <img src={item.photos[0]} alt="" loading="lazy" className="size-full object-cover" /> : <PlaceholderTile category={item.category} className="size-full" />}
+          </div>
+        ))}
+      </div>
+      <h3 className="mt-2 line-clamp-2 text-sm font-semibold">{first.title}</h3>
+      <p className="mt-1 truncate text-xs text-muted-foreground">{name}</p>
+      <button type="button" onClick={() => onOpenShop(shop.id)} className="press mt-auto flex min-h-11 items-center justify-center rounded-lg border border-primary/30 px-2 text-xs font-semibold text-primary hover:bg-secondary">
+        View all {items.length}
+      </button>
+    </article>
+  )
+}
+
+function BrowseActionTiles({ onSell }: { onSell: () => void }) {
+  return (
+    <section className="grid grid-cols-2 gap-2" aria-label="Browse actions">
+      <a href="#special-offers" className="press flex min-h-20 flex-col justify-between rounded-xl border border-amber-300/70 bg-amber-50 p-3 text-left text-amber-950 hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+        <span className="text-xs font-semibold uppercase tracking-wide text-amber-800">Deals</span>
+        <span className="text-sm font-bold">Shop marked-down prices →</span>
+      </a>
+      <button type="button" onClick={onSell} className="press flex min-h-20 flex-col justify-between rounded-xl border border-border bg-card p-3 text-left hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Have something to sell?</span>
+        <span className="text-sm font-bold text-primary">Sell on Mudaala →</span>
+      </button>
+    </section>
+  )
+}
+
+function CategoryDiscoveryRows({
+  items,
+  onSeeAll,
+  onOpen,
+  onOpenShop,
+  onAdd,
+}: {
+  items: ListingsPage['items']
+  onSeeAll: (category: string) => void
+  onOpen: (id: string) => void
+  onOpenShop: (shopId: string) => void
+  onAdd: (listing: Listing & { user?: ListingShopOwnerT }) => boolean | void
+}) {
+  const groups = new Map<string, ListingsPage['items']>()
+  for (const item of items) {
+    const group = groups.get(item.category) ?? []
+    if (group.length < 4) group.push(item)
+    groups.set(item.category, group)
+  }
+  const rows = [...groups.entries()].filter(([, group]) => group.length > 0).slice(0, 3)
+  if (rows.length === 0) return null
+  return (
+    <div className="space-y-4">
+      {rows.map(([category, group]) => (
+        <section key={category} className="min-w-0 space-y-2" aria-label={categoryLabel(category)}>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">{categoryLabel(category)}</h2>
+            <button type="button" onClick={() => onSeeAll(category)} className="min-h-11 shrink-0 px-2 text-xs font-semibold text-primary underline underline-offset-4">See all</button>
+          </div>
+          <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+            {group.map((listing) => (
+              <ListingBlock key={listing.id} listing={listing} onOpen={onOpen} onOpenShop={onOpenShop} onAdd={onAdd} />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  )
+}
+
+function BuyersAskingSection({
+  items,
+  onPostRequest,
+}: {
+  items: ListingsPage['items']
+  onPostRequest: () => void
+}) {
+  if (items.length === 0) return null
+  return (
+    <section className="space-y-3 rounded-xl border border-border bg-card p-3" aria-labelledby="buyers-asking-heading">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 id="buyers-asking-heading" className="text-base font-semibold">Buyers are asking</h2>
+          <p className="text-xs text-muted-foreground">Have what someone needs? Contact the buyer directly.</p>
+        </div>
+        <button type="button" onClick={onPostRequest} className="min-h-11 shrink-0 rounded-lg border px-3 text-xs font-semibold hover:bg-secondary">Post a request</button>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {items.slice(0, 4).map((item) => (
+          <article key={item.id} className="flex min-w-0 items-center gap-3 rounded-lg border p-3">
+            <div className="min-w-0 flex-1">
+              <h3 className="line-clamp-2 text-sm font-semibold">{item.title}</h3>
+              <p className="mt-1 text-xs text-muted-foreground">{[item.area, item.county].filter(Boolean).join(', ') || 'Location not specified'}</p>
+              <p className="mt-1 text-sm font-bold text-foreground">{item.price === null ? 'Budget not specified' : `Budget USh ${Math.round(item.price).toLocaleString('en-UG')}`}</p>
+            </div>
+            <a
+              href={item.contactWhatsapp ? whatsappLink(item.contactWhatsapp, item.title, item.type) : telLink(item.contactPhone)}
+              target={item.contactWhatsapp ? '_blank' : undefined}
+              rel={item.contactWhatsapp ? 'noopener noreferrer' : undefined}
+              className="press inline-flex min-h-11 shrink-0 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground"
+            >
+              I have this
+            </a>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function ExploreShopsSection({
   shops,
   loading,
@@ -507,27 +713,12 @@ function ExploreShopsSection({
         <span className="text-xs text-muted-foreground">Meet local sellers</span>
       </div>
       {shops.length > 0 ? (
-        <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2 scrollbar-slim" role="list" aria-label="Shops on Mudaala">
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4" role="list" aria-label="Shops on Mudaala">
           {shops.map((shop) => (
-            <button
-              key={shop.id}
-              type="button"
-              role="listitem"
-              onClick={() => onOpenShop(shop.id)}
-              className="press flex w-[84px] shrink-0 flex-col items-center gap-1.5 rounded-lg px-1 py-1 text-center hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              aria-label={`Explore ${shop.name}${shop.category ? `, ${shopCategoryLabel(shop.category)} shop` : ' shop'}`}
-            >
-              {shop.photoUrl ? (
-                <img src={shop.photoUrl} alt="" loading="lazy" className="size-16 rounded-full border border-border object-cover" />
-              ) : (
-                <span className="flex size-16 items-center justify-center rounded-full border border-border bg-secondary text-primary">
-                  <Store className="size-6" aria-hidden />
-                </span>
-              )}
-              <span className="line-clamp-2 w-full break-words text-xs font-semibold leading-tight">{shop.name}</span>
-              <span className="line-clamp-1 w-full text-[10px] leading-tight text-muted-foreground">
-                {shopCategoryLabel(shop.category)}
-              </span>
+            <button key={shop.id} type="button" role="listitem" onClick={() => onOpenShop(shop.id)} className="press relative flex min-h-36 min-w-0 flex-col items-start overflow-hidden rounded-xl border border-border bg-card px-3 pb-3 pt-8 text-left hover:border-primary/50 hover:bg-secondary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`Visit ${shop.name}`}>
+              <span className="absolute inset-x-0 top-0 h-9 bg-secondary" aria-hidden />
+              {shop.photoUrl ? <img src={shop.photoUrl} alt="" loading="lazy" className="relative -mt-1 size-12 shrink-0 rounded-full border-2 border-card bg-card object-cover" /> : <span className="relative -mt-1 flex size-12 shrink-0 items-center justify-center rounded-full border-2 border-card bg-secondary text-base font-bold text-primary">{shop.name.charAt(0).toUpperCase()}</span>}
+              <span className="mt-2 block w-full min-w-0"><span className="block line-clamp-2 break-words text-sm font-semibold">{shop.name}</span><span className="mt-1 block truncate text-xs text-muted-foreground">{shopCategoryLabel(shop.category)}</span><span className="mt-1 block truncate text-xs text-muted-foreground">{[shop.area, shop.county].filter(Boolean).join(', ') || 'Mudaala shop'}</span><span className="mt-2 block text-xs font-semibold text-primary">Visit shop →</span></span>
             </button>
           ))}
         </div>
@@ -603,23 +794,26 @@ function SpecialOffersSection({
   onOpenShop: (shopId: string) => void
   onAdd: (listing: Listing & { user?: ListingShopOwnerT }) => boolean | void
 }) {
-  if (items.length === 0) return null
   return (
-    <section className="min-w-0 space-y-3 py-1" aria-labelledby="special-offers-heading">
-      <h2 id="special-offers-heading" className="text-base font-semibold tracking-tight">Special offers</h2>
-      <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-        {items.slice(0, 6).map((listing) => (
-          <ListingBlock
-            key={listing.id}
-            listing={listing}
-            shopLabel={shopLabels.get(listing.id)}
-            distanceLabel={distanceLabels.get(listing.id)}
-            onOpen={onOpen}
-            onOpenShop={onOpenShop}
-            onAdd={onAdd}
-          />
-        ))}
-      </div>
+    <section id="special-offers" className="min-w-0 space-y-3 py-1" aria-labelledby="special-offers-heading">
+      <h2 id="special-offers-heading" className="text-base font-semibold tracking-tight">Hot deals</h2>
+      {items.length > 0 ? (
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+          {items.slice(0, 6).map((listing) => (
+            <ListingBlock
+              key={listing.id}
+              listing={listing}
+              shopLabel={shopLabels.get(listing.id)}
+              distanceLabel={distanceLabels.get(listing.id)}
+              onOpen={onOpen}
+              onOpenShop={onOpenShop}
+              onAdd={onAdd}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-lg border border-dashed px-3 py-4 text-sm text-muted-foreground">No discounted listings are available in this feed right now.</p>
+      )}
     </section>
   )
 }
@@ -689,9 +883,9 @@ function ShopNameSearchResults({ query, onOpenShop }: { query: string; onOpenSho
   )
 }
 
-// The featured-shop rail rotates through distinct shops represented in the
-// current public results. A shared 30-minute bucket makes the choice stable
-// during a window and predictable across refreshes, without user-level tracking.
+// The featured shop rotates daily among distinct shops represented in the
+// current public results. A shared day bucket keeps the choice stable across
+// refreshes without paid placement or user-level tracking.
 function subscribeToFeaturedShopRotation(onStoreChange: () => void) {
   const timer = window.setInterval(onStoreChange, 60_000)
   return () => window.clearInterval(timer)
@@ -722,49 +916,58 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
     queryFn: () => apiGet<ShopPageT>(`/api/shops/${shopId}`),
   })
   const shop = shopQuery.data?.shop ?? null
+  const shopListings = shopQuery.data?.listings ?? []
   const shopUrl = useMemo(
     () => (origin && shop ? `${origin}/#/shop/${shop.id}` : ''),
     [origin, shop],
   )
 
   return (
-    <aside className="hidden lg:block" aria-label="Featured shop from your results">
+    <section className="min-w-0 overflow-hidden rounded-xl border border-primary bg-primary text-primary-foreground" aria-label="Shop of the day">
       {shop ? (
-        <div className="overflow-hidden rounded-lg border bg-card">
+        <>
           {shop.photoUrl ? (
-            <img src={shop.photoUrl} alt="" loading="lazy" className="h-32 w-full object-cover" />
+            <img src={shop.photoUrl} alt="" loading="lazy" className="h-28 w-full object-cover sm:h-36" />
           ) : (
-            // PLACEHOLDER RULE - no shop photo yet: the neutral grey tile
-            // with the shop's name, never a stock or generated image.
-            <PlaceholderTile title={shop.name} label={copy.shop.coverTileAria(shop.name)} className="h-32 w-full" />
+            <PlaceholderTile title={shop.name} label={copy.shop.coverTileAria(shop.name)} className="h-28 w-full sm:h-36" />
           )}
           <div className="p-4">
-            <p className="text-xs font-medium text-muted-foreground">{copy.browse.featuredShop}</p>
-            <h2 className="mt-1 font-display text-lg font-semibold leading-tight tracking-tight text-primary">
+            <p className="text-xs font-semibold text-primary-foreground/75">{copy.browse.featuredShop}</p>
+            <h2 className="mt-1 font-display text-lg font-semibold leading-tight tracking-tight text-primary-foreground">
               {shop.name}
             </h2>
             {shop.area || shop.county ? (
-              <p className="mt-0.5 text-xs text-muted-foreground">{[shop.area, shop.county].filter(Boolean).join(', ')}</p>
+              <p className="mt-0.5 text-xs text-primary-foreground/75">{[shop.area, shop.county].filter(Boolean).join(', ')}</p>
+            ) : null}
+            {shopListings.length > 0 ? (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {shopListings.slice(0, 3).map((listing) => (
+                  <div key={listing.id} className="min-w-0 overflow-hidden rounded-md border border-primary-foreground/20 bg-primary-foreground/10">
+                    {listing.photos[0] ? <img src={listing.photos[0]} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover" /> : <div className="aspect-[4/3] bg-muted" />}
+                    <p className="line-clamp-2 p-1.5 text-[11px] font-medium text-primary-foreground">{listing.title}</p>
+                  </div>
+                ))}
+              </div>
             ) : null}
             <div className="mt-3 flex items-center gap-3">
-              <div className="shrink-0 bg-white p-1.5">
+              <div className="shrink-0 rounded-md bg-white p-1.5">
                 {shopUrl ? <QRCode value={shopUrl} size={64} role="img" aria-label={`QR code for ${shop.name}'s shop`} /> : null}
               </div>
               <div className="min-w-0">
                 {shop.shopCode ? (
-                  <p className="text-sm font-bold tracking-widest text-foreground tabular-nums">{shop.shopCode}</p>
+                  <p className="text-sm font-bold tracking-widest text-primary-foreground tabular-nums">{shop.shopCode}</p>
                 ) : null}
-                <p className="text-[11px] leading-snug text-muted-foreground">{copy.browse.featuredCodeHint}</p>
+                <p className="text-[11px] leading-snug text-primary-foreground/75">{copy.browse.featuredCodeHint}</p>
               </div>
             </div>
-            <a
-              href={telLink(shop.phone)}
-              className="press mt-3 flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
-            >
-              <Phone className="size-4" aria-hidden /> {copy.common.call}
-            </a>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <a href={shopUrl || `/#/shop/${shop.id}`} className="press flex min-h-11 items-center justify-center rounded-md bg-amber-400 px-3 text-sm font-bold text-amber-950 hover:bg-amber-300">Visit shop</a>
+              <a href={telLink(shop.phone)} className="press flex min-h-11 items-center justify-center gap-1.5 rounded-md border border-primary-foreground/40 px-3 text-sm font-semibold text-primary-foreground hover:bg-primary-foreground/10">
+                <Phone className="size-4" aria-hidden /> {copy.common.call}
+              </a>
+            </div>
           </div>
-        </div>
+        </>
       ) : shopId && shopQuery.isLoading ? (
         <div className="h-64 animate-pulse rounded-lg border bg-muted/40" role="status" aria-label="Loading featured shop" />
       ) : shopId && shopQuery.isError ? (
@@ -781,7 +984,7 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
           <p className="mt-1 text-sm text-muted-foreground">No eligible shop appears in these results yet.</p>
         </div>
       )}
-    </aside>
+    </section>
   )
 }
 
@@ -936,19 +1139,14 @@ function ShopCodeCard({ shop, onOpen }: { shop: ShopLookupResponse['shop']; onOp
   )
 }
 
-function Pagination({ page, pageCount, onPage }: { page: number; pageCount: number; onPage: (p: number) => void }) {
+function Pagination({ loading, onLoadMore }: { loading: boolean; onLoadMore: () => void }) {
   return (
-    <nav className="flex items-center justify-center gap-2 pt-2" aria-label="Pagination">
-      <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>
-        <ChevronLeft className="size-4" aria-hidden /> {copy.common.prev}
+    <div className="flex justify-center pt-2">
+      <Button type="button" variant="outline" size="lg" className="min-h-11 min-w-48" disabled={loading} onClick={onLoadMore}>
+        {loading ? 'Loading…' : 'Load more listings'}
+        {!loading ? <ChevronRight className="size-4" aria-hidden /> : null}
       </Button>
-      <span className="px-2 text-sm text-muted-foreground tabular-nums">
-        {page} / {pageCount}
-      </span>
-      <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => onPage(page + 1)}>
-        {copy.common.next} <ChevronRight className="size-4" aria-hidden />
-      </Button>
-    </nav>
+    </div>
   )
 }
 
