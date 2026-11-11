@@ -132,6 +132,18 @@ export function AppSidebar() {
       </nav>
 
       <div className="space-y-3 border-t p-3">
+        {/* The one big action - posting is what this app exists for. */}
+        <Button
+          size="lg"
+          className="mudaala-money-cta w-full text-sm"
+          onClick={() => navigate({ name: 'publish' })}
+        >
+          <PlusCircle className="size-4" aria-hidden />
+          {copy.nav.postAd}
+        </Button>
+
+        <ShopCodeCard />
+
         {SUPPORT_WHATSAPP ? (
           // Plain wa.me link - leaves the app, opens WhatsApp. No in-app
           // messaging is offered, by design.
@@ -148,17 +160,6 @@ export function AppSidebar() {
             </span>
           </a>
         ) : null}
-
-        {/* The two primary workspace actions stay pinned below the scrollable nav. */}
-        <Button
-          size="lg"
-          className="mudaala-money-cta w-full text-sm"
-          onClick={() => navigate({ name: 'publish' })}
-        >
-          <PlusCircle className="size-4" aria-hidden />
-          {copy.nav.postAd}
-        </Button>
-        <ShopCodeCard />
       </div>
     </aside>
   )
