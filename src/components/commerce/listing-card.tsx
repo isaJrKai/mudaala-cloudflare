@@ -189,7 +189,7 @@ export function ListingCard({ listing, onOpen, actions, showStatus, onOpenShop, 
           <div className="relative size-24 shrink-0 overflow-hidden rounded-lg border bg-secondary sm:size-28">
             <ListingPhoto listing={listing} />
             <span className="absolute left-1 top-1">
-              {listing.type === 'REQUEST' ? {listing.type === 'REQUEST' ? <TypeBadge type={listing.type} /> : null} : null}
+              {listing.type === 'REQUEST' ? <TypeBadge type={listing.type} /> : null}
             </span>
             {listing.photos.length > 1 ? (
               <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white tabular-nums">
