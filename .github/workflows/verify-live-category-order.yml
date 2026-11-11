@@ -66,7 +66,7 @@ jobs:
               const listbox = page.getByRole('listbox');
               await listbox.waitFor({ state: 'visible', timeout: 10000 });
               const actual = await listbox.getByRole('option').allTextContents();
-              const normalized = actual.map((label) => label.trim().replace(/\\s+/g, ' '));
+              const normalized = actual.map((label) => label.trim().replace(/\s+/g, ' '));
               if (JSON.stringify(normalized) !== JSON.stringify(expected)) {
                 throw new Error('Production category filter options mismatch: expected ' + JSON.stringify(expected) + ', received ' + JSON.stringify(normalized));
               }
