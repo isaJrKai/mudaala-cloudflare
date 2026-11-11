@@ -436,7 +436,7 @@ async function verifyListingLifecycle(browser) {
     // Verify the chosen shop's accessible label matches the card heading and
     // that the QR SVG renders; the pure rotation policy has separate tests.
     await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    const featuredShop = page.locator('aside[aria-label="Featured shop from your results"]');
+    const featuredShop = page.locator('section[aria-label="Shop of the day"]');
     await featuredShop.waitFor({ state: 'visible', timeout });
     const shopQr = featuredShop.getByRole('img', { name: /^QR code for .+'s shop$/ });
     await shopQr.waitFor({ state: 'visible', timeout });
