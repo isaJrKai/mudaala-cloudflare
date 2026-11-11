@@ -189,7 +189,7 @@ export function ListingCard({ listing, onOpen, actions, showStatus, onOpenShop, 
           <div className="relative size-24 shrink-0 overflow-hidden rounded-lg border bg-secondary sm:size-28">
             <ListingPhoto listing={listing} />
             <span className="absolute left-1 top-1">
-              {listing.type === 'REQUEST' ? <TypeBadge type={listing.type} /> : null}
+              {listing.type === 'REQUEST' ? {listing.type === 'REQUEST' ? <TypeBadge type={listing.type} /> : null} : null}
             </span>
             {listing.photos.length > 1 ? (
               <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white tabular-nums">
@@ -295,7 +295,7 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
           <ListingPhoto listing={listing} />
           <button type="button" onClick={() => onOpen(listing.id)} className="absolute inset-0 z-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" aria-label={copy.card.openAria(listing.title)} />
           <span className="pointer-events-none absolute left-1 top-1 z-10 sm:left-1.5 sm:top-1.5">
-            <TypeBadge type={listing.type} />
+            {listing.type === 'REQUEST' ? <TypeBadge type={listing.type} /> : null}
           </span>
           {listing.type === 'OFFER' ? (
             <HeartButton
