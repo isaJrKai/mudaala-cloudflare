@@ -40,7 +40,7 @@ export async function GET() {
           select: { id: true, title: true, refreshedAt: true },
           take: 3,
         }),
-        db.listing.count({ where: { userId: user.id, status: 'ACTIVE', refreshedAt: { lt: staleCutoff } } }),
+        db.listing.count({ where: { userId: user.id, status: 'ACTIVE', ...activeExpiry, refreshedAt: { lt: staleCutoff } } }),
         // "New matches" = DISTINCT listings that matched one of this user's
         // saved searches since their last visit, as recorded by the real
         // NEW_MATCH notifications the publish flow already sends.
