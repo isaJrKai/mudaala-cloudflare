@@ -81,6 +81,7 @@ export function ListingsBrowse() {
   const [lovedOnly, setLovedOnly] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [searchInput, setSearchInput] = useState(filters.q)
+  const [loadedItems, setLoadedItems] = useState<ListingsPage['items']>([])
   const [nearMe, setNearMe] = useState<NearMeState>(NEARME_IDLE)
   const nearOn = nearMe.status === 'on' && nearMe.lat !== null && nearMe.lng !== null
 
@@ -150,7 +151,7 @@ export function ListingsBrowse() {
   // of the cache key so toggling Near me refetches in the new order.
   const nearParams =
     nearOn && nearMe.lat !== null && nearMe.lng !== null ? `&lat=${nearMe.lat}&lng=${nearMe.lng}` : ''
-  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching, isPlaceholderData } = useQuery({
     queryKey: ['listings', query, nearParams],
     queryFn: () => apiGet<ListingsPage>(`/api/listings?${query}${nearParams}`),
     // Retry transient transport/edge/server failures, not client errors such as
@@ -164,6 +165,16 @@ export function ListingsBrowse() {
     placeholderData: (prev) => prev,
   })
 
+  // Append confirmed pages while ignoring placeholder data from a prior query.
+  useEffect(() => {
+    if (!data || isPlaceholderData || data.page !== filters.page) return
+    setLoadedItems((current) => {
+      if (data.page === 1) return data.items
+      const seen = new Set(current.map((item) => item.id))
+      return [...current, ...data.items.filter((item) => !seen.has(item.id))]
+    })
+  }, [data, filters.page, isPlaceholderData])
+
   const codeLookup = useQuery({
     queryKey: ['shop-code', codeQuery],
     queryFn: () => apiGet<ShopLookupResponse>(`/api/shops/lookup?code=${encodeURIComponent(codeQuery)}`),
@@ -173,20 +184,20 @@ export function ListingsBrowse() {
   })
   const codeShop = codeQuery !== '' && codeLookup.data ? codeLookup.data.shop : null
 
-  const shopLabels = useMemo(() => computeShopLabels(data?.items), [data])
+  const shopLabels = useMemo(() => computeShopLabels(loadedItems), [loadedItems])
 
   // Distance chips - computed from the same blurred coords the server used,
   // so the label a buyer reads always matches the order they see.
   const distanceLabels = useMemo(() => {
     const map = new Map<string, string>()
-    if (!data || nearMe.lat === null || nearMe.lng === null) return map
-    for (const listing of data.items) {
+    if (nearMe.lat === null || nearMe.lng === null) return map
+    for (const listing of loadedItems) {
       const spot = listing.user?.profile
       if (!spot || spot.lat === null || spot.lng === null) continue
       map.set(listing.id, formatDistance(haversineMeters({ lat: nearMe.lat, lng: nearMe.lng }, { lat: spot.lat, lng: spot.lng })))
     }
     return map
-  }, [data, nearMe.lat, nearMe.lng])
+  }, [loadedItems, nearMe.lat, nearMe.lng])
 
   const activeFilterCount = [
     filters.type !== 'any' ? 1 : 0,
@@ -199,16 +210,16 @@ export function ListingsBrowse() {
 
   // Discovery is inserted only into the unfiltered first-page feed. A search
   // or explicit filter stays focused on the results the buyer asked for.
-  const showDiscoverySections = !filters.q.trim() && activeFilterCount === 0 && (data?.page ?? 1) === 1
+  const showDiscoverySections = !filters.q.trim() && activeFilterCount === 0
   const discoveryShopIds = useMemo(() => {
     const seen = new Set<string>()
-    return (data?.items ?? []).flatMap((listing) => {
+    return loadedItems.flatMap((listing) => {
       const id = listing.user?.id
       if (!id || seen.has(id)) return []
       seen.add(id)
       return [id]
     }).slice(0, 8)
-  }, [data?.items])
+  }, [loadedItems])
   const discoveryQuery = useQuery({
     queryKey: ['browse-shop-discovery', discoveryShopIds.join(',')],
     enabled: showDiscoverySections && discoveryShopIds.length > 0,
@@ -439,21 +450,21 @@ export function ListingsBrowse() {
             </div>
             {showDiscoverySections ? (
               <>
-                {renderListingGrid(data.items.slice(0, 6), true)}
+                {renderListingGrid(loadedItems.slice(0, 6), true)}
                 <BrowseActionTiles onSell={() => navigate({ name: 'publish' })} />
                 <ExploreShopsSection
                   shops={discoveryShops}
                   loading={discoveryQuery.isLoading}
                   onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
                 />
-                {data.items.length > 6 ? renderListingGrid(data.items.slice(6, 12)) : null}
+                {loadedItems.length > 6 ? renderListingGrid(loadedItems.slice(6, 12)) : null}
                 <ExploreShowroomsSection
                   shops={discoveryQuery.data?.shops ?? []}
                   onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
                 />
-                {data.items.length > 12 ? renderListingGrid(data.items.slice(12)) : null}
+                {loadedItems.length > 12 ? renderListingGrid(loadedItems.slice(12)) : null}
                 <SpecialOffersSection
-                  items={data.items.filter((item) => item.type === 'OFFER' && item.compareAtPrice !== null && item.price !== null && item.compareAtPrice > item.price)}
+                  items={loadedItems.filter((item) => item.type === 'OFFER' && item.compareAtPrice !== null && item.price !== null && item.compareAtPrice > item.price)}
                   shopLabels={shopLabels}
                   distanceLabels={distanceLabels}
                   onOpen={(id) => navigate({ name: 'listing', id })}
@@ -461,27 +472,27 @@ export function ListingsBrowse() {
                   onAdd={addToBasket}
                 />
                 <CategoryDiscoveryRows
-                  items={data.items.filter((item) => item.type === 'OFFER')}
+                  items={loadedItems.filter((item) => item.type === 'OFFER')}
                   onSeeAll={(category) => setFilters({ category, type: 'OFFER', page: 1 })}
                   onOpen={(id) => navigate({ name: 'listing', id })}
                   onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
                   onAdd={addToBasket}
                 />
                 <BuyersAskingSection
-                  items={data.items.filter((item) => item.type === 'REQUEST')}
+                  items={loadedItems.filter((item) => item.type === 'REQUEST')}
                   onPostRequest={() => navigate({ name: 'publish' })}
                 />
               </>
             ) : (
-              renderListingGrid(data.items, true)
+              renderListingGrid(loadedItems, true)
             )}
 
-            {data.pageCount > 1 ? (
-              <Pagination page={data.page} pageCount={data.pageCount} onPage={(p) => setFilters({ page: p })} />
+            {data.page < data.pageCount ? (
+              <Pagination loading={isFetching} onLoadMore={() => setFilters({ page: data.page + 1 })} />
             ) : null}
           </div>
 
-          <FeaturedShopPanel items={data.items} />
+          <FeaturedShopPanel items={loadedItems} />
         </div>
       ) : null}
     </div>
@@ -1035,19 +1046,14 @@ function ShopCodeCard({ shop, onOpen }: { shop: ShopLookupResponse['shop']; onOp
   )
 }
 
-function Pagination({ page, pageCount, onPage }: { page: number; pageCount: number; onPage: (p: number) => void }) {
+function Pagination({ loading, onLoadMore }: { loading: boolean; onLoadMore: () => void }) {
   return (
-    <nav className="flex items-center justify-center gap-2 pt-2" aria-label="Load more listings">
-      <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>
-        <ChevronLeft className="size-4" aria-hidden /> {copy.common.prev}
+    <div className="flex justify-center pt-2">
+      <Button type="button" variant="outline" size="lg" className="min-h-11 min-w-48" disabled={loading} onClick={onLoadMore}>
+        {loading ? 'Loading…' : 'Load more listings'}
+        {!loading ? <ChevronRight className="size-4" aria-hidden /> : null}
       </Button>
-      <span className="px-2 text-sm text-muted-foreground tabular-nums">
-        {`Showing page ${page} of ${pageCount}`}
-      </span>
-      <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => onPage(page + 1)}>
-        Load more listings <ChevronRight className="size-4" aria-hidden />
-      </Button>
-    </nav>
+    </div>
   )
 }
 
