@@ -3141,11 +3141,32 @@ async function main() {
     }, seller)
     ok('21a.4 duplicate SKU returns a conflict', duplicateSku.status === 409)
 
+    const attributionListingRes = await call('POST', '/api/listings', { ...validListing, title: 'Attribution test listing' }, seller)
+    const attributionListingId = attributionListingRes.json?.listing?.id ?? ''
+    ok('21a.5a seller fixture has a real non-seed Mudaala listing', attributionListingRes.status === 201 && attributionListingId !== '')
+
+    await db.listing.update({ where: { id: attributionListingId }, data: { status: 'ARCHIVED' } })
     const saleKey = randomUUID()
-    const saleBody = { idempotencyKey: saleKey, channel: 'IN_PERSON', items: [{ productId, quantity: 2, unitPrice: 50000 }] }
+    const saleBody = { idempotencyKey: saleKey, channel: 'MUDAALA', sourceListingId: attributionListingId, items: [{ productId, quantity: 2, unitPrice: 50000 }] }
+    const invalidChannelKey = randomUUID()
+    const stockBeforeInvalidChannel = await db.businessProduct.findUnique({ where: { id: productId }, select: { stockOnHand: true } })
+    const invalidChannelAttribution = await call('POST', '/api/my/sales', { ...saleBody, idempotencyKey: invalidChannelKey, channel: 'WHATSAPP' }, seller)
+    const invalidChannelSale = await db.sale.findFirst({ where: { userId: seller.user?.id, idempotencyKey: invalidChannelKey } })
+    const stockAfterInvalidChannel = await db.businessProduct.findUnique({ where: { id: productId }, select: { stockOnHand: true } })
+    ok('21a.5a1 listing attribution requires the Mudaala channel and makes no sale or stock change otherwise', invalidChannelAttribution.status === 400 && invalidChannelSale === null && Number(stockAfterInvalidChannel?.stockOnHand) === Number(stockBeforeInvalidChannel?.stockOnHand))
+    const seedKey = randomUUID()
+    await db.listing.update({ where: { id: attributionListingId }, data: { isSeed: true } })
+    const seedAttribution = await call('POST', '/api/my/sales', { ...saleBody, idempotencyKey: seedKey }, seller)
+    const seedSale = await db.sale.findFirst({ where: { userId: seller.user?.id, idempotencyKey: seedKey } })
+    await db.listing.update({ where: { id: attributionListingId }, data: { isSeed: false } })
+    ok('21a.5a2 seed listings cannot be attributed and do not create a sale', seedAttribution.status === 404 && seedSale === null)
     const saleRes = await call('POST', '/api/my/sales', saleBody, seller)
     const saleId = saleRes.json?.sale?.id ?? ''
-    ok('21a.5 record completed sale captures revenue and estimated gross profit', saleRes.status === 201 && saleId !== '' && saleRes.json?.sale?.revenue === 100000 && saleRes.json?.sale?.grossProfit === 40000)
+    ok('21a.5 record completed sale captures revenue and seller-reported listing attribution', saleRes.status === 201 && saleId !== '' && saleRes.json?.sale?.revenue === 100000 && saleRes.json?.sale?.grossProfit === 40000 && saleRes.json?.sale?.sourceListingId === attributionListingId && saleRes.json?.sale?.sourceListingTitle === 'Attribution test listing')
+    const conflictingAttributionRetry = await call('POST', '/api/my/sales', { ...saleBody, sourceListingId: undefined }, seller)
+    ok('21a.5b idempotency replay cannot silently remove original listing attribution', conflictingAttributionRetry.status === 409)
+    const foreignAttribution = await call('POST', '/api/my/sales', { idempotencyKey: randomUUID(), channel: 'MUDAALA', sourceListingId: attributionListingId, items: [{ productId: 'not-owned', quantity: 1 }] }, otherSeller)
+    ok('21a.5c another seller cannot attribute a sale to this listing', foreignAttribution.status === 404)
     const afterSale = await db.businessProduct.findUnique({ where: { id: productId } })
     ok('21a.6 sale and stock decrement commit together', Number(afterSale?.stockOnHand) === 3)
 
@@ -3167,6 +3188,8 @@ async function main() {
     const analyticsBeforeVoid = await call('GET', '/api/my/business-analytics?period=30d', undefined, seller)
     const summary = analyticsBeforeVoid.json?.sales?.find((row: any) => row.currency === 'UGX')
     ok('21a.10 analytics separates recorded revenue from cost-based gross profit', analyticsBeforeVoid.status === 200 && summary?.recordedRevenue === 100000 && summary?.estimatedGrossProfit === 40000 && summary?.completedSales === 1)
+    const attributedSummary = analyticsBeforeVoid.json?.sellerReportedAttribution?.byCurrency?.find((row: any) => row.currency === 'UGX')
+    ok('21a.10a seller-reported attribution is reported separately from ordinary sales and clicks', attributedSummary?.salesCount === 1 && attributedSummary?.revenue === 100000 && analyticsBeforeVoid.json?.sellerReportedAttribution?.byListing?.some((row: any) => row.listingId === attributionListingId && row.listingTitle === 'Attribution test listing'))
 
     const voidRes = await call('POST', '/api/my/sales/' + saleId + '/void', { reason: 'Recorded by mistake during test' }, seller)
     const afterVoid = await db.businessProduct.findUnique({ where: { id: productId } })
@@ -3174,6 +3197,10 @@ async function main() {
     const analyticsAfterVoid = await call('GET', '/api/my/business-analytics?period=30d', undefined, seller)
     const voidSummary = analyticsAfterVoid.json?.sales?.find((row: any) => row.currency === 'UGX')
     ok('21a.12 voided sales are excluded from active revenue', analyticsAfterVoid.status === 200 && (!voidSummary || (voidSummary.recordedRevenue === 0 && voidSummary.completedSales === 0)))
+    ok('21a.12a voided seller-reported sales are excluded from attributed counts and revenue', analyticsAfterVoid.status === 200 && (analyticsAfterVoid.json?.sellerReportedAttribution?.byCurrency ?? []).every((row: any) => row.salesCount === 0 && row.revenue === 0))
+    await db.listing.delete({ where: { id: attributionListingId } })
+    const preservedAttribution = await db.sale.findUnique({ where: { id: saleId }, select: { sourceListingId: true, sourceListingTitle: true } })
+    ok('21a.12b listing deletion clears the relation but preserves the historical source title', preservedAttribution?.sourceListingId === null && preservedAttribution?.sourceListingTitle === 'Attribution test listing')
 
     const restock = await call('POST', '/api/my/business-products/' + productId + '/stock', { type: 'RESTOCK', quantity: 2, note: 'Test delivery' }, seller)
     const threshold = await call('PATCH', '/api/my/business-products/' + productId, { reorderLevel: 8 }, seller)
