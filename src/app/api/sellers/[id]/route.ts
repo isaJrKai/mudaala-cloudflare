@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server'
 import { route, jsonOk, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
-import { expireOverdueListings, serializeListing } from '@/lib/listings'
+import { serializeListing } from '@/lib/listings'
+import { activeListingExpiryFilter } from '@/lib/listing-visibility'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -11,8 +12,6 @@ type Params = { params: Promise<{ id: string }> }
 export async function GET(_request: NextRequest, { params }: Params) {
   return route(async () => {
     const { id } = await params
-    await expireOverdueListings()
-
     const seller = await db.user.findUnique({
       where: { id },
       select: { id: true, name: true, createdAt: true, country: true },
@@ -44,7 +43,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     })
 
     const listings = await db.listing.findMany({
-      where: { userId: id, status: 'ACTIVE' },
+      where: { userId: id, status: 'ACTIVE', ...activeListingExpiryFilter() },
       orderBy: { refreshedAt: 'desc' },
       take: 50,
     })
