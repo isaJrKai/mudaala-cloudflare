@@ -13,8 +13,8 @@ import { Clock, MapPin } from 'lucide-react'
 import { ShareAdRow } from '@/components/commerce/share-row'
 import { ReportButton } from '@/components/commerce/report-button'
 import { db, withRequestDb } from '@/lib/db'
-import { expireOverdueListings } from '@/lib/listings'
 import { normalizeShopCode } from '@/lib/format'
+import { activeListingExpiryFilter } from '@/lib/listing-visibility'
 import { siteUrl } from '@/lib/site'
 import { copy } from '@/lib/copy'
 import { SiteFooter } from '@/components/commerce/site-footer'
@@ -29,8 +29,6 @@ type Params = { params: Promise<{ code: string }> }
 // pair). Null for malformed or unknown codes; the page turns that into a
 // friendly 404.
 const loadShop = cache(async (raw: string) => {
-  await expireOverdueListings()
-
   const code = normalizeShopCode(raw)
   if (!code) return null
 
@@ -42,7 +40,7 @@ const loadShop = cache(async (raw: string) => {
           id: true,
           name: true,
           createdAt: true,
-          listings: { where: { status: 'ACTIVE' }, orderBy: { refreshedAt: 'desc' }, take: 200 },
+          listings: { where: { status: 'ACTIVE', ...activeListingExpiryFilter() }, orderBy: { refreshedAt: 'desc' }, take: 200 },
         },
       },
     },
