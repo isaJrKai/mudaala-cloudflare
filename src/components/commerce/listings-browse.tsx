@@ -864,9 +864,9 @@ function ShopNameSearchResults({ query, onOpenShop }: { query: string; onOpenSho
   )
 }
 
-// The featured-shop rail rotates through distinct shops represented in the
-// current public results. A shared 30-minute bucket makes the choice stable
-// during a window and predictable across refreshes, without user-level tracking.
+// The featured shop rotates daily among distinct shops represented in the
+// current public results. A shared day bucket keeps the choice stable across
+// refreshes without paid placement or user-level tracking.
 function subscribeToFeaturedShopRotation(onStoreChange: () => void) {
   const timer = window.setInterval(onStoreChange, 60_000)
   return () => window.clearInterval(timer)
