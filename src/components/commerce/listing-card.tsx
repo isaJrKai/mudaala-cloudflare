@@ -132,23 +132,34 @@ export function HeartButton({
 function PriceLead({ listing, large }: { listing: Listing; large?: boolean }) {
   const discounted = isDiscounted(listing)
   const percentOff = discountPercent(listing)
-  const priceClass = cn('font-extrabold leading-none text-foreground tabular-nums', large ? 'text-lg' : 'text-base')
-  if (listing.price === null) {
-    return <p className={cn('mt-1 font-semibold leading-none text-primary', large ? 'text-base' : 'text-sm')}>Get a quote</p>
+  if (listing.type === 'OFFER') {
+    return (
+      <div className="mt-1.5 inline-flex max-w-full flex-wrap items-baseline gap-x-2">
+        <p className={cn('font-extrabold leading-none text-foreground tabular-nums', large ? 'text-lg' : 'text-base')}>
+          {formatPrice(listing.price, listing.unit ? unitLabel(listing.unit) : null, listing.currency)}
+          {listing.priceNegotiable && listing.price !== null ? (
+            <span className="ml-1 text-xs font-normal text-muted-foreground">{copy.common.negotiableShort}</span>
+          ) : null}
+        </p>
+        {discounted ? (
+          <>
+            <span className="text-xs text-muted-foreground line-through tabular-nums">
+              {formatPrice(listing.compareAtPrice, null, listing.currency)}
+            </span>
+            <span className="text-[10px] font-semibold text-emerald-800">
+              −{percentOff}%
+            </span>
+          </>
+        ) : null}
+      </div>
+    )
   }
   return (
-    <div className="mt-1.5 inline-flex max-w-full flex-wrap items-baseline gap-x-2 gap-y-1">
-      <p className={priceClass}>
-        {formatPrice(listing.price, listing.unit ? unitLabel(listing.unit) : null, listing.currency)}
-      </p>
-      {listing.priceNegotiable ? <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[10px] font-semibold text-foreground">Negotiable</span> : null}
-      {discounted ? (
-        <>
-          <span className="text-xs text-muted-foreground line-through tabular-nums">{formatPrice(listing.compareAtPrice, null, listing.currency)}</span>
-          <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-950">−{percentOff}%</span>
-        </>
-      ) : null}
-    </div>
+    <p className={cn('mt-1 font-semibold leading-none text-foreground tabular-nums', large ? 'text-base' : 'text-sm')}>
+      {listing.price !== null
+        ? `${copy.common.budget}: ${formatPrice(listing.price, listing.unit ? unitLabel(listing.unit) : null, listing.currency)}`
+        : copy.common.askPrice}
+    </p>
   )
 }
 
@@ -189,7 +200,7 @@ export function ListingCard({ listing, onOpen, actions, showStatus, onOpenShop, 
           <div className="relative size-24 shrink-0 overflow-hidden rounded-lg border bg-secondary sm:size-28">
             <ListingPhoto listing={listing} />
             <span className="absolute left-1 top-1">
-              {listing.type === 'REQUEST' ? <TypeBadge type={listing.type} /> : null}
+              <TypeBadge type={listing.type} />
             </span>
             {listing.photos.length > 1 ? (
               <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white tabular-nums">
@@ -295,7 +306,7 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
           <ListingPhoto listing={listing} />
           <button type="button" onClick={() => onOpen(listing.id)} className="absolute inset-0 z-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" aria-label={copy.card.openAria(listing.title)} />
           <span className="pointer-events-none absolute left-1 top-1 z-10 sm:left-1.5 sm:top-1.5">
-            {listing.type === 'REQUEST' ? <TypeBadge type={listing.type} /> : null}
+            <TypeBadge type={listing.type} />
           </span>
           {listing.type === 'OFFER' ? (
             <HeartButton
