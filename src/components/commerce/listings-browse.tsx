@@ -81,7 +81,6 @@ export function ListingsBrowse() {
   const [lovedOnly, setLovedOnly] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [searchInput, setSearchInput] = useState(filters.q)
-  const [loadedItems, setLoadedItems] = useState<ListingsPage['items']>([])
   const [nearMe, setNearMe] = useState<NearMeState>(NEARME_IDLE)
   const nearOn = nearMe.status === 'on' && nearMe.lat !== null && nearMe.lng !== null
 
@@ -165,15 +164,31 @@ export function ListingsBrowse() {
     placeholderData: (prev) => prev,
   })
 
-  // Append confirmed pages while ignoring placeholder data from a prior query.
-  useEffect(() => {
-    if (!data || isPlaceholderData || data.page !== filters.page) return
-    setLoadedItems((current) => {
-      if (data.page === 1) return data.items
-      const seen = new Set(current.map((item) => item.id))
-      return [...current, ...data.items.filter((item) => !seen.has(item.id))]
-    })
-  }, [data, filters.page, isPlaceholderData])
+  // Build the accumulated feed from React Query's page cache. This keeps
+  // pagination append-only without mirroring query data into component state.
+  // Comparing all filters except page prevents stale results from another
+  // search/filter set from leaking into the visible feed.
+  const loadedItems = useMemo(() => {
+    const currentParams = new URLSearchParams(query)
+    currentParams.delete('page')
+    const currentFilterKey = currentParams.toString()
+    const pages = queryClient.getQueriesData<ListingsPage>({ queryKey: ['listings'] })
+      .flatMap(([key, pageData]) => {
+        if (!pageData || key[2] !== nearParams || typeof key[1] !== 'string') return []
+        const pageParams = new URLSearchParams(key[1])
+        const page = Number(pageParams.get('page') ?? 1)
+        pageParams.delete('page')
+        if (page > filters.page || pageParams.toString() !== currentFilterKey) return []
+        return [{ page, items: pageData.items }]
+      })
+      .sort((a, b) => a.page - b.page)
+    const seen = new Set<string>()
+    return pages.flatMap(({ items }) => items.filter((item) => {
+      if (seen.has(item.id)) return false
+      seen.add(item.id)
+      return true
+    }))
+  }, [queryClient, query, nearParams, filters.page, data])
 
   const codeLookup = useQuery({
     queryKey: ['shop-code', codeQuery],
