@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Search, SlidersHorizontal, Bookmark, X, ChevronLeft, ChevronRight, Hash, Heart, MapPin, Info, Phone, Store } from 'lucide-react'
+import { Search, SlidersHorizontal, Bookmark, X, ChevronRight, Hash, Heart, MapPin, Info, Phone, Store } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -438,7 +438,11 @@ export function ListingsBrowse() {
           }
         />
       ) : data ? (
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start lg:gap-4">
+        <div className="space-y-4">
+          <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(220px,1fr)]">
+            <FeaturedShopPanel items={loadedItems} />
+            <BrowseActionTiles onSell={() => navigate({ name: 'publish' })} />
+          </div>
           <div className={isFetching ? 'space-y-3 opacity-60 transition-opacity' : 'space-y-3'}>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h1 className="text-xl font-bold leading-tight tracking-tight">
@@ -451,7 +455,6 @@ export function ListingsBrowse() {
             {showDiscoverySections ? (
               <>
                 {renderListingGrid(loadedItems.slice(0, 6), true)}
-                <BrowseActionTiles onSell={() => navigate({ name: 'publish' })} />
                 <ExploreShopsSection
                   shops={discoveryShops}
                   loading={discoveryQuery.isLoading}
@@ -491,8 +494,6 @@ export function ListingsBrowse() {
               <Pagination loading={isFetching} onLoadMore={() => setFilters({ page: data.page + 1 })} />
             ) : null}
           </div>
-
-          <FeaturedShopPanel items={loadedItems} />
         </div>
       ) : null}
     </div>
@@ -838,15 +839,13 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
   )
 
   return (
-    <aside className="hidden lg:block" aria-label="Featured shop from your results">
+    <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-card" aria-label="Shop of the day">
       {shop ? (
-        <div className="overflow-hidden rounded-lg border bg-card">
+        <>
           {shop.photoUrl ? (
-            <img src={shop.photoUrl} alt="" loading="lazy" className="h-32 w-full object-cover" />
+            <img src={shop.photoUrl} alt="" loading="lazy" className="h-28 w-full object-cover sm:h-36" />
           ) : (
-            // PLACEHOLDER RULE - no shop photo yet: the neutral grey tile
-            // with the shop's name, never a stock or generated image.
-            <PlaceholderTile title={shop.name} label={copy.shop.coverTileAria(shop.name)} className="h-32 w-full" />
+            <PlaceholderTile title={shop.name} label={copy.shop.coverTileAria(shop.name)} className="h-28 w-full sm:h-36" />
           )}
           <div className="p-4">
             <p className="text-xs font-medium text-muted-foreground">{copy.browse.featuredShop}</p>
@@ -855,6 +854,16 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
             </h2>
             {shop.area || shop.county ? (
               <p className="mt-0.5 text-xs text-muted-foreground">{[shop.area, shop.county].filter(Boolean).join(', ')}</p>
+            ) : null}
+            {shop.listings.length > 0 ? (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {shop.listings.slice(0, 3).map((listing) => (
+                  <div key={listing.id} className="min-w-0 overflow-hidden rounded-md border bg-background">
+                    {listing.photos[0] ? <img src={listing.photos[0]} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover" /> : <div className="aspect-[4/3] bg-muted" />}
+                    <p className="line-clamp-2 p-1.5 text-[11px] font-medium">{listing.title}</p>
+                  </div>
+                ))}
+              </div>
             ) : null}
             <div className="mt-3 flex items-center gap-3">
               <div className="shrink-0 bg-white p-1.5">
@@ -867,14 +876,14 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
                 <p className="text-[11px] leading-snug text-muted-foreground">{copy.browse.featuredCodeHint}</p>
               </div>
             </div>
-            <a
-              href={telLink(shop.phone)}
-              className="press mt-3 flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
-            >
-              <Phone className="size-4" aria-hidden /> {copy.common.call}
-            </a>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <a href={shopUrl || `/#/shop/${shop.id}`} className="press flex min-h-11 items-center justify-center rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground">Visit shop</a>
+              <a href={telLink(shop.phone)} className="press flex min-h-11 items-center justify-center gap-1.5 rounded-md border px-3 text-sm font-semibold text-foreground">
+                <Phone className="size-4" aria-hidden /> {copy.common.call}
+              </a>
+            </div>
           </div>
-        </div>
+        </>
       ) : shopId && shopQuery.isLoading ? (
         <div className="h-64 animate-pulse rounded-lg border bg-muted/40" role="status" aria-label="Loading featured shop" />
       ) : shopId && shopQuery.isError ? (
@@ -891,7 +900,7 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
           <p className="mt-1 text-sm text-muted-foreground">No eligible shop appears in these results yet.</p>
         </div>
       )}
-    </aside>
+    </section>
   )
 }
 
