@@ -903,7 +903,7 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
   )
 
   return (
-    <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-card" aria-label="Shop of the day">
+    <section className="min-w-0 overflow-hidden rounded-xl border border-primary bg-primary text-primary-foreground" aria-label="Shop of the day">
       {shop ? (
         <>
           {shop.photoUrl ? (
@@ -912,37 +912,37 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
             <PlaceholderTile title={shop.name} label={copy.shop.coverTileAria(shop.name)} className="h-28 w-full sm:h-36" />
           )}
           <div className="p-4">
-            <p className="text-xs font-medium text-muted-foreground">{copy.browse.featuredShop}</p>
-            <h2 className="mt-1 font-display text-lg font-semibold leading-tight tracking-tight text-primary">
+            <p className="text-xs font-semibold text-primary-foreground/75">{copy.browse.featuredShop}</p>
+            <h2 className="mt-1 font-display text-lg font-semibold leading-tight tracking-tight text-primary-foreground">
               {shop.name}
             </h2>
             {shop.area || shop.county ? (
-              <p className="mt-0.5 text-xs text-muted-foreground">{[shop.area, shop.county].filter(Boolean).join(', ')}</p>
+              <p className="mt-0.5 text-xs text-primary-foreground/75">{[shop.area, shop.county].filter(Boolean).join(', ')}</p>
             ) : null}
             {shop.listings.length > 0 ? (
               <div className="mt-3 grid grid-cols-3 gap-2">
                 {shop.listings.slice(0, 3).map((listing) => (
-                  <div key={listing.id} className="min-w-0 overflow-hidden rounded-md border bg-background">
+                  <div key={listing.id} className="min-w-0 overflow-hidden rounded-md border border-primary-foreground/20 bg-primary-foreground/10">
                     {listing.photos[0] ? <img src={listing.photos[0]} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover" /> : <div className="aspect-[4/3] bg-muted" />}
-                    <p className="line-clamp-2 p-1.5 text-[11px] font-medium">{listing.title}</p>
+                    <p className="line-clamp-2 p-1.5 text-[11px] font-medium text-primary-foreground">{listing.title}</p>
                   </div>
                 ))}
               </div>
             ) : null}
             <div className="mt-3 flex items-center gap-3">
-              <div className="shrink-0 bg-white p-1.5">
+              <div className="shrink-0 rounded-md bg-white p-1.5">
                 {shopUrl ? <QRCode value={shopUrl} size={64} role="img" aria-label={`QR code for ${shop.name}'s shop`} /> : null}
               </div>
               <div className="min-w-0">
                 {shop.shopCode ? (
-                  <p className="text-sm font-bold tracking-widest text-foreground tabular-nums">{shop.shopCode}</p>
+                  <p className="text-sm font-bold tracking-widest text-primary-foreground tabular-nums">{shop.shopCode}</p>
                 ) : null}
-                <p className="text-[11px] leading-snug text-muted-foreground">{copy.browse.featuredCodeHint}</p>
+                <p className="text-[11px] leading-snug text-primary-foreground/75">{copy.browse.featuredCodeHint}</p>
               </div>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <a href={shopUrl || `/#/shop/${shop.id}`} className="press flex min-h-11 items-center justify-center rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground">Visit shop</a>
-              <a href={telLink(shop.phone)} className="press flex min-h-11 items-center justify-center gap-1.5 rounded-md border px-3 text-sm font-semibold text-foreground">
+              <a href={shopUrl || `/#/shop/${shop.id}`} className="press flex min-h-11 items-center justify-center rounded-md bg-amber-400 px-3 text-sm font-bold text-amber-950 hover:bg-amber-300">Visit shop</a>
+              <a href={telLink(shop.phone)} className="press flex min-h-11 items-center justify-center gap-1.5 rounded-md border border-primary-foreground/40 px-3 text-sm font-semibold text-primary-foreground hover:bg-primary-foreground/10">
                 <Phone className="size-4" aria-hidden /> {copy.common.call}
               </a>
             </div>
