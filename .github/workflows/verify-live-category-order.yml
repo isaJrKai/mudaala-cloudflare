@@ -1,4 +1,4 @@
-name: Verify live category priority
+name: Verify live category filter and mobile controls
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  verify-category-order:
+  verify-category-filter:
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -21,7 +21,7 @@ jobs:
           npm install --prefix /tmp/mudaala-category-check playwright@1.56.1
           /tmp/mudaala-category-check/node_modules/.bin/playwright install --with-deps chromium
 
-      - name: Verify production category order in a clean guest session
+      - name: Verify production category filter options and mobile controls
         env:
           APP_URL: https://mudaala.store
         run: |
@@ -29,12 +29,22 @@ jobs:
           const { chromium } = require('/tmp/mudaala-category-check/node_modules/playwright');
           const base = process.env.APP_URL.replace(/\/$/, '');
           const expected = [
-            'All',
+            'All categories',
             'Clothes & Apparel',
             'Phones & Electronics',
             'Beauty & Personal Care',
             'Food & Groceries',
             'Services',
+            'Home & Kitchen',
+            'Household Essentials',
+            'Hardware & Building',
+            'Farm Produce',
+            'Home Décor & Furniture',
+            'Transport & Haulage',
+            'Livestock & Feed',
+            'Arts & Crafts',
+            'Scrap & Recyclables',
+            'Other',
           ];
 
           (async () => {
@@ -46,32 +56,30 @@ jobs:
             });
             const page = await context.newPage();
             try {
-              // Empty context means no saved guest interest can personalize order.
+              // Verify the category control in the restored pre-PR-242 Browse UI.
+              // This is a filter dialog, not the category rail introduced by #242.
               await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
-              const group = page.getByRole('group', { name: 'Filter by category' });
-              await group.waitFor({ state: 'visible', timeout: 30000 });
-              await page.getByRole('button', { name: 'Services', exact: true }).waitFor({ state: 'visible', timeout: 30000 });
-
-              const actual = await group.getByRole('button').allTextContents();
-              const normalized = actual.map((label) => label.trim().replace(/\s+/g, ' '));
-              const leading = normalized.slice(0, expected.length);
-              if (JSON.stringify(leading) !== JSON.stringify(expected)) {
-                throw new Error('Production category priority mismatch: expected ' + JSON.stringify(expected) + ', received ' + JSON.stringify(leading));
+              await page.getByRole('button', { name: 'Open filters', exact: true }).click();
+              const dialog = page.getByRole('dialog', { name: 'Filters' });
+              await dialog.waitFor({ state: 'visible', timeout: 10000 });
+              await dialog.locator('#f-category').click();
+              const listbox = page.getByRole('listbox');
+              await listbox.waitFor({ state: 'visible', timeout: 10000 });
+              const actual = await listbox.getByRole('option').allTextContents();
+              const normalized = actual.map((label) => label.trim().replace(/\\s+/g, ' '));
+              if (JSON.stringify(normalized) !== JSON.stringify(expected)) {
+                throw new Error('Production category filter options mismatch: expected ' + JSON.stringify(expected) + ', received ' + JSON.stringify(normalized));
               }
+              await page.keyboard.press('Escape');
+              await page.keyboard.press('Escape');
+              await dialog.waitFor({ state: 'hidden', timeout: 10000 });
 
               const viewport = await page.evaluate(() => ({
                 width: document.documentElement.clientWidth,
                 scrollWidth: document.documentElement.scrollWidth,
               }));
               if (viewport.scrollWidth > viewport.width + 1) {
-                throw new Error('Category priority check found page-level horizontal overflow on 390px viewport: ' + JSON.stringify(viewport));
-              }
-
-              // The category rail is intentionally horizontally scrollable; the
-              // document itself must not overflow. Confirm all category options
-              // remain available even when the rail extends beyond the viewport.
-              if (normalized.length < expected.length) {
-                throw new Error('Production category rail is missing expected category options');
+                throw new Error('Category filter check found page-level horizontal overflow on 390px viewport: ' + JSON.stringify(viewport));
               }
 
               // The persistent feedback action must remain clear of the fixed
@@ -130,12 +138,12 @@ jobs:
               await page.getByRole('button', { name: 'Close feedback form' }).click();
 
               console.log(JSON.stringify({
-                productionCategoryOrder: 'pass',
+                productionCategoryFilterOptions: 'pass',
                 viewport390pxNoPageOverflow: 'pass',
                 feedbackButtonVisible: 'pass',
                 feedbackButtonClearOfBottomNavigation: 'pass',
                 feedbackFormOpenClose: 'pass',
-                leadingCategories: leading,
+                categoryOptions: normalized,
                 totalCategoryOptions: normalized.length,
               }, null, 2));
             } finally {
