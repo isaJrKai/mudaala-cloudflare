@@ -466,10 +466,12 @@ export function ListingsBrowse() {
         />
       ) : data ? (
         <div className="space-y-4">
-          <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(220px,1fr)]">
-            <FeaturedShopPanel items={loadedItems} />
-            <BrowseActionTiles onSell={() => navigate({ name: 'publish' })} />
-          </div>
+          {showDiscoverySections ? (
+            <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(220px,1fr)]">
+              <FeaturedShopPanel items={loadedItems} />
+              <BrowseActionTiles onSell={() => navigate({ name: 'publish' })} />
+            </div>
+          ) : null}
           <div className={isFetching ? 'space-y-3 opacity-60 transition-opacity' : 'space-y-3'}>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h1 className="text-xl font-bold leading-tight tracking-tight">
