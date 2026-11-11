@@ -150,7 +150,7 @@ export function ListingsBrowse() {
   // of the cache key so toggling Near me refetches in the new order.
   const nearParams =
     nearOn && nearMe.lat !== null && nearMe.lng !== null ? `&lat=${nearMe.lat}&lng=${nearMe.lng}` : ''
-  const { data, isLoading, isError, error, refetch, isFetching, isPlaceholderData } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['listings', query, nearParams],
     queryFn: () => apiGet<ListingsPage>(`/api/listings?${query}${nearParams}`),
     // Retry transient transport/edge/server failures, not client errors such as
