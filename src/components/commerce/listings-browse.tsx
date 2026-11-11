@@ -282,6 +282,18 @@ export function ListingsBrowse() {
         </p>
       ) : null}
 
+      {/* Category shortcuts use the canonical category registry and preserve the full filter dialog. */}
+      <nav aria-label="Browse categories" className="-mx-1 flex min-w-0 gap-2 overflow-x-auto px-1 pb-1 scrollbar-slim">
+        <button type="button" onClick={() => setFilters({ category: 'any', page: 1 })} aria-pressed={filters.category === 'any'} className={cn('press min-h-11 shrink-0 rounded-full border px-4 text-sm font-semibold transition-colors', filters.category === 'any' ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground hover:bg-secondary')}>
+          All
+        </button>
+        {orderedCategories.map((category) => (
+          <button key={category.key} type="button" onClick={() => setFilters({ category: category.key, page: 1 })} aria-pressed={filters.category === category.key} className={cn('press min-h-11 shrink-0 rounded-full border px-4 text-sm font-medium transition-colors', filters.category === category.key ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground hover:bg-secondary')}>
+            {category.label}
+          </button>
+        ))}
+      </nav>
+
       {/* Active filter chips + sort */}
       <div className="flex items-center gap-2 overflow-x-auto scrollbar-slim pb-0.5">
         <Select value={filters.sort} onValueChange={(v) => setFilters({ sort: v as typeof filters.sort })}>
@@ -507,27 +519,11 @@ function ExploreShopsSection({
         <span className="text-xs text-muted-foreground">Meet local sellers</span>
       </div>
       {shops.length > 0 ? (
-        <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2 scrollbar-slim" role="list" aria-label="Shops on Mudaala">
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4" role="list" aria-label="Shops on Mudaala">
           {shops.map((shop) => (
-            <button
-              key={shop.id}
-              type="button"
-              role="listitem"
-              onClick={() => onOpenShop(shop.id)}
-              className="press flex w-[84px] shrink-0 flex-col items-center gap-1.5 rounded-lg px-1 py-1 text-center hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              aria-label={`Explore ${shop.name}${shop.category ? `, ${shopCategoryLabel(shop.category)} shop` : ' shop'}`}
-            >
-              {shop.photoUrl ? (
-                <img src={shop.photoUrl} alt="" loading="lazy" className="size-16 rounded-full border border-border object-cover" />
-              ) : (
-                <span className="flex size-16 items-center justify-center rounded-full border border-border bg-secondary text-primary">
-                  <Store className="size-6" aria-hidden />
-                </span>
-              )}
-              <span className="line-clamp-2 w-full break-words text-xs font-semibold leading-tight">{shop.name}</span>
-              <span className="line-clamp-1 w-full text-[10px] leading-tight text-muted-foreground">
-                {shopCategoryLabel(shop.category)}
-              </span>
+            <button key={shop.id} type="button" role="listitem" onClick={() => onOpenShop(shop.id)} className="press flex min-h-28 min-w-0 items-center gap-3 rounded-xl border border-border bg-card p-3 text-left hover:border-primary/50 hover:bg-secondary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`Visit ${shop.name}`}>
+              {shop.photoUrl ? <img src={shop.photoUrl} alt="" loading="lazy" className="size-12 shrink-0 rounded-full border border-border object-cover" /> : <span className="flex size-12 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-primary"><Store className="size-5" aria-hidden /></span>}
+              <span className="min-w-0 flex-1"><span className="block line-clamp-2 break-words text-sm font-semibold">{shop.name}</span><span className="mt-1 block truncate text-xs text-muted-foreground">{shopCategoryLabel(shop.category)}</span><span className="mt-1 block truncate text-xs text-muted-foreground">{[shop.area, shop.county].filter(Boolean).join(', ') || 'Mudaala shop'}</span><span className="mt-2 block text-xs font-semibold text-primary">Visit shop →</span></span>
             </button>
           ))}
         </div>
@@ -938,15 +934,15 @@ function ShopCodeCard({ shop, onOpen }: { shop: ShopLookupResponse['shop']; onOp
 
 function Pagination({ page, pageCount, onPage }: { page: number; pageCount: number; onPage: (p: number) => void }) {
   return (
-    <nav className="flex items-center justify-center gap-2 pt-2" aria-label="Pagination">
+    <nav className="flex items-center justify-center gap-2 pt-2" aria-label="Load more listings">
       <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>
         <ChevronLeft className="size-4" aria-hidden /> {copy.common.prev}
       </Button>
       <span className="px-2 text-sm text-muted-foreground tabular-nums">
-        {page} / {pageCount}
+        {`Showing page ${page} of ${pageCount}`}
       </span>
       <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => onPage(page + 1)}>
-        {copy.common.next} <ChevronRight className="size-4" aria-hidden />
+        Load more listings <ChevronRight className="size-4" aria-hidden />
       </Button>
     </nav>
   )
