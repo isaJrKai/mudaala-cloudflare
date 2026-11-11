@@ -9,12 +9,24 @@ on:
       - "src/lib/validation.ts"
       - "src/lib/client.ts"
       - "src/lib/shop.ts"
+      - "src/lib/listing-visibility.ts"
+      - "src/app/api/home/route.ts"
+      - "src/app/api/my/listings/route.ts"
+      - "src/app/api/sellers/[id]/route.ts"
+      - "src/app/api/notifications/route.ts"
+      - "src/app/s/[code]/page.tsx"
       - "src/components/commerce/account-view.tsx"
       - "src/components/commerce/photo-picker.tsx"
       - "src/components/commerce/shop-view.tsx"
       - "src/components/commerce/home-view.tsx"
       - "src/components/commerce/listings-browse.tsx"
       - "src/lib/listings.ts"
+      - "src/lib/listing-visibility.ts"
+      - "src/app/api/home/route.ts"
+      - "src/app/api/my/listings/route.ts"
+      - "src/app/api/sellers/[id]/route.ts"
+      - "src/app/api/notifications/route.ts"
+      - "src/app/s/[code]/page.tsx"
       - "src/app/api/listings/[id]/route.ts"
       - "src/lib/store.ts"
       - ".github/workflows/verify-shop-cover-photo.yml"
@@ -68,7 +80,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Lint shop-photo and listing-visibility files
-        run: npx eslint src/lib/validation.ts src/lib/client.ts src/lib/shop.ts src/lib/listings.ts src/lib/store.ts src/components/commerce/account-view.tsx src/components/commerce/photo-picker.tsx src/components/commerce/shop-view.tsx src/components/commerce/home-view.tsx src/components/commerce/listings-browse.tsx
+        run: npx eslint src/lib/validation.ts src/lib/client.ts src/lib/shop.ts src/lib/listings.ts src/lib/listing-visibility.ts src/lib/store.ts 'src/app/api/home/route.ts' 'src/app/api/my/listings/route.ts' 'src/app/api/sellers/[id]/route.ts' 'src/app/api/notifications/route.ts' 'src/app/s/[code]/page.tsx' src/components/commerce/account-view.tsx src/components/commerce/photo-picker.tsx src/components/commerce/shop-view.tsx src/components/commerce/home-view.tsx src/components/commerce/listings-browse.tsx
 
       - name: Build Cloudflare Worker bundle without production credentials or migrations
         run: npx @opennextjs/cloudflare build
