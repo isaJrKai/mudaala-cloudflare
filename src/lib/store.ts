@@ -77,7 +77,7 @@ export function viewToHash(view: View): string {
     case 'basket':
       return '#/basket'
     case 'publish':
-      return view.id === 'request' ? '#/publish/request' : '#/publish'
+      return '#/publish'
     case 'edit':
       return view.id ? `#/edit/${view.id}` : '#/my-listings'
     case 'my-listings':
