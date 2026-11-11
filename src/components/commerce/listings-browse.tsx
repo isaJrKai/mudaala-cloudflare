@@ -236,21 +236,48 @@ export function ListingsBrowse() {
     )
   }, [discoveryQuery.data?.shops, orderedCategories])
 
-  const renderListingGrid = (items: ListingsPage['items'], primary = false) => items.length > 0 ? (
-    <div data-testid={primary ? 'listing-results-grid' : 'listing-feed-grid'} className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-      {items.map((listing) => (
-        <ListingBlock
-          key={listing.id}
-          listing={listing}
-          shopLabel={shopLabels.get(listing.id)}
-          distanceLabel={distanceLabels.get(listing.id)}
-          onOpen={(id) => navigate({ name: 'listing', id })}
-          onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
-          onAdd={addToBasket}
-        />
-      ))}
-    </div>
-  ) : null
+  const renderListingGrid = (items: ListingsPage['items'], primary = false, cluster = false) => {
+    if (items.length === 0) return null
+    const clustersByFirstId = new Map<string, ListingsPage['items']>()
+    const hiddenIds = new Set<string>()
+    if (cluster) {
+      const groups = new Map<string, ListingsPage['items']>()
+      for (const item of items) {
+        const ownerId = item.user?.id
+        if (!ownerId) continue
+        const key = `${ownerId}::${normalizeShopName(item.title)}`
+        const group = groups.get(key) ?? []
+        group.push(item)
+        groups.set(key, group)
+      }
+      for (const group of groups.values()) {
+        if (group.length < 3) continue
+        clustersByFirstId.set(group[0].id, group)
+        for (const item of group.slice(1)) hiddenIds.add(item.id)
+      }
+    }
+    return (
+      <div data-testid={primary ? 'listing-results-grid' : 'listing-feed-grid'} className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+        {items.map((listing) => {
+          if (hiddenIds.has(listing.id)) return null
+          const clusterItems = clustersByFirstId.get(listing.id)
+          return clusterItems ? (
+            <ShopClusterCard key={listing.id} items={clusterItems} onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })} />
+          ) : (
+            <ListingBlock
+              key={listing.id}
+              listing={listing}
+              shopLabel={shopLabels.get(listing.id)}
+              distanceLabel={distanceLabels.get(listing.id)}
+              onOpen={(id) => navigate({ name: 'listing', id })}
+              onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
+              onAdd={addToBasket}
+            />
+          )
+        })}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-3">
@@ -484,7 +511,7 @@ export function ListingsBrowse() {
                 />
                 <section className="space-y-2" aria-label="Latest listings">
                   <h2 className="text-base font-semibold">Latest listings</h2>
-                  {renderListingGrid(loadedItems.filter((item) => item.type === 'OFFER'), true)}
+                  {renderListingGrid(loadedItems.filter((item) => item.type === 'OFFER'), true, true)}
                 </section>
               </>
             ) : (
@@ -525,6 +552,35 @@ function shopCategoryLabel(category: string | null): string {
     'food-groceries': 'Food & groceries',
   }
   return labels[category] ?? categoryLabel(category)
+}
+
+function ShopClusterCard({
+  items,
+  onOpenShop,
+}: {
+  items: ListingsPage['items']
+  onOpenShop: (shopId: string) => void
+}) {
+  const first = items[0]
+  const shop = first?.user
+  if (!first || !shop) return null
+  const name = shop.profile?.businessName?.trim() || shop.name
+  return (
+    <article className="flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card p-2.5">
+      <div className="grid grid-cols-2 gap-1.5">
+        {items.slice(0, 4).map((item) => (
+          <div key={item.id} className="aspect-square overflow-hidden rounded-md bg-secondary">
+            {item.photos[0] ? <img src={item.photos[0]} alt="" loading="lazy" className="size-full object-cover" /> : <PlaceholderTile category={item.category} className="size-full" />}
+          </div>
+        ))}
+      </div>
+      <h3 className="mt-2 line-clamp-2 text-sm font-semibold">{first.title}</h3>
+      <p className="mt-1 truncate text-xs text-muted-foreground">{name}</p>
+      <button type="button" onClick={() => onOpenShop(shop.id)} className="press mt-auto flex min-h-11 items-center justify-center rounded-lg border border-primary/30 px-2 text-xs font-semibold text-primary hover:bg-secondary">
+        View all {items.length}
+      </button>
+    </article>
+  )
 }
 
 function BrowseActionTiles({ onSell }: { onSell: () => void }) {
