@@ -72,6 +72,14 @@ export function PublishForm() {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      type: view.id === 'request' ? 'REQUEST' : 'OFFER',
+      compareAtPrice: view.id === 'request' ? '' : current.compareAtPrice,
+    }))
+  }, [view.id])
+
+  useEffect(() => {
     if (!user) return
     // Defer defaults until after the effect phase; preserve values already typed.
     const timer = window.setTimeout(() => {
