@@ -78,6 +78,7 @@ export function ListingsBrowse() {
   const { orderedCategories } = useCategoryPreferences()
   const addToBasket = useAddToBasket()
   const lovedIds = useLovedIds()
+  const queryClient = useQueryClient()
   const [lovedOnly, setLovedOnly] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [searchInput, setSearchInput] = useState(filters.q)
