@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { apiGet, apiPost } from '@/lib/client'
 import type { ListingsPage, ShopLookupResponse, ShopNameSearchResponse, ListingDetail as ListingDetailT, Listing, ListingShopOwner as ListingShopOwnerT, ShopPage as ShopPageT } from '@/lib/client'
-import { normalizeShopName, normalizeShopCode, telLink } from '@/lib/format'
+import { normalizeShopName, normalizeShopCode, telLink, whatsappLink } from '@/lib/format'
 import { haversineMeters, formatDistance } from '@/lib/geo'
 import { CATEGORIES, COUNTIES, UNITS, categoryLabel } from '@/lib/constants'
 import { getSearchTermGroups, parseSearchIntent } from '@/lib/search'
@@ -440,6 +440,7 @@ export function ListingsBrowse() {
             {showDiscoverySections ? (
               <>
                 {renderListingGrid(data.items.slice(0, 6), true)}
+                <BrowseActionTiles onSell={() => navigate({ name: 'publish' })} />
                 <ExploreShopsSection
                   shops={discoveryShops}
                   loading={discoveryQuery.isLoading}
@@ -458,6 +459,17 @@ export function ListingsBrowse() {
                   onOpen={(id) => navigate({ name: 'listing', id })}
                   onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
                   onAdd={addToBasket}
+                />
+                <CategoryDiscoveryRows
+                  items={data.items.filter((item) => item.type === 'OFFER')}
+                  onSeeAll={(category) => setFilters({ category, type: 'OFFER', page: 1 })}
+                  onOpen={(id) => navigate({ name: 'listing', id })}
+                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
+                  onAdd={addToBasket}
+                />
+                <BuyersAskingSection
+                  items={data.items.filter((item) => item.type === 'REQUEST')}
+                  onPostRequest={() => navigate({ name: 'publish' })}
                 />
               </>
             ) : (
@@ -500,6 +512,97 @@ function shopCategoryLabel(category: string | null): string {
     'food-groceries': 'Food & groceries',
   }
   return labels[category] ?? categoryLabel(category)
+}
+
+function BrowseActionTiles({ onSell }: { onSell: () => void }) {
+  return (
+    <section className="grid grid-cols-2 gap-2" aria-label="Browse actions">
+      <a href="#special-offers" className="press flex min-h-20 flex-col justify-between rounded-xl border border-amber-300/70 bg-amber-50 p-3 text-left text-amber-950 hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+        <span className="text-xs font-semibold uppercase tracking-wide text-amber-800">Deals</span>
+        <span className="text-sm font-bold">Shop marked-down prices →</span>
+      </a>
+      <button type="button" onClick={onSell} className="press flex min-h-20 flex-col justify-between rounded-xl border border-border bg-card p-3 text-left hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Have something to sell?</span>
+        <span className="text-sm font-bold text-primary">Sell on Mudaala →</span>
+      </button>
+    </section>
+  )
+}
+
+function CategoryDiscoveryRows({
+  items,
+  onSeeAll,
+  onOpen,
+  onOpenShop,
+  onAdd,
+}: {
+  items: ListingsPage['items']
+  onSeeAll: (category: string) => void
+  onOpen: (id: string) => void
+  onOpenShop: (shopId: string) => void
+  onAdd: (listing: Listing & { user?: ListingShopOwnerT }) => boolean | void
+}) {
+  const groups = new Map<string, ListingsPage['items']>()
+  for (const item of items) {
+    const group = groups.get(item.category) ?? []
+    if (group.length < 4) group.push(item)
+    groups.set(item.category, group)
+  }
+  const rows = [...groups.entries()].filter(([, group]) => group.length > 0).slice(0, 3)
+  if (rows.length === 0) return null
+  return (
+    <div className="space-y-4">
+      {rows.map(([category, group]) => (
+        <section key={category} className="min-w-0 space-y-2" aria-label={categoryLabel(category)}>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">{categoryLabel(category)}</h2>
+            <button type="button" onClick={() => onSeeAll(category)} className="min-h-11 shrink-0 px-2 text-xs font-semibold text-primary underline underline-offset-4">See all</button>
+          </div>
+          <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+            {group.map((listing) => (
+              <ListingBlock key={listing.id} listing={listing} onOpen={onOpen} onOpenShop={onOpenShop} onAdd={onAdd} />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  )
+}
+
+function BuyersAskingSection({
+  items,
+  onPostRequest,
+}: {
+  items: ListingsPage['items']
+  onPostRequest: () => void
+}) {
+  if (items.length === 0) return null
+  return (
+    <section className="space-y-3 rounded-xl border border-border bg-card p-3" aria-labelledby="buyers-asking-heading">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 id="buyers-asking-heading" className="text-base font-semibold">Buyers are asking</h2>
+          <p className="text-xs text-muted-foreground">Have what someone needs? Contact the buyer directly.</p>
+        </div>
+        <button type="button" onClick={onPostRequest} className="min-h-11 shrink-0 rounded-lg border px-3 text-xs font-semibold hover:bg-secondary">Post a request</button>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {items.slice(0, 4).map((item) => {
+          const number = item.contactWhatsapp || item.contactPhone
+          return (
+            <article key={item.id} className="flex min-w-0 items-center gap-3 rounded-lg border p-3">
+              <div className="min-w-0 flex-1">
+                <h3 className="line-clamp-2 text-sm font-semibold">{item.title}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">{[item.area, item.county].filter(Boolean).join(', ') || 'Location not specified'}</p>
+                <p className="mt-1 text-sm font-bold text-foreground">{item.price === null ? 'Budget not specified' : `Budget USh ${Math.round(item.price).toLocaleString('en-UG')}`}</p>
+              </div>
+              <a href={whatsappLink(number, item.title, item.type)} target="_blank" rel="noopener noreferrer" className="press inline-flex min-h-11 shrink-0 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground">I have this</a>
+            </article>
+          )
+        })}
+      </div>
+    </section>
+  )
 }
 
 function ExploreShopsSection({
@@ -601,7 +704,7 @@ function SpecialOffersSection({
 }) {
   if (items.length === 0) return null
   return (
-    <section className="min-w-0 space-y-3 py-1" aria-labelledby="special-offers-heading">
+    <section id="special-offers" className="min-w-0 space-y-3 py-1" aria-labelledby="special-offers-heading">
       <h2 id="special-offers-heading" className="text-base font-semibold tracking-tight">Special offers</h2>
       <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         {items.slice(0, 6).map((listing) => (
