@@ -1,6 +1,9 @@
 name: Verify live category filter and mobile controls
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/verify-live-category-order.yml'
   workflow_dispatch:
   workflow_run:
     workflows: ["Deploy Mudaala to Cloudflare Workers"]
@@ -12,7 +15,7 @@ permissions:
 
 jobs:
   verify-category-filter:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
