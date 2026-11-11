@@ -21,6 +21,6 @@ assert.equal(chooseFeaturedShopId(candidates, 2), 'shop-a', 'rotation is determi
 assert.equal(chooseFeaturedShopId([], 20), null, 'empty results do not invent a shop')
 assert.equal(chooseFeaturedShopId(candidates, -4), 'shop-a', 'negative buckets fail safely')
 assert.equal(chooseFeaturedShopId(candidates, Number.NaN), 'shop-a', 'invalid buckets fail safely')
-assert.equal(FEATURED_SHOP_ROTATION_INTERVAL_MS, 24 * 60 * 60 * 1000)
+assert.equal(FEATURED_SHOP_ROTATION_INTERVAL_MS, 30 * 60 * 1000)
 
 console.log('Featured-shop rotation checks passed.')
