@@ -402,3 +402,40 @@ These are recorded requirements discovered in founder/customer conversations. Fo
 - Supabase recheck at 2026-11-04 06:01Z: Security Advisor returned 0 findings; Performance Advisor returned 11 INFO unused-index notices (no index changes). Unified logs for the preceding 24 hours contained 810 Supavisor, 699 PgBouncer, 318 Storage, 318 Edge, 109 PostgreSQL and 15 PostgREST entries. These counts do not establish that every application path works.
 - Release gates remain open: approved production off-site backup and isolated restore; physical-device QR/call/WhatsApp checks; verified feedback delivery; legacy thumbnail/backfill decision; and dependency advisory #132. Do not start the next product slice until the P0 release gates are closed.
 
+
+
+## Operations reconciliation — 2026-11-11 (Africa/Kampala)
+
+### Browse rollback and release verification
+- [x] PR [#244](https://github.com/isaJrKai/mudaala-cloudflare/pull/244) completely reversed PR #242, restoring all eight affected files byte-for-byte to pre-#242 snapshot `f64b91002d868dbbf57dff2c3dec7458dceb1c54`. Rollback commit: `bc3880b96185b87a24838fd65de85c4a07197ee9`.
+- [x] Production deployment [#43022378668](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/43022378668) succeeded on 2026-11-11. Build, Prisma validation, Worker deployment, app/database health, public Browse and shop-name search, shop/showroom and collections response shapes, authenticated photo upload/moderation/public retrieval, and shared rate-limit binding checks passed.
+- [x] Post-deploy shop/product search verification [#43022766018](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/43022766018) passed.
+- [ ] Three additional post-deploy browser workflows did not reach their browser assertions because Chromium installation failed on the runner: API/privacy/photo [#43022766041](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/43022766041), My Business insights [#43022766068](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/43022766068), and category priority [#43022766197](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/43022766197). The read-only API/privacy portion of #43022766041 passed before Chromium setup failed; the photo-render and mobile-navigation browser steps were skipped. These are verifier-environment failures, not failed application assertions.
+- [ ] Follow-up [PR #245](https://github.com/isaJrKai/mudaala-cloudflare/pull/245) pins the three affected workflows to `ubuntu-24.04`, matching the already-pinned main PR validation runner. It is open and must pass exact-head CI before merge. After merge, rerun the affected read-only production verifiers against the deployed rollback. This workflow-only fix does not require a production application deployment.
+- [x] Duplicate rollback PR [#243](https://github.com/isaJrKai/mudaala-cloudflare/pull/243) closed after the equivalent rollback was merged as #244.
+
+### Reliability and security — still open
+- [ ] **Issue #207:** PR [#211](https://github.com/isaJrKai/mudaala-cloudflare/pull/211) fixed the confirmed unscoped database access in the public listing not-found boundary and added a production-mode regression. The upstream reason Next entered that not-found boundary for a listing independently observed as active remains unexplained; keep #207 open until the trigger is isolated and current production behavior is checked.
+- [ ] **Issue #209:** investigate slow/stuck shop opening and My Business loading using bounded, privacy-safe Worker and database telemetry; separate confirmed causes from hypotheses. Do not change production data or deploy speculative fixes.
+- [ ] **Issue #191:** investigate intermittent Browse/API failures on first load. Preserve cached data, distinguish transient failures from genuine empty inventory, and add retry/error-state regressions only after the source is identified.
+- [ ] **Issue #79 / Worker CPU:** continue bounded observation of HTTP 5xx, `exceededCpu`, cancellations and request latency on current Worker versions; prior clean samples are not a guarantee. Diagnose the Wrangler `RateLimitShard` preflight warning without changing class identity or migration history speculatively.
+- [ ] **Recovery:** perform an approved off-site logical backup and restore it only into a disposable PostgreSQL database; record restore proof. A CI-only disposable dump/restore is not production recoverability evidence.
+- [ ] **Scheduled maintenance:** observe the sweep only through its normal schedule. Never manually invoke the production cron endpoint. Distinguish a successful invocation from meaningful processing of due records.
+- [ ] **Dependency advisory #132:** recheck current upstream and lockfile audit paths. Do not use `npm audit fix --force`, downgrade Next, or perform a Prisma major upgrade without disposable-Postgres compatibility, runtime, migration, security and rollback validation.
+- [ ] **Least privilege and account isolation:** retain the previously verified Supabase RLS/runtime-role controls and recheck after any schema or authorization change; do not treat prior evidence as a permanent guarantee.
+
+### Founder/device-only and data-dependent gates
+- [ ] On a physical Android/iOS phone, verify shop QR scanning, mobile layout/whitespace, `tel:` calls, WhatsApp contact and real product/collection link previews. Automated Playwright checks are not a substitute.
+- [ ] Verify a real feedback notification reaches the private admin inbox; the earlier evidence confirmed feedback submission/triage but not the separate notification delivery.
+- [ ] Decide whether to backfill the four legacy active photo URLs with additive WebP thumbnails. Preserve originals; do not delete or rewrite customer photos during diagnosis.
+- [ ] Complete the narrow owner-facing cleanup of the shop name `Annet cakes 🎂` only through an approved safe path, preserving both existing photo URLs. Do not claim the blocked database write succeeded.
+- [ ] Verify populated collection detail and social previews only when genuine seller-created collection data exists; current empty inventory must not be fabricated for a test.
+- [ ] Keep phone/SMS verification deferred until the founder explicitly authorizes resuming the provider lifecycle. No SMS integration is authorized by this reconciliation.
+
+### Product roadmap control — issue #163
+- [x] Trader insights and collection CRUD foundations (slices 1 and 2) are code-complete and deployed; collection schedule visibility has regression coverage and public unavailable-route checks.
+- [ ] Populated live collection and real WhatsApp/social preview remain conditional on genuine seller data and physical-device confirmation.
+- [ ] Promotions/bundles, richer descriptions/search discoverability, mixed feed, follows, buyer/business modes, FYP personalization/reset and advanced analytics remain sequenced roadmap work. Do not start these while the release/recovery gates above remain open.
+- [ ] Merchant Assistant / discovery-network implementation remains a separate, paused workstream; do not let it displace the reliability and recovery gates.
+
+**Status rule:** This reconciliation records evidence and open gates; it does not declare Mudaala fully release-ready. Continue Investigate → Fix → Test → Deploy → Verify, and update both this board and issue #163 only when evidence supports a status change.
