@@ -658,19 +658,23 @@ function BuyersAskingSection({
         <button type="button" onClick={onPostRequest} className="min-h-11 shrink-0 rounded-lg border px-3 text-xs font-semibold hover:bg-secondary">Post a request</button>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
-        {items.slice(0, 4).map((item) => {
-          const number = item.contactWhatsapp || item.contactPhone
-          return (
-            <article key={item.id} className="flex min-w-0 items-center gap-3 rounded-lg border p-3">
-              <div className="min-w-0 flex-1">
-                <h3 className="line-clamp-2 text-sm font-semibold">{item.title}</h3>
-                <p className="mt-1 text-xs text-muted-foreground">{[item.area, item.county].filter(Boolean).join(', ') || 'Location not specified'}</p>
-                <p className="mt-1 text-sm font-bold text-foreground">{item.price === null ? 'Budget not specified' : `Budget USh ${Math.round(item.price).toLocaleString('en-UG')}`}</p>
-              </div>
-              <a href={whatsappLink(number, item.title, item.type)} target="_blank" rel="noopener noreferrer" className="press inline-flex min-h-11 shrink-0 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground">I have this</a>
-            </article>
-          )
-        })}
+        {items.slice(0, 4).map((item) => (
+          <article key={item.id} className="flex min-w-0 items-center gap-3 rounded-lg border p-3">
+            <div className="min-w-0 flex-1">
+              <h3 className="line-clamp-2 text-sm font-semibold">{item.title}</h3>
+              <p className="mt-1 text-xs text-muted-foreground">{[item.area, item.county].filter(Boolean).join(', ') || 'Location not specified'}</p>
+              <p className="mt-1 text-sm font-bold text-foreground">{item.price === null ? 'Budget not specified' : `Budget USh ${Math.round(item.price).toLocaleString('en-UG')}`}</p>
+            </div>
+            <a
+              href={item.contactWhatsapp ? whatsappLink(item.contactWhatsapp, item.title, item.type) : telLink(item.contactPhone)}
+              target={item.contactWhatsapp ? '_blank' : undefined}
+              rel={item.contactWhatsapp ? 'noopener noreferrer' : undefined}
+              className="press inline-flex min-h-11 shrink-0 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground"
+            >
+              I have this
+            </a>
+          </article>
+        ))}
       </div>
     </section>
   )
