@@ -62,12 +62,12 @@ const EMPTY_FORM: FormState = {
 // Publish (and edit) a listing. Required fields are validated with the SAME
 // shared schema the API uses; failed submissions preserve everything typed.
 export function PublishForm() {
-  const { navigate, setAuthOpen } = useAppStore()
+  const { navigate, setAuthOpen, view } = useAppStore()
   const { user, isLoading: sessionLoading } = useSession()
   const { toast } = useToast()
   const queryClient = useQueryClient()
 
-  const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  const [form, setForm] = useState<FormState>(() => ({ ...EMPTY_FORM, type: view.id === 'request' ? 'REQUEST' : 'OFFER' }))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
 
