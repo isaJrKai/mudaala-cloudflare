@@ -509,7 +509,7 @@ export function ListingsBrowse() {
                 />
                 <BuyersAskingSection
                   items={loadedItems.filter((item) => item.type === 'REQUEST')}
-                  onPostRequest={() => navigate({ name: 'publish' })}
+                  onPostRequest={() => navigate({ name: 'publish', id: 'request' })}
                 />
                 <section className="space-y-2" aria-label="Latest listings">
                   <h2 className="text-base font-semibold">Latest listings</h2>
