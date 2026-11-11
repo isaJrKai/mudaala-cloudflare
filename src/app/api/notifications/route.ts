@@ -7,12 +7,14 @@ export async function GET() {
     // Expiry and expiring-soon notifications are produced by the scheduled
     // maintenance job, not as a write side effect of opening the inbox.
 
-    const notifications = await db.notification.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    })
-    const unreadCount = await db.notification.count({ where: { userId: user.id, read: false } })
+    const [notifications, unreadCount] = await Promise.all([
+      db.notification.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      }),
+      db.notification.count({ where: { userId: user.id, read: false } }),
+    ])
     return jsonOk({ notifications, unreadCount })
   })
 }
