@@ -778,23 +778,26 @@ function SpecialOffersSection({
   onOpenShop: (shopId: string) => void
   onAdd: (listing: Listing & { user?: ListingShopOwnerT }) => boolean | void
 }) {
-  if (items.length === 0) return null
   return (
     <section id="special-offers" className="min-w-0 space-y-3 py-1" aria-labelledby="special-offers-heading">
       <h2 id="special-offers-heading" className="text-base font-semibold tracking-tight">Hot deals</h2>
-      <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-        {items.slice(0, 6).map((listing) => (
-          <ListingBlock
-            key={listing.id}
-            listing={listing}
-            shopLabel={shopLabels.get(listing.id)}
-            distanceLabel={distanceLabels.get(listing.id)}
-            onOpen={onOpen}
-            onOpenShop={onOpenShop}
-            onAdd={onAdd}
-          />
-        ))}
-      </div>
+      {items.length > 0 ? (
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+          {items.slice(0, 6).map((listing) => (
+            <ListingBlock
+              key={listing.id}
+              listing={listing}
+              shopLabel={shopLabels.get(listing.id)}
+              distanceLabel={distanceLabels.get(listing.id)}
+              onOpen={onOpen}
+              onOpenShop={onOpenShop}
+              onAdd={onAdd}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-lg border border-dashed px-3 py-4 text-sm text-muted-foreground">No discounted listings are available in this feed right now.</p>
+      )}
     </section>
   )
 }
