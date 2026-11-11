@@ -6,7 +6,8 @@
 
 import { db } from '@/lib/db'
 import type { BusinessProfile, User } from '@prisma/client'
-import { SHOP_OWNER_INCLUDE, serializeListing, expireOverdueListings } from '@/lib/listings'
+import { SHOP_OWNER_INCLUDE, serializeListing } from '@/lib/listings'
+import { activeListingExpiryFilter } from '@/lib/listing-visibility'
 import type { ListingWithShop } from '@/lib/listings'
 import { countryDef, categoryLabel } from '@/lib/constants'
 import { normalizeShopCode } from '@/lib/format'
@@ -158,8 +159,6 @@ function samePhoneLine(a: string, b: string): boolean {
 // Load a shop page by the owner's user id. Public - buyers never sign in.
 // Overdue listings are expired first so the catalogue only shows real stock.
 export async function getShopPage(userId: string): Promise<ShopPageData | null> {
-  await expireOverdueListings()
-
   const user = await db.user.findUnique({
     where: { id: userId },
     select: {
@@ -173,14 +172,15 @@ export async function getShopPage(userId: string): Promise<ShopPageData | null> 
   })
   if (!user) return null
 
-  const listings = await db.listing.findMany({
-    where: { userId, status: 'ACTIVE' },
-    orderBy: [{ refreshedAt: 'desc' }],
-    include: SHOP_OWNER_INCLUDE,
-    take: 200,
-  })
-
-  const showroomItems = await db.showroomItem.findMany({
+  const now = new Date()
+  const [listings, showroomItems] = await Promise.all([
+    db.listing.findMany({
+      where: { userId, status: 'ACTIVE', ...activeListingExpiryFilter(now) },
+      orderBy: [{ refreshedAt: 'desc' }],
+      include: SHOP_OWNER_INCLUDE,
+      take: 200,
+    }),
+    db.showroomItem.findMany({
     where: { userId },
     orderBy: [{ createdAt: 'desc' }],
     take: 100,
@@ -195,7 +195,8 @@ export async function getShopPage(userId: string): Promise<ShopPageData | null> 
       photoUrl: true,
       createdAt: true,
     },
-  })
+    }),
+  ])
 
   const profile = user.profile
   const checklist = shopChecklistFor(profile)
