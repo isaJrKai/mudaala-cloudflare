@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Bell, ExternalLink, FileText, Globe2, LockKeyhole, Search, ShieldCheck, Store } from 'lucide-react'
+import { ArrowLeft, Bell, ExternalLink, FileText, Globe2, Link2, LockKeyhole, Search, ShieldCheck, Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -81,6 +81,19 @@ export function SettingsView() {
             <div className="flex flex-wrap gap-2"><Button type="submit" disabled={busy}>{busy ? 'Updating…' : 'Update password'}</Button><Button type="button" variant="outline" disabled={busy} onClick={() => { setStep('request'); setCode(''); setError('') }}>Cancel</Button><Button type="button" variant="ghost" disabled={busy} onClick={requestCode}>Send a new code</Button></div>
           </form> : null}
           {error && step === 'request' ? <p role="alert" className="mt-3 text-sm text-destructive">{error}</p> : null}
+        </div>
+      </Section>
+
+      <Section icon={<Link2 className="size-4" aria-hidden />} title="Google sign-in" description="Link a Google account to strengthen control and recovery of your Mudaala seller account. This does not verify your shop or phone number.">
+        <div className="rounded-lg border bg-card p-4">
+          {signedInUser.googleLinked ? (
+            <p className="text-sm font-medium text-emerald-700">Google account linked</p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">For security, linking requires a fresh sign-in. Sign out and sign back in, then return here to link Google.</p>
+              <Button onClick={() => { window.location.assign('/api/auth/google/start') }}>Link Google account</Button>
+            </div>
+          )}
         </div>
       </Section>
 
