@@ -25,12 +25,25 @@ export function SettingsView() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [busy, setBusy] = useState(false)
+  const [googleBusy, setGoogleBusy] = useState(false)
   const [error, setError] = useState('')
 
   if (isLoading) return <ListingListSkeleton count={3} />
   if (!user) return <EmptyState title="Sign in to manage settings" description="Your account settings are available after you sign in." action={<Button onClick={() => setAuthOpen(true)}>Sign in</Button>} />
   // Capture the authenticated user after the guard so async callbacks retain the non-null type.
   const signedInUser = user
+
+  async function linkGoogleAccount() {
+    setGoogleBusy(true)
+    try {
+      const result = await apiPost<{ authorizationUrl: string }>('/api/auth/google/start')
+      window.location.assign(result.authorizationUrl)
+    } catch (err) {
+      toast({ title: 'Could not start Google linking', description: err instanceof Error ? err.message : 'Please try again.' , variant: 'destructive' })
+    } finally {
+      setGoogleBusy(false)
+    }
+  }
 
   async function requestCode() {
     setBusy(true); setError('')
@@ -91,7 +104,7 @@ export function SettingsView() {
           ) : (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">For security, linking requires a fresh sign-in. Sign out and sign back in, then return here to link Google.</p>
-              <Button onClick={() => { window.location.assign('/api/auth/google/start') }}>Link Google account</Button>
+              <Button onClick={linkGoogleAccount} disabled={googleBusy}>{googleBusy ? 'Connecting…' : 'Link Google account'}</Button>
             </div>
           )}
         </div>
