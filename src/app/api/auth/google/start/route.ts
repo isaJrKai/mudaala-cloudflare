@@ -64,6 +64,7 @@ export async function POST(request: Request) {
         proofConsumedAt: null,
         verifiedAt: { gte: new Date(now.getTime() - RECENT_AUTH_MS) },
         usedAt: { not: null },
+        proofConsumedAt: null,
       },
       orderBy: { verifiedAt: 'desc' },
       select: { id: true },
