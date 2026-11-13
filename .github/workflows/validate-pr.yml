@@ -183,7 +183,7 @@ jobs:
             echo "Google identity migration checks failed: existing=$legacy_exempt new=$new_exempt RLS=$google_rls_count policies=$google_policy_count grants=$google_grants"
             exit 1
           fi
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "DELETE FROM public.\\\"User\\\" WHERE id IN ('google-migration-existing','google-migration-new');"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DELETE FROM public."User" WHERE id IN ($$google-migration-existing$$,$$google-migration-new$$);'
           echo "Google identity migrations passed: existing merchant grandfathering, new seller default, RLS and runtime grants verified."
           policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(DISTINCT tablename) FROM pg_policies WHERE schemaname='public' AND tablename IN ('AppSetting','AuditLog','BusinessProfile','BusinessProduct','CategoryInterest','GoogleIdentity','GoogleOAuthState','Listing','ListingDailyAnalytics','Notification','PasswordReset','PriceSnapshot','Report','Sale','SaleItem','SavedSearch','Session','ShopDailyAnalytics','ShopFollow','ShowroomItem','StockMovement','User') AND 'anon'=ANY(roles) AND 'authenticated'=ANY(roles) AND qual='false' AND with_check='false'")
           if [ "$policy_count" != "22" ]; then
