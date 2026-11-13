@@ -3,7 +3,7 @@ import { getCurrentSessionToken } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
-import { chooseSmsProvider, generateResetCode, hashResetCode } from '@/lib/sms'
+import { chooseSmsProvider, generateResetCode, hashResetCode, hashPhoneForVerification } from '@/lib/sms'
 
 const CHALLENGE_TTL_MS = 10 * 60 * 1000
 const RECENT_AUTH_MS = 10 * 60 * 1000
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const challenge = await db.phoneVerificationChallenge.create({
       data: {
         userId: user.id,
-        phone: user.phone,
+        phoneHash: hashPhoneForVerification(user.phone),
         codeHash: hashResetCode(code),
         expiresAt: new Date(now.getTime() + CHALLENGE_TTL_MS),
       },
