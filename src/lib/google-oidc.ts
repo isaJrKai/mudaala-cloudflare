@@ -166,3 +166,16 @@ export function parseGoogleRedirectUri(value: string): URL | null {
     return null
   }
 }
+
+
+// State-changing browser actions must originate from this exact deployment
+// origin. This rejects cross-site forms and credentialed cross-origin fetches.
+export function hasSameRequestOrigin(request: Request): boolean {
+  const origin = request.headers.get('origin')
+  if (!origin) return false
+  try {
+    return origin === new URL(request.url).origin
+  } catch {
+    return false
+  }
+}
