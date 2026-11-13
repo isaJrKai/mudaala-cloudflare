@@ -3,8 +3,6 @@ import { route, jsonOk, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
-import { SHOP_OWNER_INCLUDE, serializeListing } from '@/lib/listings'
-import { activeListingExpiryFilter } from '@/lib/listing-visibility'
 
 // Lightweight public discovery payload for the Browse feed. The client sends
 // only shop IDs already present in the public listings response; this route
@@ -39,14 +37,10 @@ export async function GET(request: NextRequest) {
           ],
         },
         orderBy: { createdAt: 'desc' },
-        take: 12,
-        include: {
-          listings: {
-            where: { type: 'OFFER', status: 'ACTIVE', isSeed: false, ...activeListingExpiryFilter(new Date()) },
-            orderBy: [{ refreshedAt: 'desc' }],
-            take: 6,
-            include: SHOP_OWNER_INCLUDE,
-          },
+        take: 36,
+        select: {
+          id: true,
+          name: true,
           profile: {
             select: {
               businessName: true,
@@ -81,7 +75,6 @@ export async function GET(request: NextRequest) {
           category: row.profile?.category ?? null,
           area: row.profile?.area ?? null,
           county: row.profile?.county ?? null,
-          listings: row.listings.map(serializeListing),
           showroomItems: row.showroomItems.map((item) => ({
             ...item,
             createdAt: item.createdAt.toISOString(),
