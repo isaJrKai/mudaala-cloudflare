@@ -179,15 +179,8 @@ function SignedInHome() {
         <p className="mt-1 text-sm text-muted-foreground">{copy.home.dashSub}</p>
       </header>
 
-      {/* Market intelligence is the first useful destination on Home.
-          Trends and weekly movers share one query and lead the page. */}
-      <section className="grid min-w-0 gap-4 xl:grid-cols-5" aria-label="Market intelligence">
-        <PriceTrendsCard className="min-w-0 xl:col-span-3" />
-        <div className="min-w-0 xl:col-span-2">
-          <MarketMoversCard />
-        </div>
-      </section>
-
+      {/* Put real nearby offers ahead of analysis: buyers can discover stock
+          immediately, while sellers still see any time-sensitive upkeep first. */}
       {data.staleListings.length > 0 ? (
         <FreshnessTip
           stale={data.staleListings}
@@ -215,6 +208,15 @@ function SignedInHome() {
         >
           <PlusCircle className="size-4" aria-hidden /> Post an Ad
         </Button>
+      </section>
+
+      {/* Market analysis stays available, but follows the practical actions
+          that most visitors came to Home to take. */}
+      <section className="grid min-w-0 gap-4 xl:grid-cols-5" aria-label="Market intelligence">
+        <PriceTrendsCard className="min-w-0 xl:col-span-3" />
+        <div className="min-w-0 xl:col-span-2">
+          <MarketMoversCard />
+        </div>
       </section>
 
       <SavedSearchesCard
