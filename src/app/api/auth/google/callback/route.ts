@@ -61,7 +61,9 @@ export async function GET(request: Request) {
       codeVerifier = verifier
     } else if (stateRecord.purpose === 'LOGIN') {
       if (stateRecord.userId !== null) throw new ApiError(400, 'This Google sign-in attempt is invalid')
-      const browserBinding = cookieStore.get('mudaala_google_login_state')?.value ?? ''\n      const [browserStateHash, codeVerifier] = browserBinding.split('.')\n      if (browserStateHash !== stateRecord.stateHash || !codeVerifier || !/^[a-f0-9]{64}$/.test(codeVerifier)) {
+      const browserBinding = cookieStore.get('mudaala_google_login_state')?.value ?? ''
+      const [browserStateHash, verifier] = browserBinding.split('.')
+      if (browserStateHash !== stateRecord.stateHash || !verifier || !/^[a-f0-9]{64}$/.test(verifier)) {
         throw new ApiError(400, 'This Google sign-in attempt was not started in this browser. Start again')
       }
       codeVerifier = verifier
