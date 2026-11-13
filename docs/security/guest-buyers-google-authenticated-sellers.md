@@ -178,3 +178,46 @@ Do not enable `SELLER_GOOGLE_REQUIRED` until the above verification gates are co
 5. Do not run the production migration or deploy this feature before review and a rehearsed rollback plan.
 
 Google-only account creation and passwordless account deletion are intentionally not included in this rollout. Unlinking is supported for existing phone/password accounts after fresh password and SMS reauthentication. Existing phone/password accounts remain the account model; Google is an additional explicitly linked sign-in method.
+
+## Operator configuration gate — stop before credentials are supplied
+
+The code path is prepared, but production OAuth must remain disabled until the operator completes the following in Cloudflare and Google Cloud Console.
+
+### Cloudflare Worker variables and secrets
+
+Set these on the intended Worker environment only:
+
+| Name | Type | Value / purpose |
+|---|---|---|
+| `GOOGLE_CLIENT_ID` | Worker variable | OAuth 2.0 Web client ID from Google Cloud |
+| `GOOGLE_CLIENT_SECRET` | Worker secret | Matching OAuth client secret; never commit or paste into chat |
+| `GOOGLE_REDIRECT_URI` | Worker variable | `https://mudaala.store/api/auth/google/callback` |
+| `SELLER_GOOGLE_REQUIRED` | Worker variable | Keep `false` until the rollout is explicitly approved |
+| `AT_API_KEY` | Worker secret | Africa's Talking API key for real SMS delivery |
+| `AT_USERNAME` | Worker variable/secret | Africa's Talking account username |
+| `AT_SENDER_ID` | Worker variable, optional | Approved sender ID, if the account has one |
+
+Production SMS delivery always selects Africa's Talking. A production Worker without SMS credentials fails closed; it must never print verification codes or phone numbers to logs. The console SMS provider is available only outside production for controlled tests.
+
+### Google Cloud Console
+
+Create an OAuth 2.0 Client ID of type **Web application**. Add the exact authorized redirect URI:
+
+```text
+https://mudaala.store/api/auth/google/callback
+```
+
+Do not use a wildcard, a preview URL, an alternate host, or an HTTP URI for production. If preview testing is required, use a separate OAuth client and its exact preview callback URI; do not mix preview and production secrets.
+
+### Final pre-enable checks
+
+1. Confirm the Google client ID and secret belong to the same OAuth client.
+2. Confirm the production callback URI exactly matches the Cloudflare Worker variable.
+3. Confirm Africa's Talking credentials are active and the sender configuration is approved.
+4. Exercise phone-code send, wrong-code ceiling, expiry, resend invalidation, Google link, Google login, unlink, and account-recovery paths on a non-production test identity.
+5. Verify guest browse/contact flows remain usable without Google.
+6. Verify all seller write routes enforce the server-side seller guard and existing merchants remain grandfathered.
+7. Keep `SELLER_GOOGLE_REQUIRED=false` until the migration, preview, rollback, and operational recovery checks have passed.
+
+**Do not enable the flag or run a production database migration as part of credential setup.** Credential configuration is a separate operator step; production rollout requires a separate review and explicit go/no-go decision.
+
