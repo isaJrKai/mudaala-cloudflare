@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers'
 import { ApiError, jsonOk, route } from '@/lib/api'
 import { getSessionUser } from '@/lib/auth'
 import { db } from '@/lib/db'
@@ -27,15 +28,28 @@ export async function POST(request: Request) {
     const now = new Date()
     const state = secureRandomToken()
     const nonce = secureRandomToken()
+    const stateHash = await sha256Hex(state)
     await db.googleOAuthState.deleteMany({ where: { expiresAt: { lt: now } } })
     await db.googleOAuthState.create({
       data: {
         userId: null,
         purpose: 'LOGIN',
-        stateHash: await sha256Hex(state),
+        stateHash,
         nonceHash: await sha256Hex(nonce),
         expiresAt: new Date(now.getTime() + STATE_TTL_MS),
       },
+    })
+
+    // Bind this anonymous OAuth attempt to the browser that initiated it.
+    // Without this cookie, a victim could be tricked into completing an
+    // attacker-started flow and be logged into the attacker's Mudaala account.
+    const cookieStore = await cookies()
+    cookieStore.set('mudaala_google_login_state', stateHash, {
+      httpOnly: true,
+      secure: new URL(request.url).protocol === 'https:',
+      sameSite: 'lax',
+      path: '/api/auth/google/callback',
+      maxAge: Math.floor(STATE_TTL_MS / 1000),
     })
 
     const authorization = new URL('https://accounts.google.com/o/oauth2/v2/auth')
