@@ -5,9 +5,9 @@ on:
     branches:
       - feat/shop-led-marketplace-home
     paths:
-      - 'src/app/concept/**
+      - 'src/app/concept/**'
       - 'src/components/commerce/listings-browse.tsx'
-      - 'src/app/api/shops/discover/**''
+      - 'src/app/api/shops/discover/**'
       - 'wrangler.preview.jsonc'
       - 'custom-worker.ts'
       - 'package.json'
