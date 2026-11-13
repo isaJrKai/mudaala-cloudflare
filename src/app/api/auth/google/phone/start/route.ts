@@ -31,17 +31,25 @@ export async function POST(request: Request) {
     }
 
     const code = generateResetCode()
-    await db.phoneVerificationChallenge.updateMany({
-      where: { userId: user.id, usedAt: null },
-      data: { usedAt: now },
-    })
-    const challenge = await db.phoneVerificationChallenge.create({
-      data: {
-        userId: user.id,
-        phoneHash: hashPhoneForVerification(user.phone),
-        codeHash: hashResetCode(code),
-        expiresAt: new Date(now.getTime() + CHALLENGE_TTL_MS),
-      },
+    // A resend invalidates every previous code AND every outstanding proof,
+    // including a previously verified proof that has not yet been used.
+    const challenge = await db.$transaction(async (tx) => {
+      await tx.phoneVerificationChallenge.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: now },
+      })
+      await tx.phoneVerificationChallenge.updateMany({
+        where: { userId: user.id, proofConsumedAt: null },
+        data: { proofConsumedAt: now },
+      })
+      return tx.phoneVerificationChallenge.create({
+        data: {
+          userId: user.id,
+          phoneHash: hashPhoneForVerification(user.phone),
+          codeHash: hashResetCode(code),
+          expiresAt: new Date(now.getTime() + CHALLENGE_TTL_MS),
+        },
+      })
     })
 
     try {
@@ -52,7 +60,7 @@ export async function POST(request: Request) {
     } catch {
       await db.phoneVerificationChallenge.updateMany({
         where: { id: challenge.id, usedAt: null },
-        data: { usedAt: new Date() },
+        data: { usedAt: new Date(), proofConsumedAt: new Date() },
       })
       console.error('[auth/google] phone verification SMS delivery failed')
       throw new ApiError(503, 'We could not send the security code. Please try again later')
