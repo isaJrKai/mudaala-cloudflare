@@ -368,9 +368,9 @@ async function verifyListingLifecycle(browser) {
     const gallery = page.locator('[aria-roledescription="carousel"]');
     await gallery.waitFor({ state: 'visible', timeout });
     await page.getByRole('button', { name: 'Next product photo' }).click();
-    await page.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
+    await gallery.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
     await page.getByRole('button', { name: 'Previous product photo' }).click();
-    await page.getByText('1 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
+    await gallery.getByText('1 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
 
     // Recheck the gallery controls at a phone width, and ensure the page itself
     // does not gain horizontal overflow while the image is shown.
@@ -394,11 +394,11 @@ async function verifyListingLifecycle(browser) {
     const publicGallery = page.locator('[aria-roledescription="carousel"]');
     await publicGallery.waitFor({ state: 'visible', timeout });
     await page.getByRole('button', { name: 'Next product photo' }).click();
-    await page.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
+    await publicGallery.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
     const publicPhotoFit = await publicGallery.locator('img').first().evaluate((img) => getComputedStyle(img).objectFit);
     if (publicPhotoFit !== 'contain') throw new Error('Public product gallery must show the whole photo; object-fit was ' + publicPhotoFit);
     await page.getByRole('button', { name: 'Previous product photo' }).click();
-    await page.getByText('1 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
+    await publicGallery.getByText('1 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
 
     // Verify the real buyer contact action reveals the number only on demand,
     // then exposes working telephone and WhatsApp destinations.
@@ -480,7 +480,7 @@ async function verifyListingLifecycle(browser) {
     await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
     const resultsGrid = page.getByTestId('listing-results-grid');
     await resultsGrid.waitFor({ state: 'visible', timeout });
-    await page.getByText(editedTitle, { exact: true }).waitFor({ state: 'visible', timeout });
+    await resultsGrid.getByText(editedTitle, { exact: true }).waitFor({ state: 'visible', timeout });
     const mobileGrid = await resultsGrid.evaluate((element) => ({
       columns: getComputedStyle(element).gridTemplateColumns.split(' ').length,
       width: element.getBoundingClientRect().width,
