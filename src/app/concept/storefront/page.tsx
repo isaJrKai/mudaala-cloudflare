@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-const photo = (id: string, width = 1000) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${width}&q=88`
+const photo = (id: string, width = 760) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${width}&q=82`
 
 const categories = [
   { name: 'Fashion', note: 'Clothing & accessories', image: 'photo-1483985988355-763728e1935b' },
@@ -53,48 +53,48 @@ export default function StorefrontConceptPage() {
     </header>
 
     <div className="mx-auto max-w-[1320px] px-4 pb-16 pt-5 sm:px-6 lg:px-9 lg:pt-8">
-      <section className="grid min-h-[430px] overflow-hidden rounded-[5px] bg-[#E9E8D9] lg:grid-cols-[.88fr_1.12fr]">
+      <section className="grid min-h-[300px] overflow-hidden rounded-[5px] bg-[#E9E8D9] lg:grid-cols-[1fr_.9fr]">
         <div className="flex flex-col justify-center px-7 py-10 sm:px-12 lg:px-14 lg:py-14">
           <p className="mb-5 text-[10px] font-bold uppercase tracking-[.24em] text-[#6B7C68]">Your neighbourhood, in one place</p>
           <h1 className="max-w-[510px] font-display text-[46px] leading-[1.04] tracking-[-.04em] text-[#0F3D2E] sm:text-[58px]">Discover more.<br/><span className="italic text-[#9A7420]">Shop better.</span><br/>Live local.</h1>
           <p className="mt-5 max-w-[370px] text-[15px] leading-7 text-[#58665B]">Good things are closer than you think. Find products, meet local shops and discover places worth stepping into.</p>
           <div className="mt-8 flex flex-wrap gap-3"><Link href="/#browse" className="inline-flex items-center gap-3 bg-[#0F3D2E] px-6 py-3.5 text-sm font-semibold text-white">Explore Mudaala <span className="text-[#F3B51B]">↗</span></Link><Link href="/#shops" className="inline-flex items-center border border-[#B9C1B2] px-6 py-3.5 text-sm font-semibold text-[#0F3D2E]">Meet the shops</Link></div>
         </div>
-        <div className="relative min-h-[300px] lg:min-h-[430px]">
+        <div className="relative min-h-[220px] lg:min-h-[300px]">
           <Photo id="photo-1542838132-92c53300491e" alt="Colourful fresh produce at a local market" className="absolute inset-0 h-full w-full object-cover"/>
           <div className="absolute bottom-5 left-5 max-w-[240px] bg-[#F8F6EF] px-5 py-4 sm:bottom-7 sm:left-7"><p className="text-[9px] font-bold uppercase tracking-[.2em] text-[#71806F]">Around the corner</p><p className="mt-1 font-display text-xl text-[#0F3D2E]">Find your kind of local.</p></div>
         </div>
       </section>
 
-      <section className="mt-14 sm:mt-16">
+      <section className="mt-10 sm:mt-12">
         <Heading eyebrow="A whole lot to discover" title="What are you looking for?" note="From the everyday to the unexpected — find it with local businesses near you."/>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {categories.map((item, i) => <Link href="/#browse" key={item.name} className={`group relative overflow-hidden bg-[#E8E4D9] ${i === 0 ? 'col-span-2 row-span-2 sm:col-span-1 sm:row-span-1' : ''}`}>
-            <div className="aspect-[1.15] overflow-hidden sm:aspect-[1.05]"><Photo id={item.image} alt={item.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"/></div>
+          {categories.map((item, i) => <Link href="/#browse" key={item.name} className="group relative overflow-hidden bg-[#E8E4D9]">
+            <div className="aspect-[1.4] overflow-hidden"><Photo id={item.image} alt={item.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"/></div>
             <div className="border-b border-x border-[#E6E0D5] bg-[#FFFEFA] px-3 py-3"><h3 className="font-display text-lg text-[#20352A]">{item.name}</h3><p className="mt-0.5 text-[10px] text-[#77796F]">{item.note}</p></div>
           </Link>)}
         </div>
       </section>
 
-      <section className="mt-16 grid gap-4 md:grid-cols-2">
-        {editorial.map((item) => <Link href={item.href} key={item.title} className="group relative min-h-[270px] overflow-hidden bg-[#D8D5C7]">
+      <section className="mt-12 grid gap-4 md:grid-cols-2">
+        {editorial.map((item) => <Link href={item.href} key={item.title} className="group relative min-h-[185px] overflow-hidden bg-[#D8D5C7]">
           <Photo id={item.image} alt={item.title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"/>
           <div className="absolute inset-0 bg-gradient-to-t from-[#17291E]/75 via-transparent to-transparent"/>
           <div className="absolute bottom-0 left-0 p-7 text-white"><p className="text-[9px] font-bold uppercase tracking-[.2em] text-[#F3D47B]">{item.kicker}</p><h3 className="mt-2 font-display text-3xl">{item.title}</h3><span className="mt-3 inline-block text-xs font-semibold">Explore the collection ↗</span></div>
         </Link>)}
       </section>
 
-      <section className="mt-16">
+      <section className="mt-12">
         <Heading eyebrow="Worth a closer look" title="Good finds, close to home" note="A little of everything, from businesses around you."/>
         <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
           {products.map((item) => <article key={item.name} className="group min-w-0">
-            <div className="aspect-[.92] overflow-hidden bg-[#EAE6DC]"><Photo id={item.image} alt={item.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.035]"/></div>
+            <div className="aspect-[1.08] overflow-hidden bg-[#EAE6DC]"><Photo id={item.image} alt={item.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.035]"/></div>
             <div className="pt-3"><p className="text-[9px] font-bold uppercase tracking-[.16em] text-[#7A8579]">{item.seller}</p><h3 className="mt-1 line-clamp-2 text-[13px] font-semibold leading-5 text-[#27362D]">{item.name}</h3><p className="mt-2 text-sm font-bold text-[#0F3D2E]">{item.price}</p></div>
           </article>)}
         </div>
       </section>
 
-      <section className="mt-16 border-y border-[#E3DDCF] py-9">
+      <section className="mt-12 border-y border-[#E3DDCF] py-8">
         <div className="grid gap-7 sm:grid-cols-3">
           <div><p className="font-display text-2xl text-[#0F3D2E]">Find the shop.</p><p className="mt-2 max-w-xs text-sm leading-6 text-[#72766D]">Discover real businesses, their products and the people behind them.</p></div>
           <div><p className="font-display text-2xl text-[#0F3D2E]">Make it yours.</p><p className="mt-2 max-w-xs text-sm leading-6 text-[#72766D]">Browse what is nearby and save the things you would love to come back to.</p></div>
