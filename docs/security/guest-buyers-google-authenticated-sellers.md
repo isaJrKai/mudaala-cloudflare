@@ -115,3 +115,41 @@ Reviewed the current Prisma User model, shared API helpers, account deletion, li
 4. Implement explicit account linking, account recovery, and passwordless account deletion/re-auth.
 5. Add migration, concurrency, authorization, guest-browsing, and rollback tests.
 6. Only then enable the new-seller policy in production, with the existing-merchant transition staged and measurable.
+
+
+## Implementation status — Google account linking foundation
+
+The feature branch now contains an initial, additive implementation:
+
+- Prisma models and SQL migration for `GoogleIdentity` and `GoogleOAuthState`.
+- Google identity uniqueness is enforced by provider + immutable subject, and by one Google identity per Mudaala user. Email is metadata only.
+- OAuth initiation is a POST endpoint, not a state-changing GET. It requires a current Mudaala session created within the last 10 minutes.
+- OAuth state and nonce are random 256-bit values; only SHA-256 hashes are persisted. State is bound to the Mudaala user, expires after five minutes, and is consumed atomically once.
+- The callback exchanges the authorization code server-side and verifies the Google ID token signature with Google's published RS256 JWKS, plus issuer, audience, expiry, issued-at and nonce. It does not use tokeninfo and does not trust browser-supplied identity claims.
+- Successful linking writes an audit event. Unique-constraint conflicts prevent linking a Google identity already owned by another Mudaala user.
+- Settings exposes a Google-link action and a server-derived linked/unlinked state. The UI explicitly says Google linking does not verify a shop or phone.
+- A centralized `requireSeller()` guard was added. Seller management routes use it; it is feature-gated by `SELLER_GOOGLE_REQUIRED=true` so the policy cannot accidentally activate before configuration and verification.
+- The migration marks accounts that already have a shop profile, listing, business product, collection, showroom item or sale as grandfathered. They retain seller access when the feature flag is enabled.
+
+### Required configuration and rollout gates
+
+Set these Cloudflare Worker environment values only after the Google OAuth web client is configured:
+
+- `GOOGLE_CLIENT_ID` — public OAuth client identifier.
+- `GOOGLE_CLIENT_SECRET` — secret stored as a Cloudflare secret, never committed or pasted into chat.
+- `GOOGLE_REDIRECT_URI` — exact HTTPS callback URL: `https://mudaala.store/api/auth/google/callback`.
+- `SELLER_GOOGLE_REQUIRED=true` — enable enforcement only after migration, CI, preview tests, and merchant recovery checks pass.
+
+The Google OAuth client must allow the production origin `https://mudaala.store` and the exact redirect URI above. Add preview origins only when needed and explicitly controlled.
+
+### Not yet complete or verified
+
+- The migration has been committed but **has not been applied** to any database.
+- Prisma Client has not been regenerated against the updated schema in a working environment.
+- No build, typecheck, lint, unit test, integration test, or browser test has yet been run for these commits.
+- Google OAuth credentials and Cloudflare Worker secrets are not configured or verified.
+- The current flow links Google to an existing Mudaala phone/password account. It does not yet create Google-only accounts, replace password recovery, support unlinking, or change account deletion reauthentication.
+- The seller route inventory still needs a final exhaustive check before enabling the enforcement flag.
+- No merge or production deployment is authorized by this work.
+
+Do not enable `SELLER_GOOGLE_REQUIRED` until the above verification gates are complete.
