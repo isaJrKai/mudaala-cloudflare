@@ -1,4 +1,4 @@
-import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, parseBody, requireSeller, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { SHOP_OWNER_INCLUDE, serializeListing } from '@/lib/listings'
 import { productCollectionItemCreateSchema } from '@/lib/product-collections'
@@ -7,7 +7,7 @@ type Context = { params: Promise<{ id: string }> }
 
 export async function POST(request: Request, context: Context) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const { id: collectionId } = await context.params
     const data = await parseBody(request, productCollectionItemCreateSchema)
     const collection = await db.productCollection.findFirst({ where: { id: collectionId, userId: user.id }, select: { id: true } })
