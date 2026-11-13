@@ -9,6 +9,7 @@ const bodySchema = z.object({ code: z.string().regex(/^\d{6}$/, 'Enter the 6-dig
 
 export async function POST(request: Request) {
   return route(async () => {
+    if (!hasSameRequestOrigin(request)) throw new ApiError(403, 'This security action must be started from the Mudaala website')
     const user = await requireUser('Sign in before verifying your phone')
     const data = await parseBody(request, bodySchema)
     const [userLimit, ipLimit] = await Promise.all([
