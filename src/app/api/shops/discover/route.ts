@@ -14,8 +14,9 @@ export async function GET(request: NextRequest) {
       .map((id) => id.trim())
       .filter(Boolean)
     const ids = [...new Set(rawIds)]
+    const directory = request.nextUrl.searchParams.get('directory') === '1'
 
-    if (ids.length === 0) return jsonOk({ shops: [] })
+    if (!directory && ids.length === 0) return jsonOk({ shops: [] })
     if (ids.length > 8 || ids.some((id) => id.length > 64)) {
       throw new ApiError(400, 'Invalid shop discovery request')
     }
@@ -23,6 +24,63 @@ export async function GET(request: NextRequest) {
     const verdict = await hit(`shop-discovery:ip:${getClientIp(request)}`, 60, 60_000)
     if (!verdict.ok) {
       throw new ApiError(429, 'Shop discovery is temporarily busy. Please try again shortly')
+    }
+
+    if (directory) {
+      const directoryRows = await db.user.findMany({
+        where: {
+          isSeed: false,
+          profile: { is: { isSeed: false } },
+          OR: [
+            { listings: { some: { status: 'ACTIVE', isSeed: false } } },
+            { showroomItems: { some: {} } },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 36,
+        select: {
+          id: true,
+          name: true,
+          profile: {
+            select: {
+              businessName: true,
+              photoUrl: true,
+              category: true,
+              area: true,
+              county: true,
+            },
+          },
+          showroomItems: {
+            orderBy: { createdAt: 'desc' },
+            take: 2,
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              category: true,
+              price: true,
+              currency: true,
+              availability: true,
+              photoUrl: true,
+              createdAt: true,
+            },
+          },
+        },
+      })
+      return jsonOk({
+        shops: directoryRows.map((row) => ({
+          id: row.id,
+          name: row.profile?.businessName?.trim() || row.name,
+          photoUrl: row.profile?.photoUrl ?? null,
+          category: row.profile?.category ?? null,
+          area: row.profile?.area ?? null,
+          county: row.profile?.county ?? null,
+          showroomItems: row.showroomItems.map((item) => ({
+            ...item,
+            createdAt: item.createdAt.toISOString(),
+          })),
+        })),
+      })
     }
 
     const rows = await db.user.findMany({
