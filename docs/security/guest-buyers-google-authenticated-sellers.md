@@ -69,3 +69,28 @@ Before changing those columns:
 - No mandatory buyer account at purchase/contact.
 - No claim that Google sign-in verifies a seller's business, phone number, products, or mobile-money recipient.
 - No requirement to collect buyer Google identity just to improve analytics.
+
+
+## Product and security review — rollout refinement
+
+The direction is sound, but Google sign-in must not be marketed or implemented as seller verification. It is an account-control and abuse-accountability measure, not a trust badge.
+
+### Recommended rollout policy
+
+- **New sellers:** require a verified Google identity before enabling shop creation and seller-management capabilities.
+- **Existing phone/password merchants:** grandfather access during a clearly communicated migration window. Prompt them to link Google through an authenticated, explicit linking flow; do not abruptly block their shops or listings. Decide and publish the end date only after measuring successful linking and providing a recovery path.
+- **If a merchant cannot use Google:** provide a documented human-reviewed recovery/alternative process before enforcing any deadline. Do not make a Google outage or a lost Google account an irreversible loss of shop ownership.
+- **Buyers:** remain guests by default. Optional accounts must never become a hidden purchase prerequisite.
+
+### Important trade-offs
+
+1. **Google becomes a dependency.** OAuth outages, account suspensions, lost Google accounts, or users with limited connectivity can interrupt seller access. Keep Mudaala sessions revocable and provide a recovery process; avoid relying on Google being available for every ordinary request.
+2. **Google identity is not business legitimacy.** Display no “verified seller” badge from Google sign-in. Keep distinct evidence states for phone control, business checks, payment-recipient checks, and marketplace behaviour.
+3. **A mandatory Google-only path may exclude some merchants.** Validate this assumption with actual onboarding feedback in Uganda before removing other safe identity options. A future alternative may use phone verification plus manual risk review, but an unverified phone number alone is not equivalent to Google authentication.
+4. **Account linking is a high-risk operation.** Require an active session on the existing Mudaala account plus recent reauthentication; notify the account's existing contact channel where possible; write an immutable audit event; prevent one Google subject from being linked to multiple users.
+5. **Do not weaken the existing account model in one migration.** The current schema requires phone and password. Prefer a separate external-identity table (provider + immutable subject, unique constraint) and staged nullable-column migration only after every phone/password assumption is inventoried. Do not insert fake values.
+6. **Seller authorization must be explicit.** A valid login session is not by itself seller permission. Enforce seller capability on every seller write endpoint and verify ownership in the same server-side operation. Guest endpoints must remain read-only or narrowly scoped.
+
+### Decision
+
+Proceed with Google authentication for new seller onboarding, while preserving guest buying and a safe transition for existing merchants. Do not merge or deploy until the identity model, account recovery, seller-route authorization, migration, and regression tests are complete. This is a good direction, not a security-complete implementation.
