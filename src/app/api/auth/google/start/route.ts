@@ -70,6 +70,19 @@ export async function POST(request: Request) {
     if (!phoneProof) {
       throw new ApiError(403, 'Verify control of your registered phone by SMS before linking Google')
     }
+    const proofConsumed = await db.phoneVerificationChallenge.updateMany({
+      where: {
+        id: phoneProof.id,
+        userId: user.id,
+        phoneHash: hashPhoneForVerification(user.phone),
+        proofConsumedAt: null,
+        verifiedAt: { gte: new Date(now.getTime() - RECENT_AUTH_MS) },
+      },
+      data: { proofConsumedAt: now },
+    })
+    if (proofConsumed.count !== 1) {
+      throw new ApiError(409, 'That phone verification has already been used. Verify your phone again')
+    }
 
     const state = secureRandomToken()
     const nonce = secureRandomToken()
