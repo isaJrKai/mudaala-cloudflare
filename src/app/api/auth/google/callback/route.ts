@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { ApiError, route, requireUser } from '@/lib/api'
 import { createSession, getSessionUser, setSessionCookie } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { sha256Hex, verifyGoogleIdToken } from '@/lib/google-oidc'
+import { parseGoogleRedirectUri, sha256Hex, verifyGoogleIdToken } from '@/lib/google-oidc'
 
 function returnToApp(result: 'linked' | 'signed-in' | 'error', reason?: string) {
   // Never derive a redirect destination from the incoming Host header. A forged
@@ -12,17 +12,8 @@ function returnToApp(result: 'linked' | 'signed-in' | 'error', reason?: string) 
   // input. Derive the app origin from it so preview OAuth returns to that
   // preview, while forged Host headers can never influence the destination.
   const configuredRedirect = process.env.GOOGLE_REDIRECT_URI?.trim()
-  let appOrigin = 'https://mudaala.store'
-  if (configuredRedirect) {
-    try {
-      const configured = new URL(configuredRedirect)
-      if (configured.protocol === 'https:' && configured.pathname === '/api/auth/google/callback') {
-        appOrigin = configured.origin
-      }
-    } catch {
-      // Keep the canonical origin as a safe fallback for error redirects.
-    }
-  }
+  const configured = configuredRedirect ? parseGoogleRedirectUri(configuredRedirect) : null
+  const appOrigin = configured?.origin ?? 'https://mudaala.store'
   const destination = new URL(result === 'error' ? '/auth/google/error' : '/', appOrigin)
   if (reason) destination.searchParams.set('reason', reason)
   return NextResponse.redirect(destination, 303)
@@ -107,7 +98,8 @@ export async function GET(request: Request) {
     const clientId = process.env.GOOGLE_CLIENT_ID?.trim()
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
     const redirectUri = process.env.GOOGLE_REDIRECT_URI?.trim()
-    if (!clientId || !clientSecret || !redirectUri) {
+    const redirect = redirectUri ? parseGoogleRedirectUri(redirectUri) : null
+    if (!clientId || !clientSecret || !redirect) {
       throw new ApiError(503, 'Google sign-in is not configured yet')
     }
 
