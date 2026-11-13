@@ -72,6 +72,14 @@ async function main() {
       verifyGoogleIdToken(await token({ iss: 'https://attacker.example' }), 'ci-client-id', await sha256Hex(nonce)),
       'wrong issuer must fail',
     )
+    await rejects(
+      verifyGoogleIdToken(await token({ email_verified: false }), 'ci-client-id', await sha256Hex(nonce)),
+      'unverified Google email must fail',
+    )
+    await rejects(
+      verifyGoogleIdToken(await token({ aud: ['ci-client-id', 'another-client-id'], azp: 'another-client-id' }), 'ci-client-id', await sha256Hex(nonce)),
+      'wrong authorized party must fail',
+    )
 
     const otherPair = await crypto.subtle.generateKey(
       { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
@@ -83,7 +91,7 @@ async function main() {
       'invalid signature must fail',
     )
 
-    console.log('Google OIDC verification passed: valid RS256 token accepted; wrong audience, nonce, expiry, issuer and signature rejected.')
+    console.log('Google OIDC verification passed: valid RS256 token accepted; wrong audience, nonce, expiry, issuer, unverified email, authorized party and signature rejected.')
   } finally {
     globalThis.fetch = originalFetch
   }
