@@ -91,6 +91,7 @@ model Session {
   id        String   @id // opaque random token
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authMethod String  @default("PASSWORD") // PASSWORD | GOOGLE
   expiresAt DateTime
   createdAt DateTime @default(now())
 
