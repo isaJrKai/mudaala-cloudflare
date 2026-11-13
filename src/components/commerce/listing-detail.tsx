@@ -63,7 +63,13 @@ function PhotoGallery({ listing }: { listing: ListingDetailT }) {
     const gallery = galleryRef.current
     if (!gallery) return
     const nextIndex = Math.min(listing.photos.length - 1, Math.max(0, activeIndex + direction))
-    gallery.scrollTo({ left: nextIndex * gallery.clientWidth, behavior: 'smooth' })
+    const nextSlide = gallery.children.item(nextIndex)
+    if (!(nextSlide instanceof HTMLElement)) return
+    // Use the slide's actual offset rather than assuming every slide is exactly
+    // one clientWidth wide. Update the indicator with the requested destination
+    // immediately; the scroll event remains responsible for swipe gestures.
+    setActiveIndex(nextIndex)
+    gallery.scrollTo({ left: nextSlide.offsetLeft, behavior: 'auto' })
   }
 
   return (

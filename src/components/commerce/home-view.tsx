@@ -179,6 +179,15 @@ function SignedInHome() {
         <p className="mt-1 text-sm text-muted-foreground">{copy.home.dashSub}</p>
       </header>
 
+      {/* Market intelligence is the first useful destination on Home.
+          Trends and weekly movers share one query and lead the page. */}
+      <section className="grid min-w-0 gap-4 xl:grid-cols-5" aria-label="Market intelligence">
+        <PriceTrendsCard className="min-w-0 xl:col-span-3" />
+        <div className="min-w-0 xl:col-span-2">
+          <MarketMoversCard />
+        </div>
+      </section>
+
       {data.staleListings.length > 0 ? (
         <FreshnessTip
           stale={data.staleListings}
@@ -187,6 +196,8 @@ function SignedInHome() {
           renewingId={renewMutation.isPending ? renewMutation.variables : undefined}
         />
       ) : null}
+
+      <BestOffers location={data.location} />
 
       <section
         aria-label="Post an ad"
@@ -206,18 +217,10 @@ function SignedInHome() {
         </Button>
       </section>
 
-      <BestOffers location={data.location} />
-
-      <MarketMoversCard />
-
-      <section className="grid gap-4 lg:grid-cols-5">
-        <SavedSearchesCard
-          className="lg:col-span-2"
-          searches={data.savedSearches}
-          total={data.stats.savedSearches}
-        />
-        <PriceTrendsCard className="lg:col-span-3" />
-      </section>
+      <SavedSearchesCard
+        searches={data.savedSearches}
+        total={data.stats.savedSearches}
+      />
     </div>
   )
 }

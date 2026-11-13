@@ -240,21 +240,15 @@ export function ListingsBrowse() {
   // Discovery is inserted only into the unfiltered first-page feed. A search
   // or explicit filter stays focused on the results the buyer asked for.
   const showDiscoverySections = !filters.q.trim() && activeFilterCount === 0 && (data?.page ?? 1) === 1
-  const discoveryShopIds = useMemo(() => {
-    const seen = new Set<string>()
-    return (data?.items ?? []).flatMap((listing) => {
-      const id = listing.user?.id
-      if (!id || seen.has(id)) return []
-      seen.add(id)
-      return [id]
-    }).slice(0, 8)
-  }, [data?.items])
+  // Shop discovery is independent of the current product page: include
+  // public shops with active listings OR real showroom items, grouped by
+  // the merchant's declared business category.
   const discoveryQuery = useQuery({
-    queryKey: ['browse-shop-discovery', discoveryShopIds.join(',')],
-    enabled: showDiscoverySections && discoveryShopIds.length > 0,
+    queryKey: ['browse-shop-directory'],
+    enabled: showDiscoverySections,
     staleTime: 5 * 60_000,
     retry: 1,
-    queryFn: () => apiGet<ShopDiscoveryResponse>(`/api/shops/discover?ids=${discoveryShopIds.map(encodeURIComponent).join(',')}`),
+    queryFn: () => apiGet<ShopDiscoveryResponse>('/api/shops/discover?directory=1'),
   })
   // Reuse the buyer's saved category order to prioritize relevant shop circles.
   const discoveryShops = useMemo(() => {
@@ -280,6 +274,19 @@ export function ListingsBrowse() {
       ))}
     </div>
   ) : null
+
+  const renderCategoryShelf = (group: typeof discoveryCategoryGroups[number], index: number) => (
+    <section key={group.key} className="min-w-0 space-y-2" aria-labelledby={`category-${group.key}-heading`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h2 id={`category-${group.key}-heading`} className="text-base font-semibold tracking-tight">{group.label}</h2>
+          <p className="text-[11px] text-muted-foreground">{group.items.length} {group.items.length === 1 ? 'listing' : 'listings'} · Local sellers</p>
+        </div>
+        <span className="shrink-0 text-[11px] text-muted-foreground">Explore category</span>
+      </div>
+      {renderListingGrid(group.items, index === 0)}
+    </section>
+  )
 
   return (
     <div className="space-y-3">
@@ -474,26 +481,7 @@ export function ListingsBrowse() {
             </div>
             {showDiscoverySections ? (
               <>
-                {discoveryCategoryGroups.map((group, index) => (
-                  <section
-                    key={group.key}
-                    className="min-w-0 space-y-2"
-                    aria-labelledby={`category-${group.key}-heading`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <h2 id={`category-${group.key}-heading`} className="text-base font-semibold tracking-tight">
-                          {group.label}
-                        </h2>
-                        <p className="text-[11px] text-muted-foreground">
-                          {group.items.length} {group.items.length === 1 ? 'listing' : 'listings'} · Local sellers
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-[11px] text-muted-foreground">Explore category</span>
-                    </div>
-                    {renderListingGrid(group.items, index === 0)}
-                  </section>
-                ))}
+                {discoveryCategoryGroups[0] ? renderCategoryShelf(discoveryCategoryGroups[0], 0) : null}
                 <ExploreShopsSection
                   shops={discoveryShops}
                   loading={discoveryQuery.isLoading}
@@ -503,6 +491,7 @@ export function ListingsBrowse() {
                   shops={discoveryQuery.data?.shops ?? []}
                   onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
                 />
+                {discoveryCategoryGroups.slice(1).map((group, index) => renderCategoryShelf(group, index + 1))}
                 <SpecialOffersSection
                   items={specialOfferItems}
                   shopLabels={shopLabels}
@@ -563,44 +552,47 @@ function ExploreShopsSection({
   loading: boolean
   onOpenShop: (shopId: string) => void
 }) {
-  if (shops.length === 0 && !loading) return null
+  const groups = shops.reduce<Array<{ key: string; label: string; shops: ShopDiscoveryResponse['shops'] }>>((all, shop) => {
+    const key = shop.category || 'local'
+    const current = all.find((group) => group.key === key)
+    if (current) current.shops.push(shop)
+    else all.push({ key, label: shopCategoryLabel(shop.category), shops: [shop] })
+    return all
+  }, [])
+  if (groups.length === 0 && !loading) return null
   return (
-    <section className="min-w-0 space-y-3 py-1" aria-labelledby="explore-shops-heading">
-      <div className="flex items-center justify-between gap-3">
-        <h2 id="explore-shops-heading" className="text-base font-semibold tracking-tight">Explore shops</h2>
-        <span className="text-xs text-muted-foreground">Meet local sellers</span>
-      </div>
-      {shops.length > 0 ? (
-        <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-2 scrollbar-slim" role="list" aria-label="Shops on Mudaala">
-          {shops.map((shop) => (
-            <button
-              key={shop.id}
-              type="button"
-              role="listitem"
-              onClick={() => onOpenShop(shop.id)}
-              className="press flex w-[84px] shrink-0 flex-col items-center gap-1.5 rounded-lg px-1 py-1 text-center hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              aria-label={`Explore ${shop.name}${shop.category ? `, ${shopCategoryLabel(shop.category)} shop` : ' shop'}`}
-            >
-              {shop.photoUrl ? (
-                <img src={shop.photoUrl} alt="" loading="lazy" className="size-16 rounded-full border border-border object-cover" />
-              ) : (
-                <span className="flex size-16 items-center justify-center rounded-full border border-border bg-secondary text-primary">
-                  <Store className="size-6" aria-hidden />
-                </span>
-              )}
-              <span className="line-clamp-2 w-full break-words text-xs font-semibold leading-tight">{shop.name}</span>
-              <span className="line-clamp-1 w-full text-[10px] leading-tight text-muted-foreground">
-                {shopCategoryLabel(shop.category)}
-              </span>
-            </button>
-          ))}
+    <div className="space-y-4" aria-label="Shop discovery by business category">
+      {groups.map((group) => (
+        <section key={group.key} className="min-w-0 space-y-2" aria-labelledby={`shop-category-${group.key}-heading`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 id={`shop-category-${group.key}-heading`} className="text-base font-semibold tracking-tight">{group.label} shops</h2>
+              <p className="text-[11px] text-muted-foreground">{group.shops.length} local {group.shops.length === 1 ? 'shop' : 'shops'}</p>
+            </div>
+            <span className="text-xs text-muted-foreground">Meet local sellers</span>
+          </div>
+          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 scrollbar-slim" role="list" aria-label={`${group.label} shops on Mudaala`}>
+            {group.shops.map((shop) => (
+              <button key={shop.id} type="button" role="listitem" onClick={() => onOpenShop(shop.id)}
+                className="press flex w-[104px] shrink-0 flex-col items-center gap-1.5 rounded-lg border bg-card px-2 py-2 text-center hover:border-primary/40 hover:bg-secondary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label={`Explore ${shop.name}, ${group.label} shop`}>
+                {shop.photoUrl ? <img src={shop.photoUrl} alt="" loading="lazy" className="size-16 rounded-lg border border-border object-cover" /> : (
+                  <span className="flex size-16 items-center justify-center rounded-lg border border-border bg-secondary text-primary"><Store className="size-6" aria-hidden /></span>
+                )}
+                <span className="line-clamp-2 w-full break-words text-xs font-semibold leading-tight">{shop.name}</span>
+                <span className="line-clamp-1 w-full text-[10px] leading-tight text-muted-foreground">{[shop.area, shop.county].filter(Boolean).join(', ') || group.label}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
+      {groups.length === 0 && loading ? (
+        <div className="space-y-2" aria-label="Loading shop categories" aria-busy="true">
+          <div className="h-4 w-36 animate-pulse rounded bg-muted" />
+          <div className="flex gap-3 overflow-hidden" aria-hidden>{[0, 1, 2, 3, 4].map((key) => <span key={key} className="h-24 w-24 shrink-0 animate-pulse rounded-lg bg-muted" />)}</div>
         </div>
-      ) : (
-        <div className="flex gap-3 overflow-hidden" aria-hidden>
-          {[0, 1, 2, 3, 4].map((key) => <span key={key} className="size-16 shrink-0 animate-pulse rounded-full bg-muted" />)}
-        </div>
-      )}
-    </section>
+      ) : null}
+    </div>
   )
 }
 
@@ -762,20 +754,9 @@ function subscribeToFeaturedShopRotation(onStoreChange: () => void) {
 }
 
 function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
-  // Same hydration-safe origin pattern as shop-view: '' during SSR, the real
-  // origin after mount (a page's origin never changes while it is open).
-  const origin = useSyncExternalStore(
-    () => () => {},
-    () => window.location.origin,
-    () => '',
-  )
-  // Use a server snapshot of zero to keep SSR and the first hydration render
-  // identical; after hydration the client advances to the current time bucket.
-  const rotationBucket = useSyncExternalStore(
-    subscribeToFeaturedShopRotation,
-    () => Math.floor(Date.now() / FEATURED_SHOP_ROTATION_INTERVAL_MS),
-    () => 0,
-  )
+  const { navigate } = useAppStore()
+  const origin = useSyncExternalStore(() => () => {}, () => window.location.origin, () => '')
+  const rotationBucket = useSyncExternalStore(subscribeToFeaturedShopRotation, () => Math.floor(Date.now() / FEATURED_SHOP_ROTATION_INTERVAL_MS), () => 0)
   const eligibleShopIds = useMemo(() => eligibleFeaturedShopIds(items), [items])
   const shopId = chooseFeaturedShopId(eligibleShopIds, rotationBucket)
   const shopQuery = useQuery({
@@ -786,53 +767,58 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
     queryFn: () => apiGet<ShopPageT>(`/api/shops/${shopId}`),
   })
   const shop = shopQuery.data?.shop ?? null
-  const shopUrl = useMemo(
-    () => (origin && shop ? `${origin}/#/shop/${shop.id}` : ''),
-    [origin, shop],
-  )
-
-  if (!shop && !shopQuery.isLoading) return null
+  const shopUrl = useMemo(() => (origin && shop ? `${origin}/#/shop/${shop.id}` : ''), [origin, shop])
+  const sideProducts = items.filter((item) => item.type === 'OFFER').slice(0, 4)
+  if (!shop && !shopQuery.isLoading && sideProducts.length === 0) return null
 
   return (
-    <aside className="hidden lg:block" aria-label="Featured shop from your results">
+    <aside className="hidden min-w-0 space-y-3 lg:block" aria-label="Featured shop from your results">
       {shop ? (
         <div className="overflow-hidden rounded-lg border bg-card">
-          {shop.photoUrl ? (
-            <img src={shop.photoUrl} alt="" loading="lazy" className="h-32 w-full object-cover" />
-          ) : (
-            // PLACEHOLDER RULE - no shop photo yet: the neutral grey tile
-            // with the shop's name, never a stock or generated image.
+          {shop.photoUrl ? <img src={shop.photoUrl} alt="" loading="lazy" className="h-32 w-full object-cover" /> : (
             <PlaceholderTile title={shop.name} label={copy.shop.coverTileAria(shop.name)} className="h-32 w-full" />
           )}
           <div className="p-4">
             <p className="text-xs font-medium text-muted-foreground">{copy.browse.featuredShop}</p>
-            <h2 className="mt-1 font-display text-lg font-semibold leading-tight tracking-tight text-primary">
-              {shop.name}
-            </h2>
-            {shop.area || shop.county ? (
-              <p className="mt-0.5 text-xs text-muted-foreground">{[shop.area, shop.county].filter(Boolean).join(', ')}</p>
-            ) : null}
+            <h2 className="mt-1 font-display text-lg font-semibold leading-tight tracking-tight text-primary">{shop.name}</h2>
+            {shop.area || shop.county ? <p className="mt-0.5 text-xs text-muted-foreground">{[shop.area, shop.county].filter(Boolean).join(', ')}</p> : null}
             <div className="mt-3 flex items-center gap-3">
-              <div className="shrink-0 bg-white p-1.5">
-                {shopUrl ? <QRCode value={shopUrl} size={64} role="img" aria-label={`QR code for ${shop.name}'s shop`} /> : null}
-              </div>
+              <div className="shrink-0 bg-white p-1.5">{shopUrl ? <QRCode value={shopUrl} size={64} role="img" aria-label={`QR code for ${shop.name}'s shop`} /> : null}</div>
               <div className="min-w-0">
-                {shop.shopCode ? (
-                  <p className="text-sm font-bold tracking-widest text-foreground tabular-nums">{shop.shopCode}</p>
-                ) : null}
+                {shop.shopCode ? <p className="text-sm font-bold tracking-widest text-foreground tabular-nums">{shop.shopCode}</p> : null}
                 <p className="text-[11px] leading-snug text-muted-foreground">{copy.browse.featuredCodeHint}</p>
               </div>
             </div>
-            <a
-              href={telLink(shop.phone)}
-              className="press mt-3 flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
-            >
+            <a href={telLink(shop.phone)} className="press mt-3 flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">
               <Phone className="size-4" aria-hidden /> {copy.common.call}
             </a>
           </div>
         </div>
-      ) : shopId && shopQuery.isLoading ? (
-        <div className="h-64 animate-pulse rounded-lg border bg-muted/40" role="status" aria-label="Loading featured shop" />
+      ) : shopQuery.isLoading ? <div className="h-64 animate-pulse rounded-lg border bg-muted/40" role="status" aria-label="Loading featured shop" /> : null}
+
+      {sideProducts.length > 0 ? (
+        <section className="overflow-hidden rounded-lg border bg-card" aria-labelledby="nearby-products-heading">
+          <div className="flex items-center justify-between border-b px-3 py-2.5">
+            <h2 id="nearby-products-heading" className="text-sm font-semibold">More nearby products</h2>
+            <span className="text-[10px] text-muted-foreground">Live listings</span>
+          </div>
+          <div className="divide-y">
+            {sideProducts.map((item) => (
+              <button key={item.id} type="button" onClick={() => navigate({ name: 'listing', id: item.id })}
+                className="flex w-full min-w-0 items-center gap-2.5 p-2.5 text-left transition-colors hover:bg-secondary/40">
+                {item.photos[0] ? <img src={item.photos[0]} alt="" loading="lazy" className="size-14 shrink-0 rounded-md border object-cover" /> : (
+                  <span className="flex size-14 shrink-0 items-center justify-center rounded-md border bg-secondary px-1 text-center text-[10px] text-muted-foreground">{categoryLabel(item.category)}</span>
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-semibold">{item.title}</span>
+                  <span className="mt-1 block truncate text-[10px] text-muted-foreground">{item.user?.profile?.businessName || item.user?.name || 'Local seller'}</span>
+                  <span className="mt-1 block truncate text-xs font-bold tabular-nums text-primary">{item.price === null ? 'Ask for price' : `UGX ${Math.round(item.price).toLocaleString('en-UG')}`}</span>
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              </button>
+            ))}
+          </div>
+        </section>
       ) : null}
     </aside>
   )
