@@ -56,6 +56,7 @@ export async function POST(request: Request) {
     const phoneProof = await db.phoneVerificationChallenge.findFirst({
       where: {
         userId: user.id,
+        phone: user.phone,
         verifiedAt: { gte: new Date(now.getTime() - RECENT_AUTH_MS) },
         usedAt: { not: null },
       },
