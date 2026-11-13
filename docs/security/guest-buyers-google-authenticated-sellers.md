@@ -121,13 +121,13 @@ Reviewed the current Prisma User model, shared API helpers, account deletion, li
 
 The feature branch now contains an initial, additive implementation:
 
-- Prisma models and SQL migration for `GoogleIdentity` and `GoogleOAuthState`.
+- Prisma models and SQL migrations for `GoogleIdentity` and `GoogleOAuthState`, including separate `LINK` and anonymous `LOGIN` OAuth state purposes.
 - Google identity uniqueness is enforced by provider + immutable subject, and by one Google identity per Mudaala user. Email is metadata only.
-- OAuth initiation is a POST endpoint, not a state-changing GET. It requires a current Mudaala session created within the last 10 minutes.
+- OAuth linking initiation is a POST endpoint, not a state-changing GET. It requires a current Mudaala session created within the last 10 minutes. A separate POST start endpoint supports sign-in only for Google identities already linked to a Mudaala account; it refuses to silently switch an active session.
 - OAuth state and nonce are random 256-bit values; only SHA-256 hashes are persisted. State is bound to the Mudaala user, expires after five minutes, and is consumed atomically once.
 - The callback exchanges the authorization code server-side and verifies the Google ID token signature with Google's published RS256 JWKS, plus issuer, audience/authorized-party, expiry, issued-at and nonce. It rejects unverified Google email addresses, does not use tokeninfo, and does not trust browser-supplied identity claims.
 - Callback redirects are pinned to the canonical `https://mudaala.store` origin rather than derived from the incoming Host header, preventing a Host-header-based open redirect.
-- Successful linking writes an audit event. Unique-constraint conflicts prevent linking a Google identity already owned by another Mudaala user.
+- Successful linking writes an audit event. Unique-constraint conflicts prevent linking a Google identity already owned by another Mudaala user. Google sign-in looks up the immutable provider subject only (never email), creates a Mudaala session for that linked user, and records a sign-in audit event. Unlinked Google accounts are directed to the existing phone/password sign-in and explicit linking flow.
 - Settings exposes a Google-link action and a server-derived linked/unlinked state. The UI explicitly says Google linking does not verify a shop or phone.
 - A centralized `requireSeller()` guard was added. Seller management routes use it; it is feature-gated by `SELLER_GOOGLE_REQUIRED=true` so the policy cannot accidentally activate before configuration and verification.
 - The migration marks accounts that already have a shop profile, listing, business product, collection, showroom item or sale as grandfathered. They retain seller access when the feature flag is enabled.
@@ -148,7 +148,9 @@ The Google OAuth client must allow the production origin `https://mudaala.store`
 - The migration has been committed but **has not been applied** to any database.
 - Prisma Client has been generated and the schema/build/typecheck/lint, OIDC unit tests, migration checks, API regression suite, browser journeys, mobile overflow check, and blocking production dependency audit passed on commit `0c0082c`. A follow-up hardening commit now adds verified-email enforcement and canonical-origin redirects; its full CI run is pending.
 - Google OAuth credentials and Cloudflare Worker secrets are not configured or verified.
-- The current flow links Google to an existing Mudaala phone/password account. It does not yet create Google-only accounts, implement Google sign-in for existing linked users, replace password recovery, support unlinking, or change account deletion reauthentication.
+- New sellers still create a phone/password Mudaala account first and explicitly link Google in Settings. The current Google sign-in then works for those linked accounts. It does not yet create Google-only accounts or provide a new Google-first seller onboarding path.
+- Google sign-in can recover access for an already-linked account without the Mudaala password. SMS password reset remains available for legacy/unlinked accounts; no Google-based account recovery or unlink flow has been implemented for accounts without a linked identity.
+- Account deletion reauthentication has not yet been updated for Google-only identities.
 - The linking flow currently requires a recent Mudaala password session. A separate phone/SMS challenge before linking is not implemented; this remains a takeover-risk mitigation gate before production enforcement.
 - PKCE is not yet implemented for the authorization-code flow; add it before treating the OAuth flow as production-complete.
 - The seller route inventory still needs a final exhaustive check before enabling the enforcement flag.
