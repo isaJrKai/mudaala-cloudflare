@@ -544,103 +544,86 @@ function shopCategoryLabel(category: string | null): string {
   return labels[category] ?? categoryLabel(category)
 }
 
-function ExploreShopsSection({
+function ShopLedDiscoverySection({
   shops,
   loading,
   onOpenShop,
+  onOpenListing,
+  onAdd,
 }: {
   shops: ShopDiscoveryResponse['shops']
   loading: boolean
   onOpenShop: (shopId: string) => void
+  onOpenListing: (listingId: string) => void
+  onAdd: (listing: Listing & { user?: ListingShopOwnerT }) => boolean | void
 }) {
-  const groups = shops.reduce<Array<{ key: string; label: string; shops: ShopDiscoveryResponse['shops'] }>>((all, shop) => {
-    const key = shop.category || 'local'
-    const current = all.find((group) => group.key === key)
-    if (current) current.shops.push(shop)
-    else all.push({ key, label: shopCategoryLabel(shop.category), shops: [shop] })
-    return all
-  }, [])
-  if (groups.length === 0 && !loading) return null
+  if (shops.length === 0 && !loading) return null
   return (
-    <div className="space-y-4" aria-label="Shop discovery by business category">
-      {groups.map((group) => (
-        <section key={group.key} className="min-w-0 space-y-2" aria-labelledby={`shop-category-${group.key}-heading`}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h2 id={`shop-category-${group.key}-heading`} className="text-base font-semibold tracking-tight">{group.label} shops</h2>
-              <p className="text-[11px] text-muted-foreground">{group.shops.length} local {group.shops.length === 1 ? 'shop' : 'shops'}</p>
+    <section className="space-y-6" aria-label="Shops, products and showrooms">
+      {shops.map((shop) => (
+        <section key={shop.id} className="min-w-0 space-y-3 border-b border-border/70 pb-6 last:border-0" aria-labelledby={`shop-${shop.id}-heading`}>
+          <div className="flex items-center gap-3">
+            {shop.photoUrl ? (
+              <img src={shop.photoUrl} alt="" loading="lazy" className="size-14 shrink-0 rounded-md border object-cover" />
+            ) : (
+              <span className="flex size-14 shrink-0 items-center justify-center rounded-md border bg-secondary text-primary"><Store className="size-6" aria-hidden /></span>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[.14em] text-muted-foreground">{shopCategoryLabel(shop.category)}</p>
+              <h2 id={`shop-${shop.id}-heading`} className="truncate text-base font-bold tracking-tight">{shop.name}</h2>
+              <p className="truncate text-xs text-muted-foreground">{[shop.area, shop.county].filter(Boolean).join(', ') || 'Local shop on Mudaala'}</p>
             </div>
-            <span className="text-xs text-muted-foreground">Meet local sellers</span>
+            <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => onOpenShop(shop.id)}>View shop</Button>
           </div>
-          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 scrollbar-slim" role="list" aria-label={`${group.label} shops on Mudaala`}>
-            {group.shops.map((shop) => (
-              <button key={shop.id} type="button" role="listitem" onClick={() => onOpenShop(shop.id)}
-                className="press flex w-[104px] shrink-0 flex-col items-center gap-1.5 rounded-lg border bg-card px-2 py-2 text-center hover:border-primary/40 hover:bg-secondary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-label={`Explore ${shop.name}, ${group.label} shop`}>
-                {shop.photoUrl ? <img src={shop.photoUrl} alt="" loading="lazy" className="size-16 rounded-lg border border-border object-cover" /> : (
-                  <span className="flex size-16 items-center justify-center rounded-lg border border-border bg-secondary text-primary"><Store className="size-6" aria-hidden /></span>
-                )}
-                <span className="line-clamp-2 w-full break-words text-xs font-semibold leading-tight">{shop.name}</span>
-                <span className="line-clamp-1 w-full text-[10px] leading-tight text-muted-foreground">{[shop.area, shop.county].filter(Boolean).join(', ') || group.label}</span>
-              </button>
-            ))}
-          </div>
+
+          {shop.listings.length > 0 ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold">Products</h3>
+                <span className="text-[11px] text-muted-foreground">{shop.listings.length} shown</span>
+              </div>
+              <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+                {shop.listings.map((listing) => (
+                  <ListingBlock
+                    key={listing.id}
+                    listing={listing}
+                    onOpen={onOpenListing}
+                    onOpenShop={onOpenShop}
+                    onAdd={onAdd}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="rounded-md bg-muted/40 px-3 py-3 text-xs text-muted-foreground">This shop has no active products listed yet.</p>
+          )}
+
+          {shop.showroomItems.length > 0 ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold">Showroom</h3>
+                <button type="button" className="text-xs font-semibold text-primary hover:underline" onClick={() => onOpenShop(shop.id)}>View showroom</button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {shop.showroomItems.map((item) => (
+                  <button key={item.id} type="button" onClick={() => onOpenShop(shop.id)} className="flex min-w-0 items-center gap-2 rounded-md border bg-card p-2 text-left hover:bg-muted/30">
+                    {item.photoUrl ? <img src={item.photoUrl} alt="" loading="lazy" className="size-14 shrink-0 rounded object-cover" /> : <span className="flex size-14 shrink-0 items-center justify-center rounded bg-secondary text-primary"><Store className="size-5" aria-hidden /></span>}
+                    <span className="min-w-0">
+                      <span className="block line-clamp-2 text-xs font-semibold">{item.title}</span>
+                      <span className="mt-1 block text-xs font-bold text-primary">{item.price === null ? 'Ask for price' : `UGX ${Math.round(item.price).toLocaleString('en-UG')}`}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </section>
       ))}
-      {groups.length === 0 && loading ? (
-        <div className="space-y-2" aria-label="Loading shop categories" aria-busy="true">
-          <div className="h-4 w-36 animate-pulse rounded bg-muted" />
-          <div className="flex gap-3 overflow-hidden" aria-hidden>{[0, 1, 2, 3, 4].map((key) => <span key={key} className="h-24 w-24 shrink-0 animate-pulse rounded-lg bg-muted" />)}</div>
+      {shops.length === 0 && loading ? (
+        <div className="space-y-3" aria-label="Loading shops" aria-busy="true">
+          {[0, 1, 2].map((key) => <div key={key} className="h-40 animate-pulse rounded-lg bg-muted/50" />)}
         </div>
       ) : null}
-    </div>
-  )
-}
-
-function ExploreShowroomsSection({
-  shops,
-  onOpenShop,
-}: {
-  shops: ShopDiscoveryResponse['shops']
-  onOpenShop: (shopId: string) => void
-}) {
-  const entries = shops.flatMap((shop) =>
-    shop.showroomItems.slice(0, 2).map((item) => ({ shop, item })),
-  ).slice(0, 8)
-  if (entries.length === 0) return null
-
-  return (
-    <section className="min-w-0 space-y-3 py-1" aria-labelledby="explore-showrooms-heading">
-      <div className="flex items-center justify-between gap-3">
-        <h2 id="explore-showrooms-heading" className="text-base font-semibold tracking-tight">Explore showrooms</h2>
-        <span className="text-xs text-muted-foreground">More from local shops</span>
-      </div>
-      <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 scrollbar-slim">
-        {entries.map(({ shop, item }) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => onOpenShop(shop.id)}
-            className="press w-40 shrink-0 overflow-hidden rounded-lg border bg-card text-left hover:border-primary/40"
-            aria-label={`View ${item.title} in ${shop.name}'s showroom`}
-          >
-            {item.photoUrl ? (
-              <img src={item.photoUrl} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover" />
-            ) : (
-              <span className="flex aspect-[4/3] w-full items-center justify-center bg-secondary text-primary">
-                <Store className="size-7" aria-hidden />
-              </span>
-            )}
-            <span className="block space-y-1 p-2.5">
-              <span className="block truncate text-xs font-semibold">{item.title}</span>
-              <span className="block truncate text-[11px] text-muted-foreground">{shop.name}</span>
-              <span className="block text-xs font-semibold text-primary">
-                {item.price === null ? 'Ask for price' : `UGX ${Math.round(item.price).toLocaleString('en-UG')}`}
-              </span>
-            </span>
-          </button>
-        ))}
-      </div>
     </section>
   )
 }
