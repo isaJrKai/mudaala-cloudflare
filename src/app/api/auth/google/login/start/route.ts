@@ -24,6 +24,10 @@ export async function POST(request: Request) {
     if (!clientId || !redirectUri) {
       throw new ApiError(503, 'Google sign-in is not configured yet')
     }
+    const expectedOrigin = new URL(redirectUri).origin
+    if (request.headers.get('origin') !== expectedOrigin) {
+      throw new ApiError(403, 'Start Google sign-in from the Mudaala website')
+    }
 
     const now = new Date()
     const state = secureRandomToken()
