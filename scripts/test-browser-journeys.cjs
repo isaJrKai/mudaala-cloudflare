@@ -366,11 +366,12 @@ async function verifyListingLifecycle(browser) {
     await page.getByText(title, { exact: true }).waitFor({ state: 'visible', timeout });
 
     const gallery = page.locator('[aria-roledescription="carousel"]');
+    const gallerySection = gallery.locator('xpath=..');
     await gallery.waitFor({ state: 'visible', timeout });
     await page.getByRole('button', { name: 'Next product photo' }).click();
-    await page.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
+    await gallerySection.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
     await page.getByRole('button', { name: 'Previous product photo' }).click();
-    await page.getByText('1 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
+    await gallerySection.getByText('1 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
 
     // Recheck the gallery controls at a phone width, and ensure the page itself
     // does not gain horizontal overflow while the image is shown.
@@ -384,7 +385,7 @@ async function verifyListingLifecycle(browser) {
       throw new Error('Listing photo gallery introduced mobile horizontal overflow: ' + JSON.stringify(mobileGallery));
     }
     await page.getByRole('button', { name: 'Next product photo' }).click();
-    await page.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
+    await gallerySection.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
 
     // The public share page must use the same uncropped, arrow-based gallery.
     const listingHash = new URL(page.url()).hash;
@@ -392,13 +393,14 @@ async function verifyListingLifecycle(browser) {
     if (!publicListingId) throw new Error('Could not read the published listing id from the app URL: ' + listingHash);
     await page.goto(base + '/l/' + encodeURIComponent(publicListingId), { waitUntil: 'domcontentloaded', timeout: 60000 });
     const publicGallery = page.locator('[aria-roledescription="carousel"]');
+    const publicGallerySection = publicGallery.locator('xpath=..');
     await publicGallery.waitFor({ state: 'visible', timeout });
     await page.getByRole('button', { name: 'Next product photo' }).click();
-    await page.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
+    await publicGallerySection.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
     const publicPhotoFit = await publicGallery.locator('img').first().evaluate((img) => getComputedStyle(img).objectFit);
     if (publicPhotoFit !== 'contain') throw new Error('Public product gallery must show the whole photo; object-fit was ' + publicPhotoFit);
     await page.getByRole('button', { name: 'Previous product photo' }).click();
-    await page.getByText('1 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
+    await publicGallerySection.getByText('1 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
 
     // Verify the real buyer contact action reveals the number only on demand,
     // then exposes working telephone and WhatsApp destinations.
