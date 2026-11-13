@@ -3,6 +3,7 @@ import { getCurrentSessionToken } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
+import { hashPhoneForVerification } from '@/lib/sms'
 import { secureRandomToken, sha256Hex, pkceChallenge } from '@/lib/google-oidc'
 
 const STATE_TTL_MS = 5 * 60 * 1000
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
     const phoneProof = await db.phoneVerificationChallenge.findFirst({
       where: {
         userId: user.id,
-        phone: user.phone,
+        phoneHash: hashPhoneForVerification(user.phone),
         verifiedAt: { gte: new Date(now.getTime() - RECENT_AUTH_MS) },
         usedAt: { not: null },
       },
