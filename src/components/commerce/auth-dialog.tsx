@@ -92,6 +92,18 @@ function SignInForm({ onDone, onForgot }: { onDone: () => void; onForgot: () => 
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  async function startGoogleSignIn() {
+    setError(null)
+    setBusy(true)
+    try {
+      const res = await apiPost<{ authorizationUrl: string }>('/api/auth/google/login/start', {})
+      window.location.assign(res.authorizationUrl)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Google sign-in is unavailable. Please try again.')
+      setBusy(false)
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
@@ -157,6 +169,13 @@ function SignInForm({ onDone, onForgot }: { onDone: () => void; onForgot: () => 
       ) : null}
       <Button type="submit" className="w-full" disabled={busy}>
         {busy ? 'Signing in…' : 'Sign in'}
+      </Button>
+      <div className="relative py-1">
+        <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+        <div className="relative flex justify-center"><span className="bg-background px-2 text-xs text-muted-foreground">or</span></div>
+      </div>
+      <Button type="button" variant="outline" className="w-full" disabled={busy} onClick={startGoogleSignIn}>
+        Continue with Google
       </Button>
       <p className="text-center">
         <button
