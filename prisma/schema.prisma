@@ -617,13 +617,14 @@ model GoogleIdentity {
   @@index([userId, createdAt])
 }
 
-// Short-lived, one-use OAuth state for linking Google to an already
-// authenticated Mudaala account. Store only hashes of state and nonce.
-// This is deliberately not a signup mechanism yet.
+// Short-lived, one-use OAuth state for explicit account linking or sign-in.
+// Store only hashes of state and nonce. LOGIN states are anonymous; LINK states
+// are bound to the already authenticated Mudaala account.
 model GoogleOAuthState {
   id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   String   @default("LINK") // LINK | LOGIN
   stateHash String   @unique
   nonceHash String
   expiresAt DateTime
@@ -631,5 +632,6 @@ model GoogleOAuthState {
   createdAt DateTime @default(now())
 
   @@index([userId, expiresAt])
+  @@index([purpose, expiresAt])
   @@index([expiresAt])
 }
