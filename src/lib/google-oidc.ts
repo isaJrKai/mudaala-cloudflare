@@ -110,7 +110,7 @@ async function verifyWithKey(
   const audience = claims.aud
   const audiences = Array.isArray(audience) ? audience : [audience]
   if (!audiences.includes(expectedAudience)) throw new Error('Google ID token audience is invalid')
-  if (Array.isArray(audience) && claims.azp !== expectedAudience) throw new Error('Google ID token authorized party is invalid')
+  if ((Array.isArray(audience) || claims.azp !== undefined) && claims.azp !== expectedAudience) throw new Error('Google ID token authorized party is invalid')
 
   const now = Math.floor(Date.now() / 1000)
   if (typeof claims.exp !== 'number' || claims.exp <= now) throw new Error('Google ID token has expired')
@@ -125,9 +125,12 @@ async function verifyWithKey(
   }
 
   const emailVerified = claims.email_verified === true || claims.email_verified === 'true'
+  if (!emailVerified || typeof claims.email !== 'string' || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(claims.email) || claims.email.length > 320) {
+    throw new Error('Google account must have a verified email address')
+  }
   return {
     sub: claims.sub,
-    email: emailVerified && typeof claims.email === 'string' ? claims.email.slice(0, 320) : null,
-    emailVerified,
+    email: claims.email,
+    emailVerified: true,
   }
 }
