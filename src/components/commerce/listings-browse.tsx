@@ -413,55 +413,37 @@ export function ListingsBrowse() {
           }
         />
       ) : data ? (
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start lg:gap-4">
-          <div className={isFetching ? 'space-y-3 opacity-60 transition-opacity' : 'space-y-3'}>
-            <div className="flex flex-wrap items-end justify-between gap-2">
-              <div className="min-w-0">
-                <h1 className="text-xl font-bold leading-tight tracking-tight">
-                  {filters.q.trim() || activeFilterCount > 0 ? 'Search results' : 'Discover near you'}
-                </h1>
-                {showDiscoverySections ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Find products, meet local shops and explore what's available around you.
-                  </p>
-                ) : null}
-              </div>
-              <p className="shrink-0 text-xs text-muted-foreground" role="status">
-                {copy.browse.resultsFound(data.total, data.pageCount > 1 ? { page: data.page, pageCount: data.pageCount } : undefined)}
-              </p>
+        <div className={isFetching ? 'space-y-4 opacity-60 transition-opacity' : 'space-y-4'}>
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold leading-tight tracking-tight">
+                {filters.q.trim() || activeFilterCount > 0 ? 'Search results' : 'Discover near you'}
+              </h1>
+              {showDiscoverySections ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Start with a shop. Explore its products, then its showroom where available.
+                </p>
+              ) : null}
             </div>
-            {showDiscoverySections ? (
-              <>
-                {discoveryCategoryGroups[0] ? renderCategoryShelf(discoveryCategoryGroups[0], 0) : null}
-                <ExploreShopsSection
-                  shops={discoveryShops}
-                  loading={discoveryQuery.isLoading}
-                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
-                />
-                <ExploreShowroomsSection
-                  shops={discoveryQuery.data?.shops ?? []}
-                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
-                />
-                {discoveryCategoryGroups.slice(1).map((group, index) => renderCategoryShelf(group, index + 1))}
-                <SpecialOffersSection
-                  items={specialOfferItems}
-                  shopLabels={shopLabels}
-                  distanceLabels={distanceLabels}
-                  onOpen={(id) => navigate({ name: 'listing', id })}
-                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
-                  onAdd={addToBasket}
-                />
-              </>
-            ) : (
-              renderListingGrid(data.items, true)
-            )}
-
-            {data.pageCount > 1 ? (
-              <Pagination page={data.page} pageCount={data.pageCount} onPage={(p) => setFilters({ page: p })} />
-            ) : null}
+            <p className="shrink-0 text-xs text-muted-foreground" role="status">
+              {copy.browse.resultsFound(data.total, data.pageCount > 1 ? { page: data.page, pageCount: data.pageCount } : undefined)}
+            </p>
           </div>
+          {showDiscoverySections ? (
+            <ShopLedDiscoverySection
+              shops={discoveryShops}
+              loading={discoveryQuery.isLoading}
+              onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
+              onOpenListing={(id) => navigate({ name: 'listing', id })}
+              onAdd={addToBasket}
+            />
+          ) : (
+            renderListingGrid(data.items, true)
+          )}
 
-          <FeaturedShopPanel items={data.items} />
+          {data.pageCount > 1 ? (
+            <Pagination page={data.page} pageCount={data.pageCount} onPage={(p) => setFilters({ page: p })} />
+          ) : null}
         </div>
       ) : null}
     </div>
