@@ -54,7 +54,9 @@ export async function POST(request: Request) {
     if (existing) throw new ApiError(409, 'A Google account is already linked to this Mudaala account')
 
     const state = secureRandomToken()
-    const nonce = secureRandomToken()\n    const codeVerifier = secureRandomToken()\n    const stateHash = await sha256Hex(state)
+    const nonce = secureRandomToken()
+    const codeVerifier = secureRandomToken()
+    const stateHash = await sha256Hex(state)
     await db.googleOAuthState.deleteMany({ where: { expiresAt: { lt: now } } })
     await db.googleOAuthState.create({
       data: {
@@ -71,7 +73,9 @@ export async function POST(request: Request) {
     authorization.searchParams.set('response_type', 'code')
     authorization.searchParams.set('scope', 'openid email')
     authorization.searchParams.set('state', state)
-    authorization.searchParams.set('nonce', nonce)\n    authorization.searchParams.set('code_challenge', await pkceChallenge(codeVerifier))\n    authorization.searchParams.set('code_challenge_method', 'S256')
+    authorization.searchParams.set('nonce', nonce)
+    authorization.searchParams.set('code_challenge', await pkceChallenge(codeVerifier))
+    authorization.searchParams.set('code_challenge_method', 'S256')
     authorization.searchParams.set('prompt', 'select_account')
     const cookieStore = await (await import('next/headers')).cookies()
     cookieStore.set('mudaala_google_login_state', stateHash + '.' + codeVerifier, {
