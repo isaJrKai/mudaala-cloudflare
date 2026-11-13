@@ -1,0 +1,73 @@
+name: Deploy isolated Mudaala concept preview
+
+on:
+  push:
+    branches:
+      - experiment/premium-multicategory-storefront
+    paths:
+      - 'src/app/concept/**'
+      - 'wrangler.preview.jsonc'
+      - 'custom-worker.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-concept-preview.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mudaala-concept-preview
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out experiment branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Generate Prisma client without production database access
+        run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://preview:preview@127.0.0.1:5432/preview
+          DIRECT_URL: postgresql://preview:preview@127.0.0.1:5432/preview
+
+      - name: Build Next.js and OpenNext Worker
+        run: |
+          npx next build --webpack
+          npx @opennextjs/cloudflare build --skipNextBuild
+        env:
+          DATABASE_URL: postgresql://preview:preview@127.0.0.1:5432/preview
+          DIRECT_URL: postgresql://preview:preview@127.0.0.1:5432/preview
+          CRON_SECRET: preview-build-only-placeholder
+          SETTINGS_ENCRYPTION_KEY: preview-build-only-placeholder-key-32chars
+          ADMIN_PHONES: "+256700000000"
+          NEXT_PUBLIC_APP_URL: https://mudaala.store
+
+      - name: Deploy to isolated Cloudflare Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 7d45a3db16c2ce332bf146d34eb01687
+          command: deploy --config wrangler.preview.jsonc
+
+      - name: Verify concept page is publicly reachable
+        env:
+          PREVIEW_URL: https://mudaala-concept-preview.kaisoisaac.workers.dev
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --silent --show-error --retry 8 --retry-delay 5 --retry-connrefused "$PREVIEW_URL/concept/storefront")"
+          printf '%s' "$body" | grep -q 'Find your next'
+          printf '%s' "$body" | grep -q 'Concept preview'
+          echo "Isolated concept page returned HTTP 200 and expected concept markers."
+          echo "Preview: $PREVIEW_URL/concept/storefront"
