@@ -48,6 +48,20 @@ export async function DELETE(request: Request) {
     })
     if (!identity) throw new ApiError(404, 'No Google account is linked to this Mudaala account')
 
+    const proofConsumed = await db.phoneVerificationChallenge.updateMany({
+      where: {
+        id: phoneProof.id,
+        userId: user.id,
+        phoneHash: hashPhoneForVerification(user.phone),
+        proofConsumedAt: null,
+        verifiedAt: { gte: new Date(now.getTime() - RECENT_AUTH_MS) },
+      },
+      data: { proofConsumedAt: now },
+    })
+    if (proofConsumed.count !== 1) {
+      throw new ApiError(409, 'That phone verification has already been used. Verify your phone again')
+    }
+
     await db.$transaction(async (tx) => {
       await tx.googleIdentity.delete({ where: { id: identity.id } })
       await tx.auditLog.create({
