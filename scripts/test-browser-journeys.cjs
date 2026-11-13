@@ -482,7 +482,15 @@ async function verifyListingLifecycle(browser) {
     await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
     const resultsGrid = page.getByTestId('listing-results-grid');
     await resultsGrid.waitFor({ state: 'visible', timeout });
-    await resultsGrid.getByText(editedTitle, { exact: true }).waitFor({ state: 'visible', timeout });
+    // Browse's unfiltered discovery view splits listings into category shelves.
+    // Only the first shelf uses listing-results-grid; later shelves use
+    // listing-feed-grid. Search/filter results use listing-results-grid alone.
+    // Search every product grid, not the featured-shop rail or only shelf one.
+    const editedListingGrid = page
+      .locator('[data-testid="listing-results-grid"], [data-testid="listing-feed-grid"]')
+      .filter({ hasText: editedTitle })
+      .first();
+    await editedListingGrid.getByText(editedTitle, { exact: true }).waitFor({ state: 'visible', timeout });
     const mobileGrid = await resultsGrid.evaluate((element) => ({
       columns: getComputedStyle(element).gridTemplateColumns.split(' ').length,
       width: element.getBoundingClientRect().width,
