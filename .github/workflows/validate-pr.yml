@@ -167,6 +167,7 @@ jobs:
           # disposable PostgreSQL, including the one-use OAuth state tables.
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."PhoneVerificationChallenge", public."GoogleOAuthState", public."GoogleIdentity" CASCADE;'
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."User" DROP COLUMN IF EXISTS "sellerGoogleExempt";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."Session" DROP COLUMN IF EXISTS "authMethod";'
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
           INSERT INTO public."User" ("id","phone","name","passwordHash","updatedAt")
           VALUES
