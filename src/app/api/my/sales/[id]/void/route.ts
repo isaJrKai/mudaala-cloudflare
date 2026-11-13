@@ -1,4 +1,4 @@
-import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, parseBody, requireSeller, ApiError } from '@/lib/api'
 import { saleVoidSchema } from '@/lib/business-records'
 import { db } from '@/lib/db'
 
@@ -6,7 +6,7 @@ type Context = { params: Promise<{ id: string }> }
 
 export async function POST(request: Request, context: Context) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const { id } = await context.params
     const { reason } = await parseBody(request, saleVoidSchema)
 
