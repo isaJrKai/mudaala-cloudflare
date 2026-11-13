@@ -9,14 +9,14 @@ const STATE_TTL_MS = 5 * 60 * 1000
 
 export async function POST(request: Request) {
   return route(async () => {
+    const ipLimit = await hit(`google-login:ip:${getClientIp(request)}`, 10, 60 * 60 * 1000)
+    if (!ipLimit.ok) throw new ApiError(429, 'Too many Google sign-in attempts. Please try again later')
+
     // Do not silently replace an active account with a different Google login.
     // Users must sign out first if they intend to switch accounts.
     if (await getSessionUser()) {
       throw new ApiError(409, 'Sign out of your current Mudaala account before using Google sign-in')
     }
-
-    const ipLimit = await hit(`google-login:ip:${getClientIp(request)}`, 10, 60 * 60 * 1000)
-    if (!ipLimit.ok) throw new ApiError(429, 'Too many Google sign-in attempts. Please try again later')
 
     const clientId = process.env.GOOGLE_CLIENT_ID?.trim()
     const redirectUri = process.env.GOOGLE_REDIRECT_URI?.trim()
