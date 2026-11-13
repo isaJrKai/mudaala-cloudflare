@@ -7,8 +7,7 @@ import { sha256Hex, verifyGoogleIdToken } from '@/lib/google-oidc'
 function returnToApp(result: 'linked' | 'signed-in' | 'error', reason?: string) {
   // Never derive a redirect destination from the incoming Host header. A forged
   // Host can otherwise turn an OAuth callback into an open redirect.
-  const destination = new URL('/', 'https://mudaala.store')
-  destination.searchParams.set('google', result)
+  const destination = new URL(result === 'error' ? '/auth/google/error' : '/', 'https://mudaala.store')
   if (reason) destination.searchParams.set('reason', reason)
   return NextResponse.redirect(destination, 303)
 }
