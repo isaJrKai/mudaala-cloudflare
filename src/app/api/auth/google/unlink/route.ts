@@ -4,11 +4,13 @@ import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
 import { hashPhoneForVerification } from '@/lib/sms'
+import { hasSameRequestOrigin } from '@/lib/google-oidc'
 
 const RECENT_AUTH_MS = 10 * 60 * 1000
 
 export async function DELETE(request: Request) {
   return route(async () => {
+    if (!hasSameRequestOrigin(request)) throw new ApiError(403, 'This security action must be started from the Mudaala website')
     const user = await requireUser('Sign in before unlinking Google')
     const [userLimit, ipLimit] = await Promise.all([
       hit(`google-unlink:user:${user.id}`, 3, 60 * 60 * 1000),
