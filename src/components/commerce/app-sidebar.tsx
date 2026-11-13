@@ -151,7 +151,7 @@ export function AppSidebar() {
             </section>
           ))}
         </div>
-      </nav>>
+      </nav>
 
       <div className="space-y-3 border-t p-3">
         {/* Posting is the single primary action, not a duplicate nav destination. */}
