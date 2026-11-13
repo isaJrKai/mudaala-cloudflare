@@ -1,5 +1,4 @@
-import { NextResponse } from 'next/server'
-import { ApiError, route, requireUser } from '@/lib/api'
+import { ApiError, jsonOk, route, requireUser } from '@/lib/api'
 import { getCurrentSessionToken } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { secureRandomToken, sha256Hex } from '@/lib/google-oidc'
@@ -7,7 +6,7 @@ import { secureRandomToken, sha256Hex } from '@/lib/google-oidc'
 const STATE_TTL_MS = 5 * 60 * 1000
 const RECENT_AUTH_MS = 10 * 60 * 1000
 
-export async function GET() {
+export async function POST() {
   return route(async () => {
     const user = await requireUser('Sign in to link Google')
     const token = await getCurrentSessionToken()
@@ -61,6 +60,6 @@ export async function GET() {
     authorization.searchParams.set('state', state)
     authorization.searchParams.set('nonce', nonce)
     authorization.searchParams.set('prompt', 'select_account')
-    return NextResponse.redirect(authorization, 302)
+    return jsonOk({ authorizationUrl: authorization.toString() })
   })
 }
