@@ -2,8 +2,8 @@
 
 // Desktop app sidebar (>=1024px) - the signed-in workspace navigation.
 // Mobile keeps the bottom nav; this rail exists only on lg+ and carries the
-// same eight destinations plus the two actions that deserve permanent
-// placement: posting, and reaching a human on WhatsApp.
+// grouped destinations for discovery, shop management and activity. Account
+// and settings live in the profile menu; posting remains the single primary CTA.
 //
 // Style discipline: rectangles, cream surfaces, forest-green active states.
 // No curves here - the sidebar is a functional surface, not a doorway.
@@ -15,9 +15,7 @@ import {
   Tag,
   Bookmark,
   Bell,
-  Store,
   BriefcaseBusiness,
-  Settings,
   Leaf,
   ScanLine,
 } from 'lucide-react'
@@ -60,25 +58,40 @@ export function AppSidebar() {
   const unread = user ? (notificationsQuery.data?.unreadCount ?? 0) : 0
   const bellRef = useBellShake(unread)
 
-  const items: Array<{ name: ViewName; label: string; icon: React.ReactNode; badge?: number }> = [
-    { name: 'home', label: copy.nav.home, icon: <Home aria-hidden /> },
-    { name: 'browse', label: copy.nav.browse, icon: <Search aria-hidden /> },
-    { name: 'publish', label: copy.nav.post, icon: <PlusCircle aria-hidden /> },
-    { name: 'my-listings', label: copy.nav.myListings, icon: <Tag aria-hidden /> },
-    { name: 'saved', label: copy.nav.savedSearches, icon: <Bookmark aria-hidden /> },
+  const sections: Array<{
+    label: string
+    items: Array<{ name: ViewName; label: string; icon: React.ReactNode; badge?: number }>
+  }> = [
     {
-      name: 'notifications',
-      label: copy.nav.notifications,
-      icon: (
-        <span ref={bellRef} className="inline-flex" style={{ transformOrigin: '50% 18%' }}>
-          <Bell aria-hidden />
-        </span>
-      ),
-      badge: unread,
+      label: 'Discover',
+      items: [
+        { name: 'home', label: copy.nav.home, icon: <Home aria-hidden /> },
+        { name: 'browse', label: copy.nav.browse, icon: <Search aria-hidden /> },
+      ],
     },
-    { name: 'business', label: copy.nav.myBusiness, icon: <BriefcaseBusiness aria-hidden /> },
-    { name: 'account', label: copy.nav.account, icon: <Store aria-hidden /> },
-    { name: 'settings', label: copy.nav.settings, icon: <Settings aria-hidden /> },
+    {
+      label: 'Manage',
+      items: [
+        { name: 'my-listings', label: copy.nav.myListings, icon: <Tag aria-hidden /> },
+        { name: 'business', label: copy.nav.myBusiness, icon: <BriefcaseBusiness aria-hidden /> },
+      ],
+    },
+    {
+      label: 'Activity',
+      items: [
+        { name: 'saved', label: copy.nav.savedSearches, icon: <Bookmark aria-hidden /> },
+        {
+          name: 'notifications',
+          label: copy.nav.notifications,
+          icon: (
+            <span ref={bellRef} className="inline-flex" style={{ transformOrigin: '50% 18%' }}>
+              <Bell aria-hidden />
+            </span>
+          ),
+          badge: unread,
+        },
+      ],
+    },
   ]
 
   return (
@@ -100,39 +113,48 @@ export function AppSidebar() {
         </span>
       </button>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-2" aria-label="Sections">
-        <ul className="space-y-0.5">
-          {items.map((item) => {
-            const active = view.name === item.name
-            return (
-              <li key={item.name}>
-                <button
-                  type="button"
-                  onClick={() => navigate({ name: item.name })}
-                  aria-current={active ? 'page' : undefined}
-                  className={cn(
-                    'relative flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                    active
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-foreground/80 hover:bg-accent hover:text-foreground',
-                  )}
-                >
-                  <span className="[&_svg]:size-4">{item.icon}</span>
-                  <span className="truncate">{item.label}</span>
-                  {item.badge ? (
-                    <span className="ml-auto flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white">
-                      {item.badge > 9 ? '9+' : item.badge}
-                    </span>
-                  ) : null}
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-      </nav>
+      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Sections">
+        <div className="space-y-5">
+          {sections.map((section) => (
+            <section key={section.label} aria-label={section.label}>
+              <h2 className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
+                {section.label}
+              </h2>
+              <ul className="space-y-0.5">
+                {section.items.map((item) => {
+                  const active = view.name === item.name
+                  return (
+                    <li key={item.name}>
+                      <button
+                        type="button"
+                        onClick={() => navigate({ name: item.name })}
+                        aria-current={active ? 'page' : undefined}
+                        className={cn(
+                          'relative flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                          active
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-foreground/80 hover:bg-accent hover:text-foreground',
+                        )}
+                      >
+                        <span className="[&_svg]:size-4">{item.icon}</span>
+                        <span className="truncate">{item.label}</span>
+                        {item.badge ? (
+                          <span className="ml-auto flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white">
+                            {item.badge > 9 ? '9+' : item.badge}
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </nav>>
 
       <div className="space-y-3 border-t p-3">
-        {/* The one big action - posting is what this app exists for. */}
+        {/* Posting is the single primary action, not a duplicate nav destination. */}
         <Button
           size="lg"
           className="mudaala-money-cta w-full text-sm"
