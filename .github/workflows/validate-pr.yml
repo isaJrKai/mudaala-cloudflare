@@ -181,6 +181,11 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261113150000_google_oauth_login_purpose/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261113170000_google_link_phone_verification/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261113180000_session_auth_method/migration.sql
+          phone_proof_consumed_column=$(psql "$DATABASE_URL" -Atc "SELECT is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='PhoneVerificationChallenge' AND column_name='proofConsumedAt'")
+          if [ "$phone_proof_consumed_column" != "YES" ]; then
+            echo "Phone verification migration is missing its one-use proof-consumption column"
+            exit 1
+          fi
           session_auth_method_default=$(psql "$DATABASE_URL" -Atc "SELECT column_default FROM information_schema.columns WHERE table_schema='public' AND table_name='Session' AND column_name='authMethod'")
           session_auth_method_nullable=$(psql "$DATABASE_URL" -Atc "SELECT is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='Session' AND column_name='authMethod'")
           if [ "$session_auth_method_default" != "'PASSWORD'::text" ] || [ "$session_auth_method_nullable" != "NO" ]; then
