@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { apiPost, clearSessionToken } from '@/lib/client'
+import { apiFetch, apiPost, clearSessionToken } from '@/lib/client'
 import { useAppStore } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { EmptyState } from './empty-state'
@@ -57,6 +57,23 @@ export function SettingsView() {
       window.location.assign(result.authorizationUrl)
     } catch (err) {
       toast({ title: 'Phone verification failed', description: err instanceof Error ? err.message : 'Check the code and try again.', variant: 'destructive' })
+    } finally {
+      setGooglePhoneBusy(false)
+    }
+  }
+
+  async function verifyGooglePhoneAndUnlink(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setGooglePhoneBusy(true)
+    try {
+      await apiPost<{ ok: boolean; message: string }>('/api/auth/google/phone/verify', { code: googlePhoneCode.trim() })
+      const result = await apiFetch<{ ok: boolean; message: string }>('/api/auth/google/unlink', { method: 'DELETE' })
+      toast({ title: 'Google account unlinked', description: result.message })
+      setGooglePhoneStep(false)
+      setGooglePhoneCode('')
+      await queryClient.invalidateQueries()
+    } catch (err) {
+      toast({ title: 'Could not unlink Google', description: err instanceof Error ? err.message : 'Check the code and try again.', variant: 'destructive' })
     } finally {
       setGooglePhoneBusy(false)
     }
@@ -117,7 +134,22 @@ export function SettingsView() {
       <Section icon={<Link2 className="size-4" aria-hidden />} title="Google sign-in" description="Link a Google account to strengthen control and recovery of your Mudaala seller account. This does not verify your shop or phone number.">
         <div className="rounded-lg border bg-card p-4">
           {signedInUser.googleLinked ? (
-            <p className="text-sm font-medium text-emerald-700">Google account linked</p>
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-emerald-700">Google account linked</p>
+              <p className="text-sm text-muted-foreground">To unlink it, sign in again with your Mudaala password and confirm control of your registered phone.</p>
+              {!googlePhoneStep ? (
+                <Button variant="outline" onClick={requestGooglePhoneCode} disabled={googlePhoneBusy}>{googlePhoneBusy ? 'Sending code…' : 'Verify phone to unlink'}</Button>
+              ) : (
+                <form onSubmit={verifyGooglePhoneAndUnlink} className="max-w-sm space-y-2">
+                  <Label htmlFor="google-unlink-phone-code">6-digit SMS security code</Label>
+                  <Input id="google-unlink-phone-code" inputMode="numeric" autoComplete="one-time-code" value={googlePhoneCode} onChange={event => setGooglePhoneCode(event.target.value.replace(/\D/g, '').slice(0, 6))} pattern="[0-9]{6}" maxLength={6} required />
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" variant="destructive" disabled={googlePhoneBusy || googlePhoneCode.length !== 6}>{googlePhoneBusy ? 'Unlinking…' : 'Verify & unlink Google'}</Button>
+                    <Button type="button" variant="outline" disabled={googlePhoneBusy} onClick={requestGooglePhoneCode}>Resend code</Button>
+                  </div>
+                </form>
+              )}
+            </div>
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">First confirm control of your registered phone by SMS. Then connect the Google account you want to use for seller sign-in. You may need to sign in again first.</p>
