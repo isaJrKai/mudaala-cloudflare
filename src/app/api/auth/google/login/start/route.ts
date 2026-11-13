@@ -4,7 +4,7 @@ import { getSessionUser } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
-import { secureRandomToken, sha256Hex, pkceChallenge } from '@/lib/google-oidc'
+import { secureRandomToken, sha256Hex, pkceChallenge, parseGoogleRedirectUri } from '@/lib/google-oidc'
 
 const STATE_TTL_MS = 5 * 60 * 1000
 
@@ -24,7 +24,9 @@ export async function POST(request: Request) {
     if (!clientId || !redirectUri) {
       throw new ApiError(503, 'Google sign-in is not configured yet')
     }
-    const expectedOrigin = new URL(redirectUri).origin
+    const redirect = parseGoogleRedirectUri(redirectUri)
+    if (!redirect) throw new ApiError(503, 'Google callback URL must be a valid HTTPS Mudaala callback')
+    const expectedOrigin = redirect.origin
     if (request.headers.get('origin') !== expectedOrigin) {
       throw new ApiError(403, 'Start Google sign-in from the Mudaala website')
     }
