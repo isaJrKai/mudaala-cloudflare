@@ -3,7 +3,7 @@ import { ApiError, jsonOk, parseBody, route, requireUser } from '@/lib/api'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
-import { resetCodeMatches } from '@/lib/sms'
+import { resetCodeMatches, hashPhoneForVerification } from '@/lib/sms'
 
 const bodySchema = z.object({ code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code') })
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
     const now = new Date()
     const challenge = await db.phoneVerificationChallenge.findFirst({
-      where: { userId: user.id, usedAt: null, expiresAt: { gt: now }, attempts: { lt: 5 } },
+      where: { userId: user.id, phoneHash: hashPhoneForVerification(user.phone), usedAt: null, expiresAt: { gt: now }, attempts: { lt: 5 } },
       orderBy: { createdAt: 'desc' },
     })
     if (!challenge) throw new ApiError(400, 'That security code has expired. Request a new one')
