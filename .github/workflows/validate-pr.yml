@@ -60,6 +60,9 @@ jobs:
       - name: Run ESLint across the repository
         run: npm run lint
 
+      - name: Test Google OIDC signature and claim verification
+        run: npx tsx scripts/test-google-oidc.ts
+
       - name: Audit unused files, exports, and dependencies (Knip)
         run: npx --yes knip@5 --reporter compact
         continue-on-error: true # Audit findings are triaged before removal; don't hide build/security test results.
