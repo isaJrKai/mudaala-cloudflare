@@ -3,7 +3,7 @@ import { getCurrentSessionToken } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
-import { secureRandomToken, sha256Hex } from '@/lib/google-oidc'
+import { secureRandomToken, sha256Hex, pkceChallenge } from '@/lib/google-oidc'
 
 const STATE_TTL_MS = 5 * 60 * 1000
 const RECENT_AUTH_MS = 10 * 60 * 1000
@@ -54,12 +54,12 @@ export async function POST(request: Request) {
     if (existing) throw new ApiError(409, 'A Google account is already linked to this Mudaala account')
 
     const state = secureRandomToken()
-    const nonce = secureRandomToken()
+    const nonce = secureRandomToken()\n    const codeVerifier = secureRandomToken()\n    const stateHash = await sha256Hex(state)
     await db.googleOAuthState.deleteMany({ where: { expiresAt: { lt: now } } })
     await db.googleOAuthState.create({
       data: {
         userId: user.id,
-        stateHash: await sha256Hex(state),
+        stateHash,
         nonceHash: await sha256Hex(nonce),
         expiresAt: new Date(now.getTime() + STATE_TTL_MS),
       },
@@ -71,8 +71,16 @@ export async function POST(request: Request) {
     authorization.searchParams.set('response_type', 'code')
     authorization.searchParams.set('scope', 'openid email')
     authorization.searchParams.set('state', state)
-    authorization.searchParams.set('nonce', nonce)
+    authorization.searchParams.set('nonce', nonce)\n    authorization.searchParams.set('code_challenge', await pkceChallenge(codeVerifier))\n    authorization.searchParams.set('code_challenge_method', 'S256')
     authorization.searchParams.set('prompt', 'select_account')
+    const cookieStore = await (await import('next/headers')).cookies()
+    cookieStore.set('mudaala_google_login_state', stateHash + '.' + codeVerifier, {
+      httpOnly: true,
+      secure: expectedOrigin.startsWith('https://'),
+      sameSite: 'lax',
+      path: '/api/auth/google/callback',
+      maxAge: Math.floor(STATE_TTL_MS / 1000),
+    })
     return jsonOk({ authorizationUrl: authorization.toString() })
   })
 }
