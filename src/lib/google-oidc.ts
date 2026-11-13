@@ -146,3 +146,23 @@ export async function pkceChallenge(verifier: string): Promise<string> {
     .replace(/\//g, '_')
     .replace(/=+$/g, '')
 }
+
+
+// Only HTTPS callback URLs on the exact callback path are accepted. The
+// value is deployment configuration, never derived from request headers.
+export function parseGoogleRedirectUri(value: string): URL | null {
+  try {
+    const url = new URL(value)
+    if (
+      url.protocol !== 'https:' ||
+      url.username ||
+      url.password ||
+      url.pathname !== '/api/auth/google/callback' ||
+      url.search ||
+      url.hash
+    ) return null
+    return url
+  } catch {
+    return null
+  }
+}
