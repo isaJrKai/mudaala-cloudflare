@@ -7,6 +7,7 @@ on:
       - experiment/premium-multicategory-storefront
     paths:
       - 'src/app/concept/**'
+      - 'src/app/api/og/**'
       - 'wrangler.preview.jsonc'
       - 'custom-worker.ts'
       - 'package.json'
