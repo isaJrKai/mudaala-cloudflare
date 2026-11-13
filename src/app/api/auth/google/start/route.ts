@@ -1,14 +1,23 @@
 import { ApiError, jsonOk, route, requireUser } from '@/lib/api'
 import { getCurrentSessionToken } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { hit } from '@/lib/rate-limit'
+import { getClientIp } from '@/lib/client-ip'
 import { secureRandomToken, sha256Hex } from '@/lib/google-oidc'
 
 const STATE_TTL_MS = 5 * 60 * 1000
 const RECENT_AUTH_MS = 10 * 60 * 1000
 
-export async function POST() {
+export async function POST(request: Request) {
   return route(async () => {
     const user = await requireUser('Sign in to link Google')
+    const [userLimit, ipLimit] = await Promise.all([
+      hit(`google-link:user:${user.id}`, 5, 60 * 60 * 1000),
+      hit(`google-link:ip:${getClientIp(request)}`, 10, 60 * 60 * 1000),
+    ])
+    if (!userLimit.ok || !ipLimit.ok) {
+      throw new ApiError(429, 'Too many Google linking attempts. Please try again later')
+    }
     const token = await getCurrentSessionToken()
     if (!token) throw new ApiError(401, 'Sign in again before linking Google')
 
