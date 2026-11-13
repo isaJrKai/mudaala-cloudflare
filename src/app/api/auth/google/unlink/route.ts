@@ -36,6 +36,7 @@ export async function DELETE(request: Request) {
         proofConsumedAt: null,
         verifiedAt: { gte: new Date(now.getTime() - RECENT_AUTH_MS) },
         usedAt: { not: null },
+        proofConsumedAt: null,
       },
       select: { id: true },
     })
