@@ -53,6 +53,19 @@ export async function POST(request: Request) {
     })
     if (existing) throw new ApiError(409, 'A Google account is already linked to this Mudaala account')
 
+    const phoneProof = await db.phoneVerificationChallenge.findFirst({
+      where: {
+        userId: user.id,
+        verifiedAt: { gte: new Date(now.getTime() - RECENT_AUTH_MS) },
+        usedAt: { not: null },
+      },
+      orderBy: { verifiedAt: 'desc' },
+      select: { id: true },
+    })
+    if (!phoneProof) {
+      throw new ApiError(403, 'Verify control of your registered phone by SMS before linking Google')
+    }
+
     const state = secureRandomToken()
     const nonce = secureRandomToken()
     const codeVerifier = secureRandomToken()
