@@ -26,7 +26,6 @@ import { EmptyState } from './empty-state'
 import { copy } from '@/lib/copy'
 import { TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { chooseFeaturedShopId, eligibleFeaturedShopIds, FEATURED_SHOP_ROTATION_INTERVAL_MS } from '@/lib/featured-shop-rotation'
 
 // Two shops can legally share a name - when they appear in the SAME feed,
 // suffix each with their area so buyers tap the right one. The shop's own
