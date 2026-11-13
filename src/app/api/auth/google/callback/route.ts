@@ -146,7 +146,7 @@ export async function GET(request: Request) {
 
       // Create the Mudaala session only for the exact immutable Google subject
       // that was explicitly linked earlier. Email equality never links accounts.
-      const session = await createSession(linkedIdentity.userId)
+      const session = await createSession(linkedIdentity.userId, 'GOOGLE')
       await db.auditLog.create({
         data: {
           actorId: linkedIdentity.userId,
