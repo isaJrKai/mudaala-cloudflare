@@ -3,7 +3,7 @@ import { ApiError, route, requireUser } from '@/lib/api'
 import { db } from '@/lib/db'
 import { sha256Hex, verifyGoogleIdToken } from '@/lib/google-oidc'
 
-function returnToApp(request: Request, result: 'linked' | 'error', reason?: string) {
+function returnToApp(result: 'linked' | 'error', reason?: string) {
   // Never derive a redirect destination from the incoming Host header. A forged
   // Host can otherwise turn an OAuth callback into an open redirect.
   const destination = new URL('/', process.env.APP_BASE_URL?.trim() || 'https://mudaala.store')
@@ -12,12 +12,12 @@ function returnToApp(request: Request, result: 'linked' | 'error', reason?: stri
   return NextResponse.redirect(destination, 303)
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   return route(async () => {
     const user = await requireUser('Your Mudaala session expired. Sign in and try linking Google again.')
     const url = new URL(request.url)
     const providerError = url.searchParams.get('error')
-    if (providerError) return returnToApp(request, 'error', 'cancelled')
+    if (providerError) return returnToApp('error', 'cancelled')
 
     const code = url.searchParams.get('code')
     const state = url.searchParams.get('state')
@@ -114,6 +114,6 @@ export async function GET(request: Request) {
       throw error
     }
 
-    return returnToApp(request, 'linked')
+    return returnToApp('linked')
   })
 }
