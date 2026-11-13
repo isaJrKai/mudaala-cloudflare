@@ -91,7 +91,16 @@ async function verifyWithKey(
   )
   const signingInput = new TextEncoder().encode(parts[0] + '.' + parts[1])
   const signature = decodeBase64Url(parts[2]!)
-  const validSignature = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, signature, signingInput)
+  // Copy into standalone ArrayBuffers to satisfy the strict BufferSource
+  // types used by newer TypeScript DOM definitions (and avoid SharedArrayBuffer).
+  const signatureBuffer = Uint8Array.from(signature).buffer as ArrayBuffer
+  const signingInputBuffer = Uint8Array.from(signingInput).buffer as ArrayBuffer
+  const validSignature = await crypto.subtle.verify(
+    'RSASSA-PKCS1-v1_5',
+    key,
+    signatureBuffer,
+    signingInputBuffer,
+  )
   if (!validSignature) throw new Error('Google ID token signature is invalid')
 
   const issuer = claims.iss
