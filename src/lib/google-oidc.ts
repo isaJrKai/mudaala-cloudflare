@@ -134,3 +134,15 @@ async function verifyWithKey(
     emailVerified: true,
   }
 }
+
+
+// PKCE S256 challenge for the authorization-code flow. The verifier itself
+// stays in a short-lived HttpOnly browser cookie and is never sent to Google
+// in the authorization request or persisted in the database.
+export async function pkceChallenge(verifier: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\\+/g, '-')
+    .replace(/\\//g, '_')
+    .replace(/=+$/g, '')
+}
