@@ -8,6 +8,7 @@ CREATE TABLE "PhoneVerificationChallenge" (
   "expiresAt" TIMESTAMP(3) NOT NULL,
   "attempts" INTEGER NOT NULL DEFAULT 0,
   "verifiedAt" TIMESTAMP(3),
+  "proofConsumedAt" TIMESTAMP(3),
   "usedAt" TIMESTAMP(3),
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "PhoneVerificationChallenge_pkey" PRIMARY KEY ("id"),
