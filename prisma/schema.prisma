@@ -32,6 +32,8 @@ model User {
   // development fixtures, not real shops; scripts/remove-seed-data.ts
   // deletes everything flagged true in one step before launch.
   isSeed Boolean @default(false)
+  // Existing active merchants are grandfathered during Google-link rollout.
+  sellerGoogleExempt Boolean @default(false)
 
   // Task 4 - legal acceptance: when the user confirmed "18+ and accept the
   // Terms and Privacy Policy" and WHICH version they saw. NULL for accounts
