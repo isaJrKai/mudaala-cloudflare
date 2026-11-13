@@ -26,12 +26,13 @@ export async function POST(request: Request) {
     // Require a session created by a fresh password sign-in, not just an old tab.
     const session = await db.session.findUnique({
       where: { id: token },
-      select: { userId: true, createdAt: true, expiresAt: true },
+      select: { userId: true, authMethod: true, createdAt: true, expiresAt: true },
     })
     const now = new Date()
     if (
       !session ||
       session.userId !== user.id ||
+      session.authMethod !== 'PASSWORD' ||
       session.expiresAt <= now ||
       now.getTime() - session.createdAt.getTime() > RECENT_AUTH_MS
     ) {
