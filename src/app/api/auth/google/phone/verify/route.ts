@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
 import { resetCodeMatches, hashPhoneForVerification } from '@/lib/sms'
+import { hasSameRequestOrigin } from '@/lib/google-oidc'
 
 const bodySchema = z.object({ code: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code') })
 
