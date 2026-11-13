@@ -48,7 +48,7 @@ function ListingBlockSkeleton() {
 // the space the loaded blocks will.
 export function ListingGridSkeleton({ count = 8 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 lg:gap-3" aria-hidden>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3" aria-hidden>
       {Array.from({ length: count }).map((_, i) => (
         <ListingBlockSkeleton key={i} />
       ))}
