@@ -4,7 +4,7 @@ import { getSessionUser } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
-import { secureRandomToken, sha256Hex } from '@/lib/google-oidc'
+import { secureRandomToken, sha256Hex, pkceChallenge } from '@/lib/google-oidc'
 
 const STATE_TTL_MS = 5 * 60 * 1000
 
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
     const now = new Date()
     const state = secureRandomToken()
-    const nonce = secureRandomToken()
+    const nonce = secureRandomToken()\n    const codeVerifier = secureRandomToken()
     const stateHash = await sha256Hex(state)
     await db.googleOAuthState.deleteMany({ where: { expiresAt: { lt: now } } })
     await db.googleOAuthState.create({
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     // Without this cookie, a victim could be tricked into completing an
     // attacker-started flow and be logged into the attacker's Mudaala account.
     const cookieStore = await cookies()
-    cookieStore.set('mudaala_google_login_state', stateHash, {
+    cookieStore.set('mudaala_google_login_state', stateHash + '.' + codeVerifier, {
       httpOnly: true,
       secure: new URL(request.url).protocol === 'https:',
       sameSite: 'lax',
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     authorization.searchParams.set('response_type', 'code')
     authorization.searchParams.set('scope', 'openid email')
     authorization.searchParams.set('state', state)
-    authorization.searchParams.set('nonce', nonce)
+    authorization.searchParams.set('nonce', nonce)\n    authorization.searchParams.set('code_challenge', await pkceChallenge(codeVerifier))\n    authorization.searchParams.set('code_challenge_method', 'S256')
     authorization.searchParams.set('prompt', 'select_account')
     return jsonOk({ authorizationUrl: authorization.toString() })
   })
