@@ -1,4 +1,4 @@
-import { route, jsonOk, requireUser, parseBody, ApiError } from '@/lib/api'
+import { route, jsonOk, requireSeller, parseBody, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { productCollectionUpdateSchema } from '@/lib/product-collections'
 
@@ -6,7 +6,7 @@ type Context = { params: Promise<{ id: string }> }
 
 export async function PATCH(request: Request, context: Context) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const { id } = await context.params
     const data = await parseBody(request, productCollectionUpdateSchema)
     const current = await db.productCollection.findFirst({ where: { id, userId: user.id }, select: { startsAt: true, endsAt: true } })
@@ -35,7 +35,7 @@ export async function PATCH(request: Request, context: Context) {
 
 export async function DELETE(_request: Request, context: Context) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const { id } = await context.params
     const deleted = await db.productCollection.deleteMany({ where: { id, userId: user.id } })
     if (deleted.count === 0) throw new ApiError(404, 'Collection not found')
