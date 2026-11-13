@@ -47,8 +47,6 @@ export async function GET(request: NextRequest) {
             take: 6,
             include: SHOP_OWNER_INCLUDE,
           },
-          id: true,
-          name: true,
           profile: {
             select: {
               businessName: true,
