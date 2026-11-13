@@ -240,21 +240,15 @@ export function ListingsBrowse() {
   // Discovery is inserted only into the unfiltered first-page feed. A search
   // or explicit filter stays focused on the results the buyer asked for.
   const showDiscoverySections = !filters.q.trim() && activeFilterCount === 0 && (data?.page ?? 1) === 1
-  const discoveryShopIds = useMemo(() => {
-    const seen = new Set<string>()
-    return (data?.items ?? []).flatMap((listing) => {
-      const id = listing.user?.id
-      if (!id || seen.has(id)) return []
-      seen.add(id)
-      return [id]
-    }).slice(0, 8)
-  }, [data?.items])
+  // Shop discovery is independent of the current product page: include
+  // public shops with active listings OR real showroom items, grouped by
+  // the merchant's declared business category.
   const discoveryQuery = useQuery({
-    queryKey: ['browse-shop-discovery', discoveryShopIds.join(',')],
-    enabled: showDiscoverySections && discoveryShopIds.length > 0,
+    queryKey: ['browse-shop-directory'],
+    enabled: showDiscoverySections,
     staleTime: 5 * 60_000,
     retry: 1,
-    queryFn: () => apiGet<ShopDiscoveryResponse>(`/api/shops/discover?ids=${discoveryShopIds.map(encodeURIComponent).join(',')}`),
+    queryFn: () => apiGet<ShopDiscoveryResponse>('/api/shops/discover?directory=1'),
   })
   // Reuse the buyer's saved category order to prioritize relevant shop circles.
   const discoveryShops = useMemo(() => {
