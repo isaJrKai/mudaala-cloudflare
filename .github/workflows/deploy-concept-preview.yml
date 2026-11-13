@@ -8,6 +8,7 @@ on:
       - 'src/app/concept/**'
       - 'src/components/commerce/listings-browse.tsx'
       - 'src/app/api/shops/discover/**'
+      - 'src/app/api/og/**'
       - 'wrangler.preview.jsonc'
       - 'custom-worker.ts'
       - 'package.json'
