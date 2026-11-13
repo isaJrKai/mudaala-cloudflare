@@ -197,10 +197,18 @@ export function ListingsBrowse() {
     filters.minPrice !== '' ? 1 : 0,
     filters.maxPrice !== '' ? 1 : 0,
   ].reduce<number>((a, b) => a + b, 0)
+  const nonCategoryFilterCount = [
+    filters.type !== 'any' ? 1 : 0,
+    filters.county !== 'any' ? 1 : 0,
+    filters.unit !== 'any' ? 1 : 0,
+    filters.minPrice !== '' ? 1 : 0,
+    filters.maxPrice !== '' ? 1 : 0,
+  ].reduce<number>((a, b) => a + b, 0)
 
-  // Discovery is inserted only into the unfiltered first-page feed. A search
-  // or explicit filter stays focused on the results the buyer asked for.
-  const showDiscoverySections = !filters.q.trim() && activeFilterCount === 0 && (data?.page ?? 1) === 1
+  // Category shortcuts keep the shop-led Browse layout and narrow each
+  // merchant's products/showroom. Search and other explicit filters use the
+  // focused results view instead.
+  const showDiscoverySections = !filters.q.trim() && nonCategoryFilterCount === 0 && (data?.page ?? 1) === 1
   // Shop discovery is independent of the current product page: include
   // public shops with active listings OR real showroom items, grouped by
   // the merchant's declared business category.
@@ -215,10 +223,17 @@ export function ListingsBrowse() {
   const discoveryShops = useMemo(() => {
     const rank = new Map<string, number>()
     orderedCategories.forEach((category, index) => rank.set(category.key, index))
-    return [...(discoveryQuery.data?.shops ?? [])].sort(
+    const shops = (discoveryQuery.data?.shops ?? []).map((shop) => filters.category === 'any'
+      ? shop
+      : {
+          ...shop,
+          listings: shop.listings.filter((listing) => listing.category === filters.category),
+          showroomItems: shop.showroomItems.filter((item) => item.category === filters.category),
+        }).filter((shop) => filters.category === 'any' || shop.listings.length > 0 || shop.showroomItems.length > 0)
+    return [...shops].sort(
       (a, b) => (rank.get(a.category ?? '') ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.category ?? '') ?? Number.MAX_SAFE_INTEGER),
     )
-  }, [discoveryQuery.data?.shops, orderedCategories])
+  }, [discoveryQuery.data?.shops, orderedCategories, filters.category])
 
   const renderListingGrid = (items: ListingsPage['items'], primary = false) => items.length > 0 ? (
     <div data-testid={primary ? 'listing-results-grid' : 'listing-feed-grid'} className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
