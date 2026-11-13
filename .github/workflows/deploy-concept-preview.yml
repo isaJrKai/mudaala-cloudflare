@@ -1,4 +1,5 @@
 name: Deploy isolated Mudaala concept preview
+# This workflow is intentionally restricted to the experiment branch and preview Worker.
 
 on:
   push:
