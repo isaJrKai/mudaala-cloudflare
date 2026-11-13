@@ -645,7 +645,7 @@ model PhoneVerificationChallenge {
   id         String   @id @default(cuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  phone      String
+  phoneHash  String
   codeHash   String
   expiresAt  DateTime
   attempts   Int      @default(0)
