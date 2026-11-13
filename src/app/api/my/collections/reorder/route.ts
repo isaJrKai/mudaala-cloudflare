@@ -1,10 +1,10 @@
-import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, parseBody, requireSeller, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { productCollectionReorderSchema } from '@/lib/product-collections'
 
 export async function PATCH(request: Request) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const { items } = await parseBody(request, productCollectionReorderSchema)
     const ids = items.map((item) => item.id)
     const owned = await db.productCollection.findMany({
