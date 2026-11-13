@@ -499,15 +499,6 @@ export function ListingsBrowse() {
                   loading={discoveryQuery.isLoading}
                   onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
                 />
-                {discoveryFeedItems.length > 6 ? (
-                  <section className="min-w-0 space-y-2" aria-labelledby="more-local-heading">
-                    <div className="flex items-center justify-between gap-2">
-                      <h2 id="more-local-heading" className="text-base font-semibold tracking-tight">More from nearby sellers</h2>
-                      <span className="text-[11px] text-muted-foreground">Keep exploring</span>
-                    </div>
-                    {renderListingGrid(discoveryFeedItems.slice(6))}
-                  </section>
-                ) : null}
                 <ExploreShowroomsSection
                   shops={discoveryQuery.data?.shops ?? []}
                   onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
