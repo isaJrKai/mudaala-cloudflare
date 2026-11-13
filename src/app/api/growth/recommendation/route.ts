@@ -1,4 +1,4 @@
-import { jsonOk, requireUser, route } from '@/lib/api'
+import { jsonOk, requireSeller, route } from '@/lib/api'
 import { db } from '@/lib/db'
 import { recommendNextMerchantAction } from '@/lib/merchant-growth'
 
@@ -17,7 +17,7 @@ function photoCount(raw: string): number {
  */
 export async function GET() {
   return route(async () => {
-    const user = await requireUser('Sign in to see your shop recommendations')
+    const user = await requireSeller('Sign in to see your shop recommendations')
     const [profile, listings, growthEvents] = await Promise.all([
       db.businessProfile.findUnique({
         where: { userId: user.id },
