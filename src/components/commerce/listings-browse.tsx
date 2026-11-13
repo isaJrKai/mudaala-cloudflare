@@ -772,7 +772,7 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
   if (!shop && !shopQuery.isLoading && sideProducts.length === 0) return null
 
   return (
-    <aside className="hidden min-w-0 space-y-3 lg:block" aria-label="Featured local shop and products">
+    <aside className="hidden min-w-0 space-y-3 lg:block" aria-label="Featured shop from your results">
       {shop ? (
         <div className="overflow-hidden rounded-lg border bg-card">
           {shop.photoUrl ? <img src={shop.photoUrl} alt="" loading="lazy" className="h-32 w-full object-cover" /> : (
