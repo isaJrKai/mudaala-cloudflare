@@ -179,42 +179,6 @@ export function ListingsBrowse() {
   // listings are reserved for Special offers and never repeated in the
   // ordinary local feed. A discount is valid only when the old price is
   // strictly higher than the current price.
-  const specialOfferItems = useMemo(
-    () => (data?.items ?? []).filter(
-      (item) => item.type === 'OFFER'
-        && item.compareAtPrice !== null
-        && item.price !== null
-        && item.compareAtPrice > item.price,
-    ),
-    [data?.items],
-  )
-  const specialOfferIds = useMemo(() => new Set(specialOfferItems.map((item) => item.id)), [specialOfferItems])
-  const discoveryFeedItems = useMemo(
-    () => (data?.items ?? []).filter((item) => !specialOfferIds.has(item.id)),
-    [data?.items, specialOfferIds],
-  )
-
-  // Turn the mixed discovery feed into real category shelves. Only categories
-  // represented by actual listings are rendered; no placeholder inventory.
-  const discoveryCategoryGroups = useMemo(() => {
-    const rank = new Map<string, number>()
-    orderedCategories.forEach((category, index) => rank.set(category.key, index))
-    const groups = new Map<string, typeof discoveryFeedItems>()
-    for (const item of discoveryFeedItems) {
-      const key = item.category || 'other'
-      const current = groups.get(key) ?? []
-      current.push(item)
-      groups.set(key, current)
-    }
-    return [...groups.entries()]
-      .sort(([a], [b]) => {
-        const rankA = rank.get(a) ?? Number.MAX_SAFE_INTEGER
-        const rankB = rank.get(b) ?? Number.MAX_SAFE_INTEGER
-        return rankA - rankB || categoryLabel(a).localeCompare(categoryLabel(b))
-      })
-      .map(([key, items]) => ({ key, label: categoryLabel(key), items }))
-  }, [discoveryFeedItems, orderedCategories])
-
   // Distance chips - computed from the same blurred coords the server used,
   // so the label a buyer reads always matches the order they see.
   const distanceLabels = useMemo(() => {
@@ -274,19 +238,6 @@ export function ListingsBrowse() {
       ))}
     </div>
   ) : null
-
-  const renderCategoryShelf = (group: typeof discoveryCategoryGroups[number], index: number) => (
-    <section key={group.key} className="min-w-0 space-y-2" aria-labelledby={`category-${group.key}-heading`}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <h2 id={`category-${group.key}-heading`} className="text-base font-semibold tracking-tight">{group.label}</h2>
-          <p className="text-[11px] text-muted-foreground">{group.items.length} {group.items.length === 1 ? 'listing' : 'listings'} · Local sellers</p>
-        </div>
-        <span className="shrink-0 text-[11px] text-muted-foreground">Explore category</span>
-      </div>
-      {renderListingGrid(group.items, index === 0)}
-    </section>
-  )
 
   return (
     <div className="space-y-3">
