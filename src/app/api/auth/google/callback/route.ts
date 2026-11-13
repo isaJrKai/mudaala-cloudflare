@@ -4,7 +4,9 @@ import { db } from '@/lib/db'
 import { sha256Hex, verifyGoogleIdToken } from '@/lib/google-oidc'
 
 function returnToApp(request: Request, result: 'linked' | 'error', reason?: string) {
-  const destination = new URL('/', request.url)
+  // Never derive a redirect destination from the incoming Host header. A forged
+  // Host can otherwise turn an OAuth callback into an open redirect.
+  const destination = new URL('/', process.env.APP_BASE_URL?.trim() || 'https://mudaala.store')
   destination.searchParams.set('google', result)
   if (reason) destination.searchParams.set('reason', reason)
   return NextResponse.redirect(destination, 303)
