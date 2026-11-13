@@ -22,10 +22,10 @@ export async function POST(request: Request) {
     const token = await getCurrentSessionToken()
     const session = token ? await db.session.findUnique({
       where: { id: token },
-      select: { userId: true, createdAt: true, expiresAt: true },
+      select: { userId: true, authMethod: true, createdAt: true, expiresAt: true },
     }) : null
     const now = new Date()
-    if (!session || session.userId !== user.id || session.expiresAt <= now ||
+    if (!session || session.userId !== user.id || session.authMethod !== 'PASSWORD' || session.expiresAt <= now ||
       now.getTime() - session.createdAt.getTime() > RECENT_AUTH_MS) {
       throw new ApiError(403, 'Sign in again before verifying the phone on this account')
     }
