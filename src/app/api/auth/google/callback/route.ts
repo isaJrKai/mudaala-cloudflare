@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { ApiError, route, requireUser } from '@/lib/api'
-import { createSession, getSessionUser, setSessionCookie } from '@/lib/auth'
+import { createSession, getCurrentSessionToken, getSessionUser, setSessionCookie } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { parseGoogleRedirectUri, sha256Hex, verifyGoogleIdToken } from '@/lib/google-oidc'
 
@@ -57,6 +57,15 @@ export async function GET(request: Request) {
       const user = await requireUser('Your Mudaala session expired. Sign in and try linking Google again.')
       if (!stateRecord.userId || stateRecord.userId !== user.id) {
         throw new ApiError(400, 'This Google linking attempt belongs to a different Mudaala account')
+      }
+      const sessionToken = await getCurrentSessionToken()
+      const currentSession = sessionToken ? await db.session.findUnique({
+        where: { id: sessionToken },
+        select: { userId: true, authMethod: true, createdAt: true, expiresAt: true },
+      }) : null
+      if (!currentSession || currentSession.userId !== user.id || currentSession.authMethod !== 'PASSWORD' ||
+        currentSession.expiresAt <= now || now.getTime() - currentSession.createdAt.getTime() > 10 * 60 * 1000) {
+        throw new ApiError(403, 'Sign in again with your Mudaala password before linking Google')
       }
       linkUserId = user.id
       const browserBinding = cookieStore.get('mudaala_google_login_state')?.value ?? ''
