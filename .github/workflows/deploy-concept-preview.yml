@@ -3,12 +3,9 @@ name: Deploy isolated Mudaala concept preview
 on:
   push:
     branches:
-      - feat/shop-led-marketplace-home
+      - experiment/premium-multicategory-storefront
     paths:
       - 'src/app/concept/**'
-      - 'src/components/commerce/listings-browse.tsx'
-      - 'src/app/api/shops/discover/**'
-      - 'src/app/api/og/**'
       - 'wrangler.preview.jsonc'
       - 'custom-worker.ts'
       - 'package.json'
