@@ -8,7 +8,22 @@ import { sha256Hex, verifyGoogleIdToken } from '@/lib/google-oidc'
 function returnToApp(result: 'linked' | 'signed-in' | 'error', reason?: string) {
   // Never derive a redirect destination from the incoming Host header. A forged
   // Host can otherwise turn an OAuth callback into an open redirect.
-  const destination = new URL(result === 'error' ? '/auth/google/error' : '/', 'https://mudaala.store')
+  // The configured redirect URI is deployment configuration, not request
+  // input. Derive the app origin from it so preview OAuth returns to that
+  // preview, while forged Host headers can never influence the destination.
+  const configuredRedirect = process.env.GOOGLE_REDIRECT_URI?.trim()
+  let appOrigin = 'https://mudaala.store'
+  if (configuredRedirect) {
+    try {
+      const configured = new URL(configuredRedirect)
+      if (configured.protocol === 'https:' && configured.pathname === '/api/auth/google/callback') {
+        appOrigin = configured.origin
+      }
+    } catch {
+      // Keep the canonical origin as a safe fallback for error redirects.
+    }
+  }
+  const destination = new URL(result === 'error' ? '/auth/google/error' : '/', appOrigin)
   if (reason) destination.searchParams.set('reason', reason)
   return NextResponse.redirect(destination, 303)
 }
