@@ -54,7 +54,7 @@ export async function GET(request: Request) {
       linkUserId = user.id
     } else if (stateRecord.purpose === 'LOGIN') {
       if (stateRecord.userId !== null) throw new ApiError(400, 'This Google sign-in attempt is invalid')
-      if (cookieStore.get('mudaala_google_login_state')?.value !== stateRecord.stateHash) {
+      const browserBinding = cookieStore.get('mudaala_google_login_state')?.value ?? ''\n      const [browserStateHash, codeVerifier] = browserBinding.split('.')\n      if (browserStateHash !== stateRecord.stateHash || !codeVerifier || !/^[a-f0-9]{64}$/.test(codeVerifier)) {
         throw new ApiError(400, 'This Google sign-in attempt was not started in this browser. Start again')
       }
       if (await getSessionUser()) {
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
       data: { usedAt: now },
     })
     if (consumed.count !== 1) throw new ApiError(409, 'This Google sign-in attempt has already been used')
-    if (stateRecord.purpose === 'LOGIN') clearLoginStateCookie()
+    clearLoginStateCookie()
 
     const clientId = process.env.GOOGLE_CLIENT_ID?.trim()
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
