@@ -1,5 +1,5 @@
 // Finalize an uploaded photo only after checking ownership, stored metadata and moderation.
-import { ApiError, route, jsonOk, requireUser } from '@/lib/api'
+import { ApiError, route, jsonOk, requireSeller } from '@/lib/api'
 import { moderateImageUrl } from '@/lib/image-moderation'
 import { chooseStorage, S3Storage } from '@/lib/storage'
 import { hit, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS } from '@/lib/rate-limit'
@@ -17,7 +17,7 @@ function validImageHeader(bytes: Uint8Array, extension: keyof typeof EXT_TO_MIME
 
 export async function POST(request: Request) {
   return route(async () => {
-    const user = await requireUser('Sign in to finish uploading photos')
+    const user = await requireSeller('Sign in to finish uploading photos')
     const ip = getClientIp(request)
     const ipVerdict = await hit(`upload-complete:ip:${ip}`, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS)
     const userVerdict = await hit(`upload-complete:user:${user.id}`, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS)
