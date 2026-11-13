@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { ApiError, route, requireUser } from '@/lib/api'
 import { createSession, getSessionUser, setSessionCookie } from '@/lib/auth'
@@ -15,8 +16,19 @@ function returnToApp(result: 'linked' | 'signed-in' | 'error', reason?: string) 
 export async function GET(request: Request) {
   return route(async () => {
     const url = new URL(request.url)
+    const cookieStore = await cookies()
+    const clearLoginStateCookie = () => cookieStore.set('mudaala_google_login_state', '', {
+      httpOnly: true,
+      secure: url.protocol === 'https:',
+      sameSite: 'lax',
+      path: '/api/auth/google/callback',
+      maxAge: 0,
+    })
     const providerError = url.searchParams.get('error')
-    if (providerError) return returnToApp('error', 'cancelled')
+    if (providerError) {
+      clearLoginStateCookie()
+      return returnToApp('error', 'cancelled')
+    }
 
     const code = url.searchParams.get('code')
     const state = url.searchParams.get('state')
@@ -26,7 +38,7 @@ export async function GET(request: Request) {
 
     const stateRecord = await db.googleOAuthState.findUnique({
       where: { stateHash: await sha256Hex(state) },
-      select: { id: true, userId: true, purpose: true, nonceHash: true, expiresAt: true, usedAt: true },
+      select: { id: true, userId: true, purpose: true, stateHash: true, nonceHash: true, expiresAt: true, usedAt: true },
     })
     const now = new Date()
     if (!stateRecord || stateRecord.usedAt || stateRecord.expiresAt <= now) {
@@ -42,6 +54,9 @@ export async function GET(request: Request) {
       linkUserId = user.id
     } else if (stateRecord.purpose === 'LOGIN') {
       if (stateRecord.userId !== null) throw new ApiError(400, 'This Google sign-in attempt is invalid')
+      if (cookieStore.get('mudaala_google_login_state')?.value !== stateRecord.stateHash) {
+        throw new ApiError(400, 'This Google sign-in attempt was not started in this browser. Start again')
+      }
       if (await getSessionUser()) {
         throw new ApiError(409, 'Sign out of your current Mudaala account before using Google sign-in')
       }
@@ -62,6 +77,7 @@ export async function GET(request: Request) {
       data: { usedAt: now },
     })
     if (consumed.count !== 1) throw new ApiError(409, 'This Google sign-in attempt has already been used')
+    if (stateRecord.purpose === 'LOGIN') clearLoginStateCookie()
 
     const clientId = process.env.GOOGLE_CLIENT_ID?.trim()
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
