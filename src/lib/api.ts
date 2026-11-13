@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server'
 import { ZodError, type ZodType } from 'zod'
 import { fieldErrors } from './validation'
 import { getSessionUser } from './auth'
-import { withRequestDb } from './db'
+import { withRequestDb, db } from './db'
 import { bearerAuthEnabled } from './env-flags'
 import type { User } from '@prisma/client'
 
@@ -86,6 +86,24 @@ export async function parseBody<T>(request: Request, schema: ZodType<T>): Promis
 export async function requireUser(message = 'Sign in to continue'): Promise<User> {
   const user = await getSessionUser()
   if (!user) throw new ApiError(401, message)
+  return user
+}
+
+// Seller capability is distinct from an ordinary Mudaala session. The feature
+// flag is enabled only after Google OAuth is configured and the rollout is
+// ready. Existing merchants were explicitly grandfathered by migration.
+export async function requireSeller(message = 'Sign in to manage your shop'): Promise<User> {
+  const user = await requireUser(message)
+  if (process.env.SELLER_GOOGLE_REQUIRED?.trim().toLowerCase() !== 'true') return user
+  if (user.sellerGoogleExempt) return user
+
+  const googleIdentity = await db.googleIdentity.findUnique({
+    where: { userId_provider: { userId: user.id, provider: 'google' } },
+    select: { id: true },
+  })
+  if (!googleIdentity) {
+    throw new ApiError(403, 'Link a Google account in Settings before managing a shop')
+  }
   return user
 }
 
