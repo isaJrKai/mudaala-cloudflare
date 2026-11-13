@@ -121,7 +121,7 @@ Reviewed the current Prisma User model, shared API helpers, account deletion, li
 
 The feature branch now contains an initial, additive implementation:
 
-- Prisma models and SQL migrations for `GoogleIdentity` and `GoogleOAuthState`, including separate `LINK` and anonymous `LOGIN` OAuth state purposes.
+- Prisma models and SQL migrations for `GoogleIdentity` and `GoogleOAuthState`, including separate `LINK` and anonymous `LOGIN` OAuth state purposes. Login state is bound to the initiating browser and atomically consumed.
 - Google identity uniqueness is enforced by provider + immutable subject, and by one Google identity per Mudaala user. Email is metadata only.
 - OAuth linking initiation is a POST endpoint, not a state-changing GET. It requires a current Mudaala session created within the last 10 minutes. A separate POST start endpoint supports sign-in only for Google identities already linked to a Mudaala account; it refuses to silently switch an active session.
 - OAuth state and nonce are random 256-bit values; only SHA-256 hashes are persisted. State is bound to the Mudaala user, expires after five minutes, and is consumed atomically once.
