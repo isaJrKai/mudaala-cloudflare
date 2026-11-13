@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, parseBody, requireSeller, ApiError } from '@/lib/api'
 import { hit, PUBLISH_DAY_MAX, PUBLISH_WINDOW_MS } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
 import { listingCreateSchema, listingQuerySchema, normalizePhone, type CountryKey } from '@/lib/validation'
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 // Publish a listing. Ownership and every field are validated server-side.
 export async function POST(request: Request) {
   return route(async () => {
-    const user = await requireUser('Sign in to publish a listing')
+    const user = await requireSeller('Sign in to publish a listing')
 
     // 20 listings per user per day - a real shop restocking is welcome;
     // catalogue-spam is not. The IP bucket rides beside it so one machine
