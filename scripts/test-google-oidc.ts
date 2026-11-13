@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { pkceChallenge, sha256Hex, verifyGoogleIdToken } from '../src/lib/google-oidc'
+import { parseGoogleRedirectUri, pkceChallenge, sha256Hex, verifyGoogleIdToken } from '../src/lib/google-oidc'
 
 const encoder = new TextEncoder()
 const base64url = (value: Uint8Array | string) =>
@@ -22,6 +22,10 @@ async function main() {
 
   const now = Math.floor(Date.now() / 1000)
   const nonce = 'one-time-ci-nonce'
+  assert.equal(parseGoogleRedirectUri('https://mudaala.store/api/auth/google/callback')?.origin, 'https://mudaala.store')
+  assert.equal(parseGoogleRedirectUri('http://mudaala.store/api/auth/google/callback'), null, 'HTTP callback URLs must be rejected')
+  assert.equal(parseGoogleRedirectUri('https://mudaala.store/attacker'), null, 'unexpected callback paths must be rejected')
+  assert.equal(parseGoogleRedirectUri('https://mudaala.store/api/auth/google/callback?next=https://attacker.test'), null, 'callback query strings must be rejected')
   const verifier = '0123456789abcdef'.repeat(4)
   const expectedChallenge = base64url(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(verifier))))
   assert.equal(await pkceChallenge(verifier), expectedChallenge, 'PKCE S256 challenge must match the RFC 7636 base64url digest')
