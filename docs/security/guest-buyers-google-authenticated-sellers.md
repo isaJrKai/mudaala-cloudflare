@@ -94,3 +94,24 @@ The direction is sound, but Google sign-in must not be marketed or implemented a
 ### Decision
 
 Proceed with Google authentication for new seller onboarding, while preserving guest buying and a safe transition for existing merchants. Do not merge or deploy until the identity model, account recovery, seller-route authorization, migration, and regression tests are complete. This is a good direction, not a security-complete implementation.
+
+
+## Source audit findings on the current branch
+
+Reviewed the current Prisma User model, shared API helpers, account deletion, listing publishing/editing, shop profile updates, seller catalogue writes, and upload signing/finalization.
+
+- The current User model has **required** phone and passwordHash fields. Google-only users therefore require a deliberate schema and account-lifecycle migration; a UI-only OAuth integration would be incomplete.
+- requireUser() in src/lib/api.ts proves only that a valid Mudaala session exists. It does not establish Google authentication or a seller capability.
+- Core seller writes such as POST /api/listings, PATCH /api/listings/[id], PUT /api/profile, POST /api/my/business-products, and upload endpoints currently rely on requireUser(). Once the policy changes, these need a centralized seller authorization guard, not scattered UI checks.
+- Account deletion in src/app/api/account/route.ts assumes every user has a password and verifies it directly. Google-only accounts need a recent-authentication path that does not invent a password.
+- Public listing search/detail are deliberately available without login. Preserve this. Public contact/payment information should remain visible under the existing privacy and moderation rules.
+- The shared API wrapper already returns controlled 503 responses when the authoritative rate-limit service is unavailable. Preserve this fail-closed behavior for security-sensitive authentication and seller actions.
+
+### Implementation order
+
+1. Design the external identity relation and account lifecycle first.
+2. Add a central requireSeller / recent-auth guard and apply it to every seller-management write route.
+3. Implement Google OIDC verification and one-time state/nonce handling for the Cloudflare Workers runtime.
+4. Implement explicit account linking, account recovery, and passwordless account deletion/re-auth.
+5. Add migration, concurrency, authorization, guest-browsing, and rollback tests.
+6. Only then enable the new-seller policy in production, with the existing-merchant transition staged and measurable.
