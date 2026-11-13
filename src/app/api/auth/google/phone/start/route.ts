@@ -38,6 +38,7 @@ export async function POST(request: Request) {
     const challenge = await db.phoneVerificationChallenge.create({
       data: {
         userId: user.id,
+        phone: user.phone,
         codeHash: hashResetCode(code),
         expiresAt: new Date(now.getTime() + CHALLENGE_TTL_MS),
       },
