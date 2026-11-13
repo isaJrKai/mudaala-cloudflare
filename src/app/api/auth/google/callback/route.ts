@@ -46,17 +46,25 @@ export async function GET(request: Request) {
     }
 
     let linkUserId: string | null = null
+    let codeVerifier = ''
     if (stateRecord.purpose === 'LINK') {
       const user = await requireUser('Your Mudaala session expired. Sign in and try linking Google again.')
       if (!stateRecord.userId || stateRecord.userId !== user.id) {
         throw new ApiError(400, 'This Google linking attempt belongs to a different Mudaala account')
       }
       linkUserId = user.id
+      const browserBinding = cookieStore.get('mudaala_google_login_state')?.value ?? ''
+      const [browserStateHash, verifier] = browserBinding.split('.')
+      if (browserStateHash !== stateRecord.stateHash || !verifier || !/^[a-f0-9]{64}$/.test(verifier)) {
+        throw new ApiError(400, 'This Google linking attempt was not started in this browser. Start again')
+      }
+      codeVerifier = verifier
     } else if (stateRecord.purpose === 'LOGIN') {
       if (stateRecord.userId !== null) throw new ApiError(400, 'This Google sign-in attempt is invalid')
       const browserBinding = cookieStore.get('mudaala_google_login_state')?.value ?? ''\n      const [browserStateHash, codeVerifier] = browserBinding.split('.')\n      if (browserStateHash !== stateRecord.stateHash || !codeVerifier || !/^[a-f0-9]{64}$/.test(codeVerifier)) {
         throw new ApiError(400, 'This Google sign-in attempt was not started in this browser. Start again')
       }
+      codeVerifier = verifier
       if (await getSessionUser()) {
         throw new ApiError(409, 'Sign out of your current Mudaala account before using Google sign-in')
       }
@@ -91,6 +99,7 @@ export async function GET(request: Request) {
       headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
       body: new URLSearchParams({
         code,
+        code_verifier: codeVerifier,
         client_id: clientId,
         client_secret: clientSecret,
         redirect_uri: redirectUri,
