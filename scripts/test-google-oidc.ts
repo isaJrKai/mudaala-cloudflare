@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { parseGoogleRedirectUri, pkceChallenge, sha256Hex, verifyGoogleIdToken } from '../src/lib/google-oidc'
+import { hasSameRequestOrigin, parseGoogleRedirectUri, pkceChallenge, sha256Hex, verifyGoogleIdToken } from '../src/lib/google-oidc'
 
 const encoder = new TextEncoder()
 const base64url = (value: Uint8Array | string) =>
@@ -22,6 +22,9 @@ async function main() {
 
   const now = Math.floor(Date.now() / 1000)
   const nonce = 'one-time-ci-nonce'
+  assert.equal(hasSameRequestOrigin(new Request('https://mudaala.store/api/auth/google/phone/start', { method: 'POST', headers: { origin: 'https://mudaala.store' } })), true)
+  assert.equal(hasSameRequestOrigin(new Request('https://mudaala.store/api/auth/google/phone/start', { method: 'POST', headers: { origin: 'https://attacker.example' } })), false)
+  assert.equal(hasSameRequestOrigin(new Request('https://mudaala.store/api/auth/google/phone/start', { method: 'POST' })), false)
   assert.equal(parseGoogleRedirectUri('https://mudaala.store/api/auth/google/callback')?.origin, 'https://mudaala.store')
   assert.equal(parseGoogleRedirectUri('http://mudaala.store/api/auth/google/callback'), null, 'HTTP callback URLs must be rejected')
   assert.equal(parseGoogleRedirectUri('https://mudaala.store/attacker'), null, 'unexpected callback paths must be rejected')
