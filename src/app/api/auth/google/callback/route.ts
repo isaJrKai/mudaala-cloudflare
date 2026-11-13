@@ -1,20 +1,20 @@
 import { NextResponse } from 'next/server'
 import { ApiError, route, requireUser } from '@/lib/api'
+import { createSession, getSessionUser, setSessionCookie } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { sha256Hex, verifyGoogleIdToken } from '@/lib/google-oidc'
 
-function returnToApp(result: 'linked' | 'error', reason?: string) {
+function returnToApp(result: 'linked' | 'signed-in' | 'error', reason?: string) {
   // Never derive a redirect destination from the incoming Host header. A forged
   // Host can otherwise turn an OAuth callback into an open redirect.
-  const destination = new URL('/', process.env.APP_BASE_URL?.trim() || 'https://mudaala.store')
+  const destination = new URL('/', 'https://mudaala.store')
   destination.searchParams.set('google', result)
   if (reason) destination.searchParams.set('reason', reason)
   return NextResponse.redirect(destination, 303)
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   return route(async () => {
-    const user = await requireUser('Your Mudaala session expired. Sign in and try linking Google again.')
     const url = new URL(request.url)
     const providerError = url.searchParams.get('error')
     if (providerError) return returnToApp('error', 'cancelled')
@@ -22,30 +22,47 @@ export async function GET() {
     const code = url.searchParams.get('code')
     const state = url.searchParams.get('state')
     if (!code || code.length > 4096 || !state || !/^[a-f0-9]{64}$/.test(state)) {
-      throw new ApiError(400, 'This Google linking attempt is invalid or incomplete')
+      throw new ApiError(400, 'This Google sign-in attempt is invalid or incomplete')
     }
 
     const stateRecord = await db.googleOAuthState.findUnique({
       where: { stateHash: await sha256Hex(state) },
-      select: { id: true, userId: true, nonceHash: true, expiresAt: true, usedAt: true },
+      select: { id: true, userId: true, purpose: true, nonceHash: true, expiresAt: true, usedAt: true },
     })
     const now = new Date()
-    if (
-      !stateRecord ||
-      stateRecord.userId !== user.id ||
-      stateRecord.usedAt ||
-      stateRecord.expiresAt <= now
-    ) {
-      throw new ApiError(400, 'This Google linking attempt has expired. Start again from your account settings')
+    if (!stateRecord || stateRecord.usedAt || stateRecord.expiresAt <= now) {
+      throw new ApiError(400, 'This Google sign-in attempt has expired. Start again')
+    }
+
+    let linkUserId: string | null = null
+    if (stateRecord.purpose === 'LINK') {
+      const user = await requireUser('Your Mudaala session expired. Sign in and try linking Google again.')
+      if (!stateRecord.userId || stateRecord.userId !== user.id) {
+        throw new ApiError(400, 'This Google linking attempt belongs to a different Mudaala account')
+      }
+      linkUserId = user.id
+    } else if (stateRecord.purpose === 'LOGIN') {
+      if (stateRecord.userId !== null) throw new ApiError(400, 'This Google sign-in attempt is invalid')
+      if (await getSessionUser()) {
+        throw new ApiError(409, 'Sign out of your current Mudaala account before using Google sign-in')
+      }
+    } else {
+      throw new ApiError(400, 'This Google sign-in attempt has an unsupported purpose')
     }
 
     // Atomically consume the state before exchanging the authorization code.
     // Concurrent callbacks and replayed URLs cannot both complete.
     const consumed = await db.googleOAuthState.updateMany({
-      where: { id: stateRecord.id, userId: user.id, usedAt: null, expiresAt: { gt: now } },
+      where: {
+        id: stateRecord.id,
+        userId: stateRecord.userId,
+        purpose: stateRecord.purpose,
+        usedAt: null,
+        expiresAt: { gt: now },
+      },
       data: { usedAt: now },
     })
-    if (consumed.count !== 1) throw new ApiError(409, 'This Google linking attempt has already been used')
+    if (consumed.count !== 1) throw new ApiError(409, 'This Google sign-in attempt has already been used')
 
     const clientId = process.env.GOOGLE_CLIENT_ID?.trim()
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
@@ -68,7 +85,7 @@ export async function GET() {
     })
     if (!tokenResponse.ok) {
       console.error('[auth/google] authorization code exchange failed:', tokenResponse.status)
-      throw new ApiError(400, 'Google could not complete this linking attempt. Please start again')
+      throw new ApiError(400, 'Google could not complete this sign-in attempt. Please start again')
     }
     const tokenBody: unknown = await tokenResponse.json()
     if (!tokenBody || typeof tokenBody !== 'object' || typeof (tokenBody as { id_token?: unknown }).id_token !== 'string') {
@@ -87,11 +104,34 @@ export async function GET() {
       throw new ApiError(401, 'Google identity verification failed. Please start again')
     }
 
+    if (stateRecord.purpose === 'LOGIN') {
+      const linkedIdentity = await db.googleIdentity.findUnique({
+        where: { provider_providerSub: { provider: 'google', providerSub: identity.sub } },
+        include: { user: true },
+      })
+      if (!linkedIdentity) return returnToApp('error', 'not-linked')
+
+      // Create the Mudaala session only for the exact immutable Google subject
+      // that was explicitly linked earlier. Email equality never links accounts.
+      const session = await createSession(linkedIdentity.userId)
+      await db.auditLog.create({
+        data: {
+          actorId: linkedIdentity.userId,
+          action: 'GOOGLE_LOGIN',
+          targetType: 'USER',
+          targetId: linkedIdentity.userId,
+        },
+      })
+      await setSessionCookie(session.token, session.expiresAt)
+      return returnToApp('signed-in')
+    }
+
+    if (!linkUserId) throw new ApiError(400, 'This Google linking attempt is invalid')
     try {
       await db.$transaction(async (tx) => {
         await tx.googleIdentity.create({
           data: {
-            userId: user.id,
+            userId: linkUserId,
             provider: 'google',
             providerSub: identity.sub,
             email: identity.email,
@@ -100,10 +140,10 @@ export async function GET() {
         })
         await tx.auditLog.create({
           data: {
-            actorId: user.id,
+            actorId: linkUserId,
             action: 'LINK_GOOGLE_IDENTITY',
             targetType: 'USER',
-            targetId: user.id,
+            targetId: linkUserId,
           },
         })
       })
