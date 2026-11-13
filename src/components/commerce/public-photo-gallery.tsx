@@ -16,8 +16,10 @@ export function PublicPhotoGallery({ photos, title }: PublicPhotoGalleryProps) {
     const gallery = galleryRef.current
     if (!gallery) return
     const nextIndex = Math.min(photos.length - 1, Math.max(0, activeIndex + direction))
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    gallery.scrollTo({ left: nextIndex * gallery.clientWidth, behavior: reduceMotion ? 'auto' : 'smooth' })
+    const nextSlide = gallery.children.item(nextIndex)
+    if (!(nextSlide instanceof HTMLElement)) return
+    setActiveIndex(nextIndex)
+    gallery.scrollTo({ left: nextSlide.offsetLeft, behavior: 'auto' })
   }
 
   if (photos.length === 0) return null
