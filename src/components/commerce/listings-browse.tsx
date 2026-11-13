@@ -245,7 +245,7 @@ export function ListingsBrowse() {
   }, [discoveryQuery.data?.shops, orderedCategories])
 
   const renderListingGrid = (items: ListingsPage['items'], primary = false) => items.length > 0 ? (
-    <div data-testid={primary ? 'listing-results-grid' : 'listing-feed-grid'} className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+    <div data-testid={primary ? 'listing-results-grid' : 'listing-feed-grid'} className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-3 lg:gap-3">
       {items.map((listing) => (
         <ListingBlock
           key={listing.id}
@@ -648,7 +648,7 @@ function SpecialOffersSection({
   return (
     <section className="min-w-0 space-y-3 py-1" aria-labelledby="special-offers-heading">
       <h2 id="special-offers-heading" className="text-base font-semibold tracking-tight">Special offers</h2>
-      <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+      <div className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-3 lg:gap-3">
         {items.slice(0, 6).map((listing) => (
           <ListingBlock
             key={listing.id}
