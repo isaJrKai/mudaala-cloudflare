@@ -525,6 +525,7 @@ type ShopDiscoveryResponse = {
     category: string | null
     area: string | null
     county: string | null
+    listings: Array<Listing & { user: ListingShopOwnerT }>
     showroomItems: ShopPageT['showroomItems']
   }>
 }
