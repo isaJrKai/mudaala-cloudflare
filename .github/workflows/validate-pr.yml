@@ -177,6 +177,14 @@ jobs:
           SQL
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261113120000_google_identity_linking_foundation/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261113123000_grandfather_existing_merchants_google_link/migration.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261113150000_google_oauth_login_purpose/migration.sql
+          google_state_user_nullable=$(psql "$DATABASE_URL" -Atc "SELECT is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='GoogleOAuthState' AND column_name='userId'")
+          google_state_purpose_default=$(psql "$DATABASE_URL" -Atc "SELECT column_default FROM information_schema.columns WHERE table_schema='public' AND table_name='GoogleOAuthState' AND column_name='purpose'")
+          google_state_purpose_index=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='GoogleOAuthState' AND indexname='GoogleOAuthState_purpose_expiresAt_idx'")
+          if [ "$google_state_user_nullable" != "YES" ] || [ "$google_state_purpose_default" != "'LINK'::text" ] || [ "$google_state_purpose_index" != "1" ]; then
+            echo "Google login-state migration checks failed: user_nullable=$google_state_user_nullable purpose_default=$google_state_purpose_default purpose_index=$google_state_purpose_index"
+            exit 1
+          fi
           legacy_exempt=$(psql "$DATABASE_URL" -Atc "SELECT \"sellerGoogleExempt\" FROM public.\"User\" WHERE id='google-migration-existing'")
           new_exempt=$(psql "$DATABASE_URL" -Atc "SELECT \"sellerGoogleExempt\" FROM public.\"User\" WHERE id='google-migration-new'")
           google_rls_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('GoogleIdentity','GoogleOAuthState') AND c.relrowsecurity")
