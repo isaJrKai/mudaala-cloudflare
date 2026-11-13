@@ -125,7 +125,7 @@ async function verifyWithKey(
   }
 
   const emailVerified = claims.email_verified === true || claims.email_verified === 'true'
-  if (!emailVerified || typeof claims.email !== 'string' || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(claims.email) || claims.email.length > 320) {
+  if (!emailVerified || typeof claims.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(claims.email) || claims.email.length > 320) {
     throw new Error('Google account must have a verified email address')
   }
   return {
