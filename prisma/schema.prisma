@@ -63,6 +63,7 @@ model User {
   shopDailyAnalytics ShopDailyAnalytics[]
   googleIdentities GoogleIdentity[]
   googleOAuthStates GoogleOAuthState[]
+  phoneVerificationChallenges PhoneVerificationChallenge[]
 }
 
 // Products a shop can showcase beyond its current stock. These records are
@@ -633,5 +634,25 @@ model GoogleOAuthState {
 
   @@index([userId, expiresAt])
   @@index([purpose, expiresAt])
+  @@index([expiresAt])
+}
+
+
+// Short-lived SMS proof used only to authorize sensitive identity linking.
+// The code is HMAC-hashed; successful verification is retained briefly so the
+// following OAuth start can require recent proof of control of the phone.
+model PhoneVerificationChallenge {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int      @default(0)
+  verifiedAt DateTime?
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, verifiedAt])
   @@index([expiresAt])
 }
