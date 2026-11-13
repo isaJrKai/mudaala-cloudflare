@@ -25,7 +25,6 @@ export function SettingsView() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [busy, setBusy] = useState(false)
-  const [googleBusy, setGoogleBusy] = useState(false)
   const [googlePhoneBusy, setGooglePhoneBusy] = useState(false)
   const [googlePhoneStep, setGooglePhoneStep] = useState(false)
   const [googlePhoneCode, setGooglePhoneCode] = useState('')
