@@ -71,32 +71,36 @@ export async function POST(request: Request) {
     if (!phoneProof) {
       throw new ApiError(403, 'Verify control of your registered phone by SMS before linking Google')
     }
-    const proofConsumed = await db.phoneVerificationChallenge.updateMany({
-      where: {
-        id: phoneProof.id,
-        userId: user.id,
-        phoneHash: hashPhoneForVerification(user.phone),
-        proofConsumedAt: null,
-        verifiedAt: { gte: new Date(now.getTime() - RECENT_AUTH_MS) },
-      },
-      data: { proofConsumedAt: now },
-    })
-    if (proofConsumed.count !== 1) {
-      throw new ApiError(409, 'That phone verification has already been used. Verify your phone again')
-    }
-
     const state = secureRandomToken()
     const nonce = secureRandomToken()
     const codeVerifier = secureRandomToken()
     const stateHash = await sha256Hex(state)
-    await db.googleOAuthState.deleteMany({ where: { expiresAt: { lt: now } } })
-    await db.googleOAuthState.create({
-      data: {
-        userId: user.id,
-        stateHash,
-        nonceHash: await sha256Hex(nonce),
-        expiresAt: new Date(now.getTime() + STATE_TTL_MS),
-      },
+    const nonceHash = await sha256Hex(nonce)
+    // Consume the phone proof and create the one-use OAuth state atomically.
+    // A database failure cannot burn the proof without creating a usable flow.
+    await db.$transaction(async (tx) => {
+      const proofConsumed = await tx.phoneVerificationChallenge.updateMany({
+        where: {
+          id: phoneProof.id,
+          userId: user.id,
+          phoneHash: hashPhoneForVerification(user.phone),
+          proofConsumedAt: null,
+          verifiedAt: { gte: new Date(now.getTime() - RECENT_AUTH_MS) },
+        },
+        data: { proofConsumedAt: now },
+      })
+      if (proofConsumed.count !== 1) {
+        throw new ApiError(409, 'That phone verification has already been used. Verify your phone again')
+      }
+      await tx.googleOAuthState.deleteMany({ where: { expiresAt: { lt: now } } })
+      await tx.googleOAuthState.create({
+        data: {
+          userId: user.id,
+          stateHash,
+          nonceHash,
+          expiresAt: new Date(now.getTime() + STATE_TTL_MS),
+        },
+      })
     })
 
     const authorization = new URL('https://accounts.google.com/o/oauth2/v2/auth')
