@@ -480,7 +480,9 @@ async function verifyListingLifecycle(browser) {
     await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
     const resultsGrid = page.getByTestId('listing-results-grid');
     await resultsGrid.waitFor({ state: 'visible', timeout });
-    await page.getByText(editedTitle, { exact: true }).waitFor({ state: 'visible', timeout });
+    // The same listing title may also appear in the featured-shop rail;
+    // assert the product result inside the Browse grid, not globally.
+    await resultsGrid.getByText(editedTitle, { exact: true }).waitFor({ state: 'visible', timeout });
     const mobileGrid = await resultsGrid.evaluate((element) => ({
       columns: getComputedStyle(element).gridTemplateColumns.split(' ').length,
       width: element.getBoundingClientRect().width,
