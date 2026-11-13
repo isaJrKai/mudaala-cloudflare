@@ -126,7 +126,7 @@ export function SettingsView() {
               ) : (
                 <form onSubmit={verifyGooglePhoneAndLink} className="max-w-sm space-y-2">
                   <Label htmlFor="google-phone-code">6-digit SMS security code</Label>
-                  <Input id="google-phone-code" inputMode="numeric" autoComplete="one-time-code" value={googlePhoneCode} onChange={event => setGooglePhoneCode(event.target.value.replace(/\\D/g, '').slice(0, 6))} pattern="[0-9]{6}" maxLength={6} required />
+                  <Input id="google-phone-code" inputMode="numeric" autoComplete="one-time-code" value={googlePhoneCode} onChange={event => setGooglePhoneCode(event.target.value.replace(/\D/g, '').slice(0, 6))} pattern="[0-9]{6}" maxLength={6} required />
                   <div className="flex flex-wrap gap-2">
                     <Button type="submit" disabled={googlePhoneBusy || googlePhoneCode.length !== 6}>{googlePhoneBusy ? 'Verifying…' : 'Verify & connect Google'}</Button>
                     <Button type="button" variant="outline" disabled={googlePhoneBusy} onClick={requestGooglePhoneCode}>Resend code</Button>
