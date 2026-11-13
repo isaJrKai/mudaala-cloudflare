@@ -179,6 +179,13 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261113123000_grandfather_existing_merchants_google_link/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261113150000_google_oauth_login_purpose/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261113170000_google_link_phone_verification/migration.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261113180000_session_auth_method/migration.sql
+          session_auth_method_default=$(psql "$DATABASE_URL" -Atc "SELECT column_default FROM information_schema.columns WHERE table_schema='public' AND table_name='Session' AND column_name='authMethod'")
+          session_auth_method_nullable=$(psql "$DATABASE_URL" -Atc "SELECT is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='Session' AND column_name='authMethod'")
+          if [ "$session_auth_method_default" != "'PASSWORD'::text" ] || [ "$session_auth_method_nullable" != "NO" ]; then
+            echo "Session auth-method migration checks failed: default=$session_auth_method_default nullable=$session_auth_method_nullable"
+            exit 1
+          fi
           google_state_user_nullable=$(psql "$DATABASE_URL" -Atc "SELECT is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='GoogleOAuthState' AND column_name='userId'")
           google_state_purpose_default=$(psql "$DATABASE_URL" -Atc "SELECT column_default FROM information_schema.columns WHERE table_schema='public' AND table_name='GoogleOAuthState' AND column_name='purpose'")
           google_state_purpose_index=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='GoogleOAuthState' AND indexname='GoogleOAuthState_purpose_expiresAt_idx'")
