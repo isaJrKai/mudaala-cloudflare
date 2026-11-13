@@ -16,7 +16,12 @@
   },
   "vars": {
     "APP_ORIGIN": "https://mudaala.store",
-    "CONCEPT_PREVIEW_ONLY": "1"
+    "NEXT_PUBLIC_APP_URL": "https://mudaala.store",
+    "CONCEPT_PREVIEW_ONLY": "1",
+    "DATABASE_URL": "postgresql://preview:preview@127.0.0.1:5432/preview",
+    "CRON_SECRET": "preview-only-disabled-cron-secret",
+    "SETTINGS_ENCRYPTION_KEY": "preview-only-not-a-real-encryption-key-000000",
+    "ADMIN_USER_IDS": "preview-no-admin"
   },
   "observability": {
     "enabled": true,
