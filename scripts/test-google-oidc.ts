@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { sha256Hex, verifyGoogleIdToken } from '../src/lib/google-oidc'
+import { pkceChallenge, sha256Hex, verifyGoogleIdToken } from '../src/lib/google-oidc'
 
 const encoder = new TextEncoder()
 const base64url = (value: Uint8Array | string) =>
@@ -22,6 +22,10 @@ async function main() {
 
   const now = Math.floor(Date.now() / 1000)
   const nonce = 'one-time-ci-nonce'
+  const verifier = '0123456789abcdef'.repeat(4)
+  const expectedChallenge = base64url(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(verifier))))
+  assert.equal(await pkceChallenge(verifier), expectedChallenge, 'PKCE S256 challenge must match the RFC 7636 base64url digest')
+  assert.match(await pkceChallenge(verifier), /^[A-Za-z0-9_-]{43}$/, 'PKCE challenge must be an unpadded base64url SHA-256 digest')
   const header = base64url(JSON.stringify({ alg: 'RS256', kid: 'ci-google-key', typ: 'JWT' }))
 
   async function token(overrides: Record<string, unknown> = {}, signer = pair.privateKey) {
