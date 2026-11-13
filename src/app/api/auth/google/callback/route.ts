@@ -111,7 +111,7 @@ export async function GET(request: Request) {
         code_verifier: codeVerifier,
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: redirectUri,
+        redirect_uri: redirect.toString(),
         grant_type: 'authorization_code',
       }),
       signal: AbortSignal.timeout(8000),
