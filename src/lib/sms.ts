@@ -133,3 +133,13 @@ export function resetCodeMatches(code: string, codeHash: string): boolean {
   const expected = Buffer.from(expectedHex, 'hex')
   return candidate.length === expected.length && timingSafeEqual(candidate, expected)
 }
+
+
+// Bind a phone-verification proof to the current registered phone without
+// duplicating the phone number in the short-lived challenge table.
+export function hashPhoneForVerification(phone: string): string {
+  return createHmac('sha256', resetCodeHmacKey())
+    .update('mudaala:google-phone-verification:v1:', 'utf8')
+    .update(phone, 'utf8')
+    .digest('hex')
+}
