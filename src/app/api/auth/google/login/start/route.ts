@@ -31,7 +31,8 @@ export async function POST(request: Request) {
 
     const now = new Date()
     const state = secureRandomToken()
-    const nonce = secureRandomToken()\n    const codeVerifier = secureRandomToken()
+    const nonce = secureRandomToken()
+    const codeVerifier = secureRandomToken()
     const stateHash = await sha256Hex(state)
     await db.googleOAuthState.deleteMany({ where: { expiresAt: { lt: now } } })
     await db.googleOAuthState.create({
@@ -62,7 +63,9 @@ export async function POST(request: Request) {
     authorization.searchParams.set('response_type', 'code')
     authorization.searchParams.set('scope', 'openid email')
     authorization.searchParams.set('state', state)
-    authorization.searchParams.set('nonce', nonce)\n    authorization.searchParams.set('code_challenge', await pkceChallenge(codeVerifier))\n    authorization.searchParams.set('code_challenge_method', 'S256')
+    authorization.searchParams.set('nonce', nonce)
+    authorization.searchParams.set('code_challenge', await pkceChallenge(codeVerifier))
+    authorization.searchParams.set('code_challenge_method', 'S256')
     authorization.searchParams.set('prompt', 'select_account')
     return jsonOk({ authorizationUrl: authorization.toString() })
   })
