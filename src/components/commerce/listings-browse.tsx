@@ -270,6 +270,23 @@ export function ListingsBrowse() {
         </Button>
       </div>
 
+      {showDiscoverySections ? (
+        <nav className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-slim" aria-label="Quick product categories">
+          <button type="button" onClick={() => setFilters({ category: 'any', page: 1 })}
+            aria-current={filters.category === 'any' ? 'true' : undefined}
+            className={cn('shrink-0 rounded-full border px-3 py-2 text-xs font-semibold', filters.category === 'any' ? 'border-primary bg-primary text-primary-foreground' : 'bg-card text-foreground hover:bg-muted')}>
+            All
+          </button>
+          {orderedCategories.slice(0, 8).map((category) => (
+            <button key={category.key} type="button" onClick={() => setFilters({ category: category.key, page: 1 })}
+              aria-current={filters.category === category.key ? 'true' : undefined}
+              className={cn('shrink-0 rounded-full border px-3 py-2 text-xs font-semibold', filters.category === category.key ? 'border-primary bg-primary text-primary-foreground' : 'bg-card text-foreground hover:bg-muted')}>
+              {category.label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
+
       {filters.q.trim() && (inferredSearchCategories.length > 0 || priceIntentHint || priceSortHint) ? (
         <p className="text-xs text-muted-foreground" role="status" aria-live="polite">
           {inferredSearchCategories.length > 0
