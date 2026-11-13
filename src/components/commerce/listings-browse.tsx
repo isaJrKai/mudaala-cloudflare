@@ -194,6 +194,27 @@ export function ListingsBrowse() {
     [data?.items, specialOfferIds],
   )
 
+  // Turn the mixed discovery feed into real category shelves. Only categories
+  // represented by actual listings are rendered; no placeholder inventory.
+  const discoveryCategoryGroups = useMemo(() => {
+    const rank = new Map<string, number>()
+    orderedCategories.forEach((category, index) => rank.set(category.key, index))
+    const groups = new Map<string, typeof discoveryFeedItems>()
+    for (const item of discoveryFeedItems) {
+      const key = item.category || 'other'
+      const current = groups.get(key) ?? []
+      current.push(item)
+      groups.set(key, current)
+    }
+    return [...groups.entries()]
+      .sort(([a], [b]) => {
+        const rankA = rank.get(a) ?? Number.MAX_SAFE_INTEGER
+        const rankB = rank.get(b) ?? Number.MAX_SAFE_INTEGER
+        return rankA - rankB || categoryLabel(a).localeCompare(categoryLabel(b))
+      })
+      .map(([key, items]) => ({ key, label: categoryLabel(key), items }))
+  }, [discoveryFeedItems, orderedCategories])
+
   // Distance chips - computed from the same blurred coords the server used,
   // so the label a buyer reads always matches the order they see.
   const distanceLabels = useMemo(() => {
@@ -453,15 +474,26 @@ export function ListingsBrowse() {
             </div>
             {showDiscoverySections ? (
               <>
-                {discoveryFeedItems.length > 0 ? (
-                  <section className="min-w-0 space-y-2" aria-labelledby="local-finds-heading">
+                {discoveryCategoryGroups.map((group, index) => (
+                  <section
+                    key={group.key}
+                    className="min-w-0 space-y-2"
+                    aria-labelledby={`category-${group.key}-heading`}
+                  >
                     <div className="flex items-center justify-between gap-2">
-                      <h2 id="local-finds-heading" className="text-base font-semibold tracking-tight">Fresh local finds</h2>
-                      <span className="text-[11px] text-muted-foreground">Recently listed around you</span>
+                      <div className="min-w-0">
+                        <h2 id={`category-${group.key}-heading`} className="text-base font-semibold tracking-tight">
+                          {group.label}
+                        </h2>
+                        <p className="text-[11px] text-muted-foreground">
+                          {group.items.length} {group.items.length === 1 ? 'listing' : 'listings'} · Local sellers
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-[11px] text-muted-foreground">Explore category</span>
                     </div>
-                    {renderListingGrid(discoveryFeedItems.slice(0, 6), true)}
+                    {renderListingGrid(group.items, index === 0)}
                   </section>
-                ) : null}
+                ))}
                 <ExploreShopsSection
                   shops={discoveryShops}
                   loading={discoveryQuery.isLoading}
