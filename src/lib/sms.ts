@@ -1,20 +1,9 @@
 // Mudaala - SMS delivery behind a swappable provider.
 //
-// Password-reset codes travel by SMS. Which provider actually carries them is
-// an environment decision, not a code decision:
-//
-//   production      → Africa's Talking (AT_API_KEY + AT_USERNAME, sender ID
-//                     from AT_SENDER_ID). A FAILED send is logged ONCE, with
-//                     NO phone number and NO code - a log line must never
-//                     become a side channel for secrets. Never silent.
-//   development     → the console provider "delivers" the message to the dev
-//                     server console. That printout IS the developer's inbox
-//                     (there is no SIM card in a dev box). It never runs in
-//                     production, so the codes it prints are dev-only codes
-//                     for dev-only accounts.
-//
-// Adding a provider (Twilio, MTN Uganda, …) means adding one class here and
-// one branch in chooseSmsProvider() - call sites do not change.
+// Production always uses Africa's Talking. The console provider is strictly
+// non-production: printing an OTP in production logs would turn log access
+// into an account-takeover path. A preview without SMS credentials must fail
+// closed rather than disclose codes in logs.
 
 import { createHash, createHmac, randomInt, timingSafeEqual } from 'node:crypto'
 
@@ -23,9 +12,6 @@ export interface SmsProvider {
   send(to: string, message: string): Promise<void>
 }
 
-// Africa's Talking REST API (no SDK dependency). Their error bodies echo the
-// recipient, so on failure we throw a status-only error - the body never
-// reaches a log or a response.
 class AfricasTalkingProvider implements SmsProvider {
   readonly name = 'africas-talking'
 
@@ -33,38 +19,28 @@ class AfricasTalkingProvider implements SmsProvider {
     const apiKey = process.env.AT_API_KEY
     const username = process.env.AT_USERNAME
     const senderId = process.env.AT_SENDER_ID
-    if (!apiKey || !username) {
-      throw new Error('SMS provider is not configured')
-    }
+    if (!apiKey || !username) throw new Error('SMS provider is not configured')
 
     const form = new URLSearchParams({ username, to, message })
     if (senderId) form.set('from', senderId)
 
-    let status = 0
     try {
       const res = await fetch('https://api.africastalking.com/version1/messaging', {
         method: 'POST',
-        headers: {
-          apiKey,
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Accept: 'application/json',
-        },
+        headers: { apiKey, 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
         body: form.toString(),
         signal: AbortSignal.timeout(15_000),
       })
-      status = res.status
-      if (!res.ok) throw new Error(`provider status ${status}`)
+      if (!res.ok) throw new Error(`provider status ${res.status}`)
     } catch (err) {
-      // Re-throw status errors as-is; wrap network errors without any payload.
       if (err instanceof Error && err.message.startsWith('provider status')) throw err
       throw new Error('provider unreachable')
     }
   }
 }
 
-// Dev-only "delivery": the server console is the inbox. Development uses this
-// even when AT_* variables exist - a stray real SMS during testing is worse
-// than a console line.
+// Development/test only. The console is the developer's inbox; it must never
+// be selectable in a production Worker, even by an accidental env override.
 class ConsoleProvider implements SmsProvider {
   readonly name = 'console'
 
@@ -74,22 +50,11 @@ class ConsoleProvider implements SmsProvider {
 }
 
 export function chooseSmsProvider(): SmsProvider {
-  // Explicit override first: a staging/self-test/preview deployment runs with
-  // NODE_ENV=production but without real SMS credentials - its reset codes
-  // must land in the inspectable console inbox, not die inside a provider
-  // that was never configured. Dev and production defaults stay untouched.
-  if (process.env.SMS_PROVIDER === 'console') return new ConsoleProvider()
   if (process.env.NODE_ENV === 'production') return new AfricasTalkingProvider()
+  if (process.env.SMS_PROVIDER === 'africas-talking') return new AfricasTalkingProvider()
   return new ConsoleProvider()
 }
 
-// ---- Reset codes: generation, keyed hashing and comparison ----
-// Six digits provide only one million possibilities. A plain SHA-256 digest
-// is therefore cheap to brute-force after a database-only leak. New records
-// use a versioned HMAC keyed from a dedicated pepper (preferred) or the
-// required settings-encryption secret with domain separation. The latter
-// avoids introducing a new mandatory production secret while ensuring the
-// digest is not recoverable from the database alone.
 const RESET_HASH_PREFIX = 'hmac-sha256-v1:'
 
 function resetCodeHmacKey(): Buffer {
@@ -117,10 +82,6 @@ export function hashResetCode(code: string): string {
 }
 
 export function resetCodeMatches(code: string, codeHash: string): boolean {
-  // Existing codes created before this version use plain SHA-256 and expire
-  // within ten minutes. Keep them usable during that short transition; all
-  // newly issued codes use HMAC. The reset endpoint separately enforces expiry
-  // and the five-attempt ceiling before this comparison can be reached.
   const expectedHex = codeHash.startsWith(RESET_HASH_PREFIX)
     ? codeHash.slice(RESET_HASH_PREFIX.length)
     : codeHash
@@ -132,4 +93,13 @@ export function resetCodeMatches(code: string, codeHash: string): boolean {
   const candidate = Buffer.from(candidateHex, 'hex')
   const expected = Buffer.from(expectedHex, 'hex')
   return candidate.length === expected.length && timingSafeEqual(candidate, expected)
+}
+
+// Bind a phone-verification proof to the current registered phone without
+// duplicating the phone number in the short-lived challenge table.
+export function hashPhoneForVerification(phone: string): string {
+  return createHmac('sha256', resetCodeHmacKey())
+    .update('mudaala:google-phone-verification:v1:', 'utf8')
+    .update(phone, 'utf8')
+    .digest('hex')
 }

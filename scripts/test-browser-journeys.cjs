@@ -480,7 +480,11 @@ async function verifyListingLifecycle(browser) {
     await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
     const resultsGrid = page.getByTestId('listing-results-grid');
     await resultsGrid.waitFor({ state: 'visible', timeout });
-    await page.getByText(editedTitle, { exact: true }).waitFor({ state: 'visible', timeout });
+    // Search for this fixture explicitly: the unfiltered first page can be
+    // populated by newer seeded listings, and the featured rail can duplicate
+    // titles outside the product grid.
+    await page.getByPlaceholder('Search products, shops, and things near you').fill(editedTitle);
+    await resultsGrid.getByText(editedTitle, { exact: true }).waitFor({ state: 'visible', timeout });
     const mobileGrid = await resultsGrid.evaluate((element) => ({
       columns: getComputedStyle(element).gridTemplateColumns.split(' ').length,
       width: element.getBoundingClientRect().width,

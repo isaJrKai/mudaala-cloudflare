@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { route, jsonOk, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, requireSeller, ApiError } from '@/lib/api'
 import { listingUpdateSchema, listingStatusSchema, isTransitionAllowed, fieldErrors, listingNeedsUnit, normalizePhone, type CountryKey } from '@/lib/validation'
 import { db } from '@/lib/db'
 import { expireOverdueListings, getOwnedListingOr404, sanitizePhotos, serializeListing } from '@/lib/listings'
@@ -76,7 +76,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
 // transition - a fulfilled listing never silently becomes active again.
 export async function PATCH(request: NextRequest, { params }: Params) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const { id } = await params
     const listing = await getOwnedListingOr404(id, user.id)
 
@@ -249,7 +249,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 // Delete (owner only).
 export async function DELETE(_request: NextRequest, { params }: Params) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const { id } = await params
     // Owner-scoped atomic delete avoids a check-then-delete race.
     const removed = await db.listing.deleteMany({ where: { id, userId: user.id } })

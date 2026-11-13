@@ -1,4 +1,4 @@
-import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, parseBody, requireSeller, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { businessProductUpdateSchema } from '@/lib/business-records'
 
@@ -6,7 +6,7 @@ type Context = { params: Promise<{ id: string }> }
 
 export async function PATCH(request: Request, context: Context) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const { id } = await context.params
     const data = await parseBody(request, businessProductUpdateSchema)
     const existing = await db.businessProduct.findFirst({ where: { id, userId: user.id } })

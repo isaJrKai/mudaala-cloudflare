@@ -13,6 +13,8 @@
   "vars": {
     "RATE_LIMIT_REQUIRE_SHARED": "1",
     "APP_ORIGIN": "https://mudaala.store",
+    "GOOGLE_REDIRECT_URI": "https://mudaala.store/api/auth/google/callback",
+    "SELLER_GOOGLE_REQUIRED": "false",
     "VAPID_PUBLIC_KEY": "BBaTwp2Gl0k_arUjxhG-0gOXpqjGyZgrnMgM19Dm0CjXjWe4yLc_TORu8RK7nyCex-zAdvEgrbF_jm4u-aiSej0"
   },
   "durable_objects": {

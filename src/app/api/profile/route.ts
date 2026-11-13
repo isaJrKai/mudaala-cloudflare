@@ -1,4 +1,4 @@
-import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, parseBody, requireSeller, ApiError } from '@/lib/api'
 import { businessProfileSchema, normalizePhone, type CountryKey } from '@/lib/validation'
 import { db } from '@/lib/db'
 import { deliverPushNotification } from '@/lib/push-delivery'
@@ -6,7 +6,7 @@ import { shopChecklistFor, shopChecklistComplete, generateShopCode } from '@/lib
 
 export async function GET() {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const profile = await db.businessProfile.findUnique({ where: { userId: user.id } })
     // The honest "verify your shop" state: what the seller has actually filled
     // in. No platform vetting is claimed - completeness is the whole story.
@@ -20,7 +20,7 @@ export async function GET() {
 // made anywhere: the verified flag stays false until a real process exists.
 export async function PUT(request: Request) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const data = await parseBody(request, businessProfileSchema)
 
     // Contact numbers follow the account's country.

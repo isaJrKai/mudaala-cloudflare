@@ -1,7 +1,7 @@
 // Authenticated upload signing. The Worker never receives image bytes: the browser
 // uploads directly to a private Supabase quarantine bucket using a 90-second URL.
 import { randomBytes } from 'node:crypto'
-import { ApiError, route, jsonOk, requireUser } from '@/lib/api'
+import { ApiError, route, jsonOk, requireSeller } from '@/lib/api'
 import { hit, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
 import { chooseStorage, LocalDiskStorage, S3Storage } from '@/lib/storage'
@@ -14,7 +14,7 @@ type ImageMime = keyof typeof MIME_TO_EXT
 
 export async function POST(request: Request) {
   return route(async () => {
-    const user = await requireUser('Sign in to upload photos')
+    const user = await requireSeller('Sign in to upload photos')
     const ip = getClientIp(request)
     const ipVerdict = await hit(`upload-sign:ip:${ip}`, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS)
     const userVerdict = await hit(`upload-sign:user:${user.id}`, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS)

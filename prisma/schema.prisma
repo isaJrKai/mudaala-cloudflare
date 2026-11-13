@@ -32,6 +32,8 @@ model User {
   // development fixtures, not real shops; scripts/remove-seed-data.ts
   // deletes everything flagged true in one step before launch.
   isSeed Boolean @default(false)
+  // Existing active merchants are grandfathered during Google-link rollout.
+  sellerGoogleExempt Boolean @default(false)
 
   // Task 4 - legal acceptance: when the user confirmed "18+ and accept the
   // Terms and Privacy Policy" and WHICH version they saw. NULL for accounts
@@ -59,6 +61,9 @@ model User {
   stockMovements  StockMovement[]
   listingDailyAnalytics ListingDailyAnalytics[]
   shopDailyAnalytics ShopDailyAnalytics[]
+  googleIdentities GoogleIdentity[]
+  googleOAuthStates GoogleOAuthState[]
+  phoneVerificationChallenges PhoneVerificationChallenge[]
 }
 
 // Products a shop can showcase beyond its current stock. These records are
@@ -86,6 +91,7 @@ model Session {
   id        String   @id // opaque random token
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authMethod String  @default("PASSWORD") // PASSWORD | GOOGLE
   expiresAt DateTime
   createdAt DateTime @default(now())
 
@@ -591,4 +597,65 @@ model PolicyViolation {
 
   @@index([userId, reversedAt, createdAt])
   @@index([targetType, targetId])
+}
+
+
+// External login identities are linked only after explicit, authenticated
+// account linking. Google email is metadata, never the account-matching key.
+// The immutable provider subject (Google "sub") is the identity key.
+model GoogleIdentity {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider      String   @default("google")
+  providerSub   String
+  email         String?
+  emailVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([provider, providerSub])
+  @@unique([userId, provider])
+  @@index([userId, createdAt])
+}
+
+// Short-lived, one-use OAuth state for explicit account linking or sign-in.
+// Store only hashes of state and nonce. LOGIN states are anonymous; LINK states
+// are bound to the already authenticated Mudaala account.
+model GoogleOAuthState {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   String   @default("LINK") // LINK | LOGIN
+  stateHash String   @unique
+  nonceHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, expiresAt])
+  @@index([purpose, expiresAt])
+  @@index([expiresAt])
+}
+
+
+// Short-lived SMS proof used only to authorize sensitive identity linking.
+// The code is HMAC-hashed; successful verification is retained briefly so the
+// following OAuth start can require recent proof of control of the phone.
+model PhoneVerificationChallenge {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phoneHash  String
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int      @default(0)
+  verifiedAt DateTime?
+  proofConsumedAt DateTime?
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, verifiedAt])
+  @@index([expiresAt])
 }

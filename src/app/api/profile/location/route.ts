@@ -1,4 +1,4 @@
-import { route, jsonOk, parseBody, requireUser } from '@/lib/api'
+import { route, jsonOk, parseBody, requireSeller } from '@/lib/api'
 import { profileLocationSchema } from '@/lib/validation'
 import { db } from '@/lib/db'
 import { roundCoord } from '@/lib/geo'
@@ -13,7 +13,7 @@ import { generateShopCode } from '@/lib/shop'
 // shops without a spot still rank normally and show their area text.
 export async function PUT(request: Request) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const data = await parseBody(request, profileLocationSchema)
 
     const lat = data.lat === null ? null : roundCoord(data.lat)

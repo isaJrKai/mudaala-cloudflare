@@ -1,4 +1,4 @@
-import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, parseBody, requireSeller, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { productCollectionItemReorderSchema } from '@/lib/product-collections'
 
@@ -6,7 +6,7 @@ type Context = { params: Promise<{ id: string }> }
 
 export async function PATCH(request: Request, context: Context) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const { id: collectionId } = await context.params
     const { items } = await parseBody(request, productCollectionItemReorderSchema)
     const collection = await db.productCollection.findFirst({ where: { id: collectionId, userId: user.id }, select: { id: true } })

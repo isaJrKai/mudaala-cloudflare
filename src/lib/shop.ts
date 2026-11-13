@@ -11,7 +11,6 @@ import { activeListingExpiryFilter } from '@/lib/listing-visibility'
 import type { ListingWithShop } from '@/lib/listings'
 import { countryDef, categoryLabel } from '@/lib/constants'
 import { normalizeShopCode } from '@/lib/format'
-import { phoneCandidates } from '@/lib/validation'
 import { isAdminUser } from '@/lib/admin'
 
 export interface ShopChecklist {
@@ -65,10 +64,8 @@ interface ShopPageData {
     country: string
     phone: string
     whatsapp: string | null
-    // True only when the phone shown on the page IS the seller's registered
-    // login line (no override, or the override resolves to the same line).
-    // The "Phone confirmed" chip renders ONLY when this is true - a trust
-    // badge that can be true by construction or not shown at all.
+    // True only after an actual phone-ownership challenge succeeds.
+    // Matching a self-entered contact number to a login number is NOT proof.
     phoneConfirmed: boolean
     // Public identity code ("MD-4821") - stable for the life of the shop.
     shopCode: string | null
@@ -149,13 +146,6 @@ export async function lookupShopByCode(raw: string): Promise<ShopLookupResult | 
   }
 }
 
-// Two raw numbers name the same phone line when their normalized candidate
-// sets overlap - no format guessing (local 07…, dial-code 2567…, spaced).
-function samePhoneLine(a: string, b: string): boolean {
-  const aCandidates = phoneCandidates(a)
-  return phoneCandidates(b).some((n) => aCandidates.includes(n))
-}
-
 // Load a shop page by the owner's user id. Public - buyers never sign in.
 // Overdue listings are expired first so the catalogue only shows real stock.
 export async function getShopPage(userId: string): Promise<ShopPageData | null> {
@@ -225,7 +215,9 @@ export async function getShopPage(userId: string): Promise<ShopPageData | null> 
       // The shop's contact numbers - the same ones buyers call from listings.
       phone: profile?.phone ?? user.phone,
       whatsapp: profile?.whatsapp ?? null,
-      phoneConfirmed: !profile?.phone || samePhoneLine(profile.phone, user.phone),
+      // No phone-verification challenge exists yet. Never infer ownership
+      // from matching strings; the UI must not show a confirmation badge.
+      phoneConfirmed: false,
       shopCode: profile?.shopCode ?? null,
       momoMerchantCode: profile?.momoMerchantCode ?? null,
       momoNetwork: profile?.momoNetwork ?? null,
