@@ -177,6 +177,9 @@ function SignInForm({ onDone, onForgot }: { onDone: () => void; onForgot: () => 
       <Button type="button" variant="outline" className="w-full" disabled={busy} onClick={startGoogleSignIn}>
         Continue with Google
       </Button>
+      <p className="text-center text-xs text-muted-foreground">
+        For Mudaala accounts that have already linked Google in Settings.
+      </p>
       <p className="text-center">
         <button
           type="button"
