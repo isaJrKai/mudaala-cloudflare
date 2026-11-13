@@ -190,7 +190,7 @@ jobs:
           new_exempt=$(psql "$DATABASE_URL" -Atc "SELECT \"sellerGoogleExempt\" FROM public.\"User\" WHERE id='google-migration-new'")
           google_rls_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('GoogleIdentity','GoogleOAuthState','PhoneVerificationChallenge') AND c.relrowsecurity")
           google_policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename IN ('GoogleIdentity','GoogleOAuthState','PhoneVerificationChallenge') AND policyname IN ('deny_direct_api_clients','mudaala_runtime_access')")
-          google_grants=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('GoogleIdentity','GoogleOAuthState') AND grantee='mudaala_runtime' AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          google_grants=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('GoogleIdentity','GoogleOAuthState','PhoneVerificationChallenge') AND grantee='mudaala_runtime' AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
           if [ "$legacy_exempt" != "t" ] || [ "$new_exempt" != "f" ] || [ "$google_rls_count" != "3" ] || [ "$google_policy_count" != "6" ] || [ "$google_grants" != "12" ]; then
             echo "Google identity migration checks failed: existing=$legacy_exempt new=$new_exempt RLS=$google_rls_count policies=$google_policy_count grants=$google_grants"
             exit 1
