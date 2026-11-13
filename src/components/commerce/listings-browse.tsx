@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Search, SlidersHorizontal, Bookmark, X, ChevronLeft, ChevronRight, Hash, Heart, MapPin, Info, Phone, Store } from 'lucide-react'
+import { Search, SlidersHorizontal, Bookmark, X, ChevronLeft, ChevronRight, Hash, Heart, MapPin, Info, Store } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { apiGet, apiPost } from '@/lib/client'
 import type { ListingsPage, ShopLookupResponse, ShopNameSearchResponse, ListingDetail as ListingDetailT, Listing, ListingShopOwner as ListingShopOwnerT, ShopPage as ShopPageT } from '@/lib/client'
-import { normalizeShopName, normalizeShopCode, telLink } from '@/lib/format'
+import { normalizeShopName, normalizeShopCode } from '@/lib/format'
 import { haversineMeters, formatDistance } from '@/lib/geo'
 import { CATEGORIES, COUNTIES, UNITS, categoryLabel } from '@/lib/constants'
 import { getSearchTermGroups, parseSearchIntent } from '@/lib/search'
@@ -23,9 +23,7 @@ import { useAddToBasket } from './basket-view'
 import { ListingBlock, HeartButton } from './listing-card'
 import { ListingGridSkeleton } from './skeletons'
 import { EmptyState } from './empty-state'
-import { PlaceholderTile } from './placeholder-tile'
 import { copy } from '@/lib/copy'
-import QRCode from 'react-qr-code'
 import { TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { chooseFeaturedShopId, eligibleFeaturedShopIds, FEATURED_SHOP_ROTATION_INTERVAL_MS } from '@/lib/featured-shop-rotation'
@@ -578,42 +576,6 @@ function ShopLedDiscoverySection({
   )
 }
 
-function SpecialOffersSection({
-  items,
-  shopLabels,
-  distanceLabels,
-  onOpen,
-  onOpenShop,
-  onAdd,
-}: {
-  items: ListingsPage['items']
-  shopLabels: Map<string, string>
-  distanceLabels: Map<string, string>
-  onOpen: (id: string) => void
-  onOpenShop: (shopId: string) => void
-  onAdd: (listing: Listing & { user?: ListingShopOwnerT }) => boolean | void
-}) {
-  if (items.length === 0) return null
-  return (
-    <section className="min-w-0 space-y-3 py-1" aria-labelledby="special-offers-heading">
-      <h2 id="special-offers-heading" className="text-base font-semibold tracking-tight">Special offers</h2>
-      <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-        {items.slice(0, 6).map((listing) => (
-          <ListingBlock
-            key={listing.id}
-            listing={listing}
-            shopLabel={shopLabels.get(listing.id)}
-            distanceLabel={distanceLabels.get(listing.id)}
-            onOpen={onOpen}
-            onOpenShop={onOpenShop}
-            onAdd={onAdd}
-          />
-        ))}
-      </div>
-    </section>
-  )
-}
-
 // Shop names are searched independently from product listings. This means a
 // customer can reach a known shop even when its current catalogue is empty or
 // its listing titles do not contain the shop's name.
@@ -676,85 +638,6 @@ function ShopNameSearchResults({ query, onOpenShop }: { query: string; onOpenSho
         ))}
       </div>
     </section>
-  )
-}
-
-// The featured-shop rail rotates through distinct shops represented in the
-// current public results. A shared 30-minute bucket makes the choice stable
-// during a window and predictable across refreshes, without user-level tracking.
-function subscribeToFeaturedShopRotation(onStoreChange: () => void) {
-  const timer = window.setInterval(onStoreChange, 60_000)
-  return () => window.clearInterval(timer)
-}
-
-function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
-  const { navigate } = useAppStore()
-  const origin = useSyncExternalStore(() => () => {}, () => window.location.origin, () => '')
-  const rotationBucket = useSyncExternalStore(subscribeToFeaturedShopRotation, () => Math.floor(Date.now() / FEATURED_SHOP_ROTATION_INTERVAL_MS), () => 0)
-  const eligibleShopIds = useMemo(() => eligibleFeaturedShopIds(items), [items])
-  const shopId = chooseFeaturedShopId(eligibleShopIds, rotationBucket)
-  const shopQuery = useQuery({
-    queryKey: ['featured-shop', shopId],
-    enabled: Boolean(shopId),
-    staleTime: 60_000,
-    retry: 1,
-    queryFn: () => apiGet<ShopPageT>(`/api/shops/${shopId}`),
-  })
-  const shop = shopQuery.data?.shop ?? null
-  const shopUrl = useMemo(() => (origin && shop ? `${origin}/#/shop/${shop.id}` : ''), [origin, shop])
-  const sideProducts = items.filter((item) => item.type === 'OFFER').slice(0, 4)
-  if (!shop && !shopQuery.isLoading && sideProducts.length === 0) return null
-
-  return (
-    <aside className="hidden min-w-0 space-y-3 lg:block" aria-label="Featured shop from your results">
-      {shop ? (
-        <div className="overflow-hidden rounded-lg border bg-card">
-          {shop.photoUrl ? <img src={shop.photoUrl} alt="" loading="lazy" className="h-32 w-full object-cover" /> : (
-            <PlaceholderTile title={shop.name} label={copy.shop.coverTileAria(shop.name)} className="h-32 w-full" />
-          )}
-          <div className="p-4">
-            <p className="text-xs font-medium text-muted-foreground">{copy.browse.featuredShop}</p>
-            <h2 className="mt-1 font-display text-lg font-semibold leading-tight tracking-tight text-primary">{shop.name}</h2>
-            {shop.area || shop.county ? <p className="mt-0.5 text-xs text-muted-foreground">{[shop.area, shop.county].filter(Boolean).join(', ')}</p> : null}
-            <div className="mt-3 flex items-center gap-3">
-              <div className="shrink-0 bg-white p-1.5">{shopUrl ? <QRCode value={shopUrl} size={64} role="img" aria-label={`QR code for ${shop.name}'s shop`} /> : null}</div>
-              <div className="min-w-0">
-                {shop.shopCode ? <p className="text-sm font-bold tracking-widest text-foreground tabular-nums">{shop.shopCode}</p> : null}
-                <p className="text-[11px] leading-snug text-muted-foreground">{copy.browse.featuredCodeHint}</p>
-              </div>
-            </div>
-            <a href={telLink(shop.phone)} className="press mt-3 flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">
-              <Phone className="size-4" aria-hidden /> {copy.common.call}
-            </a>
-          </div>
-        </div>
-      ) : shopQuery.isLoading ? <div className="h-64 animate-pulse rounded-lg border bg-muted/40" role="status" aria-label="Loading featured shop" /> : null}
-
-      {sideProducts.length > 0 ? (
-        <section className="overflow-hidden rounded-lg border bg-card" aria-labelledby="nearby-products-heading">
-          <div className="flex items-center justify-between border-b px-3 py-2.5">
-            <h2 id="nearby-products-heading" className="text-sm font-semibold">More nearby products</h2>
-            <span className="text-[10px] text-muted-foreground">Live listings</span>
-          </div>
-          <div className="divide-y">
-            {sideProducts.map((item) => (
-              <button key={item.id} type="button" onClick={() => navigate({ name: 'listing', id: item.id })}
-                className="flex w-full min-w-0 items-center gap-2.5 p-2.5 text-left transition-colors hover:bg-secondary/40">
-                {item.photos[0] ? <img src={item.photos[0]} alt="" loading="lazy" className="size-14 shrink-0 rounded-md border object-cover" /> : (
-                  <span className="flex size-14 shrink-0 items-center justify-center rounded-md border bg-secondary px-1 text-center text-[10px] text-muted-foreground">{categoryLabel(item.category)}</span>
-                )}
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-semibold">{item.title}</span>
-                  <span className="mt-1 block truncate text-[10px] text-muted-foreground">{item.user?.profile?.businessName || item.user?.name || 'Local seller'}</span>
-                  <span className="mt-1 block truncate text-xs font-bold tabular-nums text-primary">{item.price === null ? 'Ask for price' : `UGX ${Math.round(item.price).toLocaleString('en-UG')}`}</span>
-                </span>
-                <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : null}
-    </aside>
   )
 }
 
