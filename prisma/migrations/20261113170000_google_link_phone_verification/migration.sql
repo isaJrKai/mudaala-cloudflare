@@ -3,7 +3,7 @@
 CREATE TABLE "PhoneVerificationChallenge" (
   "id" TEXT NOT NULL,
   "userId" TEXT NOT NULL,
-  "phone" TEXT NOT NULL,
+  "phoneHash" TEXT NOT NULL,
   "codeHash" TEXT NOT NULL,
   "expiresAt" TIMESTAMP(3) NOT NULL,
   "attempts" INTEGER NOT NULL DEFAULT 0,
