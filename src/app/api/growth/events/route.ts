@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ApiError, jsonOk, requireUser, route } from '@/lib/api'
+import { ApiError, jsonOk, requireSeller, route } from '@/lib/api'
 import { db } from '@/lib/db'
 
 const eventSchema = z.object({
@@ -21,7 +21,7 @@ const eventSchema = z.object({
 
 export async function POST(request: Request) {
   return route(async () => {
-    const user = await requireUser('Sign in to record shop activity')
+    const user = await requireSeller('Sign in to record shop activity')
     let input: unknown
     try {
       input = await request.json()
