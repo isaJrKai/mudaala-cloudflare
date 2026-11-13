@@ -61,6 +61,7 @@ export async function POST(request: Request) {
       where: {
         userId: user.id,
         phoneHash: hashPhoneForVerification(user.phone),
+        proofConsumedAt: null,
         verifiedAt: { gte: new Date(now.getTime() - RECENT_AUTH_MS) },
         usedAt: { not: null },
       },
