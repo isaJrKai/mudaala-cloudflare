@@ -151,9 +151,29 @@ The Google OAuth client must allow the production origin `https://mudaala.store`
 - New sellers still create a phone/password Mudaala account first and explicitly link Google in Settings. The current Google sign-in then works for those linked accounts. It does not yet create Google-only accounts or provide a new Google-first seller onboarding path.
 - Google sign-in can recover access for an already-linked account without the Mudaala password. SMS password reset remains available for legacy/unlinked accounts; no Google-based account recovery or unlink flow has been implemented for accounts without a linked identity.
 - Account deletion reauthentication has not yet been updated for Google-only identities.
-- The linking flow currently requires a recent Mudaala password session. A separate phone/SMS challenge before linking is not implemented; this remains a takeover-risk mitigation gate before production enforcement.
-- PKCE is not yet implemented for the authorization-code flow; add it before treating the OAuth flow as production-complete.
-- The seller route inventory still needs a final exhaustive check before enabling the enforcement flag.
+- The linking flow requires a recent Mudaala password session plus a separate, short-lived SMS challenge to the account's current registered phone. The challenge is rate-limited, expires after 10 minutes, has a five-attempt ceiling, stores only an HMAC, and is audited. The phone snapshot is bound to the challenge so changing the profile phone invalidates the proof.
+- PKCE S256 is implemented for both Google login and account linking. The verifier is stored only in a short-lived HttpOnly, Secure-on-HTTPS, SameSite=Lax callback cookie and submitted during the server-side token exchange.
+- The modified seller write routes use the centralized requireSeller() guard when SELLER_GOOGLE_REQUIRED=true; a final route-by-route audit and preview end-to-end test are still required before enabling the flag.
 - PR #253 remains a draft. No merge, production database migration, or production deployment has occurred.
 
 Do not enable `SELLER_GOOGLE_REQUIRED` until the above verification gates are complete.
+
+
+## Security hardening added after the initial implementation
+
+- Authorization-code PKCE S256 is used for both LOGIN and LINK flows. The callback requires the browser-bound state/verifier cookie and sends the verifier only to Google's token endpoint.
+- Explicit Google linking now requires a fresh Mudaala password session and recent SMS proof for the account's current phone number. The SMS proof is a separate purpose-specific table, not a reused password-reset record.
+- Phone verification codes are six digits, HMAC-hashed using the existing reset-code pepper/settings key, expire after ten minutes, are rate-limited by account and IP, and are invalidated after five failed attempts or when a newer challenge is issued.
+- Successful phone verification is audited. A verified challenge is accepted for Google linking only for ten minutes and only while its stored phone snapshot matches the user's current registered phone.
+- The Settings screen now provides the SMS challenge and then starts the Google OAuth link flow.
+- CI now applies the new phone-verification migration in disposable PostgreSQL and checks its RLS policies and runtime grants. The OIDC test suite includes a PKCE S256 regression assertion.
+
+## Remaining before the owner configures Google OAuth credentials
+
+1. Wait for all CI workflows on the final branch head and fix any failures.
+2. Finish the route-by-route authorization audit, including guest/public read routes and account deletion/recovery.
+3. Confirm the Cloudflare Worker runtime build supports the SMS route's existing Node crypto dependency and run the full OAuth flow in a preview environment.
+4. Keep SELLER_GOOGLE_REQUIRED disabled until Google OAuth credentials are configured and the preview flow is verified.
+5. Do not run the production migration or deploy this feature before review and a rehearsed rollback plan.
+
+Google-only account creation, unlinking, and passwordless account deletion are intentionally not included in this rollout. Existing phone/password accounts remain the account model; Google is an additional explicitly linked sign-in method.
