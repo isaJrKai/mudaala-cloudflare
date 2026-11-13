@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
 import { chooseSmsProvider, generateResetCode, hashResetCode, hashPhoneForVerification } from '@/lib/sms'
+import { hasSameRequestOrigin } from '@/lib/google-oidc'
 
 const CHALLENGE_TTL_MS = 10 * 60 * 1000
 const RECENT_AUTH_MS = 10 * 60 * 1000
