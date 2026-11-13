@@ -175,6 +175,25 @@ export function ListingsBrowse() {
 
   const shopLabels = useMemo(() => computeShopLabels(data?.items), [data])
 
+  // Keep the discovery feed editorially distinct: genuinely discounted
+  // listings are reserved for Special offers and never repeated in the
+  // ordinary local feed. A discount is valid only when the old price is
+  // strictly higher than the current price.
+  const specialOfferItems = useMemo(
+    () => (data?.items ?? []).filter(
+      (item) => item.type === 'OFFER'
+        && item.compareAtPrice !== null
+        && item.price !== null
+        && item.compareAtPrice > item.price,
+    ),
+    [data?.items],
+  )
+  const specialOfferIds = useMemo(() => new Set(specialOfferItems.map((item) => item.id)), [specialOfferItems])
+  const discoveryFeedItems = useMemo(
+    () => (data?.items ?? []).filter((item) => !specialOfferIds.has(item.id)),
+    [data?.items, specialOfferIds],
+  )
+
   // Distance chips - computed from the same blurred coords the server used,
   // so the label a buyer reads always matches the order they see.
   const distanceLabels = useMemo(() => {
@@ -417,30 +436,52 @@ export function ListingsBrowse() {
       ) : data ? (
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start lg:gap-4">
           <div className={isFetching ? 'space-y-3 opacity-60 transition-opacity' : 'space-y-3'}>
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h1 className="text-xl font-bold leading-tight tracking-tight">
-                {filters.q.trim() || activeFilterCount > 0 ? 'Products' : 'Products near you'}
-              </h1>
-              <p className="text-xs text-muted-foreground" role="status">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold leading-tight tracking-tight">
+                  {filters.q.trim() || activeFilterCount > 0 ? 'Search results' : 'Discover near you'}
+                </h1>
+                {showDiscoverySections ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Find products, meet local shops and explore what's available around you.
+                  </p>
+                ) : null}
+              </div>
+              <p className="shrink-0 text-xs text-muted-foreground" role="status">
                 {copy.browse.resultsFound(data.total, data.pageCount > 1 ? { page: data.page, pageCount: data.pageCount } : undefined)}
               </p>
             </div>
             {showDiscoverySections ? (
               <>
-                {renderListingGrid(data.items.slice(0, 6), true)}
+                {discoveryFeedItems.length > 0 ? (
+                  <section className="min-w-0 space-y-2" aria-labelledby="local-finds-heading">
+                    <div className="flex items-center justify-between gap-2">
+                      <h2 id="local-finds-heading" className="text-base font-semibold tracking-tight">Fresh local finds</h2>
+                      <span className="text-[11px] text-muted-foreground">Recently listed around you</span>
+                    </div>
+                    {renderListingGrid(discoveryFeedItems.slice(0, 6), true)}
+                  </section>
+                ) : null}
                 <ExploreShopsSection
                   shops={discoveryShops}
                   loading={discoveryQuery.isLoading}
                   onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
                 />
-                {data.items.length > 6 ? renderListingGrid(data.items.slice(6, 12)) : null}
+                {discoveryFeedItems.length > 6 ? (
+                  <section className="min-w-0 space-y-2" aria-labelledby="more-local-heading">
+                    <div className="flex items-center justify-between gap-2">
+                      <h2 id="more-local-heading" className="text-base font-semibold tracking-tight">More from nearby sellers</h2>
+                      <span className="text-[11px] text-muted-foreground">Keep exploring</span>
+                    </div>
+                    {renderListingGrid(discoveryFeedItems.slice(6))}
+                  </section>
+                ) : null}
                 <ExploreShowroomsSection
                   shops={discoveryQuery.data?.shops ?? []}
                   onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
                 />
-                {data.items.length > 12 ? renderListingGrid(data.items.slice(12)) : null}
                 <SpecialOffersSection
-                  items={data.items.filter((item) => item.type === 'OFFER' && item.compareAtPrice !== null && item.price !== null && item.compareAtPrice > item.price)}
+                  items={specialOfferItems}
                   shopLabels={shopLabels}
                   distanceLabels={distanceLabels}
                   onOpen={(id) => navigate({ name: 'listing', id })}
@@ -727,6 +768,8 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
     [origin, shop],
   )
 
+  if (!shop && !shopQuery.isLoading) return null
+
   return (
     <aside className="hidden lg:block" aria-label="Featured shop from your results">
       {shop ? (
@@ -767,20 +810,7 @@ function FeaturedShopPanel({ items }: { items: ListingsPage['items'] }) {
         </div>
       ) : shopId && shopQuery.isLoading ? (
         <div className="h-64 animate-pulse rounded-lg border bg-muted/40" role="status" aria-label="Loading featured shop" />
-      ) : shopId && shopQuery.isError ? (
-        <div className="rounded-lg border bg-card p-4" role="status">
-          <p className="text-sm font-medium">{copy.browse.featuredShop}</p>
-          <p className="mt-1 text-sm text-muted-foreground">This shop could not be loaded just now.</p>
-          <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => { void shopQuery.refetch() }}>
-            Try again
-          </Button>
-        </div>
-      ) : (
-        <div className="rounded-lg border bg-card p-4">
-          <p className="text-sm font-medium">{copy.browse.featuredShop}</p>
-          <p className="mt-1 text-sm text-muted-foreground">No eligible shop appears in these results yet.</p>
-        </div>
-      )}
+      ) : null}
     </aside>
   )
 }
