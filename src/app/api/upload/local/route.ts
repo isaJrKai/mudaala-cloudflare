@@ -1,7 +1,7 @@
 // Authenticated same-origin photo upload. Image bytes are validated and moderated
 // before storage, avoiding browser-to-storage cross-origin transfers.
 // Photo upload - the ONLY way images enter Mudaala.
-// requireUser: uploads are a seller action, buyers never need this.
+// requireSeller: uploads are a seller action, buyers never need this.
 // Trust is decided by magic bytes, never by the filename a client claims -
 // "evil.png" that is really text (or worse) is rejected before it is decoded.
 // Accepted JPEG, PNG and WebP uploads are validated by magic bytes before
@@ -13,7 +13,7 @@
 // the STORAGE_* environment variables. The route itself never knows which.
 
 import { randomBytes } from 'node:crypto'
-import { ApiError, route, jsonOk, requireUser } from '@/lib/api'
+import { ApiError, route, jsonOk, requireSeller } from '@/lib/api'
 import { hit, UPLOAD_HOUR_MAX, UPLOAD_WINDOW_MS } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
 import { chooseStorage, S3Storage } from '@/lib/storage'
@@ -125,7 +125,7 @@ function concatBytes(parts: Uint8Array[]): Uint8Array {
 
 export async function POST(request: Request) {
     return route(async () => {
-    const user = await requireUser('Sign in to upload photos')
+    const user = await requireSeller('Sign in to upload photos')
 
     // 30 photos per user per hour: a whole catalogue shoot in a sitting is
     // fine; bulk-filling the disk is not. The IP bucket rides beside it so
