@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, Bookmark, Compass, LayoutDashboard, Package, Plus, Settings, Store, Tag } from 'lucide-react'
+import { Bell, Bookmark, Compass, LayoutDashboard, Package, Plus, Settings, Store } from 'lucide-react'
 import { useAppStore, type ViewName } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { useBellShake } from '@/hooks/use-bell-shake'
@@ -43,15 +43,15 @@ export function BottomNav() {
     { name: 'business', label: 'Overview', icon: <LayoutDashboard aria-hidden /> },
     { name: 'my-listings', label: 'Products', icon: <Package aria-hidden /> },
     { name: 'publish', label: 'Add', icon: <Plus aria-hidden /> },
-    { name: 'shop', label: 'Shop', icon: <Store aria-hidden />, destinationId: user?.id },
+    { name: 'account', label: 'Shop profile', icon: <Store aria-hidden /> },
     { name: 'settings', label: 'Settings', icon: <Settings aria-hidden /> },
   ]
 
   const items = workspace ? workspaceItems : publicItems
 
   function isActive(item: NavItem): boolean {
+    if (item.name === 'browse' && ['browse', 'listing', 'shop'].includes(view.name)) return true
     if (item.name === 'my-listings' && view.name === 'edit') return true
-    if (item.name === 'shop' && view.name === 'account') return true
     return view.name === item.name
   }
 
