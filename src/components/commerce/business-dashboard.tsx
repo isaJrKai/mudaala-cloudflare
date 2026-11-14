@@ -1,20 +1,19 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowRight,
-  BarChart3,
   Camera,
   Eye,
   Package,
   PlusCircle,
   Settings2,
+  ChevronDown,
   Store,
   TrendingUp,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiGet, apiPost, type BusinessProfileT, type Listing } from '@/lib/client'
 import { useAppStore } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
@@ -37,16 +36,16 @@ function MetricCard({
   icon: React.ReactNode
 }) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-        <span className="text-muted-foreground">{icon}</span>
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-bold tabular-nums">{value}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{note}</p>
-      </CardContent>
-    </Card>
+    <div className="flex min-w-0 items-start gap-3 px-4 py-4 sm:px-5">
+      <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <p className="mt-0.5 text-2xl font-semibold tracking-tight tabular-nums text-foreground">{value}</p>
+        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{note}</p>
+      </div>
+    </div>
   )
 }
 
@@ -54,6 +53,7 @@ export function BusinessDashboard() {
   const { user, isLoading: sessionLoading } = useSession()
   const { navigate, setAuthOpen } = useAppStore()
   const userId = user?.id
+  const [moreToolsOpen, setMoreToolsOpen] = useState(false)
 
   useEffect(() => {
     if (!userId) return
@@ -112,7 +112,7 @@ export function BusinessDashboard() {
     return (
       <div className="space-y-4" aria-busy="true" aria-label="Loading your business">
         <Skeleton className="h-9 w-56" />
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-3">
           {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-28" />)}
         </div>
         <Skeleton className="h-48" />
@@ -154,125 +154,154 @@ export function BusinessDashboard() {
   const profile = profileQuery.data?.profile ?? null
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-medium text-primary">Your workspace</p>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">My business</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {profile?.businessName?.trim() || user.name}. Keep track of your listings and how people find them.
+    <div className="space-y-7 sm:space-y-8">
+      <header className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Your workspace</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">My business</h1>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
+            {profile?.businessName?.trim() || user.name}. Manage your shop, keep products current and see where customers show interest.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => navigate({ name: 'account' })}>
-            <Settings2 className="mr-2 size-4" aria-hidden /> Shop profile
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button variant="outline" className="h-10" onClick={() => navigate({ name: 'shop', id: user.id })}>
+            <Store className="mr-2 size-4" aria-hidden /> View shop
           </Button>
-          <Button onClick={() => navigate({ name: 'publish' })}>
-            <PlusCircle className="mr-2 size-4" aria-hidden /> Post a product
+          <Button className="mudaala-money-cta h-10" onClick={() => navigate({ name: 'publish' })}>
+            <PlusCircle className="mr-2 size-4" aria-hidden /> Add a product
           </Button>
         </div>
       </header>
 
       {profileQuery.isError ? (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm">
           Your listing data loaded, but shop profile details could not be checked. <Button variant="link" className="h-auto p-0" onClick={() => void profileQuery.refetch()}>Try again</Button>
         </div>
       ) : null}
 
-      <section aria-label="Business overview" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Active listings" value={String(stats.active)} note="Products or services currently listed" icon={<Package className="size-4" aria-hidden />} />
-        <MetricCard label="Listing views" value={stats.views.toLocaleString()} note="Views recorded on your listings" icon={<Eye className="size-4" aria-hidden />} />
-        <MetricCard label="Marked fulfilled" value={String(stats.fulfilled)} note="Listings you marked fulfilled, not verified sales" icon={<TrendingUp className="size-4" aria-hidden />} />
-        <MetricCard label="Expiring soon" value={String(stats.expiring)} note="Active listings expiring in 7 days" icon={<BarChart3 className="size-4" aria-hidden />} />
+      <section aria-label="Business overview" className="overflow-hidden rounded-2xl border border-border/80 bg-card">
+        <div className="grid divide-y divide-border/70 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <MetricCard label="Active listings" value={String(stats.active)} note="Products and services currently live" icon={<Package className="size-4" aria-hidden />} />
+          <MetricCard label="Listing views" value={stats.views.toLocaleString()} note="Views recorded across your listings" icon={<Eye className="size-4" aria-hidden />} />
+          <MetricCard label="Marked fulfilled" value={String(stats.fulfilled)} note="Marked by you, not verified sales" icon={<TrendingUp className="size-4" aria-hidden />} />
+        </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.8fr)]">
-        <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-3">
+      {stats.expiring > 0 ? (
+        <section className="flex flex-col gap-3 rounded-xl border border-amber-300/60 bg-amber-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:bg-amber-950/20" aria-label="Listings needing attention">
+          <div>
+            <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
+              {stats.expiring} {stats.expiring === 1 ? 'listing is' : 'listings are'} expiring within 7 days
+            </p>
+            <p className="mt-0.5 text-xs text-amber-900/80 dark:text-amber-100/70">Review them and refresh anything you still have available.</p>
+          </div>
+          <Button variant="outline" size="sm" className="h-9 shrink-0 border-amber-700/30 bg-background/70" onClick={() => navigate({ name: 'my-listings' })}>
+            Review products <ArrowRight className="ml-1 size-3.5" aria-hidden />
+          </Button>
+        </section>
+      ) : null}
+
+      <section className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.8fr)]">
+        <div className="min-w-0 rounded-2xl border border-border/80 bg-card">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/70 px-4 py-4 sm:px-5">
             <div>
-              <CardTitle>Products getting attention</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">Ranked by recorded listing views. Views show interest, not sales.</p>
+              <h2 className="text-base font-semibold tracking-tight">Products getting attention</h2>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Sorted by recorded listing views. Views show interest, not sales.</p>
             </div>
-            <Button variant="outline" size="sm" className="shrink-0" onClick={() => navigate({ name: 'my-listings' })}>
-              All listings <ArrowRight className="ml-1 size-3.5" aria-hidden />
+            <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={() => navigate({ name: 'my-listings' })}>
+              All products <ArrowRight className="ml-1 size-3.5" aria-hidden />
             </Button>
-          </CardHeader>
-          <CardContent>
+          </div>
+          <div className="px-4 sm:px-5">
             {popularListings.length === 0 ? (
-              <div className="rounded-md border border-dashed p-6 text-center">
-                <Package className="mx-auto size-7 text-muted-foreground" aria-hidden />
-                <p className="mt-2 text-sm font-medium">Your first product starts here</p>
-                <p className="mt-1 text-sm text-muted-foreground">Post a product or service to start building your catalogue.</p>
-                <Button className="mt-3" onClick={() => navigate({ name: 'publish' })}>Post a product</Button>
+              <div className="py-10 text-center">
+                <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-secondary text-primary">
+                  <Package className="size-5" aria-hidden />
+                </span>
+                <p className="mt-3 text-sm font-semibold">Your first product starts here</p>
+                <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">Add a product or service so nearby customers can find your shop.</p>
+                <Button className="mudaala-money-cta mt-4" onClick={() => navigate({ name: 'publish' })}>Add your first product</Button>
               </div>
             ) : (
-              <div className="divide-y">
+              <div className="divide-y divide-border/70">
                 {popularListings.map((listing) => (
                   <button
                     key={listing.id}
                     type="button"
                     onClick={() => navigate({ name: 'edit', id: listing.id })}
-                    className="flex w-full items-center gap-3 py-3 text-left hover:bg-accent/40"
+                    className="flex w-full items-center gap-3 py-3.5 text-left transition-colors hover:bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                   >
-                    <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-                      {listing.photos[0] ? <img src={listing.photos[0]} alt="" className="size-full object-cover" /> : <Package className="size-4 text-muted-foreground" aria-hidden />}
+                    <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary">
+                      {listing.photos[0] ? <img src={listing.photos[0]} alt="" loading="lazy" className="size-full object-cover" /> : <Package className="size-4 text-muted-foreground" aria-hidden />}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">{listing.title}</span>
-                      <span className="block text-xs text-muted-foreground">{listing.status === 'ACTIVE' ? 'Active listing' : listing.status.toLowerCase().replace(/_/g, ' ')}</span>
+                      <span className="mt-0.5 block text-xs capitalize text-muted-foreground">{listing.status === 'ACTIVE' ? 'Live listing' : listing.status.toLowerCase().replace(/_/g, ' ')}</span>
                     </span>
-                    <span className="flex shrink-0 items-center gap-1 text-sm tabular-nums text-muted-foreground"><Eye className="size-3.5" aria-hidden /> {listing.viewCount.toLocaleString()}</span>
+                    <span className="flex shrink-0 items-center gap-1.5 text-sm tabular-nums text-muted-foreground">
+                      <Eye className="size-3.5" aria-hidden /> {listing.viewCount.toLocaleString()}
+                    </span>
                   </button>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Store className="size-4" aria-hidden /> Your shop</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="font-medium">{profile?.businessName?.trim() || user.name}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{profile ? 'Your public shop profile' : 'Finish setting up your public shop profile.'}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={() => navigate({ name: 'account' })}>Edit shop details</Button>
-                <Button variant="outline" size="sm" onClick={() => navigate({ name: 'shop', id: user.id })}>View public shop</Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Camera className="size-4" aria-hidden /> Take photos buyers can trust</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <ul className="list-disc space-y-1.5 pl-4 text-sm text-muted-foreground">
-                <li>Use daylight and a simple background.</li>
-                <li>Show the whole item; add a close-up for important details.</li>
-                <li>For food and drinks, show the real portion and state the unit, such as per cup, bottle or piece.</li>
-                <li>For used items, show wear honestly. Avoid filters that change the product's colour.</li>
-              </ul>
-              <p className="text-xs text-muted-foreground">When posting, take a photo with your phone or choose one from your gallery. Mudaala resizes photos and removes embedded location metadata before upload.</p>
-              <Button variant="outline" size="sm" className="w-full" onClick={() => navigate({ name: 'publish' })}>
-                <Camera className="mr-2 size-4" aria-hidden /> Post with a photo
-              </Button>
-            </CardContent>
-          </Card>
+          </div>
         </div>
+
+        <aside className="space-y-4">
+          <section className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base font-semibold">Your shop</h2>
+              <Store className="size-4 text-primary" aria-hidden />
+            </div>
+            <p className="mt-3 text-lg font-semibold tracking-tight">{profile?.businessName?.trim() || user.name}</p>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              {profile ? 'Your public shop profile is ready to review.' : 'Add your shop details so customers know who they are contacting.'}
+            </p>
+            <div className="mt-4 flex flex-col gap-2">
+              <Button variant="outline" className="w-full" onClick={() => navigate({ name: 'account' })}>
+                <Settings2 className="mr-2 size-4" aria-hidden /> Edit shop details
+              </Button>
+              <Button variant="ghost" className="w-full" onClick={() => navigate({ name: 'shop', id: user.id })}>
+                View public shop <ArrowRight className="ml-2 size-4" aria-hidden />
+              </Button>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-border/80 bg-secondary/35 p-4 sm:p-5">
+            <div className="flex items-center gap-2">
+              <Camera className="size-4 text-primary" aria-hidden />
+              <h2 className="text-sm font-semibold">Make product photos useful</h2>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Use daylight, show the whole item and photograph real condition. Clear photos help buyers decide whether to contact you.</p>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">Mudaala resizes uploaded photos and removes embedded location metadata.</p>
+          </section>
+        </aside>
       </section>
 
-      <ProductCollectionsManager />
+      <section className="overflow-hidden rounded-2xl border border-border/80 bg-card">
+        <button
+          type="button"
+          aria-expanded={moreToolsOpen}
+          onClick={() => setMoreToolsOpen((open) => !open)}
+          className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left transition-colors hover:bg-secondary/40 sm:px-5"
+        >
+          <span>
+            <span className="block text-sm font-semibold">More business tools</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">Product collections, deeper insights and business records</span>
+          </span>
+          <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${moreToolsOpen ? 'rotate-180' : ''}`} aria-hidden />
+        </button>
+        {moreToolsOpen ? (
+          <div className="space-y-6 border-t border-border/70 p-4 sm:p-5">
+            <ProductCollectionsManager />
+            <BusinessInsightsPanel />
+            <BusinessRecordsPanel />
+          </div>
+        ) : null}
+      </section>
 
-      <BusinessInsightsPanel />
-
-      <BusinessRecordsPanel />
-
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs leading-relaxed text-muted-foreground">
         These figures come from your current listing records. They are not ad impressions, unique people reached, confirmed orders or profit.
       </p>
     </div>
