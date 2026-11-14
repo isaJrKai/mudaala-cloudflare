@@ -6,7 +6,7 @@ import { useSession } from '@/hooks/use-session'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-const WORKSPACE_VIEWS: ViewName[] = ['business', 'my-listings', 'publish', 'edit', 'account', 'settings']
+const WORKSPACE_VIEWS: ViewName[] = ['business', 'my-listings', 'edit', 'account', 'settings']
 
 export function isMerchantWorkspaceView(name: ViewName): boolean {
   return WORKSPACE_VIEWS.includes(name)
