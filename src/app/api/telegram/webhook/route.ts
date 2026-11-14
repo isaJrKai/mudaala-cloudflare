@@ -39,6 +39,53 @@ async function sendMessage(chatId: number, text: string): Promise<void> {
   if (!result.ok) throw new Error('Telegram rejected sendMessage')
 }
 
+async function readBoundedBody(request: Request, maxBytes: number): Promise<string> {
+  if (!request.body) return ''
+  const reader = request.body.getReader()
+  const decoder = new TextDecoder()
+  let total = 0
+  let body = ''
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => undefined)
+        throw new ApiError(413, 'Payload too large')
+      }
+      body += decoder.decode(value, { stream: true })
+    }
+    body += decoder.decode()
+    return body
+  } finally {
+    reader.releaseLock()
+  }
+}
+
+// AppSetting is also used by unrelated application features. Keep Telegram
+// housekeeping narrowly scoped and bounded so webhook traffic cannot trigger
+// an unbounded table scan or delete another feature's settings.
+async function cleanupTelegramRecords(): Promise<void> {
+  const now = Date.now()
+  const staleUpdates = await db.appSetting.findMany({
+    where: { key: { startsWith: 'telegram:update:' }, updatedAt: { lt: new Date(now - 48 * 60 * 60 * 1000) } },
+    select: { key: true },
+    take: 100,
+  })
+  if (staleUpdates.length) {
+    await db.appSetting.deleteMany({ where: { key: { in: staleUpdates.map((item) => item.key) } } })
+  }
+  const staleCodes = await db.appSetting.findMany({
+    where: { key: { startsWith: 'telegram:link-code:' }, updatedAt: { lt: new Date(now - 60 * 60 * 1000) } },
+    select: { key: true },
+    take: 100,
+  })
+  if (staleCodes.length) {
+    await db.appSetting.deleteMany({ where: { key: { in: staleCodes.map((item) => item.key) } } })
+  }
+}
+
 async function handleMessage(message: TelegramMessage): Promise<void> {
   const chatId = message.chat?.id
   const telegramUserId = message.from?.id
@@ -158,12 +205,16 @@ export async function POST(request: Request) {
       throw new ApiError(401, 'Unauthorized')
     }
     const contentLength = Number(request.headers.get('content-length') || 0)
-    if (contentLength > 64 * 1024) throw new ApiError(413, 'Payload too large')
-    const raw = await request.text()
-    if (raw.length > 64 * 1024) throw new ApiError(413, 'Payload too large')
+    if (Number.isFinite(contentLength) && contentLength > 64 * 1024) throw new ApiError(413, 'Payload too large')
+    const raw = await readBoundedBody(request, 64 * 1024)
     let update: TelegramUpdate
     try { update = JSON.parse(raw) as TelegramUpdate } catch { throw new ApiError(400, 'Invalid update') }
     if (!Number.isSafeInteger(update.update_id) || !update.message) return jsonOk({ ok: true })
+    if (update.update_id % 100 === 0) {
+      await cleanupTelegramRecords().catch((error) => {
+        console.error('[telegram] housekeeping failed:', error instanceof Error ? error.name : 'unknown error')
+      })
+    }
     const updateKey = 'telegram:update:' + update.update_id
     try {
       // Reserve the update before sending a reply so parallel Telegram retries
