@@ -20,7 +20,8 @@ async function inspectRoute(browser, width, route) {
       const resultsGrid = page.getByTestId('listing-results-grid');
       await resultsGrid.waitFor({ state: 'visible', timeout: 15000 });
       const columns = await resultsGrid.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length);
-      // Browse intentionally stays two columns until Tailwind's 2xl breakpoint.\n      const expectedColumns = width < 1536 ? 2 : 3;
+      // Browse intentionally stays two columns until Tailwind's 2xl breakpoint.
+      const expectedColumns = width < 1536 ? 2 : 3;
       if (columns !== expectedColumns) {
         throw new Error(JSON.stringify({ route, viewport: width, expectedColumns, actualColumns: columns }));
       }
