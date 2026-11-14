@@ -721,7 +721,7 @@ async function verifyMobileCart(browser) {
     await cartSheet.getByRole('button', { name: /close the cart/i }).click();
     await cartSheet.waitFor({ state: 'hidden', timeout });
 
-    const post = page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Post' });
+    const post = page.getByRole('navigation', { name: 'Marketplace navigation' }).getByRole('button', { name: 'Post' });
     await post.waitFor({ state: 'visible', timeout });
     await post.click({ timeout });
     await page.waitForFunction(() => window.location.hash === '#/publish', null, { timeout });
