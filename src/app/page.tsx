@@ -7,6 +7,7 @@ import { BottomNav } from '@/components/commerce/bottom-nav'
 import { AuthDialog } from '@/components/commerce/auth-dialog'
 import { ShopSetupDialog } from '@/components/commerce/shop-setup-dialog'
 import { SiteFooter } from '@/components/commerce/site-footer'
+import { RailShell } from '@/components/commerce/cart-dock'
 import { useAppStore } from '@/lib/store'
 
 function CommerceFrame() {
@@ -17,7 +18,7 @@ function CommerceFrame() {
     <>
       <AppSidebar />
       <AppHeader />
-      <div className={workspace ? 'lg:ml-60' : undefined}>
+      <RailShell workspace={workspace}>
         <main
           className={[
             'mx-auto w-full flex-1 px-4 pb-28 pt-5 sm:px-6 sm:pt-7 lg:px-8 lg:pb-10',
@@ -27,7 +28,7 @@ function CommerceFrame() {
           <CurrentView />
         </main>
         <SiteFooter padded />
-      </div>
+      </RailShell>
       <BottomNav />
       <AuthDialog />
       <ShopSetupDialog />
