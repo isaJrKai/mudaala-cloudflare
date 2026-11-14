@@ -81,6 +81,13 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       await sendMessage(chatId, 'The Mudaala account for that code could not be found. Generate a new code.')
       return
     }
+    // Consume the one-time code before creating the account mapping. A concurrent
+    // webhook delivery can therefore win only once.
+    const consumed = await db.appSetting.deleteMany({ where: { key } })
+    if (consumed.count !== 1) {
+      await sendMessage(chatId, 'That code has already been used. Generate a new one in your Mudaala Account.')
+      return
+    }
     const mappingKey = telegramKey(telegramUserId)
     const existing = await db.appSetting.findUnique({ where: { key: mappingKey } })
     if (existing) {
@@ -96,7 +103,6 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       create: { key: mappingKey, value: JSON.stringify({ userId: user.id, linkedAt: new Date().toISOString() }) },
       update: { value: JSON.stringify({ userId: user.id, linkedAt: new Date().toISOString() }) },
     })
-    await db.appSetting.deleteMany({ where: { key } })
     await sendMessage(chatId, 'Connected successfully to ' + (user.profile?.businessName || user.name) + '.\n\nSend /shop to get your shop link or /products to see active products.')
     return
   }
@@ -159,14 +165,24 @@ export async function POST(request: Request) {
     try { update = JSON.parse(raw) as TelegramUpdate } catch { throw new ApiError(400, 'Invalid update') }
     if (!Number.isSafeInteger(update.update_id) || !update.message) return jsonOk({ ok: true })
     const updateKey = 'telegram:update:' + update.update_id
-    if (await db.appSetting.findUnique({ where: { key: updateKey } })) return jsonOk({ ok: true })
-    const chatId = update.message.chat?.id
-    if (chatId) {
-      const verdict = await hit('telegram:chat:' + chatId, 30, 60 * 1000)
-      if (!verdict.ok) return jsonOk({ ok: true })
+    try {
+      // Reserve the update before sending a reply so parallel Telegram retries
+      // cannot execute the same command twice.
+      await db.appSetting.create({ data: { key: updateKey, value: new Date().toISOString() } })
+    } catch {
+      return jsonOk({ ok: true }) // already processed or currently being processed
     }
-    await handleMessage(update.message)
-    await db.appSetting.create({ data: { key: updateKey, value: new Date().toISOString() } }).catch(() => undefined)
-    return jsonOk({ ok: true })
+    try {
+      const chatId = update.message.chat?.id
+      if (chatId) {
+        const verdict = await hit('telegram:chat:' + chatId, 30, 60 * 1000)
+        if (!verdict.ok) return jsonOk({ ok: true })
+      }
+      await handleMessage(update.message)
+      return jsonOk({ ok: true })
+    } catch (error) {
+      await db.appSetting.deleteMany({ where: { key: updateKey } }).catch(() => undefined)
+      throw error
+    }
   })
 }
