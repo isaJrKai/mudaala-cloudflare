@@ -27,8 +27,8 @@ The helper sets `https://mudaala.store/api/telegram/webhook`, enables only messa
 3. Open [@MudaalaMerchantbot](https://t.me/MudaalaMerchantbot) and send `/link CODE`.
 4. Use `/shop` or `/products`.
 
-The code is random, stored only as a SHA-256 digest, single-use and short-lived. Telegram user IDs are hashed before database keys are created. Only private chats are accepted.
+The code is random, stored only as a SHA-256 digest, single-use and short-lived. Telegram user IDs are hashed before database keys are created. Only private chats are accepted. The webhook verifies Telegram's secret header, enforces a 64 KiB streaming request-body limit, deduplicates update IDs, rate-limits chat traffic and periodically removes old Telegram-only link-code and update-marker records.
 
 ## Follow-up work
 
-The link-code API is ready for the Account UI integration. Disconnect/relink controls and product creation/editing/photo upload are later slices. Do not enable listing creation in Telegram by writing directly to Prisma; route it through the existing validated listing and photo-moderation services.
+The Account UI includes the one-time code generation and copy flow. Disconnect/relink controls and product creation/editing/photo upload are later slices. Do not enable listing creation in Telegram by writing directly to Prisma; route it through the existing validated listing and photo-moderation services.
