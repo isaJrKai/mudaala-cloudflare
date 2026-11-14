@@ -92,6 +92,8 @@ const savedSearches = [
 
 async function main() {
   console.log('Seeding Mudaala development fixtures…')
+  await db.chatMessage.deleteMany()
+  await db.conversation.deleteMany()
   await db.notification.deleteMany()
   await db.savedSearch.deleteMany()
   await db.listing.deleteMany()
@@ -122,10 +124,11 @@ async function main() {
     createdUsers.push(user)
   }
 
+  const seededListings: { id: string }[] = []
   for (const l of listings) {
     const refreshedAt = hoursAgo(l.refreshedHoursAgo)
     const expiresAt = new Date(refreshedAt.getTime() + (l.expiresInDaysOverride !== undefined ? l.expiresInDaysOverride : LISTING_ACTIVE_DAYS) * 86_400_000)
-    await db.listing.create({
+    seededListings.push(await db.listing.create({
       data: {
         userId: createdUsers[l.ownerIdx].id,
         type: l.type,
@@ -153,7 +156,7 @@ async function main() {
         refreshedAt,
         expiresAt,
       },
-    })
+    }))
   }
 
   // Saved searches with honestly computed match counts (same rules as the API).
@@ -181,6 +184,61 @@ async function main() {
       },
     })
     console.log(`  saved search "${s.name}": ${total} real matches`)
+  }
+
+  // Buyer-seller chat fixtures. Two conversations covering the visible
+  // states: one with a read exchange and a fresh counter-offer (delivered,
+  // not yet read), one brand-new unread inquiry. Timestamps are real so the
+  // inbox orders and renders exactly as production would.
+  const chatFixtures = [
+    {
+      buyerIdx: 2, // Jinja Hardware Centre buys produce for its canteen
+      sellerIdx: 0, // Nakato Fresh Produce
+      listingIdx: 0, // FRESH MATOOKE from Mpigi
+      messages: [
+        { from: 'buyer' as const, body: 'Good morning! Is the matooke still available? I need 20 bunches for Friday.', hoursAgo: 26, delivered: true, read: true },
+        { from: 'seller' as const, body: 'Yes, fresh from this morning. 20 bunches at USh 18,000 each. Friday delivery to Jinja is USh 20,000 extra.', hoursAgo: 25, delivered: true, read: true },
+        { from: 'buyer' as const, body: 'That works. Can we do USh 17,000 each for 20 bunches? I can pay mobile money today.', hoursAgo: 2, delivered: true, read: false },
+      ],
+    },
+    {
+      buyerIdx: 4, // Mbale Flour Millers needs eggs for staff
+      sellerIdx: 0,
+      listingIdx: 1, // Grade A eggs in crates of 30
+      messages: [
+        { from: 'buyer' as const, body: 'Do you deliver 50 crates of eggs to Mbale weekly? What is the transport cost?', hoursAgo: 0.7, delivered: true, read: false },
+      ],
+    },
+  ]
+  for (const fixture of chatFixtures) {
+    const buyer = createdUsers[fixture.buyerIdx]
+    const seller = createdUsers[fixture.sellerIdx]
+    const listing = seededListings[fixture.listingIdx]
+    const sent = (h: number) => hoursAgo(h)
+    const conversation = await db.conversation.create({
+      data: {
+        buyerId: buyer.id,
+        sellerId: seller.id,
+        listingId: listing.id,
+        lastMessagePreview: fixture.messages[fixture.messages.length - 1]!.body.slice(0, 120),
+        lastMessageAt: sent(fixture.messages[fixture.messages.length - 1]!.hoursAgo),
+        isSeed: true,
+      },
+    })
+    for (const m of fixture.messages) {
+      const sender = m.from === 'buyer' ? buyer : seller
+      const sentAt = sent(m.hoursAgo)
+      await db.chatMessage.create({
+        data: {
+          conversationId: conversation.id,
+          senderId: sender.id,
+          body: m.body,
+          sentAt,
+          deliveredAt: m.delivered ? sentAt : null,
+          readAt: m.read ? sentAt : null,
+        },
+      })
+    }
   }
 
   const counts = {

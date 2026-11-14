@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Settings, LogOut, User, BadgeCheck, Bookmark, Store, Bell, Package } from 'lucide-react'
+import { Settings, LogOut, User, BadgeCheck, Bookmark, Store, Bell, MessageSquare, Package } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { useSession, useSignOut } from '@/hooks/use-session'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast'
 import { basketCount, basketUnits, basketFillLevel, useBasket } from '@/lib/basket'
 import { copy } from '@/lib/copy'
 import { apiGet } from '@/lib/client'
+import type { ChatUnreadCountResponse } from '@/lib/client'
 import { BasketGlyph } from './basket-icon'
 
 export function AppHeader() {
@@ -41,6 +42,15 @@ export function AppHeader() {
     refetchIntervalInBackground: false,
   })
   const unread = user ? (notificationsQuery.data?.unreadCount ?? 0) : 0
+
+  const chatUnreadQuery = useQuery({
+    queryKey: ['chat', 'unread-count'],
+    enabled: Boolean(user),
+    queryFn: () => apiGet<ChatUnreadCountResponse>('/api/chat/unread-count'),
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
+  })
+  const chatUnread = user ? (chatUnreadQuery.data?.unreadCount ?? 0) : 0
 
   // Pop + badge bump fire only when the count GROWS during this visit -
   // never on first render (a page reload with a saved basket must not look
@@ -114,6 +124,15 @@ export function AppHeader() {
             <>
               <button type="button" onClick={() => navigate({ name: "browse" })} aria-current={view.name === "browse" || view.name === "listing" || view.name === "shop" ? "page" : undefined} className={cn("rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary", view.name === "browse" || view.name === "listing" || view.name === "shop" ? "text-primary" : "text-muted-foreground hover:text-foreground")}>Explore</button>
               <button type="button" onClick={() => navigate({ name: "saved" })} aria-current={view.name === "saved" ? "page" : undefined} className={cn("rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary", view.name === "saved" ? "text-primary" : "text-muted-foreground hover:text-foreground")}>Saved</button>
+              <button
+                type="button"
+                onClick={() => (user ? navigate({ name: "messages" }) : setAuthOpen(true))}
+                aria-current={view.name === "messages" ? "page" : undefined}
+                className={cn("rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary", view.name === "messages" ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+              >
+                Chats
+                {chatUnread > 0 ? <span className="ml-1 rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-white">{chatUnread > 9 ? '9+' : chatUnread}</span> : null}
+              </button>
               <button type="button" onClick={() => navigate({ name: "business" })} aria-current={view.name === "business" ? "page" : undefined} className={cn("rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary", view.name === "business" ? "text-primary" : "text-muted-foreground hover:text-foreground")}>My Business</button>
               <Button size="sm" className="mudaala-money-cta ml-2 h-10 px-4" onClick={() => navigate({ name: "publish" })}>Post an ad</Button>
             </>
@@ -121,6 +140,21 @@ export function AppHeader() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          {user ? (
+            <button
+              type="button"
+              onClick={() => navigate({ name: 'messages' })}
+              aria-label={chatUnread > 0 ? `Chats, ${chatUnread} unread` : 'Chats'}
+              aria-current={view.name === 'messages' ? 'page' : undefined}
+              className={cn(
+                'press relative hidden size-10 items-center justify-center rounded-lg lg:inline-flex',
+                view.name === 'messages' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+              )}
+            >
+              <MessageSquare className="size-[18px]" aria-hidden />
+              {chatUnread > 0 ? <span className="absolute right-1 top-1 size-2 rounded-full bg-destructive ring-2 ring-background" aria-hidden /> : null}
+            </button>
+          ) : null}
           {user ? (
             <button
               type="button"
@@ -184,6 +218,7 @@ export function AppHeader() {
                 <DropdownMenuItem onClick={() => navigate({ name: "business" })}><Store className="size-4" aria-hidden /> My Business</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ name: "my-listings" })}><Package className="size-4" aria-hidden /> My products</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ name: "notifications" })}><Bell className="size-4" aria-hidden /> Alerts</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate({ name: "messages" })}><MessageSquare className="size-4" aria-hidden /> Chats</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ name: "home" })}><User className="size-4" aria-hidden /> My activity</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate({ name: "saved" })}><Bookmark className="size-4" aria-hidden /> Saved</DropdownMenuItem>

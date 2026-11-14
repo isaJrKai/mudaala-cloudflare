@@ -35,6 +35,8 @@ bun run dev                    # dev mode (dev.sh carries the FRAME_ANCESTORS fi
 # FRAME_ANCESTORS/NEXT_PUBLIC_APP_URL before `npm run build`, not just at start):
 export NEXT_PUBLIC_APP_URL="https://<your-preview-host>"
 export CI=true                 # src/lib/db.ts local-Node fallback
+export RATE_LIMIT_ALLOW_MEMORY=1  # standalone preview: no DO binding/Redis —
+                                  # without this sign-in/chat 503 by design
 npm run build
 (cd .next/standalone && NODE_ENV=production CI=true HOSTNAME=0.0.0.0 PORT=3000 node server.js)
 nohup bash .zscripts/preview-keepalive.sh >/dev/null 2>&1 &
@@ -52,7 +54,9 @@ nohup bash .zscripts/preview-keepalive.sh >/dev/null 2>&1 &
   (`.pgtool/start-pg.js`) — never require the package dir by absolute path.
 - **Production env guards (fail closed)**: with `NODE_ENV=production` the app
   refuses to boot without `NEXT_PUBLIC_APP_URL`, `ADMIN_USER_IDS` and —
-  unless `CI=true` — a HYPERDRIVE binding.
+  unless `CI=true` — a HYPERDRIVE binding. The rate limiter also fails
+  closed in production mode: standalone previews must set
+  `RATE_LIMIT_ALLOW_MEMORY=1` or sign-in/chat return 503.
 - **Next renames its process** to `next-server (vN)` — kill it with
   `pkill -f "[n]ext-server"`, and never `pkill -f` a pattern that also
   appears in your own compound command (it kills your own shell).

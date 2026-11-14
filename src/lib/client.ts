@@ -355,6 +355,53 @@ interface ApiErrorShape {
   fields?: Record<string, string>
 }
 
+// ---- Buyer-seller chat (mirror of the /api/chat responses) ----
+// Delivery states are server timestamps, exactly as stored: sent = the row
+// exists, delivered = the other side fetched the thread, read = the other
+// side had the thread open. `mine` is server-derived so bubble side and
+// ticks never depend on client clock or local user state.
+export interface ChatMessageT {
+  id: string
+  conversationId: string
+  senderId: string
+  body: string
+  sentAt: string
+  deliveredAt: string | null
+  readAt: string | null
+  mine: boolean
+}
+
+export interface ChatConversationT {
+  id: string
+  role: 'buyer' | 'seller'
+  other: { id: string; name: string; shopName: string; photoUrl: string | null }
+  listing: { id: string; title: string } | null
+  lastMessagePreview: string | null
+  lastMessageAt: string
+  unreadCount: number
+}
+
+export interface ChatStartResponse {
+  conversation: ChatConversationT
+}
+
+export interface ChatInboxResponse {
+  conversations: ChatConversationT[]
+}
+
+export interface ChatThreadResponse {
+  conversation: ChatConversationT
+  messages: ChatMessageT[]
+}
+
+export interface ChatSendMessageResponse {
+  message: ChatMessageT
+}
+
+export interface ChatUnreadCountResponse {
+  unreadCount: number
+}
+
 // Typed fetch helpers - a failed request NEVER resolves as success.
 export const apiGet = apiFetch
 export function apiPost<T>(url: string, data?: unknown): Promise<T> {

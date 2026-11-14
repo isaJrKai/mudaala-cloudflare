@@ -59,6 +59,9 @@ model User {
   stockMovements  StockMovement[]
   listingDailyAnalytics ListingDailyAnalytics[]
   shopDailyAnalytics ShopDailyAnalytics[]
+  buyerConversations Conversation[] @relation("BuyerConversations")
+  sellerConversations Conversation[] @relation("SellerConversations")
+  chatMessages ChatMessage[]
 }
 
 // Products a shop can showcase beyond its current stock. These records are
@@ -184,6 +187,7 @@ model Listing {
   businessProducts BusinessProduct[]
   dailyAnalytics ListingDailyAnalytics[]
   collectionItems ProductCollectionItem[]
+  conversations Conversation[]
 }
 
 // Shop-owned curated groups for seasonal edits, new arrivals and themed collections.
@@ -591,4 +595,51 @@ model PolicyViolation {
 
   @@index([userId, reversedAt, createdAt])
   @@index([targetType, targetId])
+}
+
+
+// Buyer-seller chat. A conversation is a direct line between two accounts,
+// optionally anchored to one listing ("chat about this ad"). In-app transport
+// is polling, per docs/BUYER_SELLER_CHAT.md - no sockets, no queues, nothing
+// new to run. The WhatsApp diagram's delivery states are kept as timestamps:
+// sent = row exists, delivered = the other participant's client fetched the
+// thread, read = the other participant had the thread open.
+model Conversation {
+  id                 String   @id @default(cuid())
+  buyerId            String
+  buyer              User     @relation("BuyerConversations", fields: [buyerId], references: [id], onDelete: Cascade)
+  sellerId           String
+  seller             User     @relation("SellerConversations", fields: [sellerId], references: [id], onDelete: Cascade)
+  listingId          String?
+  listing            Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  // Denormalized for the inbox list - one query renders the whole inbox.
+  lastMessageAt      DateTime @default(now())
+  lastMessagePreview String?
+  // PLACEHOLDER RULE - seed conversations are development fixtures; they die
+  // with their users via cascade, and scripts/remove-seed-data.ts never has
+  // to know about them.
+  isSeed             Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  messages ChatMessage[]
+
+  @@index([buyerId, lastMessageAt])
+  @@index([sellerId, lastMessageAt])
+  @@index([listingId])
+}
+
+model ChatMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body           String
+  sentAt         DateTime     @default(now())
+  deliveredAt    DateTime?
+  readAt         DateTime?
+
+  @@index([conversationId, sentAt])
+  @@index([conversationId, senderId, readAt])
 }

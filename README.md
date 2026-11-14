@@ -1,6 +1,6 @@
 # Mudaala
 
-Mudaala gives small shops in Uganda a simple digital identity and public catalogue. A shop can share its page and products, then customers can discover items and contact the owner directly by phone or WhatsApp. It is **not a checkout marketplace**: no in-app payments, escrow, delivery dispatch, or in-app chat.
+Mudaala gives small shops in Uganda a simple digital identity and public catalogue. A shop can share its page and products, then customers can discover items and contact the owner directly by phone, WhatsApp, or the built-in buyer–seller chat (see `docs/BUYER_SELLER_CHAT.md`). It is **not a checkout marketplace**: no in-app payments, escrow, or delivery dispatch.
 
 ## Production architecture
 

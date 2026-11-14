@@ -14,6 +14,7 @@ import { PublishForm, EditListingForm } from './publish-form'
 import { MyListings } from './my-listings'
 import { SavedSearches } from './saved-searches'
 import { NotificationsView } from './notifications-view'
+import { MessagesView } from './messages-view'
 import { AccountView } from './account-view'
 import { SettingsView } from './settings-view'
 import { ShopFollowBar, FollowingView } from './shop-follow'
@@ -72,6 +73,8 @@ function CurrentViewContent() {
       return <SavedSearches />
     case 'notifications':
       return <NotificationsView />
+    case 'messages':
+      return <MessagesView conversationId={view.id ?? null} />
     case 'account':
       return <AccountView />
     case 'settings':

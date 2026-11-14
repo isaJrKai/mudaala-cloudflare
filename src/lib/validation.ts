@@ -364,6 +364,16 @@ export const adminReportsQuerySchema = z.object({
 })
 
 
+// ---- Buyer-seller chat ----
+export const chatConversationCreateSchema = z.object({
+  sellerId: z.string().trim().min(1, 'Choose a seller to message'),
+  listingId: z.string().trim().min(1).optional().nullable(),
+})
+
+export const chatMessageCreateSchema = z.object({
+  body: z.string().trim().min(1, 'Type a message').max(2000, 'Keep messages under 2000 characters'),
+})
+
 // Deleting the account is the one action that cannot be undone, so the
 // password rides on the request itself - a stolen open tab alone is not enough.
 export const accountDeleteSchema = z.object({

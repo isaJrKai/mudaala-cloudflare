@@ -254,7 +254,16 @@ function resolveActiveStore(): RateLimiterStore {
   }
 
   if (process.env.NODE_ENV === 'production' || process.env.RATE_LIMIT_REQUIRE_SHARED === '1') {
-    return createUnavailableRateLimiter()
+    // Explicit escape hatch for standalone production builds run OUTSIDE the
+    // real Worker - sandbox previews and laptop smoke tests. There the runtime
+    // is local Node with no Durable Object binding and no Redis, so the
+    // fail-closed store would 503 every rate-limited route (including sign-in).
+    // The operator must opt in per environment; the production Worker never
+    // sets this and keeps the fail-closed guarantee.
+    if (process.env.RATE_LIMIT_ALLOW_MEMORY !== '1') {
+      return createUnavailableRateLimiter()
+    }
+    return chooseRateLimiter()
   }
   return chooseRateLimiter()
 }

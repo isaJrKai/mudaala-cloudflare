@@ -1,10 +1,11 @@
 'use client'
 
-import { Bell, Bookmark, Compass, LayoutDashboard, Package, Plus, Settings, Store } from 'lucide-react'
+import { Bell, Bookmark, Compass, LayoutDashboard, MessageSquare, Package, Plus, Settings, Store } from 'lucide-react'
 import { useAppStore, type ViewName } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { useBellShake } from '@/hooks/use-bell-shake'
 import { apiGet } from '@/lib/client'
+import type { ChatUnreadCountResponse } from '@/lib/client'
 import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +30,17 @@ export function BottomNav() {
   const unread = user ? (notificationsQuery.data?.unreadCount ?? 0) : 0
   const bellRef = useBellShake(unread)
 
+  // Chat badge - the direct line between buyers and sellers deserves the
+  // same always-visible count the alerts bell gets.
+  const chatUnreadQuery = useQuery({
+    queryKey: ['chat', 'unread-count'],
+    enabled: Boolean(user),
+    queryFn: () => apiGet<ChatUnreadCountResponse>('/api/chat/unread-count'),
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
+  })
+  const chatUnread = user ? (chatUnreadQuery.data?.unreadCount ?? 0) : 0
+
   const workspace = ['business', 'my-listings', 'edit', 'account', 'settings'].includes(view.name)
 
   const publicItems: NavItem[] = [
@@ -36,6 +48,7 @@ export function BottomNav() {
     { name: 'saved', label: 'Saved', icon: <Bookmark aria-hidden /> },
     { name: 'publish', label: 'Post', icon: <Plus aria-hidden /> },
     { name: 'business', label: 'My Business', icon: <Store aria-hidden /> },
+    { name: 'messages', label: 'Chats', icon: <MessageSquare aria-hidden /> },
     { name: 'notifications', label: 'Alerts', icon: <Bell aria-hidden /> },
   ]
 
@@ -44,6 +57,7 @@ export function BottomNav() {
     { name: 'my-listings', label: 'Products', icon: <Package aria-hidden /> },
     { name: 'publish', label: 'Add', icon: <Plus aria-hidden /> },
     { name: 'account', label: 'Shop profile', icon: <Store aria-hidden /> },
+    { name: 'messages', label: 'Chats', icon: <MessageSquare aria-hidden /> },
     { name: 'settings', label: 'Settings', icon: <Settings aria-hidden /> },
   ]
 
@@ -60,7 +74,7 @@ export function BottomNav() {
       aria-label={workspace ? 'Business workspace navigation' : 'Marketplace navigation'}
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-card pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
-      <div className="mx-auto grid max-w-xl grid-cols-5">
+      <div className="mx-auto grid max-w-xl grid-cols-6">
         {items.map((item) => {
           const active = isActive(item)
           const isPost = item.name === 'publish'
@@ -89,9 +103,9 @@ export function BottomNav() {
                 </span>
               )}
               <span className={cn('max-w-full truncate', isPost && 'font-semibold')}>{item.label}</span>
-              {item.name === 'notifications' && unread > 0 ? (
+              {(item.name === 'notifications' && unread > 0) || (item.name === 'messages' && chatUnread > 0) ? (
                 <span className="absolute right-[20%] top-1.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-semibold text-white">
-                  {unread > 9 ? '9+' : unread}
+                  {item.name === 'notifications' ? (unread > 9 ? '9+' : unread) : chatUnread > 9 ? '9+' : chatUnread}
                 </span>
               ) : null}
             </button>

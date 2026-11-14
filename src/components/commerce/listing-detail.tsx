@@ -5,13 +5,13 @@
 // pickup), and direct contact. No login needed for any of it.
 
 import { useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, MapPin, Navigation, Package, Phone, Plus, Store } from 'lucide-react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, MapPin, MessageSquare, Navigation, Package, Phone, Plus, Store } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/commerce/brand-icons'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { apiFetch, apiGet } from '@/lib/client'
-import type { ListingDetail as ListingDetailT } from '@/lib/client'
+import { apiFetch, apiGet, apiPost } from '@/lib/client'
+import type { ListingDetail as ListingDetailT, ChatStartResponse } from '@/lib/client'
 import {
   formatPrice,
   formatQuantity,
@@ -39,6 +39,7 @@ import { EmptyState } from './empty-state'
 import { copy } from '@/lib/copy'
 import { cn } from '@/lib/utils'
 import { useSession } from '@/hooks/use-session'
+import { useToast } from '@/hooks/use-toast'
 import { Camera } from 'lucide-react'
 
 function PhotoGallery({ listing }: { listing: ListingDetailT }) {
@@ -132,10 +133,11 @@ function PhotoGallery({ listing }: { listing: ListingDetailT }) {
 }
 
 export function ListingDetail({ id }: { id: string }) {
-  const { navigate } = useAppStore()
+  const { navigate, setAuthOpen } = useAppStore()
   const addToBasket = useAddToBasket()
   const [added, flashAdded] = useAddedFlash()
   const { user } = useSession()
+  const { toast } = useToast()
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['listing', id],
@@ -146,6 +148,22 @@ export function ListingDetail({ id }: { id: string }) {
   // render, not synced through state - the origin is stable for the life of
   // the page, and only the browser ever has a listing to share (the query
   // only runs client-side), so no SSR guard is needed in practice.
+  // The chat path: same info a phone call carries, but inside the app, with
+  // a record. Signed-out buyers get the sign-in dialog; the conversation is
+  // idempotent per (buyer, seller, ad), so tapping twice reopens the thread.
+  const startChat = useMutation({
+    mutationFn: () =>
+      apiPost<ChatStartResponse>('/api/chat/conversations', { sellerId: listing!.user.id, listingId: listing!.id }),
+    onSuccess: (data) => navigate({ name: 'messages', id: data.conversation.id }),
+    onError: (error) => {
+      if ((error as { status?: number }).status === 401) {
+        setAuthOpen(true)
+        return
+      }
+      toast({ title: error instanceof Error ? error.message : 'Could not start the chat', variant: 'destructive' })
+    },
+  })
+
   const listing = data?.listing
   const shareUrl = listing ? `${window.location.origin}/l/${listing.id}` : null
   const trackEngagement = (event: 'CALL_CLICK' | 'WHATSAPP_CLICK' | 'SHARE_CLICK') => {
@@ -375,6 +393,21 @@ export function ListingDetail({ id }: { id: string }) {
               </Button>
             ) : null}
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="press mt-2 h-11 w-full gap-1.5 text-[15px]"
+            onClick={() => {
+              if (!user) {
+                setAuthOpen(true)
+                return
+              }
+              if (listing && user.id !== listing.userId) startChat.mutate()
+            }}
+            disabled={startChat.isPending}
+          >
+            <MessageSquare className="size-4" aria-hidden /> Message {shopDisplayName}
+          </Button>
           <Button asChild variant="outline" className="press mt-2 h-11 w-full gap-1.5 text-[15px]">
             <a
               href={directionsUrl}
