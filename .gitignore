@@ -70,7 +70,7 @@ server.log
 /upload/
 
 # Task 5 local tooling
-/.pgtool/
+/.pgtool/data/
 /.t4stage/
 /.t5stage/
 # Runtime photo uploads are data, not source: they live on disk (and later
@@ -84,5 +84,6 @@ public/uploads/*
 # part of the app: .pgtool holds the local Postgres tooling (and its data
 # directory), .t4stage was a staging scratch space for an old task. Both stay
 # on disk, both stay out of git.
-.pgtool/
+.pgtool/data/
+.pgtool/*.log
 .t4stage/

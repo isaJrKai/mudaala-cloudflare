@@ -46,6 +46,7 @@ const nextConfig: NextConfig = {
     ],
   },
   devIndicators: false,
+  allowedDevOrigins: ["*.space-z.ai"],
   typescript: { ignoreBuildErrors: false },
   reactStrictMode: false,
   experimental: { authInterrupts: true },

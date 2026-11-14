@@ -42,6 +42,7 @@ export AUTH_BEARER_FALLBACK="1"
 export CRON_SECRET="${CRON_SECRET:-dev-cron-secret}"
 export SETTINGS_ENC_KEY="${SETTINGS_ENC_KEY:-dev-settings-enc-key}"
 export ADMIN_PHONES="${ADMIN_PHONES:-+256712000001}"
+export FRAME_ANCESTORS="${FRAME_ANCESTORS:--'self' https://*.space-z.ai}"
 export CSRF_TRUSTED_HOSTS="${CSRF_TRUSTED_HOSTS:-.space-z.ai,.preview-platform.example}"
 # The 4GB sandbox OOM-killed next-server twice during hardening round 2
 # (worklog: hardening-round-2). Cap the heap before it happens again.
