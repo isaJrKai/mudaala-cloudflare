@@ -18,7 +18,7 @@ export function SiteFooter({ padded = false }: { padded?: boolean }) {
         padded && 'pb-16 lg:pb-0',
       )}
     >
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 px-4 py-5 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-5 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p>
             <span className="font-display font-bold lowercase tracking-tight text-foreground">mudaala</span>{' '}
