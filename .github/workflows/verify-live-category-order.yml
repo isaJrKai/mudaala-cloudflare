@@ -61,7 +61,7 @@ jobs:
             try {
               // Verify the category control in the restored pre-PR-242 Browse UI.
               // This is a filter dialog, not the category rail introduced by #242.
-              await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
+              await page.goto(base + '/#/browse', { waitUntil: 'networkidle', timeout: 60000 });
               await page.getByRole('button', { name: 'Open filters', exact: true }).click();
               const dialog = page.getByRole('dialog', { name: 'Filters' });
               await dialog.waitFor({ state: 'visible', timeout: 10000 });
