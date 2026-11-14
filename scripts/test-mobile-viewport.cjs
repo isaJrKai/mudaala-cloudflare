@@ -4,7 +4,7 @@
  * per-element bounds checks; the page shell and ordinary content must fit.
  */
 const base = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
-const widths = [320, 360, 375, 390, 414, 430, 640, 768, 1024, 1280];
+const widths = [320, 360, 375, 390, 414, 430, 640, 768, 1024, 1280, 1536];
 const routes = ['home', 'browse', 'basket', 'publish', 'my-listings', 'saved', 'notifications', 'account', 'settings', 'following', 'business'];
 const height = 844;
 const tolerance = 1;
@@ -20,7 +20,7 @@ async function inspectRoute(browser, width, route) {
       const resultsGrid = page.getByTestId('listing-results-grid');
       await resultsGrid.waitFor({ state: 'visible', timeout: 15000 });
       const columns = await resultsGrid.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length);
-      const expectedColumns = width < 640 ? 2 : 3;
+      // Browse intentionally stays two columns until Tailwind's 2xl breakpoint.\n      const expectedColumns = width < 1536 ? 2 : 3;
       if (columns !== expectedColumns) {
         throw new Error(JSON.stringify({ route, viewport: width, expectedColumns, actualColumns: columns }));
       }
