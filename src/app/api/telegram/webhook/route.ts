@@ -114,7 +114,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     }
     let payload: { userId?: unknown; expiresAt?: unknown }
     try { payload = JSON.parse(record.value) as typeof payload } catch { payload = {} }
-    if (typeof payload.userId !== 'string' || typeof payload.expiresAt !== 'string' || Date.parse(payload.expiresAt) <= Date.now()) {
+    if (typeof payload.userId !== 'string' || typeof payload.expiresAt !== 'string' || !Number.isFinite(Date.parse(payload.expiresAt)) || Date.parse(payload.expiresAt) <= Date.now()) {
       await db.appSetting.deleteMany({ where: { key } })
       await sendMessage(chatId, 'That code has expired. Generate a new one in your Mudaala Account.')
       return
@@ -209,7 +209,7 @@ export async function POST(request: Request) {
     const raw = await readBoundedBody(request, 64 * 1024)
     let update: TelegramUpdate
     try { update = JSON.parse(raw) as TelegramUpdate } catch { throw new ApiError(400, 'Invalid update') }
-    if (!Number.isSafeInteger(update.update_id) || !update.message) return jsonOk({ ok: true })
+    if (!update || typeof update !== 'object' || !Number.isSafeInteger(update.update_id) || (update.update_id as number) < 0 || !update.message || typeof update.message !== 'object') return jsonOk({ ok: true })
     if (update.update_id % 100 === 0) {
       await cleanupTelegramRecords().catch((error) => {
         console.error('[telegram] housekeeping failed:', error instanceof Error ? error.name : 'unknown error')
