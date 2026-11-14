@@ -872,6 +872,13 @@ async function verifyProductCollections(browser) {
       await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
       await shopSetupDialog.waitFor({ state: 'hidden', timeout });
     }
+    // Product collections live inside the same progressive-disclosure
+    // section as analytics; open it before testing the collection workflow.
+    const moreTools = page.getByRole('button', { name: /More business tools/i });
+    await moreTools.waitFor({ state: 'visible', timeout });
+    if (await moreTools.getAttribute('aria-expanded') !== 'true') {
+      await moreTools.click();
+    }
     try {
       await page.getByRole('heading', { name: 'Product collections', exact: true }).waitFor({ state: 'visible', timeout });
     } catch (error) {
