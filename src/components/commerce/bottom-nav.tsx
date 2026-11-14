@@ -29,7 +29,7 @@ export function BottomNav() {
   const unread = user ? (notificationsQuery.data?.unreadCount ?? 0) : 0
   const bellRef = useBellShake(unread)
 
-  const workspace = ['business', 'my-listings', 'publish', 'edit', 'account', 'settings'].includes(view.name)
+  const workspace = ['business', 'my-listings', 'edit', 'account', 'settings'].includes(view.name)
 
   const publicItems: NavItem[] = [
     { name: 'browse', label: 'Explore', icon: <Compass aria-hidden /> },
