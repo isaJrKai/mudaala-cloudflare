@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Settings, LogOut, User, BadgeCheck, Bookmark, Store, Bell, Package } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { useSession, useSignOut } from '@/hooks/use-session'
@@ -17,6 +18,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { basketCount, basketUnits, basketFillLevel, useBasket } from '@/lib/basket'
 import { copy } from '@/lib/copy'
+import { apiGet } from '@/lib/client'
 import { BasketGlyph } from './basket-icon'
 
 export function AppHeader() {
@@ -31,6 +33,14 @@ export function AppHeader() {
   const basket = useBasket()
   const basketItems = basketCount(basket)
   const units = basketUnits(basket)
+  const notificationsQuery = useQuery({
+    queryKey: ['notifications', 'badge'],
+    enabled: Boolean(user),
+    queryFn: () => apiGet<{ notifications: unknown[]; unreadCount: number }>('/api/notifications'),
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+  })
+  const unread = user ? (notificationsQuery.data?.unreadCount ?? 0) : 0
 
   // Pop + badge bump fire only when the count GROWS during this visit -
   // never on first render (a page reload with a saved basket must not look
@@ -111,6 +121,21 @@ export function AppHeader() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          {user ? (
+            <button
+              type="button"
+              onClick={() => navigate({ name: 'notifications' })}
+              aria-label={unread > 0 ? `Alerts, ${unread} unread` : 'Alerts'}
+              aria-current={view.name === 'notifications' ? 'page' : undefined}
+              className={cn(
+                'press relative hidden size-10 items-center justify-center rounded-lg lg:inline-flex',
+                view.name === 'notifications' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+              )}
+            >
+              <Bell className="size-[18px]" aria-hidden />
+              {unread > 0 ? <span className="absolute right-1 top-1 size-2 rounded-full bg-destructive ring-2 ring-background" aria-hidden /> : null}
+            </button>
+          ) : null}
           {/* The basket - buyer-side, always visible, signed in or not, and
               the way in to paying: the basket icon opens the basket, and the
               basket is where a seller gets paid. Green badge: items waiting,
