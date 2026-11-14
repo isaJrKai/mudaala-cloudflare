@@ -295,7 +295,7 @@ export function ListingsBrowse() {
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
             type="search"
-            placeholder="Search products, shops, and things near you"
+            placeholder="Search products, shops or enter a MU-CODE"
             className="h-11 min-w-0 pl-9 text-sm"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
