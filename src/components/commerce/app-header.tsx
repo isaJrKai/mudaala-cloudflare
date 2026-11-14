@@ -106,7 +106,7 @@ export function AppHeader() {
         </button>
 
         <nav aria-label="Main navigation" className="ml-5 hidden items-center gap-1 md:flex">
-          {['business', 'my-listings', 'publish', 'edit', 'account', 'settings'].includes(view.name) ? (
+          {['business', 'my-listings', 'edit', 'account', 'settings'].includes(view.name) ? (
             <button type="button" onClick={() => navigate({ name: "browse" })} className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
               Explore marketplace
             </button>
