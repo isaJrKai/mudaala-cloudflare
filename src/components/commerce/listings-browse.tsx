@@ -260,7 +260,7 @@ export function ListingsBrowse() {
   }, [discoveryQuery.data?.shops, orderedCategories])
 
   const renderListingGrid = (items: ListingsPage['items'], primary = false) => items.length > 0 ? (
-    <div data-testid={primary ? 'listing-results-grid' : 'listing-feed-grid'} className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+    <div data-testid={primary ? 'listing-results-grid' : 'listing-feed-grid'} className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4 2xl:grid-cols-3">
       {items.map((listing) => (
         <ListingBlock
           key={listing.id}
@@ -289,14 +289,14 @@ export function ListingsBrowse() {
   )
 
   return (
-    <div className="space-y-3">
-      <div className="flex gap-2">
+    <div className="space-y-5">
+      <div className="sticky top-16 z-30 -mx-4 flex gap-2 border-b border-border/70 bg-background/95 px-4 py-3 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
             type="search"
             placeholder="Search products, shops, and things near you"
-            className="min-w-0 pl-9 text-xs sm:text-sm"
+            className="h-11 min-w-0 pl-9 text-sm"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             aria-label={copy.browse.searchLabel}
@@ -306,7 +306,7 @@ export function ListingsBrowse() {
           type="button"
           variant="outline"
           onClick={() => setShowFilters(true)}
-          className="shrink-0 gap-1.5 px-3"
+          className="h-11 shrink-0 gap-1.5 px-3"
           aria-label={copy.browse.openFiltersAria}
         >
           <SlidersHorizontal className="size-4" aria-hidden />
@@ -466,7 +466,7 @@ export function ListingsBrowse() {
           <div className={isFetching ? 'space-y-3 opacity-60 transition-opacity' : 'space-y-3'}>
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div className="min-w-0">
-                <h1 className="text-xl font-bold leading-tight tracking-tight">
+                <h1 className="text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">
                   {filters.q.trim() || activeFilterCount > 0 ? 'Search results' : 'Discover near you'}
                 </h1>
                 {showDiscoverySections ? (
