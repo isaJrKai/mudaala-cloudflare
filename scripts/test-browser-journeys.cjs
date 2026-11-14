@@ -721,7 +721,7 @@ async function verifyMobileCart(browser) {
     await cartSheet.getByRole('button', { name: /close the cart/i }).click();
     await cartSheet.waitFor({ state: 'hidden', timeout });
 
-    const post = page.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Post' });
+    const post = page.getByRole('navigation', { name: 'Marketplace navigation' }).getByRole('button', { name: 'Post' });
     await post.waitFor({ state: 'visible', timeout });
     await post.click({ timeout });
     await page.waitForFunction(() => window.location.hash === '#/publish', null, { timeout });
@@ -769,19 +769,12 @@ async function verifyBusinessInsights(browser) {
     const profileResponsePromise = page.waitForResponse((response) => {
       return new URL(response.url()).pathname === '/api/profile' && response.request().method() === 'GET';
     }, { timeout });
-    const initialAnalyticsPromise = page.waitForResponse((response) => {
-      const url = new URL(response.url());
-      return url.pathname === '/api/my/business-analytics' && url.searchParams.get('period') === '30d';
-    }, { timeout });
     await page.goto(base + '/#/business', { waitUntil: 'domcontentloaded', timeout: 60000 });
 
     const sessionResponse = await sessionResponsePromise;
     if (!sessionResponse.ok()) throw new Error('Business-insights session request failed: HTTP ' + sessionResponse.status());
     const profileResponse = await profileResponsePromise;
     if (!profileResponse.ok()) throw new Error('Business-insights profile request failed: HTTP ' + profileResponse.status());
-    const initialAnalytics = await initialAnalyticsPromise;
-    if (!initialAnalytics.ok()) throw new Error('Initial business-analytics request failed: HTTP ' + initialAnalytics.status());
-
     // New seller accounts may open the first-run setup modal; dismiss it before
     // role-based queries, because the modal hides the background from the a11y tree.
     await page.waitForTimeout(100);
@@ -791,7 +784,20 @@ async function verifyBusinessInsights(browser) {
       await shopSetupDialog.waitFor({ state: 'hidden', timeout });
     }
 
+    // Advanced tools are intentionally collapsed on first load. Expand the
+    // disclosure before asserting that analytics mounts and requests its data.
+    const moreTools = page.getByRole('button', { name: /More business tools/i });
+    await moreTools.waitFor({ state: 'visible', timeout });
+    if (await moreTools.getAttribute('aria-expanded') !== 'true') {
+      await moreTools.click();
+    }
+    const initialAnalyticsPromise = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.pathname === '/api/my/business-analytics' && url.searchParams.get('period') === '30d';
+    }, { timeout });
     await page.getByText('Business insights', { exact: true }).waitFor({ state: 'visible', timeout });
+    const initialAnalytics = await initialAnalyticsPromise;
+    if (!initialAnalytics.ok()) throw new Error('Initial business-analytics request failed: HTTP ' + initialAnalytics.status());
     await page.getByText('Product views', { exact: true }).waitFor({ state: 'visible', timeout });
     await page.getByRole('heading', { name: /Recorded sales/i }).waitFor({ state: 'visible', timeout });
 
@@ -865,6 +871,13 @@ async function verifyProductCollections(browser) {
     if (await shopSetupDialog.isVisible().catch(() => false)) {
       await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
       await shopSetupDialog.waitFor({ state: 'hidden', timeout });
+    }
+    // Product collections live inside the same progressive-disclosure
+    // section as analytics; open it before testing the collection workflow.
+    const moreTools = page.getByRole('button', { name: /More business tools/i });
+    await moreTools.waitFor({ state: 'visible', timeout });
+    if (await moreTools.getAttribute('aria-expanded') !== 'true') {
+      await moreTools.click();
     }
     try {
       await page.getByRole('heading', { name: 'Product collections', exact: true }).waitFor({ state: 'visible', timeout });

@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Settings, LogOut, User, BadgeCheck } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Settings, LogOut, User, BadgeCheck, Bookmark, Store, Bell, Package } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { useSession, useSignOut } from '@/hooks/use-session'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { basketCount, basketUnits, basketFillLevel, useBasket } from '@/lib/basket'
 import { copy } from '@/lib/copy'
+import { apiGet } from '@/lib/client'
 import { BasketGlyph } from './basket-icon'
 
 export function AppHeader() {
@@ -25,12 +27,20 @@ export function AppHeader() {
   const signOut = useSignOut()
   const { toast } = useToast()
 
-  // Desktop navigation moved to the AppSidebar rail (lg+); the header keeps
-  // the brand, basket and account - the pieces that follow every scroll.
+  // The top bar belongs to the marketplace on every screen. The merchant
+  // workspace adds a focused navigation rail below this shared header.
 
   const basket = useBasket()
   const basketItems = basketCount(basket)
   const units = basketUnits(basket)
+  const notificationsQuery = useQuery({
+    queryKey: ['notifications', 'badge'],
+    enabled: Boolean(user),
+    queryFn: () => apiGet<{ notifications: unknown[]; unreadCount: number }>('/api/notifications'),
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+  })
+  const unread = user ? (notificationsQuery.data?.unreadCount ?? 0) : 0
 
   // Pop + badge bump fire only when the count GROWS during this visit -
   // never on first render (a page reload with a saved basket must not look
@@ -71,9 +81,9 @@ export function AppHeader() {
   }, [units])
 
   return (
-    <header className="sticky top-0 z-40 border-b border-b-[#E9C85A] bg-card pt-[env(safe-area-inset-top)]">
-      <div className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-4">
-        <button type="button" onClick={() => navigate({ name: 'home' })} className="flex items-center gap-1.5 lg:hidden" aria-label="Mudaala home">
+    <header className="sticky top-0 z-40 border-b border-border/80 bg-background pt-[env(safe-area-inset-top)]">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+        <button type="button" onClick={() => navigate({ name: 'browse' })} className="flex shrink-0 items-center gap-1.5" aria-label="Mudaala home">
           {/* The wordmark is the signboard: lowercase serif in the brand
               green, the way the market paints a good shop name - with one
               leaf for the goods that come out of the ground. No icon chip. */}
@@ -95,7 +105,37 @@ export function AppHeader() {
           </span>
         </button>
 
+        <nav aria-label="Main navigation" className="ml-5 hidden items-center gap-1 md:flex">
+          {['business', 'my-listings', 'edit', 'account', 'settings'].includes(view.name) ? (
+            <button type="button" onClick={() => navigate({ name: "browse" })} className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
+              Explore marketplace
+            </button>
+          ) : (
+            <>
+              <button type="button" onClick={() => navigate({ name: "browse" })} aria-current={view.name === "browse" || view.name === "listing" || view.name === "shop" ? "page" : undefined} className={cn("rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary", view.name === "browse" || view.name === "listing" || view.name === "shop" ? "text-primary" : "text-muted-foreground hover:text-foreground")}>Explore</button>
+              <button type="button" onClick={() => navigate({ name: "saved" })} aria-current={view.name === "saved" ? "page" : undefined} className={cn("rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary", view.name === "saved" ? "text-primary" : "text-muted-foreground hover:text-foreground")}>Saved</button>
+              <button type="button" onClick={() => navigate({ name: "business" })} aria-current={view.name === "business" ? "page" : undefined} className={cn("rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary", view.name === "business" ? "text-primary" : "text-muted-foreground hover:text-foreground")}>My Business</button>
+              <Button size="sm" className="mudaala-money-cta ml-2 h-10 px-4" onClick={() => navigate({ name: "publish" })}>Post an ad</Button>
+            </>
+          )}
+        </nav>
+
         <div className="ml-auto flex items-center gap-2">
+          {user ? (
+            <button
+              type="button"
+              onClick={() => navigate({ name: 'notifications' })}
+              aria-label={unread > 0 ? `Alerts, ${unread} unread` : 'Alerts'}
+              aria-current={view.name === 'notifications' ? 'page' : undefined}
+              className={cn(
+                'press relative hidden size-10 items-center justify-center rounded-lg lg:inline-flex',
+                view.name === 'notifications' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+              )}
+            >
+              <Bell className="size-[18px]" aria-hidden />
+              {unread > 0 ? <span className="absolute right-1 top-1 size-2 rounded-full bg-destructive ring-2 ring-background" aria-hidden /> : null}
+            </button>
+          ) : null}
           {/* The basket - buyer-side, always visible, signed in or not, and
               the way in to paying: the basket icon opens the basket, and the
               basket is where a seller gets paid. Green badge: items waiting,
@@ -138,10 +178,16 @@ export function AppHeader() {
                   {user.isAdmin ? <BadgeCheck className="size-4 shrink-0 text-emerald-600" aria-label="Verified Mudaala administrator" /> : null}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel className="text-xs text-muted-foreground">{user.phone}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate({ name: 'account' })}>
+                <DropdownMenuItem onClick={() => navigate({ name: "business" })}><Store className="size-4" aria-hidden /> My Business</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate({ name: "my-listings" })}><Package className="size-4" aria-hidden /> My products</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate({ name: "notifications" })}><Bell className="size-4" aria-hidden /> Alerts</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate({ name: "home" })}><User className="size-4" aria-hidden /> My activity</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate({ name: "saved" })}><Bookmark className="size-4" aria-hidden /> Saved</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate({ name: "account" })}>
                   <User className="size-4" aria-hidden /> Account & profile
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ name: 'settings' })}>

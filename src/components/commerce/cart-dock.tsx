@@ -64,11 +64,15 @@ import { copy } from '@/lib/copy'
 // the width.
 const RAIL_VIEWS: ViewName[] = ['home', 'browse', 'listing', 'shop', 'saved', 'notifications']
 
-export function RailShell({ children }: { children: React.ReactNode }) {
+export function RailShell({ children, workspace = false }: { children: React.ReactNode; workspace?: boolean }) {
   const { view } = useAppStore()
   const rail = RAIL_VIEWS.includes(view.name)
   return (
-    <div className={cn('flex min-h-dvh flex-col lg:ml-60', rail && 'xl:pr-16')}>
+    <div className={cn(
+      'flex min-h-[calc(100dvh-4rem)] flex-col',
+      workspace && 'lg:ml-60',
+      rail && 'xl:pr-16',
+    )}>
       {children}
       {rail ? <CartDock /> : null}
     </div>
