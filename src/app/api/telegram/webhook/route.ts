@@ -169,8 +169,9 @@ export async function POST(request: Request) {
       // Reserve the update before sending a reply so parallel Telegram retries
       // cannot execute the same command twice.
       await db.appSetting.create({ data: { key: updateKey, value: new Date().toISOString() } })
-    } catch {
-      return jsonOk({ ok: true }) // already processed or currently being processed
+    } catch (error) {
+      if ((error as { code?: string })?.code === 'P2002') return jsonOk({ ok: true })
+      throw error
     }
     try {
       const chatId = update.message.chat?.id
