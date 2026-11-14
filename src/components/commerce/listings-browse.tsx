@@ -260,7 +260,7 @@ export function ListingsBrowse() {
   }, [discoveryQuery.data?.shops, orderedCategories])
 
   const renderListingGrid = (items: ListingsPage['items'], primary = false) => items.length > 0 ? (
-    <div data-testid={primary ? 'listing-results-grid' : 'listing-feed-grid'} className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4 2xl:grid-cols-3">
+    <div data-testid={primary ? 'listing-results-grid' : 'listing-feed-grid'} className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
       {items.map((listing) => (
         <ListingBlock
           key={listing.id}
