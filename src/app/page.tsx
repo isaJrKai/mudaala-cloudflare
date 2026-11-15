@@ -9,9 +9,36 @@ import { ShopSetupDialog } from '@/components/commerce/shop-setup-dialog'
 import { SiteFooter } from '@/components/commerce/site-footer'
 import { RailShell } from '@/components/commerce/cart-dock'
 import { useAppStore } from '@/lib/store'
+import { useEffect } from 'react'
+import { useSession } from '@/hooks/use-session'
+import { apiFetch, apiPost } from '@/lib/client'
+import { mergeLovedIds, useLovedIds } from '@/lib/loved'
 
 function CommerceFrame() {
   const { view } = useAppStore()
+  const { user } = useSession()
+  const lovedIds = useLovedIds()
+
+  // Restore account-saved products on every device. Also upload this device's
+  // guest shortlist once the account is known, then merge the server truth.
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    async function syncShortlist() {
+      try {
+        const guestIds = lovedIds.slice(0, 40)
+        await Promise.all(guestIds.map((listingId) =>
+          apiPost('/api/saved-products', { listingId }).catch(() => null)
+        ))
+        const result = await apiFetch<{ products: Array<{ listing: { id: string } }> }>('/api/saved-products')
+        if (!cancelled) mergeLovedIds(result.products.map((item) => item.listing.id))
+      } catch {
+        // Keep the local shortlist available when offline or signed out.
+      }
+    }
+    void syncShortlist()
+    return () => { cancelled = true }
+  }, [user?.id])
   const workspace = isMerchantWorkspaceView(view.name)
 
   return (
