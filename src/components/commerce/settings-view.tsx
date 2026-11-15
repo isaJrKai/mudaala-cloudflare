@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Bell, ExternalLink, FileText, Globe2, LockKeyhole, MessageCircle, Search, ShieldCheck, Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -160,8 +160,12 @@ function TelegramEnquirySettings() {
     } finally { setBusy(false) }
   }
 
-  // Load on mount and after the seller returns from Telegram.
-  useState(() => { void refresh(); return null })
+  // Load the current connection state when the settings section opens.
+  useEffect(() => {
+    void apiFetch<{ connected: boolean; enabled: boolean; botUrl: string }>('/api/telegram/merchant')
+      .then(setStatus)
+      .catch(err => setError(err instanceof Error ? err.message : 'Could not load Telegram settings.'))
+  }, [])
 
   return (
     <div className="space-y-3 rounded-lg border bg-card p-4">
