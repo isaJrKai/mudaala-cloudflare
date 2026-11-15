@@ -63,3 +63,8 @@ CREATE TABLE "EnquiryContactToken" (
 CREATE UNIQUE INDEX "EnquiryContactToken_tokenHash_key" ON "EnquiryContactToken"("tokenHash");
 CREATE INDEX "EnquiryContactToken_listingId_expiresAt_idx" ON "EnquiryContactToken"("listingId", "expiresAt");
 CREATE INDEX "EnquiryContactToken_merchantId_expiresAt_idx" ON "EnquiryContactToken"("merchantId", "expiresAt");
+
+
+-- Explicit seller-reported listing availability. Existing records remain UNKNOWN.
+ALTER TABLE "Listing" ADD COLUMN "availabilityStatus" TEXT NOT NULL DEFAULT 'UNKNOWN';
+ALTER TABLE "Listing" ADD COLUMN "availabilityUpdatedAt" TIMESTAMP(3);
