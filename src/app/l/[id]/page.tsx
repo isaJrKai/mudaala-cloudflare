@@ -205,11 +205,8 @@ export default async function AdPage({ params }: Params) {
             url: canonicalUrl,
             priceCurrency: listing.currency,
             ...(listing.price !== null ? { price: listing.price } : {}),
-            ...(listing.availabilityStatus === 'IN_STOCK'
-              ? { availability: 'https://schema.org/InStock' }
-              : listing.availabilityStatus === 'OUT_OF_STOCK'
-                ? { availability: 'https://schema.org/OutOfStock' }
-                : {}),
+            // Availability is seller-reported and not independently verified.
+            // Do not publish it as authoritative Offer metadata.
             seller: { '@type': 'Organization', name: shopDisplayName },
           },
         }
