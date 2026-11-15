@@ -1,4 +1,4 @@
-import { ApiError, jsonOk, requireUser, route } from '@/lib/api'
+import { jsonOk, requireUser, route } from '@/lib/api'
 import { db } from '@/lib/db'
 
 export const runtime = 'nodejs'
