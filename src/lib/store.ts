@@ -18,6 +18,7 @@ export type ViewName =
   | 'notifications'
   | 'account'
   | 'settings'
+  | 'enquiries'
   | 'following'
   | 'business'
 
@@ -90,6 +91,8 @@ export function viewToHash(view: View): string {
       return '#/account'
     case 'settings':
       return '#/settings'
+    case 'enquiries':
+      return '#/enquiries'
     case 'following':
       return '#/following'
     case 'business':
@@ -100,7 +103,7 @@ export function viewToHash(view: View): string {
 export function hashToView(hash: string): View {
   const parts = hash.replace(/^#\/?/, '').split('/')
   const [name, id] = parts
-  const valid: ViewName[] = ['home', 'browse', 'listing', 'shop', 'basket', 'publish', 'edit', 'my-listings', 'saved', 'notifications', 'account', 'settings', 'following', 'business']
+  const valid: ViewName[] = ['home', 'browse', 'listing', 'shop', 'basket', 'publish', 'edit', 'my-listings', 'saved', 'notifications', 'account', 'settings', 'enquiries', 'following', 'business']
   if (valid.includes(name as ViewName)) {
     if ((name === 'listing' || name === 'edit' || name === 'shop') && !id) return { name: 'browse' }
     return { name: name as ViewName, id }
