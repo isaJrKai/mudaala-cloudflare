@@ -29,6 +29,12 @@ The helper sets `https://mudaala.store/api/telegram/webhook`, enables only messa
 
 The code is random, stored only as a SHA-256 digest, single-use and short-lived. Telegram user IDs are hashed before database keys are created. Only private chats are accepted. The webhook verifies Telegram's secret header, enforces a 64 KiB streaming request-body limit, deduplicates update IDs, rate-limits chat traffic and periodically removes old Telegram-only link-code and update-marker records.
 
+## Buyer account identity
+
+A signed-in shopper's Telegram enquiry is attached to their Mudaala account only after the same Telegram identity has been linked with that account using the one-time `/link CODE` flow. The webhook verifies the account mapping both when the deep link is opened and again when the buyer confirms. A forwarded link cannot attach an enquiry to another person's account. Guest enquiries remain Telegram-identified and are available through `/messages` and `/respond`; they are not silently assigned to a browser account.
+
+Telegram account linking is separate from seller enquiry opt-in. A linked shopper does not automatically become a merchant or receive merchant-only commands. Only an account with a shop profile can enable Telegram enquiries on its listings.
+
 ## Follow-up work\n\nThe first conversational slice answers natural-language questions and guides users to the correct secure workspace. The next slice can add explicitly allowlisted, server-validated shop-registration actions (using the existing `businessProfileSchema` and profile rules); do not allow the model to write to Prisma or bypass validation.
 
 The Account UI includes the one-time code generation and copy flow. Disconnect/relink controls and product creation/editing/photo upload are later slices. Do not enable listing creation in Telegram by writing directly to Prisma; route it through the existing validated listing and photo-moderation services.
