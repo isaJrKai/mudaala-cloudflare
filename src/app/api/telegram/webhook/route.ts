@@ -201,7 +201,17 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
 export async function POST(request: Request) {
   return route(async () => {
     const secret = process.env.TELEGRAM_WEBHOOK_SECRET
-    if (!secret || !secretMatches(secret, request.headers.get('x-telegram-bot-api-secret-token'))) {
+    const suppliedSecret = request.headers.get('x-telegram-bot-api-secret-token')
+    const authenticated = Boolean(secret && secretMatches(secret, suppliedSecret))
+    if (!authenticated) {
+      // Never log either secret or a digest. These metadata-only diagnostics
+      // distinguish a missing runtime binding from a value/transport mismatch.
+      console.warn('[telegram] webhook authentication rejected', {
+        expectedPresent: Boolean(secret),
+        expectedLength: secret?.length ?? 0,
+        suppliedPresent: Boolean(suppliedSecret),
+        suppliedLength: suppliedSecret?.length ?? 0,
+      })
       throw new ApiError(401, 'Unauthorized')
     }
     const contentLength = Number(request.headers.get('content-length') || 0)
