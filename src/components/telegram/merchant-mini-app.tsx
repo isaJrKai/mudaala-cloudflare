@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import Image from 'next/image'
 import Script from 'next/script'
 import { ArrowUpRight, BarChart3, Bell, Box, Check, ChevronRight, CircleAlert, Clipboard, ExternalLink, Eye, Home, Plus, RefreshCw, Settings, Store, Tag, Users } from 'lucide-react'
@@ -64,6 +64,11 @@ export function TelegramMerchantMiniApp() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [onboarding, setOnboarding] = useState(false)
+  const [onboardingStep, setOnboardingStep] = useState<'account' | 'shop'>('account')
+  const [shopNameInput, setShopNameInput] = useState('')
+  const [shopCountyInput, setShopCountyInput] = useState('')
+  const [shopAreaInput, setShopAreaInput] = useState('')
+  const [shopDescriptionInput, setShopDescriptionInput] = useState('')
   const [registering, setRegistering] = useState(false)
   const [registerError, setRegisterError] = useState('')
   const [registerName, setRegisterName] = useState('')
@@ -136,7 +141,7 @@ export function TelegramMerchantMiniApp() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sdkReady])
 
-  async function registerInsideTelegram(event: React.FormEvent<HTMLFormElement>) {
+  async function registerInsideTelegram(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setRegistering(true)
     setRegisterError('')
@@ -154,12 +159,43 @@ export function TelegramMerchantMiniApp() {
         body: JSON.stringify({ initData }),
       })
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success')
+      setOnboardingStep('shop')
+      setShopNameInput(registerName.trim() ? registerName.trim() + "'s Shop" : '')
+    } catch (cause) {
+      setRegisterError(cause instanceof Error ? cause.message : 'We could not finish setting up your account.')
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('error')
+    } finally {
+      setRegistering(false)
+    }
+  }
+
+  async function createShopInsideTelegram(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setRegistering(true)
+    setRegisterError('')
+    try {
+      await requestJson('/api/profile', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          businessName: shopNameInput,
+          photoUrl: null,
+          category: null,
+          description: shopDescriptionInput.trim() || null,
+          county: shopCountyInput.trim(),
+          area: shopAreaInput.trim() || null,
+          phone: registerPhone,
+          whatsapp: null,
+          hours: null,
+        }),
+      })
+      const initData = window.Telegram?.WebApp?.initData
+      if (!initData) throw new Error('Telegram sign-in data is missing. Close and reopen the Mini App.')
       setOnboarding(false)
       setLoading(true)
       await authenticate(initData)
     } catch (cause) {
-      setRegisterError(cause instanceof Error ? cause.message : 'We could not finish setting up your account.')
-      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('error')
+      setRegisterError(cause instanceof Error ? cause.message : 'We could not create your shop.')
     } finally {
       setRegistering(false)
     }
