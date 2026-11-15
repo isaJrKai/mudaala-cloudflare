@@ -107,7 +107,10 @@ export function HeartButton({
           body: JSON.stringify({ listingId }),
         })
       } catch {
-        toast({ title: 'Saved on this device', description: 'We could not sync this product to your account just now.' })
+        // Keep the local state consistent with the account source of truth.
+        // A failed remove must not look successful and then reappear on reload.
+        toggleLoved(listingId)
+        toast({ title: 'Could not update your shortlist', description: 'Your account shortlist was not changed. Please try again.' })
       }
     }
     if (result === 'full') {
