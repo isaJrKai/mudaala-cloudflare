@@ -13,7 +13,7 @@ async function deliverTelegram(chatId: number, text: string): Promise<boolean> {
   const token = process.env.TELEGRAM_BOT_TOKEN
   if (!token) return false
   try {
-    const response = await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
+    const response = await fetch(telegramApiUrl(token, 'sendMessage'), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
