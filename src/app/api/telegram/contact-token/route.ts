@@ -29,6 +29,11 @@ export async function POST(request: Request) {
     if (merchant.enabled !== true || typeof merchant.activatedAt !== 'string' || !Number.isSafeInteger(merchant.chatId)) {
       throw new ApiError(409, 'This seller is not currently accepting Telegram enquiries. Try their phone or WhatsApp contact instead.')
     }
+    // Keep abandoned capabilities bounded even when webhook traffic is low.
+    // Retain the most recent expired day for diagnostics and support.
+    await db.enquiryContactToken.deleteMany({
+      where: { expiresAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+    })
     const raw = randomBytes(24).toString('base64url')
     const tokenHash = createHash('sha256').update(raw).digest('hex')
     await db.enquiryContactToken.create({
