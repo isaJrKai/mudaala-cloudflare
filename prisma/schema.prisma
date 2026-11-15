@@ -41,6 +41,10 @@ model User {
 
   sessions       Session[]
   listings       Listing[]
+  savedProducts  SavedProduct[]
+  shopperEnquiries Enquiry[] @relation("EnquiryShopper")
+  merchantEnquiries Enquiry[] @relation("EnquiryMerchant")
+  sentEnquiryMessages EnquiryMessage[] @relation("EnquiryMessageSender")
   savedSearches  SavedSearch[]
   notifications  Notification[]
   pushSubscriptions PushSubscription[]
@@ -184,6 +188,8 @@ model Listing {
   businessProducts BusinessProduct[]
   dailyAnalytics ListingDailyAnalytics[]
   collectionItems ProductCollectionItem[]
+  savedProducts SavedProduct[]
+  enquiries Enquiry[]
 }
 
 // Shop-owned curated groups for seasonal edits, new arrivals and themed collections.
@@ -591,4 +597,79 @@ model PolicyViolation {
 
   @@index([userId, reversedAt, createdAt])
   @@index([targetType, targetId])
+}
+
+
+// A shopper's private shortlist. Saving a listing never creates an enquiry
+// or reserves stock; uniqueness prevents duplicate saves.
+model SavedProduct {
+  id        String   @id @default(cuid())
+  userId    String
+  listingId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, listingId])
+  @@index([userId, createdAt])
+  @@index([listingId])
+}
+
+// A buyer-initiated conversation about one exact listing and one merchant.
+// Guest Telegram buyers are identified by a keyed Telegram identity hash;
+// their raw Telegram ID/chat ID is never stored in this row.
+model Enquiry {
+  id                 String   @id @default(cuid())
+  listingId          String
+  merchantId         String
+  shopperId          String?
+  buyerTelegramHash  String?
+  status             String   @default("OPEN") // OPEN | RESOLVED | CANCELLED
+  contactChannel     String   @default("TELEGRAM")
+  followUpConsentAt  DateTime?
+  lastMessageAt      DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  listing            Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  merchant           User     @relation("EnquiryMerchant", fields: [merchantId], references: [id], onDelete: Cascade)
+  shopper            User?    @relation("EnquiryShopper", fields: [shopperId], references: [id], onDelete: SetNull)
+  messages           EnquiryMessage[]
+
+  @@index([merchantId, status, lastMessageAt])
+  @@index([shopperId, status, lastMessageAt])
+  @@index([buyerTelegramHash, status, lastMessageAt])
+  @@index([listingId, createdAt])
+}
+
+// Message bodies are visible only to the two participants. Delivery state is
+// separate from enquiry state so Telegram failures are never represented as
+// successful delivery.
+model EnquiryMessage {
+  id            String   @id @default(cuid())
+  enquiryId     String
+  senderType    String   // SHOPPER | MERCHANT
+  senderUserId  String?
+  body          String
+  deliveryStatus String  @default("PENDING") // PENDING | SENT | FAILED
+  telegramUpdateId BigInt? @unique
+  createdAt     DateTime @default(now())
+  enquiry       Enquiry  @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+  sender        User?    @relation("EnquiryMessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+
+  @@index([enquiryId, createdAt])
+}
+
+// Opaque, single-use Telegram deep-link capability, bound to one listing.
+// Only the SHA-256 token digest is stored; the raw token is returned once.
+model EnquiryContactToken {
+  id          String   @id @default(cuid())
+  tokenHash   String   @unique
+  listingId   String
+  merchantId  String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([listingId, expiresAt])
+  @@index([merchantId, expiresAt])
 }
