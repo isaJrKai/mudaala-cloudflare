@@ -107,3 +107,26 @@ CREATE POLICY mudaala_runtime_access ON public."EnquiryContactToken"
 -- Explicit seller-reported listing availability. Existing records remain UNKNOWN.
 ALTER TABLE "Listing" ADD COLUMN "availabilityStatus" TEXT NOT NULL DEFAULT 'UNKNOWN';
 ALTER TABLE "Listing" ADD COLUMN "availabilityUpdatedAt" TIMESTAMP(3);
+ALTER TABLE "Listing" ADD CONSTRAINT "Listing_availabilityStatus_check"
+  CHECK ("availabilityStatus" IN ('UNKNOWN', 'IN_STOCK', 'AVAILABLE_ON_ORDER', 'OUT_OF_STOCK'));
+
+ALTER TABLE "Enquiry" ADD CONSTRAINT "Enquiry_status_check"
+  CHECK ("status" IN ('OPEN', 'RESOLVED', 'CANCELLED'));
+ALTER TABLE "Enquiry" ADD CONSTRAINT "Enquiry_contactChannel_check"
+  CHECK ("contactChannel" IN ('TELEGRAM', 'WEB'));
+ALTER TABLE "Enquiry" ADD CONSTRAINT "Enquiry_buyerIdentity_check"
+  CHECK ("shopperId" IS NOT NULL OR "buyerTelegramHash" IS NOT NULL);
+ALTER TABLE "Enquiry" ADD CONSTRAINT "Enquiry_buyerTelegramHash_check"
+  CHECK ("buyerTelegramHash" IS NULL OR "buyerTelegramHash" ~ '^[a-f0-9]{64}
+);
+
+ALTER TABLE "EnquiryMessage" ADD CONSTRAINT "EnquiryMessage_senderType_check"
+  CHECK ("senderType" IN ('SHOPPER', 'MERCHANT'));
+ALTER TABLE "EnquiryMessage" ADD CONSTRAINT "EnquiryMessage_deliveryStatus_check"
+  CHECK ("deliveryStatus" IN ('PENDING', 'SENT', 'FAILED'));
+ALTER TABLE "EnquiryMessage" ADD CONSTRAINT "EnquiryMessage_body_length_check"
+  CHECK (char_length("body") BETWEEN 1 AND 1200);
+
+ALTER TABLE "EnquiryContactToken" ADD CONSTRAINT "EnquiryContactToken_tokenHash_check"
+  CHECK ("tokenHash" ~ '^[a-f0-9]{64}
+);
