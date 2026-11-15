@@ -2,13 +2,13 @@
 
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Bell, ExternalLink, FileText, Globe2, LockKeyhole, Search, ShieldCheck, Store } from 'lucide-react'
+import { ArrowLeft, Bell, ExternalLink, FileText, Globe2, LockKeyhole, MessageCircle, Search, ShieldCheck, Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { apiPost, clearSessionToken } from '@/lib/client'
+import { apiFetch, apiPost, clearSessionToken } from '@/lib/client'
 import { useAppStore } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { EmptyState } from './empty-state'
@@ -88,6 +88,10 @@ export function SettingsView() {
         <Button variant="outline" onClick={() => navigate({ name: 'account' })}>Manage shop profile</Button>
       </Section>
 
+      <Section icon={<MessageCircle className="size-4" aria-hidden />} title="Telegram enquiries" description="Let customers contact your shop through the official Mudaala bot in Telegram. Your phone and WhatsApp options remain available.">
+        <TelegramEnquirySettings />
+      </Section>
+
       <Section icon={<Bell className="size-4" aria-hidden />} title="Notifications" description="Choose how Mudaala reaches you and review your shop updates.">
         <div className="divide-y rounded-lg border bg-card">
           <SettingsLink icon={<Search className="size-4" aria-hidden />} title="Saved-search alerts" description="Manage searches that generate new-match alerts." onClick={() => navigate({ name: 'saved' })} />
@@ -112,6 +116,79 @@ export function SettingsView() {
           <SettingsLink icon={<ShieldCheck className="size-4" aria-hidden />} title="Export data or delete account" description="These account-wide actions are managed from your Account page." onClick={() => navigate({ name: 'account' })} />
         </div>
       </Section>
+    </div>
+  )
+}
+
+
+function TelegramEnquirySettings() {
+  const [status, setStatus] = useState<{ connected: boolean; enabled: boolean; botUrl: string } | null>(null)
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function refresh() {
+    try {
+      const result = await apiFetch<{ connected: boolean; enabled: boolean; botUrl: string }>('/api/telegram/merchant')
+      setStatus(result)
+      setError('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load Telegram settings.')
+    }
+  }
+
+  async function connect() {
+    setBusy(true); setError('')
+    try {
+      const result = await apiPost<{ code: string }>('/api/telegram/link-code', {})
+      setCode(result.code)
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create a Telegram link code.')
+    } finally { setBusy(false) }
+  }
+
+  async function toggle(enabled: boolean) {
+    setBusy(true); setError('')
+    try {
+      const result = await apiFetch<{ connected: boolean; enabled: boolean; botUrl: string }>('/api/telegram/merchant', {
+        method: 'PUT', body: JSON.stringify({ enabled }),
+      })
+      setStatus(result)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update Telegram enquiries.')
+    } finally { setBusy(false) }
+  }
+
+  // Load on mount and after the seller returns from Telegram.
+  useState(() => { void refresh(); return null })
+
+  return (
+    <div className="space-y-3 rounded-lg border bg-card p-4">
+      {status?.connected ? (
+        <>
+          <div className="flex items-center justify-between gap-3">
+            <div><p className="text-sm font-medium">Telegram account connected</p><p className="text-xs text-muted-foreground">The bot has been opened from your linked Telegram account.</p></div>
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">Connected</span>
+          </div>
+          <label className="flex items-center justify-between gap-4 border-t pt-3">
+            <span><span className="block text-sm font-medium">Accept Telegram enquiries</span><span className="block text-xs text-muted-foreground">Show Telegram contact on your active product listings.</span></span>
+            <input type="checkbox" checked={status.enabled} disabled={busy} onChange={event => void toggle(event.target.checked)} className="size-5 accent-primary" />
+          </label>
+          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void refresh()}>Refresh connection</Button>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">Connect the Telegram account you use with the Mudaala bot. Then open the bot and press Start to confirm it can deliver enquiries to you.</p>
+          {code ? <div className="rounded-md bg-muted p-3"><p className="text-xs text-muted-foreground">Your one-time link code · expires in 10 minutes</p><p className="my-1 font-mono text-xl font-bold tracking-widest">{code}</p><p className="text-sm">In Telegram, send <strong>/link {code}</strong> to <strong>@MudaalaMerchantbot</strong>, then press Start if prompted.</p></div> : null}
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" disabled={busy} onClick={() => void connect()}>{busy ? 'Preparing…' : code ? 'Generate a new code' : 'Connect Telegram'}</Button>
+            <Button type="button" variant="outline" onClick={() => window.open('https://t.me/MudaalaMerchantbot', '_blank', 'noopener,noreferrer')}>Open Telegram bot</Button>
+            <Button type="button" variant="ghost" onClick={() => void refresh()}>I pressed Start · Refresh</Button>
+          </div>
+        </>
+      )}
+      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
     </div>
   )
 }
