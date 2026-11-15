@@ -219,7 +219,11 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
   const chatId = query.message?.chat?.id
   const telegramUserId = query.from?.id
   const data = query.data || ''
-  if (!callbackId || !chatId || !telegramUserId || query.message?.chat?.type !== 'private') return
+  if (!callbackId) return
+  if (!chatId || !telegramUserId || query.message?.chat?.type !== 'private' || chatId !== telegramUserId) {
+    await answerCallbackQuery(callbackId, 'Open this enquiry from your own private chat with Mudaala.')
+    return
+  }
   if (data === 'enq-cancel') {
     await answerCallbackQuery(callbackId, 'Enquiry cancelled.')
     await sendMessage(chatId, 'No enquiry was sent. You can continue browsing Mudaala.')
