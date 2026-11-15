@@ -160,6 +160,11 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     return
   }
 
+  if (command === '/shop') {
+    await sendMessage(chatId, 'Open your Mudaala merchant workspace to manage your shop, products and performance.', shopKeyboard)
+    return
+  }
+
   const mapping = await db.appSetting.findUnique({ where: { key: telegramKey(telegramUserId) } })
   if (!mapping) {
     await sendMessage(chatId, 'Your Telegram account is not linked yet. Open Mudaala Account, generate a link code, then send /link CODE here.')
@@ -182,10 +187,6 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     return
   }
 
-  if (command === '/shop') {
-    await sendMessage(chatId, 'Open your Mudaala merchant workspace to manage your shop, products and performance.', shopKeyboard)
-    return
-  }
   if (command === '/publicshop') {
     await sendMessage(chatId, 'Your public Mudaala shop link: https://mudaala.store/#/shop/' + encodeURIComponent(user.id))
     return
@@ -198,7 +199,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       take: 10,
     })
     if (!listings.length) {
-      await sendMessage(chatId, 'You have no active products yet. Add products on Mudaala, then come back here to check your catalogue.')
+      await sendMessage(chatId, 'You have no active products yet. Open your merchant workspace to create your first listing.', shopKeyboard)
       return
     }
     const lines = listings.map((item) => '- ' + item.title + ' - ' + (item.price === null ? 'Ask seller' : item.currency + ' ' + item.price.toLocaleString('en-UG')) + ' (' + item.county + ')')
