@@ -93,6 +93,7 @@ async function run() {
     body: JSON.stringify({ listingId: merchantListing.id }),
   })
   assertStatus(guestTokenResponse.status, 201, 'guest contact token')
+  assert.deepEqual(Object.keys(guestTokenResponse.body).sort(), ['expiresInSeconds', 'listingTitle', 'url'], 'public token response exposes no account or seller identifiers')
   const guestUrl = new URL(guestTokenResponse.body.url)
   const guestRawToken = guestUrl.searchParams.get('start')
   assert.ok(guestRawToken, 'guest Telegram URL contains a start token')
