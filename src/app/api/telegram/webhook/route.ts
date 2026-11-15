@@ -152,7 +152,7 @@ async function searchListings(chatId: number, rawQuery: string): Promise<void> {
       })),
     },
     select: {
-      id: true, title: true, price: true, currency: true, county: true, area: true,
+      id: true, title: true, price: true, currency: true, county: true, area: true, availabilityStatus: true,
       user: { select: { profile: { select: { businessName: true } } } },
     },
     orderBy: [{ refreshedAt: 'desc' }, { publishedAt: 'desc' }],
@@ -166,7 +166,8 @@ async function searchListings(chatId: number, rawQuery: string): Promise<void> {
     const price = item.price === null ? 'Ask seller' : item.currency + ' ' + item.price.toLocaleString('en-UG')
     const location = [item.area, item.county].filter(Boolean).join(', ')
     const shop = item.user.profile?.businessName
-    return (index + 1) + '. ' + item.title + '\n' + price + (location ? ' · ' + location : '') + (shop ? '\nShop: ' + shop : '')
+    const availability = item.availabilityStatus === 'IN_STOCK' ? 'In stock (seller-reported)' : item.availabilityStatus === 'AVAILABLE_ON_ORDER' ? 'Available on order (seller-reported)' : item.availabilityStatus === 'OUT_OF_STOCK' ? 'Out of stock (seller-reported)' : 'Availability not confirmed'
+    return (index + 1) + '. ' + item.title + '\n' + price + ' · ' + availability + (location ? ' · ' + location : '') + (shop ? '\nShop: ' + shop : '')
   })
   const inline_keyboard = listings.map((item) => [{
     text: 'View ' + item.title.slice(0, 32),
