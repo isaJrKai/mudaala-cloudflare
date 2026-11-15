@@ -88,7 +88,7 @@ export function SettingsView() {
         <Button variant="outline" onClick={() => navigate({ name: 'account' })}>Manage shop profile</Button>
       </Section>
 
-      <Section icon={<MessageCircle className="size-4" aria-hidden />} title="Telegram enquiries" description="Let customers contact your shop through the official Mudaala bot in Telegram. Your phone and WhatsApp options remain available.">
+      <Section icon={<MessageCircle className="size-4" aria-hidden />} title="Telegram account" description="Link your Mudaala account to the official bot. Shop owners can separately choose whether to accept Telegram enquiries.">
         <TelegramEnquirySettings />
       </Section>
 
@@ -122,14 +122,14 @@ export function SettingsView() {
 
 
 function TelegramEnquirySettings() {
-  const [status, setStatus] = useState<{ connected: boolean; enabled: boolean; botUrl: string } | null>(null)
+  const [status, setStatus] = useState<{ connected: boolean; enabled: boolean; hasShopProfile: boolean; botUrl: string } | null>(null)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
   async function refresh() {
     try {
-      const result = await apiFetch<{ connected: boolean; enabled: boolean; botUrl: string }>('/api/telegram/merchant')
+      const result = await apiFetch<{ connected: boolean; enabled: boolean; hasShopProfile: boolean; botUrl: string }>('/api/telegram/merchant')
       setStatus(result)
       setError('')
     } catch (err) {
@@ -151,7 +151,7 @@ function TelegramEnquirySettings() {
   async function toggle(enabled: boolean) {
     setBusy(true); setError('')
     try {
-      const result = await apiFetch<{ connected: boolean; enabled: boolean; botUrl: string }>('/api/telegram/merchant', {
+      const result = await apiFetch<{ connected: boolean; enabled: boolean; hasShopProfile: boolean; botUrl: string }>('/api/telegram/merchant', {
         method: 'PUT', body: JSON.stringify({ enabled }),
       })
       setStatus(result)
@@ -162,7 +162,7 @@ function TelegramEnquirySettings() {
 
   // Load the current connection state when the settings section opens.
   useEffect(() => {
-    void apiFetch<{ connected: boolean; enabled: boolean; botUrl: string }>('/api/telegram/merchant')
+    void apiFetch<{ connected: boolean; enabled: boolean; hasShopProfile: boolean; botUrl: string }>('/api/telegram/merchant')
       .then(setStatus)
       .catch(err => setError(err instanceof Error ? err.message : 'Could not load Telegram settings.'))
   }, [])
@@ -175,10 +175,14 @@ function TelegramEnquirySettings() {
             <div><p className="text-sm font-medium">Telegram account connected</p><p className="text-xs text-muted-foreground">The bot has been opened from your linked Telegram account.</p></div>
             <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">Connected</span>
           </div>
-          <label className="flex items-center justify-between gap-4 border-t pt-3">
-            <span><span className="block text-sm font-medium">Accept Telegram enquiries</span><span className="block text-xs text-muted-foreground">Show Telegram contact on your active product listings.</span></span>
-            <input type="checkbox" checked={status.enabled} disabled={busy} onChange={event => void toggle(event.target.checked)} className="size-5 accent-primary" />
-          </label>
+          {status.hasShopProfile ? (
+            <label className="flex items-center justify-between gap-4 border-t pt-3">
+              <span><span className="block text-sm font-medium">Accept Telegram enquiries</span><span className="block text-xs text-muted-foreground">Show Telegram contact on your active product listings.</span></span>
+              <input type="checkbox" checked={status.enabled} disabled={busy} onChange={event => void toggle(event.target.checked)} className="size-5 accent-primary" />
+            </label>
+          ) : (
+            <p className="border-t pt-3 text-sm text-muted-foreground">Your account is linked. As a shopper, use /search and /messages in Telegram. If you decide to sell, create a shop profile before enabling seller enquiries.</p>
+          )}
           <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void refresh()}>Refresh connection</Button>
         </>
       ) : (
