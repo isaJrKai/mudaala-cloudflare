@@ -270,7 +270,7 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
   if (merchantChatId !== null) {
     try {
       await sendMessage(merchantChatId,
-        'New Mudaala enquiry\\nProduct: ' + capability.listing.title + '\\nBuyer: private Mudaala shopper\\nEnquiry reference: ' + result.id.slice(-8) + '\\n\\nA shopper is interested in your listing. Open your Mudaala merchant workspace to manage enquiries.',
+        'New Mudaala enquiry\\nProduct: ' + capability.listing.title + '\\nBuyer: private Mudaala shopper\\nEnquiry reference: ' + result.id + '\\n\\nReply with /reply ' + result.id + ' your message.',
         shopKeyboard)
       await db.enquiryMessage.update({ where: { id: result.messages[0]!.id }, data: { deliveryStatus: 'SENT' } })
     } catch {
@@ -283,7 +283,7 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
     await sendMessage(chatId, 'Your enquiry was saved, but the seller is not currently reachable on Telegram. Please use the phone or WhatsApp contact on the listing.')
     return
   }
-  await sendMessage(chatId, 'Your enquiry has been sent to the seller. Mudaala has kept your Telegram identity private.')
+  await sendMessage(chatId, 'Your enquiry has been sent to the seller. Mudaala has kept your Telegram identity private.\\n\\nIf the seller replies, respond with /respond ' + result.id + ' your message.')
 }
 \nasync function handleMessage(message: TelegramMessage): Promise<void> {
   const chatId = message.chat?.id
