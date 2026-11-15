@@ -43,7 +43,7 @@ export async function PUT(request: Request) {
     const body = await parseBody(request, z.object({ enabled: z.boolean() }))
     const [settings, account] = await Promise.all([
       readSettings(user.id),
-      db.user.findUnique({ where: { id: user.id }, select: { profile: { select: { id: true } } }),
+      db.user.findUnique({ where: { id: user.id }, select: { profile: { select: { id: true } } } }),
     ])
     if (body.enabled && !account?.profile) {
       throw new ApiError(409, 'Create your Mudaala shop profile before accepting seller enquiries.')
