@@ -84,7 +84,7 @@ export function TelegramMerchantMiniApp() {
   const [tab, setTab] = useState<Tab>('home')
   const [copied, setCopied] = useState(false)
 
-  async function loadShop() {
+  async function loadShop(authenticatedUser?: User) {
     setRefreshing(true)
     try {
       const [profileData, listingData, analyticsData] = await Promise.all([
@@ -98,8 +98,8 @@ export function TelegramMerchantMiniApp() {
       if (!profileData.profile) {
         setOnboarding(true)
         setOnboardingStep('shop')
-        setShopNameInput((current) => current || (user?.name ? user.name + "'s Shop" : ''))
-        setRegisterPhone((current) => current || user?.phone || '')
+        setShopNameInput((current) => current || ((authenticatedUser ?? user)?.name ? (authenticatedUser ?? user)!.name + "'s Shop" : ''))
+        setRegisterPhone((current) => current || (authenticatedUser ?? user)?.phone || '')
       }
       setError('')
     } catch (cause) {
@@ -118,7 +118,7 @@ export function TelegramMerchantMiniApp() {
         body: JSON.stringify({ initData }),
       })
       setUser(session.user)
-      await loadShop()
+      await loadShop(session.user)
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'Telegram sign-in failed.'
       if (message.toLowerCase().includes('not linked')) {
