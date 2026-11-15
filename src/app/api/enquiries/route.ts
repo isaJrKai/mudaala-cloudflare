@@ -21,6 +21,7 @@ export async function GET() {
     return jsonOk({ enquiries: items.map((item) => ({
       id: item.id,
       status: item.status,
+      followUpConsentAt: item.followUpConsentAt,
       role: item.merchantId === user.id ? 'MERCHANT' : 'SHOPPER',
       listing: item.listing,
       shopName: item.merchant.profile?.businessName || 'Mudaala shop',
