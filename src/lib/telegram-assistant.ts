@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { db } from '@/lib/db'
+import { hit } from '@/lib/rate-limit'
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 type ShopContext = {
@@ -13,7 +14,7 @@ type ShopContext = {
 }
 
 const MODEL = 'openai/gpt-oss-120b'
-const MAX_HISTORY = 10
+const MAX_HISTORY = 4
 const HISTORY_TTL_MS = 24 * 60 * 60 * 1000
 
 function conversationKey(telegramUserId: number): string {
@@ -68,6 +69,22 @@ export async function replyToTelegramMerchant(input: {
     return 'I can help with your Mudaala shop here. The assistant is being connected right now. For now, tap Open My Shop to manage your account, shop details and products.'
   }
 
+  // Enforce a conservative shared daily budget as well as per-user limits.
+  // Production limits are backed by Cloudflare Durable Objects across isolates.
+  const userKey = 'telegram:groq:user:' + conversationKey(input.telegramUserId)
+  const hourly = await hit(userKey + ':hour', 5, 60 * 60 * 1000)
+  if (!hourly.ok) {
+    return 'You’ve reached the assistant’s short-term message limit. Please try again in about an hour. You can still manage your shop using the Open My Shop button.'
+  }
+  const daily = await hit(userKey + ':day', 20, 24 * 60 * 60 * 1000)
+  if (!daily.ok) {
+    return 'You’ve reached today’s assistant message limit. You can still use the Open My Shop workspace, and come back here tomorrow for more help.'
+  }
+  const global = await hit('telegram:groq:global:daily', 60, 24 * 60 * 60 * 1000)
+  if (!global.ok) {
+    return 'Mudaala’s assistant has reached today’s shared usage limit. Your shop workspace is still available—tap Open My Shop. The assistant will be available again as the daily allowance resets.'
+  }
+
   const key = conversationKey(input.telegramUserId)
   const stored = await db.appSetting.findUnique({ where: { key } })
   let history: ChatMessage[] = []
@@ -78,7 +95,7 @@ export async function replyToTelegramMerchant(input: {
       if (age >= 0 && age < HISTORY_TTL_MS && Array.isArray(parsed.messages)) {
         history = parsed.messages.filter((item) =>
           item && (item.role === 'user' || item.role === 'assistant') &&
-          typeof item.content === 'string' && item.content.length <= 2000,
+          typeof item.content === 'string' && item.content.length <= 1200,
         ).slice(-MAX_HISTORY)
       }
     } catch {
@@ -89,7 +106,7 @@ export async function replyToTelegramMerchant(input: {
   const messages = [
     { role: 'system', content: systemPrompt(input.shop ?? undefined) },
     ...history,
-    { role: 'user', content: input.text.slice(0, 2000) },
+    { role: 'user', content: input.text.slice(0, 1200) },
   ]
 
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -101,7 +118,7 @@ export async function replyToTelegramMerchant(input: {
     body: JSON.stringify({
       model: MODEL,
       messages,
-      max_completion_tokens: 500,
+      max_completion_tokens: 250,
       temperature: 0.6,
     }),
     signal: AbortSignal.timeout(15_000),
@@ -130,8 +147,8 @@ export async function replyToTelegramMerchant(input: {
 
   const nextHistory: ChatMessage[] = [
     ...history,
-    { role: 'user', content: input.text.slice(0, 2000) },
-    { role: 'assistant', content: answer.slice(0, 3000) },
+    { role: 'user', content: input.text.slice(0, 1200) },
+    { role: 'assistant', content: answer.slice(0, 1800) },
   ].slice(-MAX_HISTORY)
 
   await db.appSetting.upsert({
@@ -140,5 +157,5 @@ export async function replyToTelegramMerchant(input: {
     update: { value: JSON.stringify({ updatedAt: new Date().toISOString(), messages: nextHistory }) },
   })
 
-  return answer.slice(0, 3500)
+  return answer.slice(0, 2200)
 }
