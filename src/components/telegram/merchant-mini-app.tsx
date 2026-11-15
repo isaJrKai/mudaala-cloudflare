@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import Image from 'next/image'
 import Script from 'next/script'
-import { ArrowUpRight, BarChart3, Bell, Box, Check, ChevronRight, CircleAlert, Clipboard, ExternalLink, Eye, Home, Plus, RefreshCw, Settings, Store, Tag, Users } from 'lucide-react'
+import { ArrowUpRight, BarChart3, Box, Check, ChevronRight, CircleAlert, Clipboard, Eye, Home, Plus, RefreshCw, Settings, Store, Tag } from 'lucide-react'
 
 declare global {
   interface Window {
@@ -65,6 +65,7 @@ export function TelegramMerchantMiniApp() {
   const [error, setError] = useState('')
   const [onboarding, setOnboarding] = useState(false)
   const [onboardingStep, setOnboardingStep] = useState<'account' | 'shop'>('account')
+  const [authMode, setAuthMode] = useState<'register' | 'login'>('register')
   const [shopNameInput, setShopNameInput] = useState('')
   const [shopCountyInput, setShopCountyInput] = useState('')
   const [shopAreaInput, setShopAreaInput] = useState('')
@@ -94,6 +95,12 @@ export function TelegramMerchantMiniApp() {
       setProfile(profileData.profile)
       setListings(listingData.listings)
       setAnalytics(analyticsData)
+      if (!profileData.profile) {
+        setOnboarding(true)
+        setOnboardingStep('shop')
+        setShopNameInput((current) => current || (user?.name ? user.name + "'s Shop" : ''))
+        setRegisterPhone((current) => current || user?.phone || '')
+      }
       setError('')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your shop.')
@@ -105,11 +112,12 @@ export function TelegramMerchantMiniApp() {
 
   async function authenticate(initData: string) {
     try {
-      await requestJson('/api/telegram/mini-app/session', {
+      const session = await requestJson<{ user: User }>('/api/telegram/mini-app/session', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ initData }),
       })
+      setUser(session.user)
       await loadShop()
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'Telegram sign-in failed.'
@@ -164,6 +172,33 @@ export function TelegramMerchantMiniApp() {
     } catch (cause) {
       setRegisterError(cause instanceof Error ? cause.message : 'We could not finish setting up your account.')
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('error')
+    } finally {
+      setRegistering(false)
+    }
+  }
+
+  async function signInInsideTelegram(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setRegistering(true)
+    setRegisterError('')
+    try {
+      const initData = window.Telegram?.WebApp?.initData
+      if (!initData) throw new Error('Telegram sign-in data is missing. Close and reopen the Mini App.')
+      await requestJson('/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ phone: registerPhone, password: registerPassword }),
+      })
+      await requestJson('/api/telegram/mini-app/link', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ initData }),
+      })
+      setOnboarding(false)
+      setLoading(true)
+      await authenticate(initData)
+    } catch (cause) {
+      setRegisterError(cause instanceof Error ? cause.message : 'We could not sign you in.')
     } finally {
       setRegistering(false)
     }
@@ -238,17 +273,22 @@ export function TelegramMerchantMiniApp() {
           {loading ? <section className="space-y-3 rounded-[26px] border border-[#e1e6dd] bg-white p-5" aria-busy="true"><div className="h-3 w-24 animate-pulse rounded bg-[#e9eee6]" /><div className="h-7 w-48 animate-pulse rounded bg-[#e9eee6]" /><div className="grid grid-cols-2 gap-3 pt-2"><div className="h-24 animate-pulse rounded-2xl bg-[#f1f4ee]" /><div className="h-24 animate-pulse rounded-2xl bg-[#f1f4ee]" /></div></section> : onboarding ? (
             <section className="rounded-[26px] border border-[#e1e6dd] bg-white p-5">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#8b7440]">Start selling with Mudaala</p>
-              <h1 className="mt-2 text-2xl font-semibold tracking-tight">Create your merchant account</h1>
-              <p className="mt-2 text-sm leading-6 text-[#65766a]">Set up your Mudaala account here in Telegram. You will create your shop next, using the same Mudaala account and catalogue.</p>
-              <form onSubmit={registerInsideTelegram} className="mt-5 space-y-3">
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight">{authMode === 'register' ? 'Create your merchant account' : 'Sign in to Mudaala'}</h1>
+              <p className="mt-2 text-sm leading-6 text-[#65766a]">{authMode === 'register' ? 'Set up your Mudaala account here in Telegram. You will create your shop next, using the same Mudaala account and catalogue.' : 'Sign in with your existing Mudaala phone number and password. We will connect this Telegram account to your shop.'}</p>
+              {authMode === 'register' ? <form onSubmit={registerInsideTelegram} className="mt-5 space-y-3">
                 <label className="block text-xs font-semibold text-[#315b46]">Your name<input required minLength={2} maxLength={80} autoComplete="name" value={registerName} onChange={(e) => setRegisterName(e.target.value)} className="mt-1.5 h-12 w-full rounded-xl border border-[#dce3d9] bg-[#fbfcf8] px-3 text-sm outline-none focus:border-[#286344]" /></label>
                 <label className="block text-xs font-semibold text-[#315b46]">Ugandan phone number<input required type="tel" autoComplete="tel" placeholder="07XX XXX XXX" value={registerPhone} onChange={(e) => setRegisterPhone(e.target.value)} className="mt-1.5 h-12 w-full rounded-xl border border-[#dce3d9] bg-[#fbfcf8] px-3 text-sm outline-none focus:border-[#286344]" /></label>
                 <label className="block text-xs font-semibold text-[#315b46]">Create a password<input required type="password" minLength={8} maxLength={100} autoComplete="new-password" value={registerPassword} onChange={(e) => setRegisterPassword(e.target.value)} className="mt-1.5 h-12 w-full rounded-xl border border-[#dce3d9] bg-[#fbfcf8] px-3 text-sm outline-none focus:border-[#286344]" /><span className="mt-1 block font-normal text-[#718276]">At least 8 characters. Keep it private.</span></label>
                 <label className="flex items-start gap-2.5 rounded-xl bg-[#f5f7f1] p-3 text-xs leading-5 text-[#53675a]"><input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} required className="mt-1 size-4 accent-[#286344]" /><span>I confirm that I am 18 or older and accept Mudaala's <a className="font-semibold underline" href="/terms" target="_blank" rel="noreferrer">Terms</a> and <a className="font-semibold underline" href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</span></label>
                 {registerError ? <p role="alert" className="rounded-xl bg-[#fff2e9] p-3 text-sm text-[#9a452e]">{registerError}</p> : null}
                 <button disabled={registering || !acceptTerms} className="flex h-12 w-full items-center justify-center rounded-full bg-[#164b37] px-5 text-sm font-semibold text-white disabled:opacity-50">{registering ? 'Creating your account…' : 'Create my Mudaala account'}</button>
-              </form>
-              <p className="mt-4 text-center text-xs text-[#718276]">Already have a Mudaala account? <a href="https://mudaala.store" className="font-semibold text-[#286344] underline">Sign in and link Telegram</a>.</p>
+              </form> : <form onSubmit={signInInsideTelegram} className="mt-5 space-y-3">
+                <label className="block text-xs font-semibold text-[#315b46]">Ugandan phone number<input required type="tel" autoComplete="tel" placeholder="07XX XXX XXX" value={registerPhone} onChange={(e) => setRegisterPhone(e.target.value)} className="mt-1.5 h-12 w-full rounded-xl border border-[#dce3d9] bg-[#fbfcf8] px-3 text-sm outline-none focus:border-[#286344]" /></label>
+                <label className="block text-xs font-semibold text-[#315b46]">Password<input required type="password" autoComplete="current-password" value={registerPassword} onChange={(e) => setRegisterPassword(e.target.value)} className="mt-1.5 h-12 w-full rounded-xl border border-[#dce3d9] bg-[#fbfcf8] px-3 text-sm outline-none focus:border-[#286344]" /></label>
+                {registerError ? <p role="alert" className="rounded-xl bg-[#fff2e9] p-3 text-sm text-[#9a452e]">{registerError}</p> : null}
+                <button disabled={registering} className="flex h-12 w-full items-center justify-center rounded-full bg-[#164b37] px-5 text-sm font-semibold text-white disabled:opacity-50">{registering ? 'Signing in…' : 'Sign in and connect Telegram'}</button>
+              </form>}
+              <p className="mt-4 text-center text-xs text-[#718276]">{authMode === 'register' ? 'Already have a Mudaala account?' : 'New to Mudaala?'} <button type="button" onClick={() => { setAuthMode(authMode === 'register' ? 'login' : 'register'); setRegisterError('') }} className="font-semibold text-[#286344] underline">{authMode === 'register' ? 'Sign in here' : 'Create an account'}</button></p>
             </section>
           ) : error ? (
             <section className="rounded-[26px] border border-[#e4d9c6] bg-white p-5">
