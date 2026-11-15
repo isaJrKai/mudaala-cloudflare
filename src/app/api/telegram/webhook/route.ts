@@ -25,13 +25,13 @@ function telegramKey(id: number): string {
   return 'telegram:user:' + digest
 }
 
-async function sendMessage(chatId: number, text: string): Promise<void> {
+async function sendMessage(chatId: number, text: string, replyMarkup?: Record<string, unknown>): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN
   if (!token) throw new Error('Telegram bot is not configured')
   const response = await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true, ...(replyMarkup ? { reply_markup: replyMarkup } : {}) }),
     signal: AbortSignal.timeout(8000),
   })
   if (!response.ok) throw new Error('Telegram sendMessage failed with HTTP ' + response.status)
@@ -86,6 +86,12 @@ async function cleanupTelegramRecords(): Promise<void> {
   }
 }
 
+const shopKeyboard = {
+  keyboard: [[{ text: 'Open My Shop', web_app: { url: 'https://mudaala.store/telegram' } }]],
+  resize_keyboard: true,
+  is_persistent: true,
+}
+
 async function handleMessage(message: TelegramMessage): Promise<void> {
   const chatId = message.chat?.id
   const telegramUserId = message.from?.id
@@ -95,7 +101,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   const parts = text.split(/\s+/)
   const command = (parts[0] || '').split('@')[0].toLowerCase()
   if (command === '/start' || command === '/help') {
-    await sendMessage(chatId, 'Welcome to Mudaala Merchant Assistant.\n\n/link CODE - connect this Telegram account to your Mudaala shop.\n/shop - get your public shop link.\n/products - view your active products.\n/help - show these commands.\n\nTo connect, sign in to Mudaala, generate a Telegram link code in Account, then send /link followed by that code here.')
+    await sendMessage(chatId, 'Welcome to Mudaala Merchant.\n\nOpen your shop workspace to manage your catalogue, shop details and performance.\n\n/link CODE - connect an existing Mudaala account.\n/shop - open your merchant workspace.\n/publicshop - get your public customer-facing shop link.\n/products - view your active products.\n/help - show these commands.\n\nNew to Mudaala? Tap Open My Shop to register and set up your shop inside Telegram.', shopKeyboard)
     return
   }
 
@@ -150,7 +156,12 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       create: { key: mappingKey, value: JSON.stringify({ userId: user.id, linkedAt: new Date().toISOString() }) },
       update: { value: JSON.stringify({ userId: user.id, linkedAt: new Date().toISOString() }) },
     })
-    await sendMessage(chatId, 'Connected successfully to ' + (user.profile?.businessName || user.name) + '.\n\nSend /shop to get your shop link or /products to see active products.')
+    await sendMessage(chatId, 'Connected successfully to ' + (user.profile?.businessName || user.name) + '.\n\nYour merchant workspace is ready. Open it below to manage your shop.', shopKeyboard)
+    return
+  }
+
+  if (command === '/shop') {
+    await sendMessage(chatId, 'Open your Mudaala merchant workspace to manage your shop, products and performance.', shopKeyboard)
     return
   }
 
@@ -176,8 +187,8 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     return
   }
 
-  if (command === '/shop') {
-    await sendMessage(chatId, 'Your Mudaala shop: https://mudaala.store/#/shop/' + encodeURIComponent(user.id))
+  if (command === '/publicshop') {
+    await sendMessage(chatId, 'Your public Mudaala shop link: https://mudaala.store/#/shop/' + encodeURIComponent(user.id))
     return
   }
   if (command === '/products') {
@@ -188,11 +199,11 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       take: 10,
     })
     if (!listings.length) {
-      await sendMessage(chatId, 'You have no active products yet. Add products on Mudaala, then come back here to check your catalogue.')
+      await sendMessage(chatId, 'You have no active products yet. Open your merchant workspace to create your first listing.', shopKeyboard)
       return
     }
     const lines = listings.map((item) => '- ' + item.title + ' - ' + (item.price === null ? 'Ask seller' : item.currency + ' ' + item.price.toLocaleString('en-UG')) + ' (' + item.county + ')')
-    await sendMessage(chatId, 'Your latest active products:\n\n' + lines.join('\n') + '\n\nManage products on https://mudaala.store')
+    await sendMessage(chatId, 'Your latest active products:\n\n' + lines.join('\n') + '\n\nOpen your merchant workspace to add or manage products.', shopKeyboard)
     return
   }
   await sendMessage(chatId, 'I did not recognise that command. Send /help to see what I can do.')
