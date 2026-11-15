@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import Image from 'next/image'
 import Script from 'next/script'
 import { ArrowUpRight, BarChart3, Box, Check, ChevronRight, CircleAlert, Clipboard, Eye, Home, Plus, RefreshCw, Settings, Store, Tag } from 'lucide-react'
@@ -98,6 +98,7 @@ export function TelegramMerchantMiniApp() {
   const [refreshing, setRefreshing] = useState(false)
   const [tab, setTab] = useState<Tab>('home')
   const [copied, setCopied] = useState(false)
+  const initPollRef = useRef<number | null>(null)
 
   // Never leave merchants on an endless skeleton if Telegram's SDK or a request stalls.
   useEffect(() => {
@@ -108,6 +109,10 @@ export function TelegramMerchantMiniApp() {
     }, 20000)
     return () => window.clearTimeout(timeout)
   }, [loading])
+
+  useEffect(() => () => {
+    if (initPollRef.current !== null) window.clearInterval(initPollRef.current)
+  }, [])
 
   async function loadShop(authenticatedUser?: User) {
     setRefreshing(true)
@@ -167,15 +172,33 @@ export function TelegramMerchantMiniApp() {
     const webApp = window.Telegram?.WebApp
     webApp?.ready?.()
     webApp?.expand?.()
-    void authenticate(webApp?.initData || '')
+
+    // Telegram can expose its WebApp bridge just after the SDK script's onReady
+    // callback. Wait briefly for initData instead of failing on the first empty read.
+    if (initPollRef.current !== null) window.clearInterval(initPollRef.current)
+    const startedAt = Date.now()
+    initPollRef.current = window.setInterval(() => {
+      const currentWebApp = window.Telegram?.WebApp
+      currentWebApp?.ready?.()
+      currentWebApp?.expand?.()
+      const initData = currentWebApp?.initData?.trim()
+      if (initData) {
+        if (initPollRef.current !== null) window.clearInterval(initPollRef.current)
+        initPollRef.current = null
+        void authenticate(initData)
+      } else if (Date.now() - startedAt >= 12000) {
+        if (initPollRef.current !== null) window.clearInterval(initPollRef.current)
+        initPollRef.current = null
+        setError('Telegram did not provide sign-in data. Close this window and reopen My Shop from the Mudaala bot inside Telegram.')
+        setLoading(false)
+      }
+    }, 200)
   }
 
   function retryMiniApp() {
     setError('')
     setLoading(true)
-    const initData = window.Telegram?.WebApp?.initData
-    if (initData) void authenticate(initData)
-    else window.location.reload()
+    initializeTelegram()
   }
 
   async function registerInsideTelegram(event: FormEvent<HTMLFormElement>) {
