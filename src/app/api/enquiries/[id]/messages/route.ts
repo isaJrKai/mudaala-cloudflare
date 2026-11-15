@@ -76,8 +76,8 @@ export async function POST(request: Request, { params }: Params) {
       const record = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + enquiry.merchantId } })
       if (record) {
         try {
-          const settings = JSON.parse(record.value) as { enabled?: unknown; chatId?: unknown }
-          if (settings.enabled === true && Number.isSafeInteger(settings.chatId)) chatId = settings.chatId as number
+          const settings = JSON.parse(record.value) as { activatedAt?: unknown; chatId?: unknown }
+          if (typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)) chatId = settings.chatId as number
         } catch { /* no active Telegram destination */ }
       }
     }
