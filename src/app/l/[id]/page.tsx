@@ -375,7 +375,8 @@ export default async function AdPage({ params }: Params) {
           <div className="mt-3">
             <SafetyCard />
           </div>
-          {listing.type === 'OFFER' ? <TelegramEnquiryButton listingId={listing.id} enabled={telegramContactEnabled} /> : null}\n          <ShowNumber listingId={listing.id} listingTitle={listing.title} listingType={listing.type as ListingType} />
+          {listing.type === 'OFFER' ? <TelegramEnquiryButton listingId={listing.id} enabled={telegramContactEnabled} /> : null}
+          <ShowNumber listingId={listing.id} listingTitle={listing.title} listingType={listing.type as ListingType} />
           <Button asChild variant="outline" className="press mt-2 h-11 w-full gap-1.5 text-[15px]">
             <a href={directionsUrl} target="_blank" rel="noopener noreferrer" aria-label={copy.listing.directionsAria(placeOf(listing))}>
               <Navigation className="size-4" aria-hidden /> {copy.listing.directions}
