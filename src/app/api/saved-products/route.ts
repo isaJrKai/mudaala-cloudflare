@@ -20,7 +20,7 @@ export async function GET() {
         },
       },
       orderBy: { createdAt: 'desc' },
-      take: 100,
+      take: 40,
     })
     return jsonOk({ products: saved.filter((item) => item.listing.status === 'ACTIVE' && item.listing.expiresAt > new Date()) })
   })
@@ -35,6 +35,11 @@ export async function POST(request: Request) {
       select: { id: true },
     })
     if (!listing) throw new ApiError(404, 'This product is no longer available to save.')
+    const existing = await db.savedProduct.findUnique({ where: { userId_listingId: { userId: user.id, listingId: listing.id } }, select: { id: true } })
+    if (!existing) {
+      const count = await db.savedProduct.count({ where: { userId: user.id } })
+      if (count >= 40) throw new ApiError(409, 'Your account shortlist is full. Remove a saved product before adding another.')
+    }
     await db.savedProduct.upsert({
       where: { userId_listingId: { userId: user.id, listingId: listing.id } },
       create: { userId: user.id, listingId: listing.id },
