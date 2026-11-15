@@ -278,6 +278,7 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
       data: {
         listingId: capability.listingId,
         merchantId: capability.merchantId,
+        shopperId: capability.shopperId,
         buyerTelegramHash: buyerHash,
         contactChannel: 'TELEGRAM',
         messages: { create: { senderType: 'SHOPPER', body: 'Hello, I am interested in this listing.', deliveryStatus: 'PENDING' } },
