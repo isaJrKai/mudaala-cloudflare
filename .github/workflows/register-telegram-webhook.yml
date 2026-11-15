@@ -1,0 +1,36 @@
+name: Register Telegram Merchant Assistant webhook
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telegram-webhook-registration
+  cancel-in-progress: false
+
+jobs:
+  register:
+    name: Register production Telegram webhook
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Register webhook with Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_WEBHOOK_SECRET" ]; then
+            echo "::error::Add TELEGRAM_BOT_TOKEN and TELEGRAM_WEBHOOK_SECRET as repository Actions secrets."
+            exit 1
+          fi
+          node scripts/register-telegram-webhook.mjs
