@@ -4,6 +4,7 @@ import { ApiError, jsonOk, parseBody, route } from '@/lib/api'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
+import { getSessionUser } from '@/lib/auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -14,6 +15,7 @@ export async function POST(request: Request) {
     const clientIp = getClientIp(request)
     const limit = await hit('telegram:contact-token:' + clientIp, 10, 60 * 60 * 1000)
     if (!limit.ok) throw new ApiError(429, 'Please wait before starting another seller enquiry.')
+    const viewer = await getSessionUser()
     const listing = await db.listing.findFirst({
       where: { id: body.listingId, type: 'OFFER', status: 'ACTIVE', isSeed: false, expiresAt: { gt: new Date() } },
       select: { id: true, userId: true, title: true },
@@ -29,7 +31,7 @@ export async function POST(request: Request) {
     const raw = randomBytes(24).toString('base64url')
     const tokenHash = createHash('sha256').update(raw).digest('hex')
     await db.enquiryContactToken.create({
-      data: { tokenHash, listingId: listing.id, merchantId: listing.userId, expiresAt: new Date(Date.now() + 10 * 60 * 1000) },
+      data: { tokenHash, listingId: listing.id, merchantId: listing.userId, shopperId: viewer?.id ?? null, expiresAt: new Date(Date.now() + 10 * 60 * 1000) },
     })
     return jsonOk({
       url: 'https://t.me/MudaalaMerchantbot?start=' + raw,
