@@ -21,6 +21,7 @@ export async function POST(request: Request) {
       select: { id: true, userId: true, title: true },
     })
     if (!listing) throw new ApiError(404, 'This listing is no longer available.')
+    if (viewer?.id === listing.userId) throw new ApiError(409, 'You cannot send an enquiry to your own shop.')
     const setting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + listing.userId } })
     if (!setting) throw new ApiError(409, 'This seller has not enabled Telegram enquiries. Try their phone or WhatsApp contact instead.')
     let merchant: { enabled?: unknown; activatedAt?: unknown; chatId?: unknown }
