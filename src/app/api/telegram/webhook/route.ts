@@ -261,40 +261,65 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
     await answerCallbackQuery(callbackId, 'This enquiry link is invalid.')
     return
   }
+
   const tokenHash = createHash('sha256').update(rawToken).digest('hex')
-  const capability = await db.enquiryContactToken.findFirst({
-    where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } },
-    include: { listing: { select: { id: true, userId: true, type: true, isSeed: true, title: true, status: true, expiresAt: true } } },
-  })
-  if (!capability || capability.listing.type !== 'OFFER' || capability.listing.isSeed || capability.listing.userId !== capability.merchantId || capability.listing.status !== 'ACTIVE' || capability.listing.expiresAt <= new Date()) {
-    await answerCallbackQuery(callbackId, 'This enquiry link has expired.')
-    return
-  }
-  if (capability.shopperId && await linkedMudaalaUserId(telegramUserId) !== capability.shopperId) {
-    await answerCallbackQuery(callbackId, 'Link the same Mudaala account before confirming this enquiry.')
-    await sendMessage(chatId, 'This enquiry link belongs to a signed-in Mudaala account. Link that same account with /link CODE before confirming.')
-    return
-  }
-  const sellerSetting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + capability.merchantId } })
-  let sellerCanReceive = false
-  if (sellerSetting) {
-    try {
-      const settings = JSON.parse(sellerSetting.value) as { enabled?: unknown; activatedAt?: unknown; chatId?: unknown }
-      sellerCanReceive = settings.enabled === true && typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)
-    } catch { sellerCanReceive = false }
-  }
-  if (!sellerCanReceive) {
-    await answerCallbackQuery(callbackId, 'The seller is no longer accepting Telegram enquiries.')
-    await sendMessage(chatId, 'The seller is no longer accepting Telegram enquiries. Please use the phone or WhatsApp contact on the listing.')
-    return
-  }
   const buyerHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
   const result = await db.$transaction(async (tx) => {
-    const consumed = await tx.enquiryContactToken.updateMany({
-      where: { id: capability.id, usedAt: null, expiresAt: { gt: new Date() } },
-      data: { usedAt: new Date() },
+    const now = new Date()
+    const capability = await tx.enquiryContactToken.findFirst({
+      where: { tokenHash, usedAt: null, expiresAt: { gt: now } },
+      include: {
+        listing: {
+          select: { id: true, userId: true, type: true, isSeed: true, title: true, status: true, expiresAt: true },
+        },
+      },
     })
-    if (consumed.count !== 1) return null
+    if (!capability) return { kind: 'invalid' as const }
+
+    // Revalidate the exact listing and owner at confirmation time. A token
+    // cannot outlive a delisted, expired, seeded or reassigned product.
+    if (
+      capability.listing.type !== 'OFFER' ||
+      capability.listing.isSeed ||
+      capability.listing.userId !== capability.merchantId ||
+      capability.listing.status !== 'ACTIVE' ||
+      capability.listing.expiresAt <= now
+    ) return { kind: 'listing' as const }
+
+    // A browser login is not proof of Telegram identity. Account-bound tokens
+    // require the same Telegram account to have completed /link CODE.
+    if (capability.shopperId) {
+      const mapping = await tx.appSetting.findUnique({ where: { key: telegramKey(telegramUserId) } })
+      let linkedUserId: string | null = null
+      try {
+        const parsed = JSON.parse(mapping?.value || '{}') as { userId?: unknown }
+        if (typeof parsed.userId === 'string') linkedUserId = parsed.userId
+      } catch { /* invalid mapping is not proof of identity */ }
+      if (linkedUserId !== capability.shopperId) return { kind: 'identity' as const }
+    }
+
+    // Seller opt-in is checked inside the same transaction that consumes the
+    // capability, so a stale opt-in read cannot create a new enquiry.
+    const sellerSetting = await tx.appSetting.findUnique({
+      where: { key: 'telegram:merchant:' + capability.merchantId },
+    })
+    let merchantChatId: number | null = null
+    if (sellerSetting) {
+      try {
+        const settings = JSON.parse(sellerSetting.value) as { enabled?: unknown; activatedAt?: unknown; chatId?: unknown }
+        if (settings.enabled === true && typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)) {
+          merchantChatId = settings.chatId as number
+        }
+      } catch { /* malformed settings cannot receive enquiries */ }
+    }
+    if (merchantChatId === null) return { kind: 'seller' as const }
+
+    const consumed = await tx.enquiryContactToken.updateMany({
+      where: { id: capability.id, usedAt: null, expiresAt: { gt: now } },
+      data: { usedAt: now },
+    })
+    if (consumed.count !== 1) return { kind: 'used' as const }
+
     const enquiry = await tx.enquiry.create({
       data: {
         listingId: capability.listingId,
@@ -306,38 +331,40 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
       },
       include: { messages: true },
     })
-    return enquiry
-  })
-  if (!result) {
+    return { kind: 'created' as const, enquiry, merchantChatId, listingTitle: capability.listing.title }
+  }, { isolationLevel: 'Serializable' })
+
+  if (result.kind === 'invalid' || result.kind === 'listing') {
+    await answerCallbackQuery(callbackId, 'This enquiry link has expired or the listing is no longer active.')
+    return
+  }
+  if (result.kind === 'identity') {
+    await answerCallbackQuery(callbackId, 'Link the same Mudaala account before confirming this enquiry.')
+    await sendMessage(chatId, 'This enquiry link belongs to a signed-in Mudaala account. Link that same account with /link CODE before confirming.')
+    return
+  }
+  if (result.kind === 'seller') {
+    await answerCallbackQuery(callbackId, 'The seller is no longer accepting Telegram enquiries.')
+    await sendMessage(chatId, 'The seller is no longer accepting Telegram enquiries. Please use the phone or WhatsApp contact on the listing.')
+    return
+  }
+  if (result.kind === 'used') {
     await answerCallbackQuery(callbackId, 'This enquiry link has already been used.')
     return
   }
+
   await answerCallbackQuery(callbackId, 'Your enquiry has been created.')
-  const setting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + capability.merchantId } })
-  let merchantChatId: number | null = null
-  if (setting) {
-    try {
-      const merchant = JSON.parse(setting.value) as { enabled?: unknown; chatId?: unknown }
-      if (merchant.enabled === true && Number.isSafeInteger(merchant.chatId)) merchantChatId = merchant.chatId as number
-    } catch { /* malformed preference: do not deliver */ }
-  }
-  if (merchantChatId !== null) {
-    try {
-      await sendMessage(merchantChatId,
-        'New Mudaala enquiry\nProduct: ' + capability.listing.title + '\nBuyer: private Mudaala shopper\nEnquiry reference: ' + result.id + '\n\nReply with /reply ' + result.id + ' your message.',
-        shopKeyboard)
-      await db.enquiryMessage.update({ where: { id: result.messages[0]!.id }, data: { deliveryStatus: 'SENT' } })
-    } catch {
-      await db.enquiryMessage.update({ where: { id: result.messages[0]!.id }, data: { deliveryStatus: 'FAILED' } })
-      await sendMessage(chatId, 'Your enquiry was saved, but Telegram could not notify the seller right now. Please use the phone or WhatsApp contact on the listing as an alternative.')
-      return
-    }
-  } else {
-    await db.enquiryMessage.update({ where: { id: result.messages[0]!.id }, data: { deliveryStatus: 'FAILED' } })
-    await sendMessage(chatId, 'Your enquiry was saved, but the seller is not currently reachable on Telegram. Please use the phone or WhatsApp contact on the listing.')
+  try {
+    await sendMessage(result.merchantChatId,
+      'New Mudaala enquiry\nProduct: ' + result.listingTitle + '\nBuyer: private Mudaala shopper\nEnquiry reference: ' + result.enquiry.id + '\n\nReply with /reply ' + result.enquiry.id + ' your message.',
+      shopKeyboard)
+    await db.enquiryMessage.update({ where: { id: result.enquiry.messages[0]!.id }, data: { deliveryStatus: 'SENT' } })
+  } catch {
+    await db.enquiryMessage.update({ where: { id: result.enquiry.messages[0]!.id }, data: { deliveryStatus: 'FAILED' } })
+    await sendMessage(chatId, 'Your enquiry was saved, but Telegram could not notify the seller right now. Please use the phone or WhatsApp contact on the listing as an alternative.')
     return
   }
-  await sendMessage(chatId, 'Your enquiry has been sent to the seller. Mudaala has kept your Telegram identity private.\n\nIf the seller replies, respond with /respond ' + result.id + ' your message.')
+  await sendMessage(chatId, 'Your enquiry has been sent to the seller. Mudaala has kept your Telegram identity private.\n\nIf the seller replies, respond with /respond ' + result.enquiry.id + ' your message.')
 }
 
 async function handleMessage(message: TelegramMessage): Promise<void> {
