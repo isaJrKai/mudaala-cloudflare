@@ -208,7 +208,7 @@ async function startListingEnquiry(chatId: number, rawToken: string): Promise<vo
   const location = [capability.listing.area, capability.listing.county].filter(Boolean).join(', ')
   const price = capability.listing.price === null ? 'Ask seller' : capability.listing.currency + ' ' + capability.listing.price.toLocaleString('en-UG')
   await sendMessage(chatId,
-    'You are enquiring about this Mudaala listing:\\n\\n' + capability.listing.title + '\\n' + price + (location ? '\\n' + location : '') + '\\n\\nSend an enquiry to this seller? The seller will be notified only after you confirm.',
+    'You are enquiring about this Mudaala listing:\n\n' + capability.listing.title + '\n' + price + (location ? '\n' + location : '') + '\n\nSend an enquiry to this seller? The seller will be notified only after you confirm.',
     { inline_keyboard: [[{ text: 'Confirm enquiry', callback_data: 'enq:' + rawToken }], [{ text: 'Cancel', callback_data: 'enq-cancel' }]] })
 }
 
@@ -285,7 +285,7 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
   if (merchantChatId !== null) {
     try {
       await sendMessage(merchantChatId,
-        'New Mudaala enquiry\\nProduct: ' + capability.listing.title + '\\nBuyer: private Mudaala shopper\\nEnquiry reference: ' + result.id + '\\n\\nReply with /reply ' + result.id + ' your message.',
+        'New Mudaala enquiry\nProduct: ' + capability.listing.title + '\nBuyer: private Mudaala shopper\nEnquiry reference: ' + result.id + '\n\nReply with /reply ' + result.id + ' your message.',
         shopKeyboard)
       await db.enquiryMessage.update({ where: { id: result.messages[0]!.id }, data: { deliveryStatus: 'SENT' } })
     } catch {
@@ -298,7 +298,7 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
     await sendMessage(chatId, 'Your enquiry was saved, but the seller is not currently reachable on Telegram. Please use the phone or WhatsApp contact on the listing.')
     return
   }
-  await sendMessage(chatId, 'Your enquiry has been sent to the seller. Mudaala has kept your Telegram identity private.\\n\\nIf the seller replies, respond with /respond ' + result.id + ' your message.')
+  await sendMessage(chatId, 'Your enquiry has been sent to the seller. Mudaala has kept your Telegram identity private.\n\nIf the seller replies, respond with /respond ' + result.id + ' your message.')
 }
 
 async function handleMessage(message: TelegramMessage): Promise<void> {
@@ -309,10 +309,22 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
 
   const parts = text.split(/\s+/)
   const command = (parts[0] || '').split('@')[0].toLowerCase()
+  const identityHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
   if (command === '/start' || command === '/help') {
-    if (command === '/start') await recordTelegramActivation(telegramUserId, chatId).catch((error) => console.warn('[telegram] activation record failed:', error instanceof Error ? error.message : 'unknown error'))
+    if (command === '/start') {
+      await recordTelegramActivation(telegramUserId, chatId).catch((error) => console.warn('[telegram] activation record failed:', error instanceof Error ? error.message : 'unknown error'))
+      await db.appSetting.upsert({
+        where: { key: 'telegram:chat:' + identityHash },
+        create: { key: 'telegram:chat:' + identityHash, value: String(chatId) },
+        update: { value: String(chatId) },
+      })
+      if (parts[1]) {
+        await startListingEnquiry(chatId, parts[1])
+        return
+      }
+    }
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
-    await sendMessage(chatId, 'Welcome to Mudaala.\\n\\nFind real products and shops with /search followed by what you need. Open a listing to view details and contact its seller.\\n\\nIf you run a shop, connect your Mudaala account with /link CODE, then use /shop or /products to manage it.\\n\\n/search <product> - find active Mudaala listings.\\n/link CODE - connect your merchant account.\\n/shop - open your merchant workspace.\\n/publicshop - get your public shop link.\\n/products - view your active products.\\n/enquiries - view shopper enquiries.\\n/messages - view your buyer enquiries.\\n/reply ID message - reply to a shopper enquiry.\\n/respond ID message - reply as a shopper.\\n/followup ID yes|no - allow or revoke seller follow-up.\\n/help - show these commands.', shopKeyboard)
+    await sendMessage(chatId, 'Welcome to Mudaala.\n\nFind real products and shops with /search followed by what you need. Open a listing to view details and contact its seller.\n\nIf you run a shop, connect your Mudaala account with /link CODE, then use /shop or /products to manage it.\n\n/search <product> - find active Mudaala listings.\n/link CODE - connect your merchant account.\n/shop - open your merchant workspace.\n/publicshop - get your public shop link.\n/products - view your active products.\n/enquiries - view shopper enquiries.\n/messages - view your buyer enquiries.\n/reply ID message - reply to a shopper enquiry.\n/respond ID message - reply as a shopper.\n/followup ID yes|no - allow or revoke seller follow-up.\n/help - show these commands.', shopKeyboard)
     return
   }
 
@@ -417,8 +429,8 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
         await sendMessage(chatId, 'You have no open Mudaala enquiries yet.')
         return
       }
-      const lines = enquiries.map((item) => item.listing.title + '\\n' + 'Latest: ' + (item.messages[0]?.body || 'Enquiry created') + '\\n' + '/respond ' + item.id + ' your message')
-      await sendMessage(chatId, 'Your recent Mudaala enquiries:\\n\\n' + lines.join('\\n\\n'))
+      const lines = enquiries.map((item) => item.listing.title + '\n' + 'Latest: ' + (item.messages[0]?.body || 'Enquiry created') + '\n' + '/respond ' + item.id + ' your message')
+      await sendMessage(chatId, 'Your recent Mudaala enquiries:\n\n' + lines.join('\n\n'))
       return
     }
     if (command === '/respond') {
@@ -452,7 +464,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       let delivered = false
       if (merchantChatId !== null) {
         try {
-          await sendMessage(merchantChatId, 'Mudaala enquiry · ' + enquiry.listing.title + '\\nReference: ' + enquiry.id + '\\n\\n' + replyText)
+          await sendMessage(merchantChatId, 'Mudaala enquiry · ' + enquiry.listing.title + '\nReference: ' + enquiry.id + '\n\n' + replyText)
           delivered = true
         } catch { delivered = false }
       }
@@ -488,7 +500,10 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       await sendMessage(chatId, 'Choose explicitly: /followup ENQUIRY_ID yes or /followup ENQUIRY_ID no')
       return
     }
-    const changed = await db.enquiry.updateMany({ where: { id: enquiryId, shopperId: user.id, status: 'OPEN' }, data: { followUpConsentAt: choice === 'yes' ? new Date() : null } })
+    const changed = await db.enquiry.updateMany({
+      where: { id: enquiryId, status: 'OPEN', OR: [{ shopperId: user.id }, { buyerTelegramHash: identityHash }] },
+      data: { followUpConsentAt: choice === 'yes' ? new Date() : null },
+    })
     if (!changed.count) {
       await sendMessage(chatId, 'That open enquiry was not found in your Mudaala account.')
       return
@@ -544,7 +559,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     let delivered = false
     if (destination !== null) {
       try {
-        await sendMessage(destination, 'Mudaala enquiry · ' + enquiry.listing.title + '\\nReference: ' + enquiry.id + '\\n\\n' + replyText)
+        await sendMessage(destination, 'Mudaala enquiry · ' + enquiry.listing.title + '\nReference: ' + enquiry.id + '\n\n' + replyText)
         delivered = true
       } catch { delivered = false }
     }
@@ -565,8 +580,8 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       await sendMessage(chatId, 'You have no open Mudaala enquiries yet.')
       return
     }
-    const lines = enquiries.map((item) => item.listing.title + '\\nLatest: ' + (item.messages[0]?.body || 'Enquiry created') + '\\n/respond ' + item.id + ' your message')
-    await sendMessage(chatId, 'Your recent Mudaala enquiries:\\n\\n' + lines.join('\\n\\n'))
+    const lines = enquiries.map((item) => item.listing.title + '\nLatest: ' + (item.messages[0]?.body || 'Enquiry created') + '\n/respond ' + item.id + ' your message')
+    await sendMessage(chatId, 'Your recent Mudaala enquiries:\n\n' + lines.join('\n\n'))
     return
   }
 
@@ -581,8 +596,8 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       await sendMessage(chatId, 'You have no open shopper enquiries yet.', shopKeyboard)
       return
     }
-    const lines = enquiries.map((item) => item.listing.title + '\\nLatest: ' + (item.messages[0]?.body || 'New enquiry') + '\\n/reply ' + item.id + ' your message')
-    await sendMessage(chatId, 'Your recent shopper enquiries:\\n\\n' + lines.join('\\n\\n'), shopKeyboard)
+    const lines = enquiries.map((item) => item.listing.title + '\nLatest: ' + (item.messages[0]?.body || 'New enquiry') + '\n/reply ' + item.id + ' your message')
+    await sendMessage(chatId, 'Your recent shopper enquiries:\n\n' + lines.join('\n\n'), shopKeyboard)
     return
   }
 
@@ -658,12 +673,13 @@ export async function POST(request: Request) {
       throw error
     }
     try {
-      const chatId = update.message.chat?.id
+      const chatId = update.message?.chat?.id ?? update.callback_query?.message?.chat?.id
       if (chatId) {
         const verdict = await hit('telegram:chat:' + chatId, 30, 60 * 1000)
         if (!verdict.ok) return jsonOk({ ok: true })
       }
-      await handleMessage(update.message)
+      if (update.callback_query) await confirmListingEnquiry(update.callback_query)
+      else if (update.message) await handleMessage(update.message)
       return jsonOk({ ok: true })
     } catch (error) {
       await db.appSetting.deleteMany({ where: { key: updateKey } }).catch(() => undefined)
