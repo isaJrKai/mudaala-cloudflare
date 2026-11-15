@@ -37,7 +37,10 @@ export async function POST(request: Request) {
     const raw = randomBytes(24).toString('base64url')
     const tokenHash = createHash('sha256').update(raw).digest('hex')
     await db.enquiryContactToken.create({
-      data: { tokenHash, listingId: listing.id, merchantId: listing.userId, shopperId: viewer?.id ?? null, expiresAt: new Date(Date.now() + 10 * 60 * 1000) },
+      // A browser session is not proof that the Telegram account opening this
+    // bearer link belongs to the same person. Keep shopperId null until an
+    // explicit, verified shopper-to-Telegram linking flow exists.
+    data: { tokenHash, listingId: listing.id, merchantId: listing.userId, shopperId: null, expiresAt: new Date(Date.now() + 10 * 60 * 1000) },
     })
     return jsonOk({
       url: 'https://t.me/MudaalaMerchantbot?start=' + raw,
