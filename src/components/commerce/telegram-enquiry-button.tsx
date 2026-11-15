@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { apiFetch } from '@/lib/client'
 
@@ -33,7 +32,6 @@ export function TelegramEnquiryButton({ listingId, enabled }: { listingId: strin
           }
         }}
       >
-        <MessageCircle className="size-4" aria-hidden />
         {busy ? 'Opening Telegram…' : 'Message seller on Telegram'}
       </Button>
       {error ? <p role="alert" className="mt-1.5 text-sm text-destructive">{error}</p> : null}
