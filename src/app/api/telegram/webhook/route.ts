@@ -95,7 +95,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   const parts = text.split(/\s+/)
   const command = (parts[0] || '').split('@')[0].toLowerCase()
   if (command === '/start' || command === '/help') {
-    await sendMessage(chatId, 'Welcome to Mudaala Merchant Assistant.\n\n/link CODE — connect this Telegram account to your Mudaala shop.\n/shop — get your public shop link.\n/products — view your active products.\n/help — show these commands.\n\nTo connect, sign in to Mudaala, generate a Telegram link code in Account, then send /link followed by that code here.')
+    await sendMessage(chatId, 'Welcome to Mudaala Merchant Assistant.\n\n/link CODE - connect this Telegram account to your Mudaala shop.\n/shop - get your public shop link.\n/products - view your active products.\n/help - show these commands.\n\nTo connect, sign in to Mudaala, generate a Telegram link code in Account, then send /link followed by that code here.')
     return
   }
 
@@ -191,7 +191,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       await sendMessage(chatId, 'You have no active products yet. Add products on Mudaala, then come back here to check your catalogue.')
       return
     }
-    const lines = listings.map((item) => '- ' + item.title + ' — ' + (item.price === null ? 'Ask seller' : item.currency + ' ' + item.price.toLocaleString('en-UG')) + ' (' + item.county + ')')
+    const lines = listings.map((item) => '- ' + item.title + ' - ' + (item.price === null ? 'Ask seller' : item.currency + ' ' + item.price.toLocaleString('en-UG')) + ' (' + item.county + ')')
     await sendMessage(chatId, 'Your latest active products:\n\n' + lines.join('\n') + '\n\nManage products on https://mudaala.store')
     return
   }
