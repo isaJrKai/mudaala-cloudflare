@@ -231,25 +231,18 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     await sendMessage(chatId, 'Your latest active products:\n\n' + lines.join('\n') + '\n\nOpen your merchant workspace to add or manage products.', shopKeyboard)
     return
   }
-  const [activeProducts, answer] = await Promise.all([
-    db.listing.count({ where: { userId: user.id, status: 'ACTIVE', isSeed: false, expiresAt: { gt: new Date() } } }),
-    replyToTelegramMerchant({
-      telegramUserId,
-      text,
-      shop: user.profile ? {
-        businessName: user.profile.businessName,
-        category: user.profile.category,
-        county: user.profile.county,
-        area: user.profile.area,
-        description: user.profile.description,
-        shopCode: user.profile.shopCode,
-        activeProducts: undefined,
-      } : null,
-    }),
-  ])
-  // Product count is deliberately omitted from model context in this first slice;
-  // it remains available through the existing /products command.
-  void activeProducts
+  const answer = await replyToTelegramMerchant({
+    telegramUserId,
+    text,
+    shop: user.profile ? {
+      businessName: user.profile.businessName,
+      category: user.profile.category,
+      county: user.profile.county,
+      area: user.profile.area,
+      description: user.profile.description,
+      shopCode: user.profile.shopCode,
+    } : null,
+  })
   await sendMessage(chatId, answer, shopKeyboard)
 }
 
