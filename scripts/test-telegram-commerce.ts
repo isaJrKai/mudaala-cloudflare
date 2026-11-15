@@ -220,6 +220,15 @@ async function run() {
   assertStatus(shopperLinked.status, 200, 'shopper Telegram identity linking')
   const shopperMapping = await db.appSetting.findUnique({ where: { key: shopperMappingKey } })
   assert.equal((JSON.parse(shopperMapping!.value) as { userId: string }).userId, shopper.id, 'shopper Telegram identity is linked to the intended account')
+  const shopperTelegramStatus = await requestJson('/api/telegram/merchant', {}, shopper.token)
+  assertStatus(shopperTelegramStatus.status, 200, 'linked shopper Telegram settings')
+  assert.equal(shopperTelegramStatus.body.connected, true, 'shopper account connection is recorded')
+  assert.equal(shopperTelegramStatus.body.hasShopProfile, false, 'shopper is not misclassified as a merchant')
+  assert.equal(shopperTelegramStatus.body.enabled, false, 'shopper account cannot silently opt into seller enquiries')
+  const shopperCannotOptIn = await requestJson('/api/telegram/merchant', {
+    method: 'PUT', body: JSON.stringify({ enabled: true }),
+  }, shopper.token)
+  assertStatus(shopperCannotOptIn.status, 409, 'shopper cannot enable seller enquiries without a shop profile')
 
   // A forwarded account-bound token must not create an enquiry for the wrong
   // Mudaala account, even if the other Telegram user presses a crafted callback.
