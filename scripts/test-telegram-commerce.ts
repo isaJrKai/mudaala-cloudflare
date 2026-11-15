@@ -353,13 +353,24 @@ async function run() {
 
   await db.appSetting.update({
     where: { key: merchantSettingKey },
-    data: { value: JSON.stringify({ enabled: false, activatedAt: new Date().toISOString(), chatId: 712345678 }) },
+    data: { value: JSON.stringify({ enabled: false, activatedAt: new Date().toISOString(), chatId: merchantTelegramId }) },
   })
   const optedOut = await requestJson('/api/telegram/contact-token', {
     method: 'POST',
     body: JSON.stringify({ listingId: merchantListing.id }),
   })
   assertStatus(optedOut.status, 409, 'seller opt-out blocks new Telegram enquiries')
+  const existingThreadReply = await postTelegramUpdate({
+    update_id: updateBase + 21,
+    message: { text: '/respond ' + enquiry.id + ' I have one more question about the same item.', chat: { id: buyerTelegramId, type: 'private' }, from: { id: buyerTelegramId } },
+  })
+  assertStatus(existingThreadReply.status, 200, 'buyer can continue an existing Telegram thread after new-enquiry opt-out')
+  assert.ok(telegramRequests.some((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId && String(item.body.text).includes('one more question about the same item')), 'existing conversation replies still reach the seller after opt-out')
+  const existingWebReply = await requestJson('/api/enquiries/' + encodeURIComponent(enquiry.id) + '/messages', {
+    method: 'POST', body: JSON.stringify({ message: 'Existing enquiry web reply after opt-out.' }),
+  }, shopper.token)
+  assertStatus(existingWebReply.status, 201, 'shopper web reply remains available after new-enquiry opt-out')
+  assert.ok(telegramRequests.some((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId && String(item.body.text).includes('web reply after opt-out')), 'web inbox can still deliver an existing conversation after opt-out')
 
   // Account shortlist operations are isolated and bounded at the database
   // transaction boundary, not only by the browser's local counter.
