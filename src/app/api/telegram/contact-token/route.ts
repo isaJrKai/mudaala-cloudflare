@@ -11,8 +11,8 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: Request) {
   return route(async () => {
     const body = await parseBody(request, z.object({ listingId: z.string().min(1).max(128) }))
-    const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const limit = await hit('telegram:contact-token:' + forwarded, 10, 60 * 60 * 1000)
+    const clientIp = getClientIp(request)
+    const limit = await hit('telegram:contact-token:' + clientIp, 10, 60 * 60 * 1000)
     if (!limit.ok) throw new ApiError(429, 'Please wait before starting another seller enquiry.')
     const listing = await db.listing.findFirst({
       where: { id: body.listingId, type: 'OFFER', status: 'ACTIVE', isSeed: false, expiresAt: { gt: new Date() } },
