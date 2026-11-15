@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 import { ApiError, jsonOk, route } from '@/lib/api'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
+import { replyToTelegramMerchant } from '@/lib/telegram-assistant'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -149,7 +150,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     }
     const user = await db.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, name: true, profile: { select: { businessName: true, shopCode: true } } },
+      select: { id: true, name: true, profile: { select: { businessName: true, shopCode: true, category: true, county: true, area: true, description: true } } },
     })
     if (!user) {
       await db.appSetting.deleteMany({ where: { key } })
@@ -190,7 +191,8 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
 
   const mapping = await db.appSetting.findUnique({ where: { key: telegramKey(telegramUserId) } })
   if (!mapping) {
-    await sendMessage(chatId, 'Your Telegram account is not linked yet. Open Mudaala Account, generate a link code, then send /link CODE here.')
+    const answer = await replyToTelegramMerchant({ telegramUserId, text })
+    await sendMessage(chatId, answer, shopKeyboard)
     return
   }
   let linked: { userId?: unknown }
@@ -229,7 +231,26 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     await sendMessage(chatId, 'Your latest active products:\n\n' + lines.join('\n') + '\n\nOpen your merchant workspace to add or manage products.', shopKeyboard)
     return
   }
-  await sendMessage(chatId, 'I did not recognise that command. Send /help to see what I can do.')
+  const [activeProducts, answer] = await Promise.all([
+    db.listing.count({ where: { userId: user.id, status: 'ACTIVE', isSeed: false, expiresAt: { gt: new Date() } } }),
+    replyToTelegramMerchant({
+      telegramUserId,
+      text,
+      shop: user.profile ? {
+        businessName: user.profile.businessName,
+        category: user.profile.category,
+        county: user.profile.county,
+        area: user.profile.area,
+        description: user.profile.description,
+        shopCode: user.profile.shopCode,
+        activeProducts: undefined,
+      } : null,
+    }),
+  ])
+  // Product count is deliberately omitted from model context in this first slice;
+  // it remains available through the existing /products command.
+  void activeProducts
+  await sendMessage(chatId, answer, shopKeyboard)
 }
 
 export async function POST(request: Request) {
