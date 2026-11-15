@@ -169,6 +169,8 @@ model Listing {
   // development fixtures; flagged so scripts/remove-seed-data.ts can wipe
   // them in one step, and so sitemaps/OG never ship them as real content.
   isSeed           Boolean   @default(false)
+  availabilityStatus String  @default("UNKNOWN") // UNKNOWN | IN_STOCK | AVAILABLE_ON_ORDER | OUT_OF_STOCK
+  availabilityUpdatedAt DateTime?
   status           String    @default("ACTIVE") // ACTIVE | FULFILLED | EXPIRED | ARCHIVED | HIDDEN (moderation takedown; owner cannot self-restore)
   viewCount        Int       @default(0)
   publishedAt      DateTime  @default(now())
