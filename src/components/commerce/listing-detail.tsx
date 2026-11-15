@@ -135,7 +135,9 @@ export function ListingDetail({ id }: { id: string }) {
   const { navigate } = useAppStore()
   const addToBasket = useAddToBasket()
   const [added, flashAdded] = useAddedFlash()
-  const { user } = useSession()\n  const [telegramBusy, setTelegramBusy] = useState(false)\n  const [telegramError, setTelegramError] = useState<string | null>(null)
+  const { user } = useSession()
+  const [telegramBusy, setTelegramBusy] = useState(false)
+  const [telegramError, setTelegramError] = useState<string | null>(null)
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['listing', id],
