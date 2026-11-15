@@ -29,6 +29,17 @@ function telegramKey(id: number): string {
   return 'telegram:user:' + digest
 }
 
+async function linkedMudaalaUserId(telegramUserId: number): Promise<string | null> {
+  const mapping = await db.appSetting.findUnique({ where: { key: telegramKey(telegramUserId) } })
+  if (!mapping) return null
+  try {
+    const value = JSON.parse(mapping.value) as { userId?: unknown }
+    return typeof value.userId === 'string' ? value.userId : null
+  } catch {
+    return null
+  }
+}
+
 async function sendMessage(chatId: number, text: string, replyMarkup?: Record<string, unknown>): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN
   if (!token) throw new Error('Telegram bot is not configured')
@@ -205,7 +216,7 @@ async function answerCallbackQuery(callbackQueryId: string, text: string): Promi
   if (!result.ok) throw new Error('Telegram rejected callback acknowledgement')
 }
 
-async function startListingEnquiry(chatId: number, rawToken: string): Promise<void> {
+async function startListingEnquiry(chatId: number, telegramUserId: number, rawToken: string): Promise<void> {
   if (!/^[A-Za-z0-9_-]{24,48}$/.test(rawToken)) {
     await sendMessage(chatId, 'That enquiry link is invalid or expired. Return to the product page and try again.')
     return
@@ -217,6 +228,10 @@ async function startListingEnquiry(chatId: number, rawToken: string): Promise<vo
   })
   if (!capability || capability.listing.status !== 'ACTIVE' || capability.listing.expiresAt <= new Date()) {
     await sendMessage(chatId, 'That enquiry link has expired or the product is no longer active. Please return to Mudaala and try again.')
+    return
+  }
+  if (capability.shopperId && await linkedMudaalaUserId(telegramUserId) !== capability.shopperId) {
+    await sendMessage(chatId, 'This enquiry link was created from a signed-in Mudaala account. Link this same account to Telegram with /link CODE, then open the product link again.')
     return
   }
   const location = [capability.listing.area, capability.listing.county].filter(Boolean).join(', ')
@@ -253,6 +268,11 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
   })
   if (!capability || capability.listing.status !== 'ACTIVE' || capability.listing.expiresAt <= new Date()) {
     await answerCallbackQuery(callbackId, 'This enquiry link has expired.')
+    return
+  }
+  if (capability.shopperId && await linkedMudaalaUserId(telegramUserId) !== capability.shopperId) {
+    await answerCallbackQuery(callbackId, 'Link the same Mudaala account before confirming this enquiry.')
+    await sendMessage(chatId, 'This enquiry link belongs to a signed-in Mudaala account. Link that same account with /link CODE before confirming.')
     return
   }
   const sellerSetting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + capability.merchantId } })
@@ -338,7 +358,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
         update: { value: String(chatId) },
       })
       if (parts[1]) {
-        await startListingEnquiry(chatId, parts[1])
+        await startListingEnquiry(chatId, telegramUserId, parts[1])
         return
       }
     }
