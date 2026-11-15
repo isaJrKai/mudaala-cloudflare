@@ -30,21 +30,28 @@ export async function POST(request: Request) {
   return route(async () => {
     const user = await requireUser()
     const body = await parseBody(request, z.object({ listingId: z.string().min(1).max(128) }))
-    const listing = await db.listing.findFirst({
-      where: { id: body.listingId, type: 'OFFER', status: 'ACTIVE', isSeed: false, expiresAt: { gt: new Date() } },
-      select: { id: true },
-    })
-    if (!listing) throw new ApiError(404, 'This product is no longer available to save.')
-    const existing = await db.savedProduct.findUnique({ where: { userId_listingId: { userId: user.id, listingId: listing.id } }, select: { id: true } })
-    if (!existing) {
-      const count = await db.savedProduct.count({ where: { userId: user.id } })
-      if (count >= 40) throw new ApiError(409, 'Your account shortlist is full. Remove a saved product before adding another.')
+    try {
+      await db.$transaction(async (tx) => {
+        const listing = await tx.listing.findFirst({
+          where: { id: body.listingId, type: 'OFFER', status: 'ACTIVE', isSeed: false, expiresAt: { gt: new Date() } },
+          select: { id: true },
+        })
+        if (!listing) throw new ApiError(404, 'This product is no longer available to save.')
+        const existing = await tx.savedProduct.findUnique({
+          where: { userId_listingId: { userId: user.id, listingId: listing.id } },
+          select: { id: true },
+        })
+        if (existing) return
+        const count = await tx.savedProduct.count({ where: { userId: user.id } })
+        if (count >= 40) throw new ApiError(409, 'Your account shortlist is full. Remove a saved product before adding another.')
+        await tx.savedProduct.create({ data: { userId: user.id, listingId: listing.id } })
+      }, { isolationLevel: 'Serializable' })
+    } catch (error) {
+      if ((error as { code?: string })?.code === 'P2034') {
+        throw new ApiError(409, 'Your shortlist changed in another session. Refresh it and try again.')
+      }
+      throw error
     }
-    await db.savedProduct.upsert({
-      where: { userId_listingId: { userId: user.id, listingId: listing.id } },
-      create: { userId: user.id, listingId: listing.id },
-      update: {},
-    })
     return jsonOk({ saved: true }, 201)
   })
 }
