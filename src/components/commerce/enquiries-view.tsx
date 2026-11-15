@@ -36,6 +36,7 @@ function timeLabel(value: string): string {
 
 export function EnquiriesView() {
   const { user, isLoading } = useSession()
+  const userId = user?.id
   const { navigate, setAuthOpen } = useAppStore()
   const [items, setItems] = useState<Enquiry[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -46,7 +47,7 @@ export function EnquiriesView() {
   const [error, setError] = useState('')
 
   const refresh = useCallback(async () => {
-    if (!user) return
+    if (!userId) return
     setLoading(true)
     setError('')
     try {
@@ -61,7 +62,7 @@ export function EnquiriesView() {
     } finally {
       setLoading(false)
     }
-  }, [user?.id])
+  }, [userId])
 
   useEffect(() => { void refresh() }, [refresh])
 
