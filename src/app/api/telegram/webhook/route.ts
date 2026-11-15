@@ -13,7 +13,7 @@ type TelegramMessage = {
   chat?: { id?: number; type?: string }
   from?: { id?: number }
 }
-type TelegramUpdate = { update_id?: number; message?: TelegramMessage }
+type TelegramCallbackQuery = { id?: string; data?: string; from?: { id?: number }; message?: TelegramMessage }\ntype TelegramUpdate = { update_id?: number; message?: TelegramMessage; callback_query?: TelegramCallbackQuery }
 
 function secretMatches(expected: string, supplied: string | null): boolean {
   if (!supplied) return false
@@ -174,7 +174,118 @@ async function searchListings(chatId: number, rawQuery: string): Promise<void> {
   await sendMessage(chatId, 'Active Mudaala listings for “' + query + '”:\n\n' + lines.join('\n\n') + '\n\nOpen a listing to see its details and contact the seller.', { inline_keyboard })
 }
 
-async function handleMessage(message: TelegramMessage): Promise<void> {
+
+async function answerCallbackQuery(callbackQueryId: string, text: string): Promise<void> {
+  const token = process.env.TELEGRAM_BOT_TOKEN
+  if (!token) throw new Error('Telegram bot is not configured')
+  const response = await fetch('https://api.telegram.org/bot' + token + '/answerCallbackQuery', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ callback_query_id: callbackQueryId, text, show_alert: true }),
+    signal: AbortSignal.timeout(8000),
+  })
+  if (!response.ok) throw new Error('Telegram answerCallbackQuery failed')
+  const result = await response.json() as { ok?: boolean }
+  if (!result.ok) throw new Error('Telegram rejected callback acknowledgement')
+}
+
+async function startListingEnquiry(chatId: number, rawToken: string): Promise<void> {
+  if (!/^[A-Za-z0-9_-]{24,48}$/.test(rawToken)) {
+    await sendMessage(chatId, 'That enquiry link is invalid or expired. Return to the product page and try again.')
+    return
+  }
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex')
+  const capability = await db.enquiryContactToken.findFirst({
+    where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } },
+    include: { listing: { select: { id: true, title: true, price: true, currency: true, county: true, area: true, status: true, expiresAt: true } } },
+  })
+  if (!capability || capability.listing.status !== 'ACTIVE' || capability.listing.expiresAt <= new Date()) {
+    await sendMessage(chatId, 'That enquiry link has expired or the product is no longer active. Please return to Mudaala and try again.')
+    return
+  }
+  const location = [capability.listing.area, capability.listing.county].filter(Boolean).join(', ')
+  const price = capability.listing.price === null ? 'Ask seller' : capability.listing.currency + ' ' + capability.listing.price.toLocaleString('en-UG')
+  await sendMessage(chatId,
+    'You are enquiring about this Mudaala listing:\\n\\n' + capability.listing.title + '\\n' + price + (location ? '\\n' + location : '') + '\\n\\nSend an enquiry to this seller? The seller will be notified only after you confirm.',
+    { inline_keyboard: [[{ text: 'Confirm enquiry', callback_data: 'enq:' + rawToken }], [{ text: 'Cancel', callback_data: 'enq-cancel' }]] })
+}
+
+async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void> {
+  const callbackId = query.id
+  const chatId = query.message?.chat?.id
+  const telegramUserId = query.from?.id
+  const data = query.data || ''
+  if (!callbackId || !chatId || !telegramUserId || query.message?.chat?.type !== 'private') return
+  if (data === 'enq-cancel') {
+    await answerCallbackQuery(callbackId, 'Enquiry cancelled.')
+    await sendMessage(chatId, 'No enquiry was sent. You can continue browsing Mudaala.')
+    return
+  }
+  const rawToken = data.startsWith('enq:') ? data.slice(4) : ''
+  if (!/^[A-Za-z0-9_-]{24,48}$/.test(rawToken)) {
+    await answerCallbackQuery(callbackId, 'This enquiry link is invalid.')
+    return
+  }
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex')
+  const capability = await db.enquiryContactToken.findFirst({
+    where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } },
+    include: { listing: { select: { id: true, title: true, status: true, expiresAt: true } } },
+  })
+  if (!capability || capability.listing.status !== 'ACTIVE' || capability.listing.expiresAt <= new Date()) {
+    await answerCallbackQuery(callbackId, 'This enquiry link has expired.')
+    return
+  }
+  const buyerHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
+  const result = await db.$transaction(async (tx) => {
+    const consumed = await tx.enquiryContactToken.updateMany({
+      where: { id: capability.id, usedAt: null, expiresAt: { gt: new Date() } },
+      data: { usedAt: new Date() },
+    })
+    if (consumed.count !== 1) return null
+    const enquiry = await tx.enquiry.create({
+      data: {
+        listingId: capability.listingId,
+        merchantId: capability.merchantId,
+        buyerTelegramHash: buyerHash,
+        contactChannel: 'TELEGRAM',
+        messages: { create: { senderType: 'SHOPPER', body: 'Hello, I am interested in this listing.', deliveryStatus: 'PENDING' } },
+      },
+      include: { messages: true },
+    })
+    return enquiry
+  })
+  if (!result) {
+    await answerCallbackQuery(callbackId, 'This enquiry link has already been used.')
+    return
+  }
+  await answerCallbackQuery(callbackId, 'Your enquiry has been created.')
+  const setting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + capability.merchantId } })
+  let merchantChatId: number | null = null
+  if (setting) {
+    try {
+      const merchant = JSON.parse(setting.value) as { enabled?: unknown; chatId?: unknown }
+      if (merchant.enabled === true && Number.isSafeInteger(merchant.chatId)) merchantChatId = merchant.chatId as number
+    } catch { /* malformed preference: do not deliver */ }
+  }
+  if (merchantChatId !== null) {
+    try {
+      await sendMessage(merchantChatId,
+        'New Mudaala enquiry\\nProduct: ' + capability.listing.title + '\\nBuyer: private Mudaala shopper\\nEnquiry reference: ' + result.id.slice(-8) + '\\n\\nA shopper is interested in your listing. Open your Mudaala merchant workspace to manage enquiries.',
+        shopKeyboard)
+      await db.enquiryMessage.update({ where: { id: result.messages[0]!.id }, data: { deliveryStatus: 'SENT' } })
+    } catch {
+      await db.enquiryMessage.update({ where: { id: result.messages[0]!.id }, data: { deliveryStatus: 'FAILED' } })
+      await sendMessage(chatId, 'Your enquiry was saved, but Telegram could not notify the seller right now. Please use the phone or WhatsApp contact on the listing as an alternative.')
+      return
+    }
+  } else {
+    await db.enquiryMessage.update({ where: { id: result.messages[0]!.id }, data: { deliveryStatus: 'FAILED' } })
+    await sendMessage(chatId, 'Your enquiry was saved, but the seller is not currently reachable on Telegram. Please use the phone or WhatsApp contact on the listing.')
+    return
+  }
+  await sendMessage(chatId, 'Your enquiry has been sent to the seller. Mudaala has kept your Telegram identity private.')
+}
+\nasync function handleMessage(message: TelegramMessage): Promise<void> {
   const chatId = message.chat?.id
   const telegramUserId = message.from?.id
   const text = (message.text || '').trim()
@@ -335,7 +446,7 @@ export async function POST(request: Request) {
     let update: TelegramUpdate
     try { update = JSON.parse(raw) as TelegramUpdate } catch { throw new ApiError(400, 'Invalid update') }
     const updateId = update?.update_id
-    if (!update || typeof update !== 'object' || typeof updateId !== 'number' || !Number.isSafeInteger(updateId) || updateId < 0 || !update.message || typeof update.message !== 'object') return jsonOk({ ok: true })
+    if (!update || typeof update !== 'object' || typeof updateId !== 'number' || !Number.isSafeInteger(updateId) || updateId < 0 || (!update.message && !update.callback_query)) return jsonOk({ ok: true })
     if (updateId % 100 === 0) {
       await cleanupTelegramRecords().catch((error) => {
         console.error('[telegram] housekeeping failed:', error instanceof Error ? error.name : 'unknown error')
