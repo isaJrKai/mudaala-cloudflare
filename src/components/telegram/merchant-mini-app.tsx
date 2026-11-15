@@ -111,6 +111,11 @@ export function TelegramMerchantMiniApp() {
   }
 
   async function authenticate(initData: string) {
+    if (!initData) {
+      setError('Open Mudaala from the Telegram bot menu. Telegram sign-in data was not provided.')
+      setLoading(false)
+      return
+    }
     try {
       const session = await requestJson<{ user: User }>('/api/telegram/mini-app/session', {
         method: 'POST',
@@ -139,14 +144,8 @@ export function TelegramMerchantMiniApp() {
     webApp?.ready?.()
     webApp?.expand?.()
     const initData = webApp?.initData
-    if (!initData) {
-      setError('Open Mudaala from the Telegram bot menu. Telegram sign-in data was not provided.')
-      setLoading(false)
-      return
-    }
-    void authenticate(initData)
+    void authenticate(initData || '')
   // One authentication attempt per Mini App launch.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sdkReady])
 
   async function registerInsideTelegram(event: FormEvent<HTMLFormElement>) {
