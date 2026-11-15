@@ -100,15 +100,29 @@ export function TelegramMerchantMiniApp() {
   const [copied, setCopied] = useState(false)
   const initPollRef = useRef<number | null>(null)
 
-  // Never leave merchants on an endless skeleton if Telegram's SDK or a request stalls.
+  // Browser visitors should reach Mudaala sign-in immediately. Only Telegram
+  // WebViews need the Telegram SDK and signed initData handshake.
+  const [isTelegramWebView, setIsTelegramWebView] = useState(false)
+
   useEffect(() => {
-    if (!loading) return
+    const telegram = /Telegram/i.test(window.navigator.userAgent) || Boolean(window.Telegram?.WebApp)
+    setIsTelegramWebView(telegram)
+    if (!telegram) {
+      setOnboarding(true)
+      setOnboardingStep('account')
+      setLoading(false)
+    }
+  }, [])
+
+  // Never leave Telegram merchants on an endless skeleton if its bridge stalls.
+  useEffect(() => {
+    if (!loading || !isTelegramWebView) return
     const timeout = window.setTimeout(() => {
       setError('Mudaala could not finish opening your shop. Check your connection, then try again.')
       setLoading(false)
     }, 20000)
     return () => window.clearTimeout(timeout)
-  }, [loading])
+  }, [loading, isTelegramWebView])
 
   useEffect(() => () => {
     if (initPollRef.current !== null) window.clearInterval(initPollRef.current)
@@ -315,7 +329,7 @@ export function TelegramMerchantMiniApp() {
 
   return (
     <>
-      <Script
+      {isTelegramWebView ? <Script
         src="https://telegram.org/js/telegram-web-app.js"
         strategy="afterInteractive"
         onReady={initializeTelegram}
@@ -324,7 +338,7 @@ export function TelegramMerchantMiniApp() {
           setOnboardingStep('account')
           setLoading(false)
         }}
-      />
+      /> : null}
       <main className="min-h-dvh bg-[#f5f5ef] px-4 pb-28 pt-[max(18px,env(safe-area-inset-top))] text-[#183b2d]">
         <div className="mx-auto max-w-xl space-y-5">
           <header className="flex items-center justify-between">
