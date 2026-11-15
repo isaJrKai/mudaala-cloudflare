@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import Image from 'next/image'
 import Script from 'next/script'
 import { ArrowUpRight, BarChart3, Box, Check, ChevronRight, CircleAlert, Clipboard, Eye, Home, Plus, RefreshCw, Settings, Store, Tag } from 'lucide-react'
@@ -41,10 +41,26 @@ type Analytics = {
 type Tab = 'home' | 'products' | 'insights' | 'shop'
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...init })
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(typeof data.error === 'string' ? data.error : 'Something went wrong. Please try again.')
-  return data as T
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 15000)
+  try {
+    const response = await fetch(url, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      ...init,
+      signal: controller.signal,
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(typeof data.error === 'string' ? data.error : 'Something went wrong. Please try again.')
+    return data as T
+  } catch (cause) {
+    if (cause instanceof Error && cause.name === 'AbortError') {
+      throw new Error('The connection took too long. Check your internet connection and try again.')
+    }
+    throw cause
+  } finally {
+    window.clearTimeout(timeout)
+  }
 }
 
 function go(path: string) {
@@ -82,6 +98,16 @@ export function TelegramMerchantMiniApp() {
   const [refreshing, setRefreshing] = useState(false)
   const [tab, setTab] = useState<Tab>('home')
   const [copied, setCopied] = useState(false)
+
+  // Never leave merchants on an endless skeleton if Telegram's SDK or a request stalls.
+  useEffect(() => {
+    if (!loading) return
+    const timeout = window.setTimeout(() => {
+      setError('Mudaala could not finish opening your shop. Check your connection, then try again.')
+      setLoading(false)
+    }, 20000)
+    return () => window.clearTimeout(timeout)
+  }, [loading])
 
   async function loadShop(authenticatedUser?: User) {
     setRefreshing(true)
@@ -142,6 +168,14 @@ export function TelegramMerchantMiniApp() {
     webApp?.ready?.()
     webApp?.expand?.()
     void authenticate(webApp?.initData || '')
+  }
+
+  function retryMiniApp() {
+    setError('')
+    setLoading(true)
+    const initData = window.Telegram?.WebApp?.initData
+    if (initData) void authenticate(initData)
+    else window.location.reload()
   }
 
   async function registerInsideTelegram(event: FormEvent<HTMLFormElement>) {
@@ -252,7 +286,15 @@ export function TelegramMerchantMiniApp() {
 
   return (
     <>
-      <Script src="https://telegram.org/js/telegram-web-app.js" strategy="afterInteractive" onReady={initializeTelegram} />
+      <Script
+        src="https://telegram.org/js/telegram-web-app.js"
+        strategy="afterInteractive"
+        onReady={initializeTelegram}
+        onError={() => {
+          setError('Telegram could not load its sign-in service. Check your connection and try again.')
+          setLoading(false)
+        }}
+      />
       <main className="min-h-dvh bg-[#f5f5ef] px-4 pb-28 pt-[max(18px,env(safe-area-inset-top))] text-[#183b2d]">
         <div className="mx-auto max-w-xl space-y-5">
           <header className="flex items-center justify-between">
@@ -290,7 +332,7 @@ export function TelegramMerchantMiniApp() {
               <span className="flex size-10 items-center justify-center rounded-2xl bg-[#fff2d7] text-[#96651b]"><CircleAlert className="size-5" /></span>
               <h1 className="mt-3 text-lg font-semibold">We couldn't open your shop</h1>
               <p className="mt-2 text-sm leading-6 text-[#65766a]">{error}</p>
-              <button type="button" onClick={() => { setError(''); setLoading(true); const data = window.Telegram?.WebApp?.initData; if (data) void authenticate(data) }} className="mt-4 h-11 rounded-full bg-[#164b37] px-5 text-sm font-semibold text-white">Try again</button>
+              <button type="button" onClick={retryMiniApp} className="mt-4 h-11 rounded-full bg-[#164b37] px-5 text-sm font-semibold text-white">Try again</button>
             </section>
           ) : (
             <>
