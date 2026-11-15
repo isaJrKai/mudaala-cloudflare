@@ -118,6 +118,29 @@ ALTER TABLE "Enquiry" ADD CONSTRAINT "Enquiry_buyerIdentity_check"
   CHECK ("shopperId" IS NOT NULL OR "buyerTelegramHash" IS NOT NULL);
 ALTER TABLE "Enquiry" ADD CONSTRAINT "Enquiry_buyerTelegramHash_check"
   CHECK ("buyerTelegramHash" IS NULL OR "buyerTelegramHash" ~ '^[a-f0-9]{64}
+
+ALTER TABLE "EnquiryMessage" ADD CONSTRAINT "EnquiryMessage_senderType_check"
+  CHECK ("senderType" IN ('SHOPPER', 'MERCHANT'));
+ALTER TABLE "EnquiryMessage" ADD CONSTRAINT "EnquiryMessage_deliveryStatus_check"
+  CHECK ("deliveryStatus" IN ('PENDING', 'SENT', 'FAILED'));
+ALTER TABLE "EnquiryMessage" ADD CONSTRAINT "EnquiryMessage_body_length_check"
+  CHECK (char_length("body") BETWEEN 1 AND 1200);
+
+ALTER TABLE "EnquiryContactToken" ADD CONSTRAINT "EnquiryContactToken_tokenHash_check"
+  CHECK ("tokenHash" ~ '^[a-f0-9]{64}
+);
+
+ALTER TABLE "EnquiryMessage" ADD CONSTRAINT "EnquiryMessage_senderType_check"
+  CHECK ("senderType" IN ('SHOPPER', 'MERCHANT'));
+ALTER TABLE "EnquiryMessage" ADD CONSTRAINT "EnquiryMessage_deliveryStatus_check"
+  CHECK ("deliveryStatus" IN ('PENDING', 'SENT', 'FAILED'));
+ALTER TABLE "EnquiryMessage" ADD CONSTRAINT "EnquiryMessage_body_length_check"
+  CHECK (char_length("body") BETWEEN 1 AND 1200);
+
+ALTER TABLE "EnquiryContactToken" ADD CONSTRAINT "EnquiryContactToken_tokenHash_check"
+  CHECK ("tokenHash" ~ '^[a-f0-9]{64}
+);
+);
 );
 
 ALTER TABLE "EnquiryMessage" ADD CONSTRAINT "EnquiryMessage_senderType_check"
