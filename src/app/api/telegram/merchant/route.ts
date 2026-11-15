@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { ApiError, jsonOk, parseBody, requireUser, route } from '@/lib/api'
 import { db } from '@/lib/db'
@@ -8,9 +7,6 @@ export const dynamic = 'force-dynamic'
 
 const BOT_USERNAME = 'MudaalaMerchantbot'
 const settingKey = (userId: string) => 'telegram:merchant:' + userId
-const identityKey = (telegramUserId: number) =>
-  'telegram:user:' + createHash('sha256').update(String(telegramUserId)).digest('hex')
-
 type MerchantTelegramSettings = {
   enabled?: boolean
   activatedAt?: string | null
@@ -62,24 +58,3 @@ export async function PUT(request: Request) {
   })
 }
 
-// Used only by the authenticated Telegram webhook after it has verified the
-// Telegram update. The numeric chat ID remains server-side and is never public.
-export async function recordTelegramActivation(telegramUserId: number, chatId: number): Promise<void> {
-  const mapping = await db.appSetting.findUnique({ where: { key: identityKey(telegramUserId) } })
-  if (!mapping) return
-  let linked: { userId?: unknown } = {}
-  try { linked = JSON.parse(mapping.value) as typeof linked } catch { return }
-  if (typeof linked.userId !== 'string') return
-  const key = settingKey(linked.userId)
-  const current = await readSettings(linked.userId)
-  const next: MerchantTelegramSettings = {
-    ...current,
-    chatId,
-    activatedAt: current.activatedAt ?? new Date().toISOString(),
-  }
-  await db.appSetting.upsert({
-    where: { key },
-    create: { key, value: JSON.stringify(next) },
-    update: { value: JSON.stringify(next) },
-  })
-}
