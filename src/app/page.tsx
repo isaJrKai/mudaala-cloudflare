@@ -38,7 +38,7 @@ function CommerceFrame() {
     }
     void syncShortlist()
     return () => { cancelled = true }
-  }, [user?.id])
+  }, [user?.id, lovedIds])
   const workspace = isMerchantWorkspaceView(view.name)
 
   return (
