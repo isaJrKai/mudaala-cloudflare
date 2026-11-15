@@ -75,6 +75,7 @@ ALTER TABLE "EnquiryContactToken" ADD CONSTRAINT "EnquiryContactToken_shopperId_
 ALTER TABLE public."SavedProduct" ENABLE ROW LEVEL SECURITY;
 CREATE POLICY deny_direct_api_clients ON public."SavedProduct"
   FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+REVOKE ALL ON TABLE public."SavedProduct" FROM anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."SavedProduct" TO mudaala_runtime;
 CREATE POLICY mudaala_runtime_access ON public."SavedProduct"
   FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
@@ -82,6 +83,7 @@ CREATE POLICY mudaala_runtime_access ON public."SavedProduct"
 ALTER TABLE public."Enquiry" ENABLE ROW LEVEL SECURITY;
 CREATE POLICY deny_direct_api_clients ON public."Enquiry"
   FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+REVOKE ALL ON TABLE public."Enquiry" FROM anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."Enquiry" TO mudaala_runtime;
 CREATE POLICY mudaala_runtime_access ON public."Enquiry"
   FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
@@ -89,6 +91,7 @@ CREATE POLICY mudaala_runtime_access ON public."Enquiry"
 ALTER TABLE public."EnquiryMessage" ENABLE ROW LEVEL SECURITY;
 CREATE POLICY deny_direct_api_clients ON public."EnquiryMessage"
   FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+REVOKE ALL ON TABLE public."EnquiryMessage" FROM anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."EnquiryMessage" TO mudaala_runtime;
 CREATE POLICY mudaala_runtime_access ON public."EnquiryMessage"
   FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
@@ -96,6 +99,7 @@ CREATE POLICY mudaala_runtime_access ON public."EnquiryMessage"
 ALTER TABLE public."EnquiryContactToken" ENABLE ROW LEVEL SECURITY;
 CREATE POLICY deny_direct_api_clients ON public."EnquiryContactToken"
   FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+REVOKE ALL ON TABLE public."EnquiryContactToken" FROM anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."EnquiryContactToken" TO mudaala_runtime;
 CREATE POLICY mudaala_runtime_access ON public."EnquiryContactToken"
   FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
