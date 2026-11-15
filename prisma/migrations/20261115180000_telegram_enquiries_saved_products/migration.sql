@@ -55,6 +55,7 @@ CREATE TABLE "EnquiryContactToken" (
   "tokenHash" TEXT NOT NULL,
   "listingId" TEXT NOT NULL,
   "merchantId" TEXT NOT NULL,
+  "shopperId" TEXT,
   "expiresAt" TIMESTAMP(3) NOT NULL,
   "usedAt" TIMESTAMP(3),
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -63,8 +64,10 @@ CREATE TABLE "EnquiryContactToken" (
 CREATE UNIQUE INDEX "EnquiryContactToken_tokenHash_key" ON "EnquiryContactToken"("tokenHash");
 CREATE INDEX "EnquiryContactToken_listingId_expiresAt_idx" ON "EnquiryContactToken"("listingId", "expiresAt");
 CREATE INDEX "EnquiryContactToken_merchantId_expiresAt_idx" ON "EnquiryContactToken"("merchantId", "expiresAt");
+CREATE INDEX "EnquiryContactToken_shopperId_expiresAt_idx" ON "EnquiryContactToken"("shopperId", "expiresAt");
 ALTER TABLE "EnquiryContactToken" ADD CONSTRAINT "EnquiryContactToken_listingId_fkey" FOREIGN KEY ("listingId") REFERENCES "Listing"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "EnquiryContactToken" ADD CONSTRAINT "EnquiryContactToken_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "EnquiryContactToken" ADD CONSTRAINT "EnquiryContactToken_shopperId_fkey" FOREIGN KEY ("shopperId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 
 -- Explicit seller-reported listing availability. Existing records remain UNKNOWN.
