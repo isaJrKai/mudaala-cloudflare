@@ -103,7 +103,7 @@ export async function replyToTelegramMerchant(input: {
     }
   }
 
-  const messages = [
+  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     { role: 'system', content: systemPrompt(input.shop ?? undefined) },
     ...history,
     { role: 'user', content: input.text.slice(0, 1200) },
