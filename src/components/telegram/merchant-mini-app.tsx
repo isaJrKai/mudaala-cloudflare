@@ -189,7 +189,8 @@ export function TelegramMerchantMiniApp() {
       } else if (Date.now() - startedAt >= 12000) {
         if (initPollRef.current !== null) window.clearInterval(initPollRef.current)
         initPollRef.current = null
-        setError('Telegram did not provide sign-in data. Close this window and reopen My Shop from the Mudaala bot inside Telegram.')
+        setOnboarding(true)
+        setOnboardingStep('account')
         setLoading(false)
       }
     }, 200)
@@ -207,17 +208,19 @@ export function TelegramMerchantMiniApp() {
     setRegisterError('')
     try {
       const initData = window.Telegram?.WebApp?.initData
-      if (!initData) throw new Error('Telegram sign-in data is missing. Close and reopen the Mini App.')
-      await requestJson('/api/auth/register', {
+      const registration = await requestJson<{ user: User }>('/api/auth/register', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ name: registerName, phone: registerPhone, country: 'UG', password: registerPassword, acceptTerms }),
       })
-      await requestJson('/api/telegram/mini-app/link', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ initData }),
-      })
+      if (initData) {
+        await requestJson('/api/telegram/mini-app/link', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ initData }),
+        })
+      }
+      setUser(registration.user)
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.('success')
       setOnboardingStep('shop')
       setShopNameInput(registerName.trim() ? registerName.trim() + "'s Shop" : '')
@@ -235,20 +238,23 @@ export function TelegramMerchantMiniApp() {
     setRegisterError('')
     try {
       const initData = window.Telegram?.WebApp?.initData
-      if (!initData) throw new Error('Telegram sign-in data is missing. Close and reopen the Mini App.')
-      await requestJson('/api/auth/login', {
+      const session = await requestJson<{ user: User }>('/api/auth/login', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ phone: registerPhone, password: registerPassword }),
       })
-      await requestJson('/api/telegram/mini-app/link', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ initData }),
-      })
+      if (initData) {
+        await requestJson('/api/telegram/mini-app/link', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ initData }),
+        })
+      }
+      setUser(session.user)
       setOnboarding(false)
       setLoading(true)
-      await authenticate(initData)
+      if (initData) await authenticate(initData)
+      else await loadShop(session.user)
     } catch (cause) {
       setRegisterError(cause instanceof Error ? cause.message : 'We could not sign you in.')
     } finally {
@@ -277,10 +283,10 @@ export function TelegramMerchantMiniApp() {
         }),
       })
       const initData = window.Telegram?.WebApp?.initData
-      if (!initData) throw new Error('Telegram sign-in data is missing. Close and reopen the Mini App.')
       setOnboarding(false)
       setLoading(true)
-      await authenticate(initData)
+      if (initData) await authenticate(initData)
+      else await loadShop()
     } catch (cause) {
       setRegisterError(cause instanceof Error ? cause.message : 'We could not create your shop.')
     } finally {
@@ -314,7 +320,8 @@ export function TelegramMerchantMiniApp() {
         strategy="afterInteractive"
         onReady={initializeTelegram}
         onError={() => {
-          setError('Telegram could not load its sign-in service. Check your connection and try again.')
+          setOnboarding(true)
+          setOnboardingStep('account')
           setLoading(false)
         }}
       />
