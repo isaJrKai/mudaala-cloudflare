@@ -115,28 +115,6 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
-      - name: Apply and verify Telegram commerce migration in disposable PostgreSQL
-        run: |
-          set -euo pipefail
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."EnquiryContactToken", public."EnquiryMessage", public."Enquiry", public."SavedProduct" CASCADE;'
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."Listing" DROP COLUMN IF EXISTS "availabilityStatus", DROP COLUMN IF EXISTS "availabilityUpdatedAt";'
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261115180000_telegram_enquiries_saved_products/migration.sql
-          token_fk_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_constraint WHERE conname IN ('EnquiryContactToken_listingId_fkey','EnquiryContactToken_merchantId_fkey','EnquiryContactToken_shopperId_fkey')")
-          if [ "$token_fk_count" != "3" ]; then
-            echo "Expected three Telegram contact-token foreign keys, found $token_fk_count"
-            exit 1
-          fi
-          shopper_column=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='EnquiryContactToken' AND column_name='shopperId'")
-          availability_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='Listing' AND column_name IN ('availabilityStatus','availabilityUpdatedAt')")
-          if [ "$shopper_column" != "1" ] || [ "$availability_columns" != "2" ]; then
-            echo "Telegram migration columns are incomplete: shopperId=$shopper_column availability=$availability_columns"
-            exit 1
-          fi
-          echo "Telegram commerce migration passed: saved products, enquiries, token ownership and seller availability schema verified."
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
-
-
       - name: Apply and verify direct Data API deny policies in disposable PostgreSQL
         run: |
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE ROLE anon NOLOGIN;'
@@ -194,6 +172,31 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+
+      - name: Apply and verify Telegram commerce migration in disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."EnquiryContactToken", public."EnquiryMessage", public."Enquiry", public."SavedProduct" CASCADE;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."Listing" DROP COLUMN IF EXISTS "availabilityStatus", DROP COLUMN IF EXISTS "availabilityUpdatedAt";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261115180000_telegram_enquiries_saved_products/migration.sql
+          token_fk_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_constraint WHERE conname IN ('EnquiryContactToken_listingId_fkey','EnquiryContactToken_merchantId_fkey','EnquiryContactToken_shopperId_fkey')")
+          if [ "$token_fk_count" != "3" ]; then
+            echo "Expected three Telegram contact-token foreign keys, found $token_fk_count"
+            exit 1
+          fi
+          shopper_column=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='EnquiryContactToken' AND column_name='shopperId'")
+          availability_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='Listing' AND column_name IN ('availabilityStatus','availabilityUpdatedAt')")
+          rls_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('SavedProduct','Enquiry','EnquiryMessage','EnquiryContactToken') AND c.relrowsecurity")
+          policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename IN ('SavedProduct','Enquiry','EnquiryMessage','EnquiryContactToken') AND policyname IN ('deny_direct_api_clients','mudaala_runtime_access')")
+          runtime_grants=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('SavedProduct','Enquiry','EnquiryMessage','EnquiryContactToken') AND grantee='mudaala_runtime' AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          direct_grants=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('SavedProduct','Enquiry','EnquiryMessage','EnquiryContactToken') AND grantee IN ('anon','authenticated') AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          if [ "$shopper_column" != "1" ] || [ "$availability_columns" != "2" ] || [ "$rls_count" != "4" ] || [ "$policy_count" != "8" ] || [ "$runtime_grants" != "16" ] || [ "$direct_grants" != "0" ]; then
+            echo "Telegram migration security check failed: shopperId=$shopper_column availability=$availability_columns RLS=$rls_count policies=$policy_count runtime_grants=$runtime_grants direct_grants=$direct_grants"
+            exit 1
+          fi
+          echo "Telegram commerce migration passed: ownership, availability, RLS, deny policies and restricted runtime grants verified."
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
       - name: Validate SQLite product collection migration and constraints
         run: |
