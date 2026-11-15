@@ -96,6 +96,8 @@ export interface Listing {
   publishedAt: string
   refreshedAt: string
   expiresAt: string
+  /** Public capability flag; never contains a Telegram ID or chat address. */
+  telegramContactEnabled?: boolean
 }
 
 export interface BusinessProfileT {
