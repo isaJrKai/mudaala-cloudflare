@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { replyToTelegramMerchant } from '@/lib/telegram-assistant'
 import { recordTelegramActivation } from '@/lib/telegram-merchant'
+import { telegramApiUrl } from '@/lib/telegram-api'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -31,7 +32,7 @@ function telegramKey(id: number): string {
 async function sendMessage(chatId: number, text: string, replyMarkup?: Record<string, unknown>): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN
   if (!token) throw new Error('Telegram bot is not configured')
-  const response = await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
+  const response = await fetch(telegramApiUrl(token, 'sendMessage'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true, ...(replyMarkup ? { reply_markup: replyMarkup } : {}) }),
@@ -45,7 +46,7 @@ async function sendMessage(chatId: number, text: string, replyMarkup?: Record<st
 async function setShopMenuButton(chatId: number): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN
   if (!token) throw new Error('Telegram bot is not configured')
-  const response = await fetch('https://api.telegram.org/bot' + token + '/setChatMenuButton', {
+  const response = await fetch(telegramApiUrl(token, 'setChatMenuButton'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -193,7 +194,7 @@ async function searchListings(chatId: number, rawQuery: string): Promise<void> {
 async function answerCallbackQuery(callbackQueryId: string, text: string): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN
   if (!token) throw new Error('Telegram bot is not configured')
-  const response = await fetch('https://api.telegram.org/bot' + token + '/answerCallbackQuery', {
+  const response = await fetch(telegramApiUrl(token, 'answerCallbackQuery'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ callback_query_id: callbackQueryId, text, show_alert: true }),
