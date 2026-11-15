@@ -65,10 +65,21 @@ export async function GET(_request: NextRequest, { params }: Params) {
       ])
     }
 
+    // Telegram contact is public only as a boolean capability. Chat IDs,
+    // Telegram identities and seller opt-in records never leave the server.
+    const telegramSetting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + listing.userId } })
+    let telegramContactEnabled = false
+    if (telegramSetting) {
+      try {
+        const settings = JSON.parse(telegramSetting.value) as { enabled?: unknown; activatedAt?: unknown; chatId?: unknown }
+        telegramContactEnabled = settings.enabled === true && typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)
+      } catch { telegramContactEnabled = false }
+    }
+
     // Return only the public seller identity fields needed by the listing page.
     // Do not spread the full User or BusinessProfile rows into a public response:
     // that would expose internal flags, legal-acceptance metadata, and private contact fields.
-    return jsonOk({ listing: { ...serializeListing(listing), user: listing.user } })
+    return jsonOk({ listing: { ...serializeListing(listing), telegramContactEnabled, user: listing.user } })
   })
 }
 
