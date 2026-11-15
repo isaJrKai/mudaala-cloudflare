@@ -669,6 +669,8 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   const answer = await replyToTelegramMerchant({
     telegramUserId,
     text,
+    // An empty object still means the Telegram identity is linked; null is
+    // reserved for users who have not linked a Mudaala account.
     shop: user.profile ? {
       businessName: user.profile.businessName,
       category: user.profile.category,
@@ -676,7 +678,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       area: user.profile.area,
       description: user.profile.description,
       shopCode: user.profile.shopCode,
-    } : null,
+    } : {},
   })
   await sendMessage(chatId, answer, shopKeyboard)
 }
