@@ -46,6 +46,7 @@ model User {
   merchantEnquiries Enquiry[] @relation("EnquiryMerchant")
   sentEnquiryMessages EnquiryMessage[] @relation("EnquiryMessageSender")
   telegramContactTokens EnquiryContactToken[]
+  shopperTelegramContactTokens EnquiryContactToken[] @relation("EnquiryContactTokenShopper")
   savedSearches  SavedSearch[]
   notifications  Notification[]
   pushSubscriptions PushSubscription[]
@@ -670,12 +671,15 @@ model EnquiryContactToken {
   tokenHash   String   @unique
   listingId   String
   merchantId  String
+  shopperId   String?
   expiresAt   DateTime
   usedAt      DateTime?
   createdAt   DateTime @default(now())
   listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
   merchant    User     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  shopper     User?    @relation("EnquiryContactTokenShopper", fields: [shopperId], references: [id], onDelete: SetNull)
 
   @@index([listingId, expiresAt])
+  @@index([shopperId, expiresAt])
   @@index([merchantId, expiresAt])
 }
