@@ -63,6 +63,8 @@ CREATE TABLE "EnquiryContactToken" (
 CREATE UNIQUE INDEX "EnquiryContactToken_tokenHash_key" ON "EnquiryContactToken"("tokenHash");
 CREATE INDEX "EnquiryContactToken_listingId_expiresAt_idx" ON "EnquiryContactToken"("listingId", "expiresAt");
 CREATE INDEX "EnquiryContactToken_merchantId_expiresAt_idx" ON "EnquiryContactToken"("merchantId", "expiresAt");
+ALTER TABLE "EnquiryContactToken" ADD CONSTRAINT "EnquiryContactToken_listingId_fkey" FOREIGN KEY ("listingId") REFERENCES "Listing"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "EnquiryContactToken" ADD CONSTRAINT "EnquiryContactToken_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 
 -- Explicit seller-reported listing availability. Existing records remain UNKNOWN.
