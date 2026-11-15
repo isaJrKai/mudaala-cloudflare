@@ -1,6 +1,10 @@
 name: Register Telegram Merchant Assistant webhook
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/register-telegram-webhook.yml'
   workflow_dispatch:
 
 permissions:
