@@ -112,6 +112,9 @@ async function run() {
   const merchant = await createUser('merchant')
   const shopper = await createUser('shopper')
   const stranger = await createUser('stranger')
+  await db.businessProfile.create({
+    data: { userId: merchant.id, businessName: 'Telegram boundary test shop ' + suffix, phone: merchant.phone },
+  })
   const merchantListing = await createListing(merchant.id, merchant.phone, 0)
 
   const merchantSettingKey = 'telegram:merchant:' + merchant.id
