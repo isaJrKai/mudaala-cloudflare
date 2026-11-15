@@ -22,10 +22,15 @@ async function readSettings(userId: string): Promise<MerchantTelegramSettings> {
 export async function GET() {
   return route(async () => {
     const user = await requireUser()
-    const settings = await readSettings(user.id)
+    const [settings, account] = await Promise.all([
+      readSettings(user.id),
+      db.user.findUnique({ where: { id: user.id }, select: { profile: { select: { id: true } } } }),
+    ])
+    const hasShopProfile = Boolean(account?.profile)
     return jsonOk({
       connected: Boolean(settings.activatedAt && settings.chatId),
-      enabled: settings.enabled === true && Boolean(settings.activatedAt && settings.chatId),
+      enabled: hasShopProfile && settings.enabled === true && Boolean(settings.activatedAt && settings.chatId),
+      hasShopProfile,
       activatedAt: settings.activatedAt ?? null,
       botUrl: 'https://t.me/' + BOT_USERNAME,
     })
@@ -36,7 +41,13 @@ export async function PUT(request: Request) {
   return route(async () => {
     const user = await requireUser()
     const body = await parseBody(request, z.object({ enabled: z.boolean() }))
-    const settings = await readSettings(user.id)
+    const [settings, account] = await Promise.all([
+      readSettings(user.id),
+      db.user.findUnique({ where: { id: user.id }, select: { profile: { select: { id: true } } }),
+    ])
+    if (body.enabled && !account?.profile) {
+      throw new ApiError(409, 'Create your Mudaala shop profile before accepting seller enquiries.')
+    }
     if (body.enabled && (!settings.activatedAt || !settings.chatId)) {
       throw new ApiError(409, 'Open the Mudaala bot in Telegram and press Start before enabling Telegram enquiries.')
     }
@@ -51,7 +62,8 @@ export async function PUT(request: Request) {
     })
     return jsonOk({
       connected: Boolean(next.activatedAt && next.chatId),
-      enabled: next.enabled === true && Boolean(next.activatedAt && next.chatId),
+      enabled: Boolean(account?.profile) && next.enabled === true && Boolean(next.activatedAt && next.chatId),
+      hasShopProfile: Boolean(account?.profile),
       activatedAt: next.activatedAt ?? null,
       botUrl: 'https://t.me/' + BOT_USERNAME,
     })
