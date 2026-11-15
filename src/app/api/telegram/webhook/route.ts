@@ -235,6 +235,19 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
     await answerCallbackQuery(callbackId, 'This enquiry link has expired.')
     return
   }
+  const sellerSetting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + capability.merchantId } })
+  let sellerCanReceive = false
+  if (sellerSetting) {
+    try {
+      const settings = JSON.parse(sellerSetting.value) as { enabled?: unknown; activatedAt?: unknown; chatId?: unknown }
+      sellerCanReceive = settings.enabled === true && typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)
+    } catch { sellerCanReceive = false }
+  }
+  if (!sellerCanReceive) {
+    await answerCallbackQuery(callbackId, 'The seller is no longer accepting Telegram enquiries.')
+    await sendMessage(chatId, 'The seller is no longer accepting Telegram enquiries. Please use the phone or WhatsApp contact on the listing.')
+    return
+  }
   const buyerHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
   const result = await db.$transaction(async (tx) => {
     const consumed = await tx.enquiryContactToken.updateMany({
