@@ -82,7 +82,7 @@ export async function replyToTelegramMerchant(input: {
   }
   const global = await hit('telegram:groq:global:daily', 60, 24 * 60 * 60 * 1000)
   if (!global.ok) {
-    return 'Mudaala’s assistant has reached today’s shared usage limit. Your shop workspace is still available—tap Open My Shop. The assistant will be available again as the daily allowance resets.'
+    return 'Mudaala’s assistant has reached today’s shared usage limit. Your shop workspace is still available-tap Open My Shop. The assistant will be available again as the daily allowance resets.'
   }
 
   const key = conversationKey(input.telegramUserId)
