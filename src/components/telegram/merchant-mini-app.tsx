@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import Image from 'next/image'
 import Script from 'next/script'
 import { ArrowUpRight, BarChart3, Box, Check, ChevronRight, CircleAlert, Clipboard, Eye, Home, Plus, RefreshCw, Settings, Store, Tag } from 'lucide-react'
@@ -60,7 +60,6 @@ function Metric({ label, value, detail }: { label: string; value: string | numbe
 }
 
 export function TelegramMerchantMiniApp() {
-  const [sdkReady, setSdkReady] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [onboarding, setOnboarding] = useState(false)
@@ -138,15 +137,12 @@ export function TelegramMerchantMiniApp() {
     }
   }
 
-  useEffect(() => {
-    if (!sdkReady) return
+  function initializeTelegram() {
     const webApp = window.Telegram?.WebApp
     webApp?.ready?.()
     webApp?.expand?.()
-    const initData = webApp?.initData
-    void authenticate(initData || '')
-  // One authentication attempt per Mini App launch.
-  }, [sdkReady])
+    void authenticate(webApp?.initData || '')
+  }
 
   async function registerInsideTelegram(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -256,7 +252,7 @@ export function TelegramMerchantMiniApp() {
 
   return (
     <>
-      <Script src="https://telegram.org/js/telegram-web-app.js" strategy="afterInteractive" onReady={() => setSdkReady(true)} />
+      <Script src="https://telegram.org/js/telegram-web-app.js" strategy="afterInteractive" onReady={initializeTelegram} />
       <main className="min-h-dvh bg-[#f5f5ef] px-4 pb-28 pt-[max(18px,env(safe-area-inset-top))] text-[#183b2d]">
         <div className="mx-auto max-w-xl space-y-5">
           <header className="flex items-center justify-between">
