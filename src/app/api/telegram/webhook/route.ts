@@ -309,7 +309,7 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
   if (command === '/start' || command === '/help') {
     if (command === '/start') await recordTelegramActivation(telegramUserId, chatId).catch((error) => console.warn('[telegram] activation record failed:', error instanceof Error ? error.message : 'unknown error'))
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
-    await sendMessage(chatId, 'Welcome to Mudaala.\\n\\nFind real products and shops with /search followed by what you need. Open a listing to view details and contact its seller.\\n\\nIf you run a shop, connect your Mudaala account with /link CODE, then use /shop or /products to manage it.\\n\\n/search <product> - find active Mudaala listings.\\n/link CODE - connect your merchant account.\\n/shop - open your merchant workspace.\\n/publicshop - get your public shop link.\\n/products - view your active products.\\n/reply ID message - reply to a seller enquiry.\\n/respond ID message - reply to a shopper enquiry.\\n/help - show these commands.', shopKeyboard)
+    await sendMessage(chatId, 'Welcome to Mudaala.\\n\\nFind real products and shops with /search followed by what you need. Open a listing to view details and contact its seller.\\n\\nIf you run a shop, connect your Mudaala account with /link CODE, then use /shop or /products to manage it.\\n\\n/search <product> - find active Mudaala listings.\\n/link CODE - connect your merchant account.\\n/shop - open your merchant workspace.\\n/publicshop - get your public shop link.\\n/products - view your active products.\\n/enquiries - view shopper enquiries.\\n/messages - view your buyer enquiries.\\n/reply ID message - reply to a seller enquiry.\\n/respond ID message - reply to a shopper enquiry.\\n/help - show these commands.', shopKeyboard)
     return
   }
 
@@ -382,6 +382,22 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
 
   const mapping = await db.appSetting.findUnique({ where: { key: telegramKey(telegramUserId) } })
   if (!mapping) {
+    if (command === '/messages') {
+      const buyerHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
+      const enquiries = await db.enquiry.findMany({
+        where: { buyerTelegramHash: buyerHash, status: 'OPEN' },
+        include: { listing: { select: { title: true } }, messages: { orderBy: { createdAt: 'desc' }, take: 1 } },
+        orderBy: { lastMessageAt: 'desc' },
+        take: 10,
+      })
+      if (!enquiries.length) {
+        await sendMessage(chatId, 'You have no open Mudaala enquiries yet.')
+        return
+      }
+      const lines = enquiries.map((item) => item.listing.title + '\\n' + 'Latest: ' + (item.messages[0]?.body || 'Enquiry created') + '\\n' + '/respond ' + item.id + ' your message')
+      await sendMessage(chatId, 'Your recent Mudaala enquiries:\\n\\n' + lines.join('\\n\\n'))
+      return
+    }
     if (command === '/respond') {
       const enquiryId = parts[1] || ''
       const replyText = parts.slice(2).join(' ').trim().slice(0, 1200)
@@ -495,6 +511,22 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
     }
     await db.enquiryMessage.update({ where: { id: created.id }, data: { deliveryStatus: delivered ? 'SENT' : 'FAILED' } })
     await sendMessage(chatId, delivered ? 'Your reply was sent.' : 'Your reply was saved, but Telegram could not deliver it. Please retry later.')
+    return
+  }
+
+  if (command === '/enquiries') {
+    const enquiries = await db.enquiry.findMany({
+      where: { merchantId: user.id, status: 'OPEN' },
+      include: { listing: { select: { title: true } }, messages: { orderBy: { createdAt: 'desc' }, take: 1 } },
+      orderBy: { lastMessageAt: 'desc' },
+      take: 10,
+    })
+    if (!enquiries.length) {
+      await sendMessage(chatId, 'You have no open shopper enquiries yet.', shopKeyboard)
+      return
+    }
+    const lines = enquiries.map((item) => item.listing.title + '\\nLatest: ' + (item.messages[0]?.body || 'New enquiry') + '\\n/reply ' + item.id + ' your message')
+    await sendMessage(chatId, 'Your recent shopper enquiries:\\n\\n' + lines.join('\\n\\n'), shopKeyboard)
     return
   }
 
