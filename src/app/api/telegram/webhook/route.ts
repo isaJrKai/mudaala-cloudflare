@@ -39,6 +39,27 @@ async function sendMessage(chatId: number, text: string, replyMarkup?: Record<st
   if (!result.ok) throw new Error('Telegram rejected sendMessage')
 }
 
+async function setShopMenuButton(chatId: number): Promise<void> {
+  const token = process.env.TELEGRAM_BOT_TOKEN
+  if (!token) throw new Error('Telegram bot is not configured')
+  const response = await fetch('https://api.telegram.org/bot' + token + '/setChatMenuButton', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      menu_button: {
+        type: 'web_app',
+        text: 'My Shop',
+        web_app: { url: 'https://mudaala.store/telegram' },
+      },
+    }),
+    signal: AbortSignal.timeout(8000),
+  })
+  if (!response.ok) throw new Error('Telegram setChatMenuButton failed with HTTP ' + response.status)
+  const result = await response.json() as { ok?: boolean }
+  if (!result.ok) throw new Error('Telegram rejected setChatMenuButton')
+}
+
 async function readBoundedBody(request: Request, maxBytes: number): Promise<string> {
   if (!request.body) return ''
   const reader = request.body.getReader()
@@ -101,6 +122,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   const parts = text.split(/\s+/)
   const command = (parts[0] || '').split('@')[0].toLowerCase()
   if (command === '/start' || command === '/help') {
+    await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
     await sendMessage(chatId, 'Welcome to Mudaala Merchant.\n\nOpen your shop workspace to manage your catalogue, shop details and performance.\n\n/link CODE - connect an existing Mudaala account.\n/shop - open your merchant workspace.\n/publicshop - get your public customer-facing shop link.\n/products - view your active products.\n/help - show these commands.\n\nNew to Mudaala? Tap Open My Shop to register and set up your shop inside Telegram.', shopKeyboard)
     return
   }
@@ -161,6 +183,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   }
 
   if (command === '/shop') {
+    await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
     await sendMessage(chatId, 'Open your Mudaala merchant workspace to manage your shop, products and performance.', shopKeyboard)
     return
   }
