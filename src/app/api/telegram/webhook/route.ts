@@ -369,6 +369,45 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
 
   const mapping = await db.appSetting.findUnique({ where: { key: telegramKey(telegramUserId) } })
   if (!mapping) {
+    if (command === '/respond') {
+      const enquiryId = parts[1] || ''
+      const replyText = parts.slice(2).join(' ').trim().slice(0, 1200)
+      if (!enquiryId || !replyText) {
+        await sendMessage(chatId, 'Use /respond ENQUIRY_ID your message')
+        return
+      }
+      const buyerHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
+      const enquiry = await db.enquiry.findFirst({
+        where: { id: enquiryId, status: 'OPEN', buyerTelegramHash: buyerHash },
+        select: { id: true, merchantId: true, listing: { select: { title: true } } },
+      })
+      if (!enquiry) {
+        await sendMessage(chatId, 'That open enquiry was not found for your Telegram account.')
+        return
+      }
+      const created = await db.enquiryMessage.create({
+        data: { enquiryId, senderType: 'SHOPPER', body: replyText, deliveryStatus: 'PENDING' },
+      })
+      await db.enquiry.update({ where: { id: enquiryId }, data: { lastMessageAt: created.createdAt } })
+      const setting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + enquiry.merchantId } })
+      let merchantChatId: number | null = null
+      if (setting) {
+        try {
+          const merchant = JSON.parse(setting.value) as { enabled?: unknown; chatId?: unknown }
+          if (merchant.enabled === true && Number.isSafeInteger(merchant.chatId)) merchantChatId = merchant.chatId as number
+        } catch { /* no active merchant Telegram destination */ }
+      }
+      let delivered = false
+      if (merchantChatId !== null) {
+        try {
+          await sendMessage(merchantChatId, 'Mudaala enquiry · ' + enquiry.listing.title + '\\nReference: ' + enquiry.id + '\\n\\n' + replyText)
+          delivered = true
+        } catch { delivered = false }
+      }
+      await db.enquiryMessage.update({ where: { id: created.id }, data: { deliveryStatus: delivered ? 'SENT' : 'FAILED' } })
+      await sendMessage(chatId, delivered ? 'Your reply was sent to the seller.' : 'Your reply was saved, but Telegram could not deliver it.')
+      return
+    }
     const answer = await replyToTelegramMerchant({ telegramUserId, text })
     await sendMessage(chatId, answer, shopKeyboard)
     return
@@ -390,7 +429,7 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
     return
   }
 
-  if (command === '/reply' || command === '/respond') {
+  if (command === '/reply') {
     const enquiryId = parts[1] || ''
     const replyText = parts.slice(2).join(' ').trim().slice(0, 1200)
     if (!enquiryId || !replyText) {
