@@ -152,7 +152,7 @@ async function searchListings(chatId: number, rawQuery: string): Promise<void> {
       })),
     },
     select: {
-      id: true, title: true, price: true, currency: true, county: true, area: true, availabilityStatus: true,
+      id: true, title: true, price: true, currency: true, county: true, area: true, availabilityStatus: true, availabilityUpdatedAt: true,
       user: { select: { profile: { select: { businessName: true } } } },
     },
     orderBy: [{ refreshedAt: 'desc' }, { publishedAt: 'desc' }],
@@ -166,7 +166,9 @@ async function searchListings(chatId: number, rawQuery: string): Promise<void> {
     const price = item.price === null ? 'Ask seller' : item.currency + ' ' + item.price.toLocaleString('en-UG')
     const location = [item.area, item.county].filter(Boolean).join(', ')
     const shop = item.user.profile?.businessName
-    const availability = item.availabilityStatus === 'IN_STOCK' ? 'In stock (seller-reported)' : item.availabilityStatus === 'AVAILABLE_ON_ORDER' ? 'Available on order (seller-reported)' : item.availabilityStatus === 'OUT_OF_STOCK' ? 'Out of stock (seller-reported)' : 'Availability not confirmed'
+    const reported = item.availabilityStatus === 'IN_STOCK' ? 'in stock' : item.availabilityStatus === 'AVAILABLE_ON_ORDER' ? 'available on order' : item.availabilityStatus === 'OUT_OF_STOCK' ? 'out of stock' : null
+    const updated = item.availabilityUpdatedAt ? ' · seller update ' + item.availabilityUpdatedAt.toLocaleDateString('en-UG', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+    const availability = reported ? 'Seller reports ' + reported + updated : 'Availability not confirmed'
     return (index + 1) + '. ' + item.title + '\n' + price + ' · ' + availability + (location ? ' · ' + location : '') + (shop ? '\nShop: ' + shop : '')
   })
   const inline_keyboard = listings.map((item) => [{
