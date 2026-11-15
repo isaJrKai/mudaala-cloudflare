@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, MessageSquare, RefreshCw, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { apiFetch } from '@/lib/client'
@@ -150,11 +149,11 @@ export function EnquiriesView() {
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <button type="button" onClick={() => navigate({ name: 'business' })} className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" /> Business overview</button>
+          <button type="button" onClick={() => navigate({ name: 'business' })} className="mb-2 text-sm text-muted-foreground hover:text-foreground">Business overview</button>
           <h1 className="text-xl font-semibold tracking-tight">Your enquiries</h1>
           <p className="mt-1 text-sm text-muted-foreground">Private conversations about your products.</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}><RefreshCw className="mr-2 size-4" />Refresh</Button>
+        <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>Refresh</Button>
       </div>
 
       {loadedForUserId === userId && error ? <p role="alert" className="rounded-md border border-destructive/30 px-3 py-2 text-sm text-destructive">{error}</p> : null}
@@ -163,7 +162,7 @@ export function EnquiriesView() {
         <aside className="border-b md:border-b-0 md:border-r">
           <div className="border-b px-4 py-3"><p className="text-sm font-semibold">Inbox <span className="ml-1 text-muted-foreground">({visibleItems.length})</span></p></div>
           {loading && visibleItems.length === 0 ? <p className="p-4 text-sm text-muted-foreground">Loading enquiries…</p> : null}
-          {!loading && visibleItems.length === 0 ? <div className="p-5"><MessageSquare className="mb-2 size-5 text-muted-foreground" /><p className="text-sm font-medium">No enquiries yet</p><p className="mt-1 text-xs text-muted-foreground">When you contact a seller or a shopper contacts your shop, the conversation will appear here.</p></div> : null}
+          {!loading && visibleItems.length === 0 ? <div className="p-5"><p className="text-sm font-medium">No enquiries yet</p><p className="mt-1 text-xs text-muted-foreground">When you contact a seller or a shopper contacts your shop, the conversation will appear here.</p></div> : null}
           <div className="max-h-[520px] overflow-y-auto">
             {visibleItems.map((item) => (
               <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`block w-full border-b px-4 py-3 text-left transition-colors hover:bg-secondary/60 ${selectedId === item.id ? 'bg-secondary' : ''}`}>
@@ -194,10 +193,10 @@ export function EnquiriesView() {
               {!messagesLoading && !messageError && visibleMessages.length === 0 ? <p className="text-sm text-muted-foreground">No messages in this enquiry yet.</p> : null}
             </div>
             <form onSubmit={sendMessage} className="border-t p-3">
-              <div className="flex items-end gap-2"><Textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={2} maxLength={1200} placeholder="Write a reply…" className="min-h-11 resize-y" /><Button type="submit" disabled={!draft.trim() || sending} aria-label="Send reply"><Send className="size-4" /></Button></div>
+              <div className="flex items-end gap-2"><Textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={2} maxLength={1200} placeholder="Write a reply…" className="min-h-11 resize-y" /><Button type="submit" disabled={!draft.trim() || sending}>{sending ? 'Sending…' : 'Send reply'}</Button></div>
               <p className="mt-1 text-[11px] text-muted-foreground">Replies are saved in Mudaala and forwarded to the shopper through Telegram when delivery is available.</p>
             </form>
-          </> : <div className="flex flex-1 items-center justify-center p-8 text-center"><div><MessageSquare className="mx-auto size-7 text-muted-foreground" /><p className="mt-3 text-sm font-medium">Select an enquiry</p><p className="mt-1 text-xs text-muted-foreground">Choose a customer message to read and reply.</p></div></div>}
+          </> : <div className="flex flex-1 items-center justify-center p-8 text-center"><div><p className="text-sm font-medium">Select an enquiry</p><p className="mt-1 text-xs text-muted-foreground">Choose a customer message to read and reply.</p></div></div>}
         </div>
       </div>
     </section>
