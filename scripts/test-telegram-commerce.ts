@@ -142,8 +142,8 @@ async function run() {
   assert.ok(guestToken.expiresAt.getTime() > Date.now(), 'guest token expires in the future')
   assert.ok(guestToken.expiresAt.getTime() <= Date.now() + 10 * 60 * 1000 + 5000, 'guest token lifetime is bounded')
 
-  // A signed-in shopper is attached to the token, allowing the confirmed
-  // Telegram enquiry to appear in that shopper's private Mudaala inbox.
+  // A signed-in shopper is attached to the capability, but the webhook
+  // must prove that the Telegram identity is linked to this exact account.
   const accountTokenResponse = await requestJson('/api/telegram/contact-token', {
     method: 'POST',
     body: JSON.stringify({ listingId: merchantListing.id }),
@@ -200,6 +200,46 @@ async function run() {
   assert.ok(await db.appSetting.findUnique({ where: { key: conflictingCodeKey } }), 'conflicting account code is not consumed')
   const mappingAfterConflict = await db.appSetting.findUnique({ where: { key: merchantMappingKey } })
   assert.equal((JSON.parse(mappingAfterConflict!.value) as { userId: string }).userId, merchant.id, 'a Telegram identity cannot be reassigned by a competing code')
+
+  // Link the shopper's Telegram identity to the same Mudaala account
+  // before opening an account-bound enquiry capability.
+  const shopperLinkCodeResponse = await requestJson('/api/telegram/link-code', { method: 'POST', body: '{}' }, shopper.token)
+  assertStatus(shopperLinkCodeResponse.status, 201, 'shopper Telegram link code')
+  const shopperLinkCode = String(shopperLinkCodeResponse.body.code)
+  const shopperLinkCodeKey = 'telegram:link-code:' + createHash('sha256').update(shopperLinkCode).digest('hex')
+  const shopperMappingKey = 'telegram:user:' + createHash('sha256').update(String(buyerTelegramId)).digest('hex')
+  const shopperTelegramSettingsKey = 'telegram:merchant:' + shopper.id
+  settingKeys.push(shopperLinkCodeKey, shopperMappingKey, shopperTelegramSettingsKey)
+  const shopperLinked = await postTelegramUpdate({
+    update_id: updateBase + 30,
+    message: { text: '/link ' + shopperLinkCode, chat: { id: buyerTelegramId, type: 'private' }, from: { id: buyerTelegramId } },
+  })
+  assertStatus(shopperLinked.status, 200, 'shopper Telegram identity linking')
+  const shopperMapping = await db.appSetting.findUnique({ where: { key: shopperMappingKey } })
+  assert.equal((JSON.parse(shopperMapping!.value) as { userId: string }).userId, shopper.id, 'shopper Telegram identity is linked to the intended account')
+
+  // A forwarded account-bound token must not create an enquiry for the wrong
+  // Mudaala account, even if the other Telegram user presses a crafted callback.
+  const mismatchedChatId = secondBuyerTelegramId
+  settingKeys.push('telegram:chat:' + createHash('sha256').update(String(mismatchedChatId)).digest('hex'))
+  const mismatchedStart = await postTelegramUpdate({
+    update_id: updateBase + 31,
+    message: { text: '/start ' + accountRawToken, chat: { id: mismatchedChatId, type: 'private' }, from: { id: mismatchedChatId } },
+  })
+  assertStatus(mismatchedStart.status, 200, 'mismatched account-bound link start')
+  assert.ok(!telegramRequests.some((item) => item.method === 'sendMessage' && item.body.chat_id === mismatchedChatId && item.body.reply_markup), 'mismatched Telegram identity receives no confirmation action')
+  const mismatchedCallback = await postTelegramUpdate({
+    update_id: updateBase + 32,
+    callback_query: {
+      id: 'mismatched-' + suffix,
+      from: { id: mismatchedChatId },
+      message: { chat: { id: mismatchedChatId, type: 'private' } },
+      data: 'enq:' + accountRawToken,
+    },
+  })
+  assertStatus(mismatchedCallback.status, 200, 'mismatched account-bound confirmation callback')
+  const stillUnusedAccountToken = await db.enquiryContactToken.findUnique({ where: { tokenHash: accountToken.tokenHash } })
+  assert.equal(stillUnusedAccountToken?.usedAt, null, 'wrong Telegram identity cannot consume account-bound token')
 
   const started = await postTelegramUpdate({
     update_id: updateBase + 3,
