@@ -144,7 +144,9 @@ export function EnquiriesView() {
             </header>
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
               {messages.map((message) => {
-                const mine = message.senderType === 'MERCHANT'
+                const mine = selected.role === 'MERCHANT'
+                  ? message.senderType === 'MERCHANT'
+                  : message.senderType === 'SHOPPER'
                 return <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[85%] rounded-lg px-3 py-2 ${mine ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground'}`}><p className="whitespace-pre-wrap break-words text-sm">{message.body}</p><p className={`mt-1 text-[10px] ${mine ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{timeLabel(message.createdAt)}{mine && message.deliveryStatus === 'FAILED' ? ' · Telegram delivery failed' : ''}</p></div></div>
               })}
               {messages.length === 0 ? <p className="text-sm text-muted-foreground">No messages in this enquiry yet.</p> : null}
