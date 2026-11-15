@@ -3,6 +3,7 @@ import { ApiError, jsonOk, parseBody, requireUser, route } from '@/lib/api'
 import { db } from '@/lib/db'
 import { createHash } from 'node:crypto'
 import { hit } from '@/lib/rate-limit'
+import { telegramApiUrl } from '@/lib/telegram-api'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
