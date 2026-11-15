@@ -13,9 +13,8 @@ type Enquiry = {
   status: 'OPEN' | 'RESOLVED' | 'CANCELLED'
   followUpConsentAt: string | null
   role: 'MERCHANT' | 'SHOPPER'
-  listing: { id: string; title: string; price: number | null; currency: string; photos: string[]; status: string }
+  listing: { id: string; title: string; status: string }
   shopName: string
-  shopperName: string | null
   lastMessage: { body: string; senderType: string; createdAt: string; deliveryStatus: string } | null
   lastMessageAt: string
 }
@@ -23,7 +22,6 @@ type Enquiry = {
 type EnquiryMessage = {
   id: string
   senderType: 'MERCHANT' | 'SHOPPER'
-  senderUserId: string | null
   body: string
   deliveryStatus: string
   createdAt: string
