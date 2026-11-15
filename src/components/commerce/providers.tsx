@@ -16,6 +16,7 @@ import { SavedSearches } from './saved-searches'
 import { NotificationsView } from './notifications-view'
 import { AccountView } from './account-view'
 import { SettingsView } from './settings-view'
+import { EnquiriesView } from './enquiries-view'
 import { ShopFollowBar, FollowingView } from './shop-follow'
 import { useAppStore, hashToView, viewToHash } from '@/lib/store'
 
@@ -76,6 +77,8 @@ function CurrentViewContent() {
       return <AccountView />
     case 'settings':
       return <SettingsView />
+    case 'enquiries':
+      return <EnquiriesView />
     case 'following':
       return <FollowingView />
     case 'browse':
