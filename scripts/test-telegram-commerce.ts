@@ -284,6 +284,14 @@ async function run() {
   })
   assertStatus(merchantEnquiriesCommand.status, 200, 'merchant Telegram inbox command')
   assert.ok(telegramRequests.some((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId && String(item.body.text).includes(enquiry.id)), 'merchant inbox command lists their shopper enquiry')
+  const assistantFallback = await postTelegramUpdate({
+    update_id: updateBase + 13,
+    message: { text: 'Can you tell me what products are available?', chat: { id: buyerTelegramId, type: 'private' }, from: { id: buyerTelegramId } },
+  })
+  assertStatus(assistantFallback.status, 200, 'assistant fallback webhook')
+  const fallbackMessage = telegramRequests.filter((item) => item.method === 'sendMessage' && item.body.chat_id === buyerTelegramId).at(-1)
+  assert.ok(fallbackMessage && String(fallbackMessage.body.text).includes('assistant is unavailable') && String(fallbackMessage.body.text).includes('/search'), 'without a provider key, assistant gives a truthful discovery fallback')
+  assert.ok(!String(fallbackMessage?.body.text).includes('Open My Shop'), 'shopper fallback does not assume the user is a merchant')
 
   const webReply = await requestJson('/api/enquiries/' + encodeURIComponent(enquiry.id) + '/messages', {
     method: 'POST', body: JSON.stringify({ message: 'A message sent from the Mudaala web inbox.' }),
