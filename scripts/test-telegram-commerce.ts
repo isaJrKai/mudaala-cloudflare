@@ -288,6 +288,7 @@ async function run() {
   }, stranger.token)
   assertStatus(strangerConsent.status, 404, 'unrelated account cannot change follow-up consent')
 
+  settingKeys.push('telegram:chat:' + createHash('sha256').update(String(secondBuyerTelegramId)).digest('hex'))
   const secondStarted = await postTelegramUpdate({
     update_id: updateBase + 9,
     message: { text: '/start ' + guestRawToken, chat: { id: secondBuyerTelegramId, type: 'private' }, from: { id: secondBuyerTelegramId } },
@@ -384,6 +385,7 @@ run()
     process.exitCode = 1
   })
   .finally(async () => {
+    if (telegramMock) await new Promise<void>((resolve) => telegramMock!.close(() => resolve()))
     if (settingKeys.length) await db.appSetting.deleteMany({ where: { key: { in: settingKeys } } }).catch(() => undefined)
     if (sessionIds.length) await db.session.deleteMany({ where: { id: { in: sessionIds } } }).catch(() => undefined)
     if (userIds.length) await db.user.deleteMany({ where: { id: { in: userIds } } }).catch(() => undefined)
