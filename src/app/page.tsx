@@ -20,7 +20,12 @@ function CommerceFrame() {
   const userId = user?.id
   const lovedIds = useLovedIds()
   const lovedIdsRef = useRef(lovedIds)
-  lovedIdsRef.current = lovedIds
+
+  // Keep the latest guest shortlist available to the account-sync effect
+  // without reading or writing refs during render.
+  useEffect(() => {
+    lovedIdsRef.current = lovedIds
+  }, [lovedIds])
 
   // Restore account-saved products on every device. Also upload this device's
   // guest shortlist once the account is known, then merge the server truth.
