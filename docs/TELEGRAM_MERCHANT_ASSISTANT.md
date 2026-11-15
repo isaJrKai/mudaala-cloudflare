@@ -6,6 +6,14 @@ This opt-in channel reuses Mudaala's existing user, shop and listing records. It
 
 Initial commands: `/start`, `/help`, `/link CODE`, `/shop` and `/products`. Product creation/editing and photo uploads are intentionally excluded until they can reuse the existing listing validation, prohibited-item checks, upload quarantine and image moderation pipeline.
 
+## Product-quality guardrails
+
+- Keep the bot and Mini App within Mudaala's existing product identity and design system. Do not introduce generic chatbot templates, AI-generated UI copy, decorative gradients, stock/placeholder imagery, emoji-heavy controls, or unrelated icon libraries.
+- Do not fabricate shops, listings, prices, availability, seller ratings, customer activity or analytics. Product discovery must query active, non-seed Mudaala listings; seller-reported availability must remain clearly labelled as unverified.
+- Use deterministic backend commands for search, linking, enquiries, replies, consent, and account changes. The language model may explain and guide, but it cannot write to the database, trigger an action, or claim an action succeeded.
+- Keep model replies short, factual and explicit about uncertainty. If the model/provider is unavailable, use a plain, accurate fallback and preserve all deterministic bot commands.
+- Do not add features merely to make the bot appear intelligent. Every surface must solve a real merchant or shopper task and be testable against actual backend behaviour.
+
 ## Secrets
 
 Configure these as Cloudflare Worker Secrets, never vars or committed files: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` and `GROQ_API_KEY`. The webhook secret must be 1–256 characters and use only letters, numbers, underscores or hyphens. `GROQ_API_KEY` is the key from the Groq Console; it is used only by the server-side Telegram assistant and must never be exposed to the browser or committed to Git.
