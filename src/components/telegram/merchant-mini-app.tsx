@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Script from 'next/script'
 import { ArrowUpRight, Bell, Box, ChartNoAxesCombined, ChevronRight, CircleAlert, ExternalLink, Plus, RefreshCw, Store } from 'lucide-react'
 
 declare global {
@@ -32,6 +33,7 @@ function go(path: string) {
 }
 
 export function TelegramMerchantMiniApp() {
+  const [sdkReady, setSdkReady] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [user, setUser] = useState<User | null>(null)
@@ -61,6 +63,7 @@ export function TelegramMerchantMiniApp() {
   }
 
   useEffect(() => {
+    if (!sdkReady) return
     let active = true
     const webApp = window.Telegram?.WebApp
     webApp?.ready?.()
@@ -99,13 +102,15 @@ export function TelegramMerchantMiniApp() {
     return () => { active = false }
   // Authenticate once per Mini App launch; loadShop is intentionally stable for this mount.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [sdkReady])
 
   const activeCount = listings.filter((item) => item.status === 'ACTIVE').length
   const pendingCount = listings.filter((item) => item.status !== 'ACTIVE' && item.status !== 'ARCHIVED' && item.status !== 'HIDDEN').length
   const shopName = profile?.businessName?.trim() || user?.name || 'Your shop'
 
   return (
+    <>
+    <Script src="https://telegram.org/js/telegram-web-app.js" strategy="afterInteractive" onReady={() => setSdkReady(true)} />
     <main className="min-h-dvh bg-[#f5f5ef] px-4 pb-8 pt-[max(18px,env(safe-area-inset-top))] text-[#183b2d]">
       <div className="mx-auto max-w-xl space-y-5">
         <header className="flex items-center justify-between">
@@ -200,5 +205,6 @@ export function TelegramMerchantMiniApp() {
         <footer className="pb-2 text-center text-[10px] text-[#8a988c]">Mudaala · Buy and sell near you</footer>
       </div>
     </main>
+    </>
   )
 }
