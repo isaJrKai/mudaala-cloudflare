@@ -339,7 +339,7 @@ export function TelegramMerchantMiniApp() {
           setLoading(false)
         }}
       /> : null}
-      <main className="relative isolate min-h-dvh overflow-hidden bg-[#f3f1e8] px-4 pb-28 pt-[max(18px,env(safe-area-inset-top))] text-[#183b2d]">
+      <main className="relative isolate min-h-dvh overflow-x-clip bg-[#f3f1e8] px-4 pb-28 pt-[max(18px,env(safe-area-inset-top))] text-[#183b2d]">
         <div aria-hidden="true" className="pointer-events-none absolute -right-16 top-24 z-0 size-64 rotate-12 opacity-[0.07]"><Image src="/logo.svg" alt="" width={256} height={256} /></div>
         <div className="relative z-10 mx-auto max-w-xl space-y-6">
           <header className="flex items-center justify-between">
