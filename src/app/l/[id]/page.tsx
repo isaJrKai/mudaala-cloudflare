@@ -178,7 +178,7 @@ export default async function AdPage({ params }: Params) {
   if (telegramSetting) {
     try {
       const settings = JSON.parse(telegramSetting.value) as { enabled?: unknown; activatedAt?: unknown; chatId?: unknown }
-      telegramContactEnabled = settings.enabled === true && typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)
+      telegramContactEnabled = Boolean(owner.profile) && settings.enabled === true && typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)
     } catch { telegramContactEnabled = false }
   }
 
