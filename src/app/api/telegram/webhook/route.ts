@@ -127,8 +127,8 @@ async function searchListings(chatId: number, rawQuery: string): Promise<void> {
     return
   }
   const terms = [...new Set(query.toLocaleLowerCase().normalize('NFKC')
-    .split(/\\s+/)
-    .map((term) => term.replace(/[^\\p{L}\\p{N}-]/gu, ''))
+    .split(/\s+/)
+    .map((term) => term.replace(/[^\p{L}\p{N}-]/gu, ''))
     .filter((term) => term.length >= 2))].slice(0, 5)
   if (!terms.length) {
     await sendMessage(chatId, 'Please include a product or service name with at least two letters.')
@@ -165,13 +165,13 @@ async function searchListings(chatId: number, rawQuery: string): Promise<void> {
     const price = item.price === null ? 'Ask seller' : item.currency + ' ' + item.price.toLocaleString('en-UG')
     const location = [item.area, item.county].filter(Boolean).join(', ')
     const shop = item.user.profile?.businessName
-    return (index + 1) + '. ' + item.title + '\\n' + price + (location ? ' · ' + location : '') + (shop ? '\\nShop: ' + shop : '')
+    return (index + 1) + '. ' + item.title + '\n' + price + (location ? ' · ' + location : '') + (shop ? '\nShop: ' + shop : '')
   })
   const inline_keyboard = listings.map((item) => [{
     text: 'View ' + item.title.slice(0, 32),
     url: 'https://mudaala.store/l/' + encodeURIComponent(item.id),
   }])
-  await sendMessage(chatId, 'Active Mudaala listings for “' + query + '”:\\n\\n' + lines.join('\\n\\n') + '\\n\\nOpen a listing to see its details and contact the seller.', { inline_keyboard })
+  await sendMessage(chatId, 'Active Mudaala listings for “' + query + '”:\n\n' + lines.join('\n\n') + '\n\nOpen a listing to see its details and contact the seller.', { inline_keyboard })
 }
 
 async function handleMessage(message: TelegramMessage): Promise<void> {
