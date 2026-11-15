@@ -209,13 +209,14 @@ export async function POST(request: Request) {
     const raw = await readBoundedBody(request, 64 * 1024)
     let update: TelegramUpdate
     try { update = JSON.parse(raw) as TelegramUpdate } catch { throw new ApiError(400, 'Invalid update') }
-    if (!update || typeof update !== 'object' || !Number.isSafeInteger(update.update_id) || (update.update_id as number) < 0 || !update.message || typeof update.message !== 'object') return jsonOk({ ok: true })
-    if (update.update_id % 100 === 0) {
+    const updateId = update?.update_id
+    if (!update || typeof update !== 'object' || typeof updateId !== 'number' || !Number.isSafeInteger(updateId) || updateId < 0 || !update.message || typeof update.message !== 'object') return jsonOk({ ok: true })
+    if (updateId % 100 === 0) {
       await cleanupTelegramRecords().catch((error) => {
         console.error('[telegram] housekeeping failed:', error instanceof Error ? error.name : 'unknown error')
       })
     }
-    const updateKey = 'telegram:update:' + update.update_id
+    const updateKey = 'telegram:update:' + updateId
     try {
       // Reserve the update before sending a reply so parallel Telegram retries
       // cannot execute the same command twice.
