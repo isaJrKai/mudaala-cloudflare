@@ -80,7 +80,7 @@ export async function POST(request: Request, { params }: Params) {
         } catch { /* no active Telegram destination */ }
       }
     }
-    const delivered = chatId !== null && await deliverTelegram(chatId, 'Mudaala enquiry · ' + enquiry.listing.title + '\\n\\n' + body.message)
+    const delivered = chatId !== null && await deliverTelegram(chatId, 'Mudaala enquiry · ' + enquiry.listing.title + '\n\n' + body.message)
     await db.enquiryMessage.update({ where: { id: created.id }, data: { deliveryStatus: delivered ? 'SENT' : 'FAILED' } })
     return jsonOk({ message: { ...created, deliveryStatus: delivered ? 'SENT' : 'FAILED' } }, 201)
   })
