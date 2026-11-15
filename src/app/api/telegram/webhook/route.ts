@@ -108,6 +108,17 @@ async function cleanupTelegramRecords(): Promise<void> {
   if (staleCodes.length) {
     await db.appSetting.deleteMany({ where: { key: { in: staleCodes.map((item) => item.key) } } })
   }
+  const staleConversations = await db.appSetting.findMany({
+    where: { key: { startsWith: 'telegram:conversation:' }, updatedAt: { lt: new Date(now - 24 * 60 * 60 * 1000) } },
+    select: { key: true },
+    take: 100,
+  })
+  if (staleConversations.length) {
+    await db.appSetting.deleteMany({ where: { key: { in: staleConversations.map((item) => item.key) } } })
+  }
+  // Keep short-lived contact capabilities bounded without deleting recent
+  // records needed to explain an expired or already-used enquiry link.
+  await db.enquiryContactToken.deleteMany({ where: { expiresAt: { lt: new Date(now - 24 * 60 * 60 * 1000) } } })
 }
 
 const shopKeyboard = {
