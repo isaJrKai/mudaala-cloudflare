@@ -224,9 +224,9 @@ async function startListingEnquiry(chatId: number, telegramUserId: number, rawTo
   const tokenHash = createHash('sha256').update(rawToken).digest('hex')
   const capability = await db.enquiryContactToken.findFirst({
     where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } },
-    include: { listing: { select: { id: true, title: true, price: true, currency: true, county: true, area: true, status: true, expiresAt: true } } },
+    include: { listing: { select: { id: true, userId: true, type: true, isSeed: true, title: true, price: true, currency: true, county: true, area: true, status: true, expiresAt: true } } },
   })
-  if (!capability || capability.listing.status !== 'ACTIVE' || capability.listing.expiresAt <= new Date()) {
+  if (!capability || capability.listing.type !== 'OFFER' || capability.listing.isSeed || capability.listing.userId !== capability.merchantId || capability.listing.status !== 'ACTIVE' || capability.listing.expiresAt <= new Date()) {
     await sendMessage(chatId, 'That enquiry link has expired or the product is no longer active. Please return to Mudaala and try again.')
     return
   }
@@ -264,9 +264,9 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
   const tokenHash = createHash('sha256').update(rawToken).digest('hex')
   const capability = await db.enquiryContactToken.findFirst({
     where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } },
-    include: { listing: { select: { id: true, title: true, status: true, expiresAt: true } } },
+    include: { listing: { select: { id: true, userId: true, type: true, isSeed: true, title: true, status: true, expiresAt: true } } },
   })
-  if (!capability || capability.listing.status !== 'ACTIVE' || capability.listing.expiresAt <= new Date()) {
+  if (!capability || capability.listing.type !== 'OFFER' || capability.listing.isSeed || capability.listing.userId !== capability.merchantId || capability.listing.status !== 'ACTIVE' || capability.listing.expiresAt <= new Date()) {
     await answerCallbackQuery(callbackId, 'This enquiry link has expired.')
     return
   }
