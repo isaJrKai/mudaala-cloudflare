@@ -17,7 +17,7 @@ import type { Metadata } from 'next'
 import { notFound, permanentRedirect } from 'next/navigation'
 import { cache } from 'react'
 import { MapPin, Navigation, Package, Store } from 'lucide-react'
-import { ShowNumber } from '@/components/commerce/show-number'
+import { ShowNumber } from '@/components/commerce/show-number'\nimport { TelegramEnquiryButton } from '@/components/commerce/telegram-enquiry-button'
 import { PublicPhotoGallery } from '@/components/commerce/public-photo-gallery'
 import { StatusBadge, TypeBadge } from '@/components/commerce/badges'
 import { ShareAdRow } from '@/components/commerce/share-row'
@@ -172,6 +172,14 @@ export default async function AdPage({ params }: Params) {
   const activeSince = owner.profile?.createdAt ?? owner.createdAt
   const directionsUrl = mapsSearchUrl({ area: listing.area, county: listing.county, country: countryDef(listing.country ?? 'UG').name })
   const market = await marketContext(listing)
+  const telegramSetting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + listing.userId } })
+  let telegramContactEnabled = false
+  if (telegramSetting) {
+    try {
+      const settings = JSON.parse(telegramSetting.value) as { enabled?: unknown; activatedAt?: unknown; chatId?: unknown }
+      telegramContactEnabled = settings.enabled === true && typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)
+    } catch { telegramContactEnabled = false }
+  }
 
   // Same fire-and-forget counter the API detail uses; crawlers included,
   // because a view is a view whoever asked.
@@ -366,7 +374,7 @@ export default async function AdPage({ params }: Params) {
           <div className="mt-3">
             <SafetyCard />
           </div>
-          <ShowNumber listingId={listing.id} listingTitle={listing.title} listingType={listing.type as ListingType} />
+          {listing.type === 'OFFER' ? <TelegramEnquiryButton listingId={listing.id} enabled={telegramContactEnabled} /> : null}\n          <ShowNumber listingId={listing.id} listingTitle={listing.title} listingType={listing.type as ListingType} />
           <Button asChild variant="outline" className="press mt-2 h-11 w-full gap-1.5 text-[15px]">
             <a href={directionsUrl} target="_blank" rel="noopener noreferrer" aria-label={copy.listing.directionsAria(placeOf(listing))}>
               <Navigation className="size-4" aria-hidden /> {copy.listing.directions}
