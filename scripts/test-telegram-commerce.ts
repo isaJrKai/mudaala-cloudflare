@@ -272,11 +272,29 @@ async function run() {
   const revoked = await db.enquiry.findUnique({ where: { id: enquiry.id }, select: { followUpConsentAt: true } })
   assert.equal(revoked?.followUpConsentAt, null, 'buyer can revoke follow-up consent in Telegram')
 
+  const buyerMessagesCommand = await postTelegramUpdate({
+    update_id: updateBase + 11,
+    message: { text: '/messages', chat: { id: buyerTelegramId, type: 'private' }, from: { id: buyerTelegramId } },
+  })
+  assertStatus(buyerMessagesCommand.status, 200, 'buyer Telegram inbox command')
+  assert.ok(telegramRequests.some((item) => item.method === 'sendMessage' && item.body.chat_id === buyerTelegramId && String(item.body.text).includes(enquiry.id)), 'buyer inbox command lists their enquiry reference')
+  const merchantEnquiriesCommand = await postTelegramUpdate({
+    update_id: updateBase + 12,
+    message: { text: '/enquiries', chat: { id: merchantTelegramId, type: 'private' }, from: { id: merchantTelegramId } },
+  })
+  assertStatus(merchantEnquiriesCommand.status, 200, 'merchant Telegram inbox command')
+  assert.ok(telegramRequests.some((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId && String(item.body.text).includes(enquiry.id)), 'merchant inbox command lists their shopper enquiry')
+
   const webReply = await requestJson('/api/enquiries/' + encodeURIComponent(enquiry.id) + '/messages', {
     method: 'POST', body: JSON.stringify({ message: 'A message sent from the Mudaala web inbox.' }),
   }, merchant.token)
   assertStatus(webReply.status, 201, 'merchant web inbox reply')
   assert.ok(telegramRequests.some((item) => item.method === 'sendMessage' && item.body.chat_id === buyerTelegramId && String(item.body.text).includes('Mudaala web inbox')), 'web inbox reply is delivered through the Telegram API')
+  const shopperWebReply = await requestJson('/api/enquiries/' + encodeURIComponent(enquiry.id) + '/messages', {
+    method: 'POST', body: JSON.stringify({ message: 'A shopper reply sent from the Mudaala web inbox.' }),
+  }, shopper.token)
+  assertStatus(shopperWebReply.status, 201, 'shopper web inbox reply')
+  assert.ok(telegramRequests.some((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId && String(item.body.text).includes('shopper reply sent from the Mudaala web inbox')), 'shopper web reply is delivered only to the selected merchant')
 
   const shopperConsent = await requestJson('/api/enquiries/' + encodeURIComponent(enquiry.id) + '/follow-up-consent', {
     method: 'PATCH', body: JSON.stringify({ consent: true }),
