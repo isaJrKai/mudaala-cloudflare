@@ -60,17 +60,30 @@ export async function POST(request: Request) {
     const existing = await db.appSetting.findUnique({ where: { key } })
     if (existing) {
       let mapping: { userId?: unknown } = {}
-      try { mapping = JSON.parse(existing.value) as typeof mapping } catch { /* replace malformed mapping only after ownership check */ }
-      if (typeof mapping.userId === 'string' && mapping.userId !== user.id) {
+      try { mapping = JSON.parse(existing.value) as typeof mapping } catch {
+        throw new ApiError(409, 'This Telegram connection needs support before it can be changed.')
+      }
+      if (mapping.userId !== user.id) {
         throw new ApiError(409, 'This Telegram account is already connected to another Mudaala account. Contact support before changing the connection.')
       }
+      // Same account: linking is idempotent and does not rotate the mapping.
+    } else {
+      try {
+        // A unique insert, not an upsert: two concurrent account claims must
+        // never overwrite one another's Telegram-to-Mudaala ownership.
+        await db.appSetting.create({
+          data: { key, value: JSON.stringify({ userId: user.id, linkedAt: new Date().toISOString() }) },
+        })
+      } catch (error) {
+        if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'P2002') throw error
+        const raced = await db.appSetting.findUnique({ where: { key } })
+        let racedMapping: { userId?: unknown } = {}
+        try { racedMapping = JSON.parse(raced?.value || '{}') as typeof racedMapping } catch { /* reject malformed concurrent claim */ }
+        if (racedMapping.userId !== user.id) {
+          throw new ApiError(409, 'This Telegram account was connected to another Mudaala account at the same time. Contact support if this was unexpected.')
+        }
+      }
     }
-
-    await db.appSetting.upsert({
-      where: { key },
-      create: { key, value: JSON.stringify({ userId: user.id, linkedAt: new Date().toISOString() }) },
-      update: { value: JSON.stringify({ userId: user.id, linkedAt: new Date().toISOString() }) },
-    })
     const response = jsonOk({ linked: true })
     response.headers.set('Cache-Control', 'no-store, private')
     return response
