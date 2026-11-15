@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Store,
   TrendingUp,
+  MessageSquare,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { apiGet, apiPost, type BusinessProfileT, type Listing } from '@/lib/client'
@@ -164,6 +165,9 @@ export function BusinessDashboard() {
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
+          <Button variant="outline" className="h-10" onClick={() => navigate({ name: 'enquiries' })}>
+            <MessageSquare className="mr-2 size-4" aria-hidden /> Enquiries
+          </Button>
           <Button variant="outline" className="h-10" onClick={() => navigate({ name: 'shop', id: user.id })}>
             <Store className="mr-2 size-4" aria-hidden /> View shop
           </Button>
