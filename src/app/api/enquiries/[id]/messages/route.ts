@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { ApiError, jsonOk, parseBody, requireUser, route } from '@/lib/api'
 import { db } from '@/lib/db'
-import { createHash } from 'node:crypto'\nimport { hit } from '@/lib/rate-limit'
+import { createHash } from 'node:crypto'
+import { hit } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -47,7 +48,9 @@ export async function POST(request: Request, { params }: Params) {
   return route(async () => {
     const user = await requireUser()
     const { id } = await params
-    const limit = await hit('enquiry:message:user:' + user.id, 20, 5 * 60 * 1000)\n    if (!limit.ok) throw new ApiError(429, 'You are sending messages too quickly. Please wait a few minutes.')\n    const body = await parseBody(request, z.object({ message: z.string().trim().min(1).max(1200) }))
+    const limit = await hit('enquiry:message:user:' + user.id, 20, 5 * 60 * 1000)
+    if (!limit.ok) throw new ApiError(429, 'You are sending messages too quickly. Please wait a few minutes.')
+    const body = await parseBody(request, z.object({ message: z.string().trim().min(1).max(1200) }))
     const enquiry = await db.enquiry.findFirst({
       where: { id, status: 'OPEN', OR: [{ merchantId: user.id }, { shopperId: user.id }] },
       select: { id: true, merchantId: true, shopperId: true, buyerTelegramHash: true, listing: { select: { title: true } } },
