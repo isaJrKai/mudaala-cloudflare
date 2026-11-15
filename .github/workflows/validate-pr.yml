@@ -190,11 +190,12 @@ jobs:
           policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename IN ('SavedProduct','Enquiry','EnquiryMessage','EnquiryContactToken') AND policyname IN ('deny_direct_api_clients','mudaala_runtime_access')")
           runtime_grants=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('SavedProduct','Enquiry','EnquiryMessage','EnquiryContactToken') AND grantee='mudaala_runtime' AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
           direct_grants=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('SavedProduct','Enquiry','EnquiryMessage','EnquiryContactToken') AND grantee IN ('anon','authenticated') AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
-          if [ "$shopper_column" != "1" ] || [ "$availability_columns" != "2" ] || [ "$rls_count" != "4" ] || [ "$policy_count" != "8" ] || [ "$runtime_grants" != "16" ] || [ "$direct_grants" != "0" ]; then
-            echo "Telegram migration security check failed: shopperId=$shopper_column availability=$availability_columns RLS=$rls_count policies=$policy_count runtime_grants=$runtime_grants direct_grants=$direct_grants"
+          check_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_constraint WHERE contype='c' AND conname IN ('Listing_availabilityStatus_check','Enquiry_status_check','Enquiry_contactChannel_check','Enquiry_buyerIdentity_check','Enquiry_buyerTelegramHash_check','EnquiryMessage_senderType_check','EnquiryMessage_deliveryStatus_check','EnquiryMessage_body_length_check','EnquiryContactToken_tokenHash_check')")
+          if [ "$shopper_column" != "1" ] || [ "$availability_columns" != "2" ] || [ "$rls_count" != "4" ] || [ "$policy_count" != "8" ] || [ "$runtime_grants" != "16" ] || [ "$direct_grants" != "0" ] || [ "$check_count" != "9" ]; then
+            echo "Telegram migration security check failed: shopperId=$shopper_column availability=$availability_columns RLS=$rls_count policies=$policy_count runtime_grants=$runtime_grants direct_grants=$direct_grants checks=$check_count"
             exit 1
           fi
-          echo "Telegram commerce migration passed: ownership, availability, RLS, deny policies and restricted runtime grants verified."
+          echo "Telegram commerce migration passed: ownership, availability, data constraints, RLS, deny policies and restricted runtime grants verified."
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
