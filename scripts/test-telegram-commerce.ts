@@ -10,6 +10,7 @@
  */
 import assert from 'node:assert/strict'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { createServer, type Server } from 'node:http'
 import { PrismaClient } from '@prisma/client'
 
 const db = new PrismaClient()
@@ -19,6 +20,9 @@ const userIds: string[] = []
 const sessionIds: string[] = []
 const settingKeys: string[] = []
 const listingIds: string[] = []
+const telegramRequests: Array<{ method: string; body: Record<string, unknown> }> = []
+let telegramMock: Server | null = null
+const TELEGRAM_WEBHOOK_SECRET = 'ci-telegram-webhook-secret'
 
 type TestUser = { id: string; token: string; phone: string }
 
@@ -71,6 +75,39 @@ function assertStatus(actual: number, expected: number, label: string) {
   assert.equal(actual, expected, label + ': expected HTTP ' + expected + ', got ' + actual)
 }
 
+async function startTelegramMock() {
+  telegramMock = createServer((request, response) => {
+    let raw = ''
+    request.on('data', (chunk: Buffer) => { raw += chunk.toString('utf8') })
+    request.on('end', () => {
+      const method = (request.url || '').split('/').pop() || ''
+      const body = JSON.parse(raw || '{}') as Record<string, unknown>
+      telegramRequests.push({ method, body })
+      response.writeHead(200, { 'content-type': 'application/json' })
+      response.end(JSON.stringify({ ok: true, result: { message_id: telegramRequests.length } }))
+    })
+  })
+  await new Promise<void>((resolve, reject) => {
+    telegramMock!.once('error', reject)
+    telegramMock!.listen(4010, '127.0.0.1', resolve)
+  })
+}
+
+async function postTelegramUpdate(update: Record<string, unknown>) {
+  const updateId = Number(update.update_id)
+  if (Number.isSafeInteger(updateId)) settingKeys.push('telegram:update:' + updateId)
+  const response = await fetch(BASE + '/api/telegram/webhook', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-telegram-bot-api-secret-token': TELEGRAM_WEBHOOK_SECRET,
+    },
+    body: JSON.stringify(update),
+  })
+  const body = await response.json().catch(() => ({}))
+  return { status: response.status, body }
+}
+
 async function run() {
   const merchant = await createUser('merchant')
   const shopper = await createUser('shopper')
@@ -119,6 +156,160 @@ async function run() {
   })
   assert.ok(accountToken, 'registered shopper token digest persisted')
   assert.equal(accountToken.shopperId, shopper.id, 'registered shopper identity is persisted on the capability')
+
+  // Exercise the actual webhook and Bot API delivery code against a local mock.
+  // No real Telegram messages or external API calls are made by this test.
+  await startTelegramMock()
+  const merchantTelegramId = 8_120_000_000 + Math.floor(Math.random() * 100_000)
+  const buyerTelegramId = merchantTelegramId + 1
+  const secondBuyerTelegramId = merchantTelegramId + 2
+  const updateBase = 1_000_000 + Math.floor(Math.random() * 100_000)
+  const merchantMappingKey = 'telegram:user:' + createHash('sha256').update(String(merchantTelegramId)).digest('hex')
+  const buyerChatKey = 'telegram:chat:' + createHash('sha256').update(String(buyerTelegramId)).digest('hex')
+  settingKeys.push(merchantMappingKey, buyerChatKey)
+
+  const linkCodeResponse = await requestJson('/api/telegram/link-code', { method: 'POST', body: '{}' }, merchant.token)
+  assertStatus(linkCodeResponse.status, 201, 'merchant Telegram link code')
+  const linkCode = String(linkCodeResponse.body.code)
+  const linkCodeKey = 'telegram:link-code:' + createHash('sha256').update(linkCode).digest('hex')
+  settingKeys.push(linkCodeKey)
+  const linked = await postTelegramUpdate({
+    update_id: updateBase + 1,
+    message: { text: '/link ' + linkCode, chat: { id: merchantTelegramId, type: 'private' }, from: { id: merchantTelegramId } },
+  })
+  assertStatus(linked.status, 200, 'Telegram merchant linking webhook')
+  const merchantMapping = await db.appSetting.findUnique({ where: { key: merchantMappingKey } })
+  assert.ok(merchantMapping, 'Telegram identity mapping is created')
+  assert.equal((JSON.parse(merchantMapping.value) as { userId: string }).userId, merchant.id, 'Telegram identity maps to the intended merchant')
+  const linkedMerchantSettings = await db.appSetting.findUnique({ where: { key: merchantSettingKey } })
+  assert.ok(linkedMerchantSettings, 'merchant Telegram settings remain available')
+  assert.equal((JSON.parse(linkedMerchantSettings.value) as { chatId: number }).chatId, merchantTelegramId, 'private chat destination is recorded')
+  assert.equal((JSON.parse(linkedMerchantSettings.value) as { enabled: boolean }).enabled, true, 'linking preserves explicit enquiry opt-in')
+  assert.equal(await db.appSetting.findUnique({ where: { key: linkCodeKey } }), null, 'link code is consumed exactly once')
+
+  const conflictingCodeResponse = await requestJson('/api/telegram/link-code', { method: 'POST', body: '{}' }, stranger.token)
+  assertStatus(conflictingCodeResponse.status, 201, 'second account link code')
+  const conflictingCode = String(conflictingCodeResponse.body.code)
+  const conflictingCodeKey = 'telegram:link-code:' + createHash('sha256').update(conflictingCode).digest('hex')
+  settingKeys.push(conflictingCodeKey)
+  const conflict = await postTelegramUpdate({
+    update_id: updateBase + 2,
+    message: { text: '/link ' + conflictingCode, chat: { id: merchantTelegramId, type: 'private' }, from: { id: merchantTelegramId } },
+  })
+  assertStatus(conflict.status, 200, 'conflicting Telegram link webhook')
+  assert.ok(await db.appSetting.findUnique({ where: { key: conflictingCodeKey } }), 'conflicting account code is not consumed')
+  const mappingAfterConflict = await db.appSetting.findUnique({ where: { key: merchantMappingKey } })
+  assert.equal((JSON.parse(mappingAfterConflict!.value) as { userId: string }).userId, merchant.id, 'a Telegram identity cannot be reassigned by a competing code')
+
+  const started = await postTelegramUpdate({
+    update_id: updateBase + 3,
+    message: { text: '/start ' + accountRawToken, chat: { id: buyerTelegramId, type: 'private' }, from: { id: buyerTelegramId } },
+  })
+  assertStatus(started.status, 200, 'buyer listing deep-link start')
+  const confirmationMessage = telegramRequests.find((item) => item.method === 'sendMessage' && item.body.chat_id === buyerTelegramId && item.body.reply_markup)
+  assert.ok(confirmationMessage, 'buyer receives an explicit enquiry confirmation message')
+  const markup = confirmationMessage.body.reply_markup as { inline_keyboard?: Array<Array<{ callback_data?: string }>> }
+  const callbackData = markup.inline_keyboard?.[0]?.[0]?.callback_data
+  assert.ok(callbackData?.startsWith('enq:'), 'confirmation button carries the one-time enquiry capability')
+
+  const confirmed = await postTelegramUpdate({
+    update_id: updateBase + 4,
+    callback_query: {
+      id: 'confirm-' + suffix,
+      from: { id: buyerTelegramId },
+      message: { chat: { id: buyerTelegramId, type: 'private' } },
+      data: callbackData,
+    },
+  })
+  assertStatus(confirmed.status, 200, 'buyer enquiry confirmation callback')
+  const buyerHash = createHash('sha256').update(String(buyerTelegramId)).digest('hex')
+  const enquiry = await db.enquiry.findFirst({
+    where: { listingId: merchantListing.id, shopperId: shopper.id, buyerTelegramHash: buyerHash },
+    include: { messages: true },
+  })
+  assert.ok(enquiry, 'confirmation creates one enquiry linked to the signed-in shopper')
+  assert.equal(enquiry.messages.length, 1, 'confirmation creates the initial enquiry message once')
+  assert.equal(enquiry.messages[0]!.deliveryStatus, 'SENT', 'seller notification delivery is recorded')
+  const consumedToken = await db.enquiryContactToken.findUnique({ where: { tokenHash: accountToken.tokenHash } })
+  assert.ok(consumedToken?.usedAt, 'confirmation consumes the single-use token')
+  const sellerNotice = telegramRequests.find((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId && String(item.body.text).includes(enquiry.id))
+  assert.ok(sellerNotice, 'only the selected seller receives the enquiry')
+  assert.ok(String(sellerNotice.body.text).includes('private Mudaala shopper'), 'seller receives a privacy-safe buyer label')
+  assert.ok(!String(sellerNotice.body.text).includes(String(buyerTelegramId)), 'seller is not shown the buyer Telegram identifier')
+
+  const shopperInbox = await requestJson('/api/enquiries', {}, shopper.token)
+  assertStatus(shopperInbox.status, 200, 'registered shopper enquiry inbox')
+  assert.ok(shopperInbox.body.enquiries.some((item: { id: string; role: string }) => item.id === enquiry.id && item.role === 'SHOPPER'), 'registered shopper can see their enquiry in Mudaala')
+  const merchantInbox = await requestJson('/api/enquiries', {}, merchant.token)
+  assert.ok(merchantInbox.body.enquiries.some((item: { id: string; role: string }) => item.id === enquiry.id && item.role === 'MERCHANT'), 'merchant can see the selected buyer enquiry')
+  const strangerInbox = await requestJson('/api/enquiries', {}, stranger.token)
+  assert.ok(!strangerInbox.body.enquiries.some((item: { id: string }) => item.id === enquiry.id), 'unrelated account cannot see the enquiry')
+  const strangerMessages = await requestJson('/api/enquiries/' + encodeURIComponent(enquiry.id) + '/messages', {}, stranger.token)
+  assertStatus(strangerMessages.status, 404, 'unrelated account cannot read enquiry messages')
+
+  const merchantReply = 'The seller can confirm the item at the shop today.'
+  const sellerReplyUpdate = await postTelegramUpdate({
+    update_id: updateBase + 5,
+    message: { text: '/reply ' + enquiry.id + ' ' + merchantReply, chat: { id: merchantTelegramId, type: 'private' }, from: { id: merchantTelegramId } },
+  })
+  assertStatus(sellerReplyUpdate.status, 200, 'merchant Telegram reply')
+  const buyerReplyDelivery = telegramRequests.find((item) => item.method === 'sendMessage' && item.body.chat_id === buyerTelegramId && String(item.body.text).includes(merchantReply))
+  assert.ok(buyerReplyDelivery, 'merchant reply is relayed to the buyer private chat')
+
+  const shopperReply = 'I can visit tomorrow afternoon.'
+  const shopperReplyUpdate = await postTelegramUpdate({
+    update_id: updateBase + 6,
+    message: { text: '/respond ' + enquiry.id + ' ' + shopperReply, chat: { id: buyerTelegramId, type: 'private' }, from: { id: buyerTelegramId } },
+  })
+  assertStatus(shopperReplyUpdate.status, 200, 'shopper Telegram reply')
+  const merchantReplyDelivery = telegramRequests.find((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId && String(item.body.text).includes(shopperReply))
+  assert.ok(merchantReplyDelivery, 'shopper reply is relayed only to the selected seller')
+
+  await postTelegramUpdate({ update_id: updateBase + 7, message: { text: '/followup ' + enquiry.id + ' yes', chat: { id: buyerTelegramId, type: 'private' }, from: { id: buyerTelegramId } } })
+  const consented = await db.enquiry.findUnique({ where: { id: enquiry.id }, select: { followUpConsentAt: true } })
+  assert.ok(consented?.followUpConsentAt, 'buyer can explicitly grant follow-up consent in Telegram')
+  await postTelegramUpdate({ update_id: updateBase + 8, message: { text: '/followup ' + enquiry.id + ' no', chat: { id: buyerTelegramId, type: 'private' }, from: { id: buyerTelegramId } } })
+  const revoked = await db.enquiry.findUnique({ where: { id: enquiry.id }, select: { followUpConsentAt: true } })
+  assert.equal(revoked?.followUpConsentAt, null, 'buyer can revoke follow-up consent in Telegram')
+
+  const webReply = await requestJson('/api/enquiries/' + encodeURIComponent(enquiry.id) + '/messages', {
+    method: 'POST', body: JSON.stringify({ message: 'A message sent from the Mudaala web inbox.' }),
+  }, merchant.token)
+  assertStatus(webReply.status, 201, 'merchant web inbox reply')
+  assert.ok(telegramRequests.some((item) => item.method === 'sendMessage' && item.body.chat_id === buyerTelegramId && String(item.body.text).includes('Mudaala web inbox')), 'web inbox reply is delivered through the Telegram API')
+
+  const shopperConsent = await requestJson('/api/enquiries/' + encodeURIComponent(enquiry.id) + '/follow-up-consent', {
+    method: 'PATCH', body: JSON.stringify({ consent: true }),
+  }, shopper.token)
+  assertStatus(shopperConsent.status, 200, 'shopper web follow-up consent')
+  assert.ok(shopperConsent.body.followUpConsentAt, 'web inbox consent is persisted')
+  const strangerConsent = await requestJson('/api/enquiries/' + encodeURIComponent(enquiry.id) + '/follow-up-consent', {
+    method: 'PATCH', body: JSON.stringify({ consent: false }),
+  }, stranger.token)
+  assertStatus(strangerConsent.status, 404, 'unrelated account cannot change follow-up consent')
+
+  const secondStarted = await postTelegramUpdate({
+    update_id: updateBase + 9,
+    message: { text: '/start ' + guestRawToken, chat: { id: secondBuyerTelegramId, type: 'private' }, from: { id: secondBuyerTelegramId } },
+  })
+  assertStatus(secondStarted.status, 200, 'second buyer listing deep-link start')
+  const secondConfirmation = telegramRequests.find((item) => item.method === 'sendMessage' && item.body.chat_id === secondBuyerTelegramId && item.body.reply_markup)
+  assert.ok(secondConfirmation, 'second buyer receives a confirmation button')
+  const secondMarkup = secondConfirmation.body.reply_markup as { inline_keyboard?: Array<Array<{ callback_data?: string }>> }
+  const forwardedCallback = await postTelegramUpdate({
+    update_id: updateBase + 10,
+    callback_query: {
+      id: 'forwarded-' + suffix,
+      from: { id: secondBuyerTelegramId + 1 },
+      message: { chat: { id: secondBuyerTelegramId, type: 'private' } },
+      data: secondMarkup.inline_keyboard?.[0]?.[0]?.callback_data,
+    },
+  })
+  assertStatus(forwardedCallback.status, 200, 'forwarded confirmation callback is safely rejected')
+  const unusedGuestToken = await db.enquiryContactToken.findUnique({ where: { tokenHash: guestToken.tokenHash } })
+  assert.equal(unusedGuestToken?.usedAt, null, 'another Telegram user cannot consume a buyer confirmation')
+  const enquiriesForListing = await db.enquiry.count({ where: { listingId: merchantListing.id } })
+  assert.equal(enquiriesForListing, 1, 'forwarded callback does not create a second enquiry')
 
   const selfEnquiry = await requestJson('/api/telegram/contact-token', {
     method: 'POST',
