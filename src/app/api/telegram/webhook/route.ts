@@ -13,7 +13,8 @@ type TelegramMessage = {
   chat?: { id?: number; type?: string }
   from?: { id?: number }
 }
-type TelegramCallbackQuery = { id?: string; data?: string; from?: { id?: number }; message?: TelegramMessage }\ntype TelegramUpdate = { update_id?: number; message?: TelegramMessage; callback_query?: TelegramCallbackQuery }
+type TelegramCallbackQuery = { id?: string; data?: string; from?: { id?: number }; message?: TelegramMessage }
+type TelegramUpdate = { update_id?: number; message?: TelegramMessage; callback_query?: TelegramCallbackQuery }
 
 function secretMatches(expected: string, supplied: string | null): boolean {
   if (!supplied) return false
@@ -298,7 +299,8 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
   }
   await sendMessage(chatId, 'Your enquiry has been sent to the seller. Mudaala has kept your Telegram identity private.\\n\\nIf the seller replies, respond with /respond ' + result.id + ' your message.')
 }
-\nasync function handleMessage(message: TelegramMessage): Promise<void> {
+
+async function handleMessage(message: TelegramMessage): Promise<void> {
   const chatId = message.chat?.id
   const telegramUserId = message.from?.id
   const text = (message.text || '').trim()
