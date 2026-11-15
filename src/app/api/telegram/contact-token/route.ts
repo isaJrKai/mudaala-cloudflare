@@ -18,9 +18,10 @@ export async function POST(request: Request) {
     const viewer = await getSessionUser()
     const listing = await db.listing.findFirst({
       where: { id: body.listingId, type: 'OFFER', status: 'ACTIVE', isSeed: false, expiresAt: { gt: new Date() } },
-      select: { id: true, userId: true, title: true },
+      select: { id: true, userId: true, title: true, user: { select: { profile: { select: { id: true } } } } },
     })
     if (!listing) throw new ApiError(404, 'This listing is no longer available.')
+    if (!listing.user.profile) throw new ApiError(409, 'This seller does not have an active shop profile.')
     if (viewer?.id === listing.userId) throw new ApiError(409, 'You cannot send an enquiry to your own shop.')
     const setting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + listing.userId } })
     if (!setting) throw new ApiError(409, 'This seller has not enabled Telegram enquiries. Try their phone or WhatsApp contact instead.')
