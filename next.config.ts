@@ -6,7 +6,7 @@ const frameAncestors = process.env.FRAME_ANCESTORS ?? "'self'"
 const xFrameOptions =
   frameAncestors.trim() === "'none'" ? "DENY" : frameAncestors.trim() === "'self'" ? "SAMEORIGIN" : undefined
 
-const scriptSrc = ["'self'", "'unsafe-inline'"]
+const scriptSrc = ["'self'", "'unsafe-inline'", "https://telegram.org"]
 if (process.env.NODE_ENV !== "production") scriptSrc.push("'unsafe-eval'")
 
 const contentSecurityPolicy = [
