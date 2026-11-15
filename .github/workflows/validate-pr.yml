@@ -115,6 +115,27 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Apply and verify Telegram commerce migration in disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."EnquiryContactToken", public."EnquiryMessage", public."Enquiry", public."SavedProduct" CASCADE;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."Listing" DROP COLUMN IF EXISTS "availabilityStatus", DROP COLUMN IF EXISTS "availabilityUpdatedAt";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261115180000_telegram_enquiries_saved_products/migration.sql
+          token_fk_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_constraint WHERE conname IN ('EnquiryContactToken_listingId_fkey','EnquiryContactToken_merchantId_fkey','EnquiryContactToken_shopperId_fkey')")
+          if [ "$token_fk_count" != "3" ]; then
+            echo "Expected three Telegram contact-token foreign keys, found $token_fk_count"
+            exit 1
+          fi
+          shopper_column=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='EnquiryContactToken' AND column_name='shopperId'")
+          availability_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='Listing' AND column_name IN ('availabilityStatus','availabilityUpdatedAt')")
+          if [ "$shopper_column" != "1" ] || [ "$availability_columns" != "2" ]; then
+            echo "Telegram migration columns are incomplete: shopperId=$shopper_column availability=$availability_columns"
+            exit 1
+          fi
+          echo "Telegram commerce migration passed: saved products, enquiries, token ownership and seller availability schema verified."
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
 
       - name: Apply and verify direct Data API deny policies in disposable PostgreSQL
         run: |
@@ -405,6 +426,17 @@ jobs:
           NEXT_PUBLIC_APP_URL: http://localhost:3000
           APP_ORIGIN: http://localhost:3000
           ALLOW_BEARER_AUTH: "1"
+          CSRF_TRUSTED_HOSTS: preview-sandbox.preview-platform.example
+
+      - name: Test Telegram commerce token and shortlist boundaries
+        run: npx tsx scripts/test-telegram-commerce.ts
+        env:
+          APP_URL: http://localhost:3000
+          DATABASE_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://mudaala_runtime:runtime_test_only@127.0.0.1:5432/mudaala
+          ALLOW_BEARER_AUTH: "1"
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          APP_ORIGIN: http://localhost:3000
           CSRF_TRUSTED_HOSTS: preview-sandbox.preview-platform.example
 
       - name: Verify scheduled maintenance authorization and idempotency under restricted role
