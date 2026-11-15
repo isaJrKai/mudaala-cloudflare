@@ -311,7 +311,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   if (command === '/start' || command === '/help') {
     if (command === '/start') await recordTelegramActivation(telegramUserId, chatId).catch((error) => console.warn('[telegram] activation record failed:', error instanceof Error ? error.message : 'unknown error'))
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
-    await sendMessage(chatId, 'Welcome to Mudaala.\\n\\nFind real products and shops with /search followed by what you need. Open a listing to view details and contact its seller.\\n\\nIf you run a shop, connect your Mudaala account with /link CODE, then use /shop or /products to manage it.\\n\\n/search <product> - find active Mudaala listings.\\n/link CODE - connect your merchant account.\\n/shop - open your merchant workspace.\\n/publicshop - get your public shop link.\\n/products - view your active products.\\n/enquiries - view shopper enquiries.\\n/messages - view your buyer enquiries.\\n/reply ID message - reply to a shopper enquiry.\\n/respond ID message - reply as a shopper.\\n/help - show these commands.', shopKeyboard)
+    await sendMessage(chatId, 'Welcome to Mudaala.\\n\\nFind real products and shops with /search followed by what you need. Open a listing to view details and contact its seller.\\n\\nIf you run a shop, connect your Mudaala account with /link CODE, then use /shop or /products to manage it.\\n\\n/search <product> - find active Mudaala listings.\\n/link CODE - connect your merchant account.\\n/shop - open your merchant workspace.\\n/publicshop - get your public shop link.\\n/products - view your active products.\\n/enquiries - view shopper enquiries.\\n/messages - view your buyer enquiries.\\n/reply ID message - reply to a shopper enquiry.\\n/respond ID message - reply as a shopper.\\n/followup ID yes|no - allow or revoke seller follow-up.\\n/help - show these commands.', shopKeyboard)
     return
   }
 
@@ -373,6 +373,26 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     })
     await recordTelegramActivation(telegramUserId, chatId)
     await sendMessage(chatId, 'Connected successfully to ' + (user.profile?.businessName || user.name) + '.\n\nYour merchant workspace is ready. Open it below to manage your shop.', shopKeyboard)
+    return
+  }
+
+  if (command === '/followup') {
+    const enquiryId = parts[1] || ''
+    const choice = (parts[2] || '').toLowerCase()
+    if (!enquiryId || !['yes', 'no'].includes(choice)) {
+      await sendMessage(chatId, 'Choose explicitly: /followup ENQUIRY_ID yes or /followup ENQUIRY_ID no')
+      return
+    }
+    const buyerHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
+    const changed = await db.enquiry.updateMany({
+      where: { id: enquiryId, buyerTelegramHash: buyerHash, status: 'OPEN' },
+      data: { followUpConsentAt: choice === 'yes' ? new Date() : null },
+    })
+    if (!changed.count) {
+      await sendMessage(chatId, 'That open enquiry was not found for your Telegram account.')
+      return
+    }
+    await sendMessage(chatId, choice === 'yes' ? 'You allowed the seller to send a later follow-up for this enquiry. You can revoke this any time with /followup ' + enquiryId + ' no.' : 'Seller follow-up permission has been turned off for this enquiry.')
     return
   }
 
@@ -457,6 +477,22 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   if (!user) {
     await db.appSetting.deleteMany({ where: { key: telegramKey(telegramUserId) } })
     await sendMessage(chatId, 'The linked Mudaala account no longer exists. Link your account again.')
+    return
+  }
+
+  if (command === '/followup') {
+    const enquiryId = parts[1] || ''
+    const choice = (parts[2] || '').toLowerCase()
+    if (!enquiryId || !['yes', 'no'].includes(choice)) {
+      await sendMessage(chatId, 'Choose explicitly: /followup ENQUIRY_ID yes or /followup ENQUIRY_ID no')
+      return
+    }
+    const changed = await db.enquiry.updateMany({ where: { id: enquiryId, shopperId: user.id, status: 'OPEN' }, data: { followUpConsentAt: choice === 'yes' ? new Date() : null } })
+    if (!changed.count) {
+      await sendMessage(chatId, 'That open enquiry was not found in your Mudaala account.')
+      return
+    }
+    await sendMessage(chatId, choice === 'yes' ? 'You allowed a later seller follow-up for this enquiry.' : 'Seller follow-up permission has been turned off.')
     return
   }
 
