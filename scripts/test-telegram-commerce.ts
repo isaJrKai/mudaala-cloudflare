@@ -284,6 +284,13 @@ async function run() {
   })
   assertStatus(merchantEnquiriesCommand.status, 200, 'merchant Telegram inbox command')
   assert.ok(telegramRequests.some((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId && String(item.body.text).includes(enquiry.id)), 'merchant inbox command lists their shopper enquiry')
+  settingKeys.push('telegram:chat:' + createHash('sha256').update(String(merchantTelegramId)).digest('hex'))
+  const merchantStart = await postTelegramUpdate({
+    update_id: updateBase + 20,
+    message: { text: '/start', chat: { id: merchantTelegramId, type: 'private' }, from: { id: merchantTelegramId } },
+  })
+  assertStatus(merchantStart.status, 200, 'linked merchant start command')
+  assert.ok(telegramRequests.some((item) => item.method === 'setChatMenuButton'), 'linked merchant start configures the official Telegram Mini App menu button')
   const assistantFallback = await postTelegramUpdate({
     update_id: updateBase + 13,
     message: { text: 'Can you tell me what products are available?', chat: { id: buyerTelegramId, type: 'private' }, from: { id: buyerTelegramId } },
