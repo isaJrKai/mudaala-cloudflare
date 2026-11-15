@@ -10,7 +10,8 @@ import { useAppStore } from '@/lib/store'
 
 type Enquiry = {
   id: string
-  status: 'OPEN' | 'CLOSED'
+  status: 'OPEN' | 'RESOLVED' | 'CANCELLED'
+  followUpConsentAt: string | null
   role: 'MERCHANT' | 'SHOPPER'
   listing: { id: string; title: string; price: number | null; currency: string; photos: string[]; status: string }
   shopName: string
@@ -52,11 +53,11 @@ export function EnquiriesView() {
     setError('')
     try {
       const result = await apiFetch<{ enquiries: Enquiry[] }>('/api/enquiries')
-      const merchantItems = result.enquiries.filter((item) => item.role === 'MERCHANT')
-      setItems(merchantItems)
-      setSelectedId((current) => current && merchantItems.some((item) => item.id === current)
+      const visibleItems = result.enquiries
+      setItems(visibleItems)
+      setSelectedId((current) => current && visibleItems.some((item) => item.id === current)
         ? current
-        : merchantItems[0]?.id ?? null)
+        : visibleItems[0]?.id ?? null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load enquiries.')
     } finally {
@@ -101,7 +102,7 @@ export function EnquiriesView() {
   }
 
   if (isLoading) return <div className="py-12 text-center text-sm text-muted-foreground">Loading your enquiries…</div>
-  if (!user) return <div className="rounded-lg border bg-card p-6 text-center"><h1 className="font-semibold">Sign in to view enquiries</h1><p className="mt-1 text-sm text-muted-foreground">Customer messages sent to your shop appear here.</p><Button className="mt-4" onClick={() => setAuthOpen(true)}>Sign in</Button></div>
+  if (!user) return <div className="rounded-lg border bg-card p-6 text-center"><h1 className="font-semibold">Sign in to view enquiries</h1><p className="mt-1 text-sm text-muted-foreground">Messages about your products and enquiries you have sent appear here.</p><Button className="mt-4" onClick={() => setAuthOpen(true)}>Sign in</Button></div>
 
   const selected = items.find((item) => item.id === selectedId) ?? null
 
@@ -110,7 +111,7 @@ export function EnquiriesView() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <button type="button" onClick={() => navigate({ name: 'business' })} className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" /> Business overview</button>
-          <h1 className="text-xl font-semibold tracking-tight">Customer enquiries</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Your enquiries</h1>
           <p className="mt-1 text-sm text-muted-foreground">Private conversations about your products.</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}><RefreshCw className="mr-2 size-4" />Refresh</Button>
@@ -122,12 +123,13 @@ export function EnquiriesView() {
         <aside className="border-b md:border-b-0 md:border-r">
           <div className="border-b px-4 py-3"><p className="text-sm font-semibold">Inbox <span className="ml-1 text-muted-foreground">({items.length})</span></p></div>
           {loading && items.length === 0 ? <p className="p-4 text-sm text-muted-foreground">Loading enquiries…</p> : null}
-          {!loading && items.length === 0 ? <div className="p-5"><MessageSquare className="mb-2 size-5 text-muted-foreground" /><p className="text-sm font-medium">No enquiries yet</p><p className="mt-1 text-xs text-muted-foreground">When a shopper chooses to contact your shop through Telegram, the conversation will appear here.</p></div> : null}
+          {!loading && items.length === 0 ? <div className="p-5"><MessageSquare className="mb-2 size-5 text-muted-foreground" /><p className="text-sm font-medium">No enquiries yet</p><p className="mt-1 text-xs text-muted-foreground">When you contact a seller or a shopper contacts your shop, the conversation will appear here.</p></div> : null}
           <div className="max-h-[520px] overflow-y-auto">
             {items.map((item) => (
               <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`block w-full border-b px-4 py-3 text-left transition-colors hover:bg-secondary/60 ${selectedId === item.id ? 'bg-secondary' : ''}`}>
                 <span className="flex items-center justify-between gap-2"><span className="truncate text-sm font-medium">{item.listing.title}</span><span className="shrink-0 text-[10px] text-muted-foreground">{timeLabel(item.lastMessageAt)}</span></span>
-                <span className="mt-1 block truncate text-xs text-muted-foreground">{item.lastMessage?.body ?? 'New enquiry'}</span>
+                <span className="mt-1 block truncate text-xs text-muted-foreground">{item.role === 'MERCHANT' ? 'Customer' : 'You contacted seller'} · {item.lastMessage?.body ?? 'New enquiry'}</span>
+                {item.role === 'SHOPPER' ? <span className="mt-1 block text-[11px] text-muted-foreground">Seller follow-up: {item.followUpConsentAt ? 'Allowed' : 'Not allowed'}</span> : null}
               </button>
             ))}
           </div>
@@ -137,7 +139,8 @@ export function EnquiriesView() {
           {selected ? <>
             <header className="border-b px-4 py-3">
               <p className="text-sm font-semibold">{selected.listing.title}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">Enquiry · {selected.status.toLowerCase()}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{selected.role === 'MERCHANT' ? 'Customer enquiry' : 'Your enquiry'} · {selected.status.toLowerCase()}</p>
+              {selected.role === 'SHOPPER' ? <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-xs text-muted-foreground">Allow seller to send a later follow-up?</span><Button size="sm" variant={selected.followUpConsentAt ? 'outline' : 'secondary'} onClick={async () => { try { const result = await apiFetch<{ followUpConsentAt: string | null }>(`/api/enquiries/${encodeURIComponent(selected.id)}/follow-up-consent`, { method: 'PATCH', body: JSON.stringify({ consent: !selected.followUpConsentAt }) }); setItems((current) => current.map((item) => item.id === selected.id ? { ...item, followUpConsentAt: result.followUpConsentAt } : item)) } catch (err) { setError(err instanceof Error ? err.message : 'Could not update consent.') } }}>{selected.followUpConsentAt ? 'Turn off follow-ups' : 'Allow follow-up'}</Button></div> : null}
             </header>
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
               {messages.map((message) => {
