@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import Script from 'next/script'
-import { ArrowUpRight, Bell, Box, ChartNoAxesCombined, ChevronRight, CircleAlert, ExternalLink, Plus, RefreshCw, Store } from 'lucide-react'
+import { ArrowUpRight, Bell, Box, ChartNoAxesCombined, ChevronRight, CircleAlert, ExternalLink, Plus, RefreshCw } from 'lucide-react'
 
 declare global {
   interface Window {
@@ -115,7 +116,7 @@ export function TelegramMerchantMiniApp() {
       <div className="mx-auto max-w-xl space-y-5">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="flex size-10 items-center justify-center rounded-2xl bg-[#164b37] text-[#f5c65e]"><Store className="size-5" /></span>
+            <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#10100f] bg-[#10100f]" style={{ backgroundImage: "url(/mudaala-african-textile.svg)", backgroundSize: "cover", backgroundPosition: "center" }}><span className="flex size-8 items-center justify-center rounded-full bg-[#f5f0e4]"><Image src="/logo.svg" alt="Mudaala" width={23} height={23} priority /></span></span>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#718276]">MUDAALA MERCHANT</p>
               <p className="text-sm font-semibold">Your shop workspace</p>
