@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Bell, ExternalLink, FileText, Globe2, LockKeyhole, MessageCircle, Search, ShieldCheck, Store } from 'lucide-react'
+import { ArrowLeft, Bell, ExternalLink, FileText, Globe2, LockKeyhole, Search, ShieldCheck, Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -88,7 +88,7 @@ export function SettingsView() {
         <Button variant="outline" onClick={() => navigate({ name: 'account' })}>Manage shop profile</Button>
       </Section>
 
-      <Section icon={<MessageCircle className="size-4" aria-hidden />} title="Telegram account" description="Link your Mudaala account to the official bot. Shop owners can separately choose whether to accept Telegram enquiries.">
+      <Section title="Telegram account" description="Link your Mudaala account to the official bot. Shop owners can separately choose whether to accept Telegram enquiries.">
         <TelegramEnquirySettings />
       </Section>
 
@@ -201,8 +201,8 @@ function TelegramEnquirySettings() {
   )
 }
 
-function Section({ icon, title, description, children }: { icon: React.ReactNode; title: string; description: string; children: React.ReactNode }) {
-  return <section className="space-y-3" aria-label={title}><div className="flex items-start gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">{icon}</span><div><h2 className="text-base font-semibold">{title}</h2><p className="mt-0.5 text-sm text-muted-foreground">{description}</p></div></div><div className="sm:pl-12">{children}</div></section>
+function Section({ icon, title, description, children }: { icon?: React.ReactNode; title: string; description: string; children: React.ReactNode }) {
+  return <section className="space-y-3" aria-label={title}><div className="flex items-start gap-3">{icon ? <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">{icon}</span> : null}<div><h2 className="text-base font-semibold">{title}</h2><p className="mt-0.5 text-sm text-muted-foreground">{description}</p></div></div><div className={icon ? 'sm:pl-12' : ''}>{children}</div></section>
 }
 
 function SettingsLink({ icon, title, description, onClick, external = false }: { icon: React.ReactNode; title: string; description: string; onClick: () => void; external?: boolean }) {
