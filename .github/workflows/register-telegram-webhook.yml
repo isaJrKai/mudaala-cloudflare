@@ -24,6 +24,22 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Synchronize Worker webhook secret with the registration secret
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 7d45a3db16c2ce332bf146d34eb01687
+          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$TELEGRAM_WEBHOOK_SECRET" ]; then
+            echo "::error::Cloudflare API token and TELEGRAM_WEBHOOK_SECRET must be configured as repository Actions secrets."
+            exit 1
+          fi
+          # Feed the secret directly to Wrangler; never print it or write it to the workspace.
+          printf '%s' "$TELEGRAM_WEBHOOK_SECRET" | npx wrangler secret put TELEGRAM_WEBHOOK_SECRET --name mudaala-cloudflare
+
       - name: Register webhook with Telegram
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
