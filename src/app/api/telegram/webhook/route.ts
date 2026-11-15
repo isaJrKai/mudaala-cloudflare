@@ -516,8 +516,8 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       let merchantChatId: number | null = null
       if (setting) {
         try {
-          const merchant = JSON.parse(setting.value) as { enabled?: unknown; chatId?: unknown }
-          if (merchant.enabled === true && Number.isSafeInteger(merchant.chatId)) merchantChatId = merchant.chatId as number
+          const merchant = JSON.parse(setting.value) as { activatedAt?: unknown; chatId?: unknown }
+          if (typeof merchant.activatedAt === 'string' && Number.isSafeInteger(merchant.chatId)) merchantChatId = merchant.chatId as number
         } catch { /* no active merchant Telegram destination */ }
       }
       let delivered = false
@@ -610,8 +610,8 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       const merchantSetting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + enquiry.merchantId } })
       if (merchantSetting) {
         try {
-          const settings = JSON.parse(merchantSetting.value) as { enabled?: unknown; chatId?: unknown }
-          if (settings.enabled === true && Number.isSafeInteger(settings.chatId)) destination = settings.chatId as number
+          const settings = JSON.parse(merchantSetting.value) as { activatedAt?: unknown; chatId?: unknown }
+          if (typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)) destination = settings.chatId as number
         } catch { /* no active merchant Telegram destination */ }
       }
     }
