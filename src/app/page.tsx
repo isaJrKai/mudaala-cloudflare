@@ -9,7 +9,7 @@ import { ShopSetupDialog } from '@/components/commerce/shop-setup-dialog'
 import { SiteFooter } from '@/components/commerce/site-footer'
 import { RailShell } from '@/components/commerce/cart-dock'
 import { useAppStore } from '@/lib/store'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useSession } from '@/hooks/use-session'
 import { apiFetch, apiPost } from '@/lib/client'
 import { mergeLovedIds, useLovedIds } from '@/lib/loved'
@@ -19,6 +19,8 @@ function CommerceFrame() {
   const { user } = useSession()
   const userId = user?.id
   const lovedIds = useLovedIds()
+  const lovedIdsRef = useRef(lovedIds)
+  lovedIdsRef.current = lovedIds
 
   // Restore account-saved products on every device. Also upload this device's
   // guest shortlist once the account is known, then merge the server truth.
@@ -27,7 +29,7 @@ function CommerceFrame() {
     let cancelled = false
     async function syncShortlist() {
       try {
-        const guestIds = lovedIds.slice(0, 40)
+        const guestIds = lovedIdsRef.current.slice(0, 40)
         await Promise.all(guestIds.map((listingId) =>
           apiPost('/api/saved-products', { listingId }).catch(() => null)
         ))
@@ -39,7 +41,7 @@ function CommerceFrame() {
     }
     void syncShortlist()
     return () => { cancelled = true }
-  }, [userId, lovedIds])
+  }, [userId])
   const workspace = isMerchantWorkspaceView(view.name)
 
   return (
