@@ -8,9 +8,9 @@ Initial commands: `/start`, `/help`, `/link CODE`, `/shop` and `/products`. Prod
 
 ## Secrets
 
-Configure these as Cloudflare Worker Secrets, never vars or committed files: `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`. The webhook secret must be 1–256 characters and use only letters, numbers, underscores or hyphens.
+Configure these as Cloudflare Worker Secrets, never vars or committed files: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` and `GROQ_API_KEY`. The webhook secret must be 1–256 characters and use only letters, numbers, underscores or hyphens. `GROQ_API_KEY` is the key from the Groq Console; it is used only by the server-side Telegram assistant and must never be exposed to the browser or committed to Git.
 
-## Registration
+## Conversational assistant\n\nOrdinary private-chat messages are routed to the Mudaala conversational assistant using Groq (`openai/gpt-oss-120b`). The assistant keeps a short, per-Telegram-user conversation history in `AppSetting`, keyed by a SHA-256 digest, with a 24-hour expiry and a bounded message count. Linked shop context is read-only and limited to public shop identity fields. The model cannot execute database writes, access credentials, or change shop data. Account creation and visual catalogue/photo work remain in the secure Mini App. If Groq is unavailable or the key is missing, the bot returns a safe fallback rather than the old “unknown command” response.\n\n## Registration
 
 After deployment, register the webhook from a trusted local environment using `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET` as environment variables:
 
@@ -29,6 +29,6 @@ The helper sets `https://mudaala.store/api/telegram/webhook`, enables only messa
 
 The code is random, stored only as a SHA-256 digest, single-use and short-lived. Telegram user IDs are hashed before database keys are created. Only private chats are accepted. The webhook verifies Telegram's secret header, enforces a 64 KiB streaming request-body limit, deduplicates update IDs, rate-limits chat traffic and periodically removes old Telegram-only link-code and update-marker records.
 
-## Follow-up work
+## Follow-up work\n\nThe first conversational slice answers natural-language questions and guides users to the correct secure workspace. The next slice can add explicitly allowlisted, server-validated shop-registration actions (using the existing `businessProfileSchema` and profile rules); do not allow the model to write to Prisma or bypass validation.
 
 The Account UI includes the one-time code generation and copy flow. Disconnect/relink controls and product creation/editing/photo upload are later slices. Do not enable listing creation in Telegram by writing directly to Prisma; route it through the existing validated listing and photo-moderation services.
