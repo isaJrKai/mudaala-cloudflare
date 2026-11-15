@@ -7,6 +7,7 @@ import { LISTING_ACTIVE_DAYS, countryDef, findProhibitedItem } from '@/lib/const
 import { getSessionUser } from '@/lib/auth'
 import { isAdminUser } from '@/lib/admin'
 import { recordListingDailyEvent } from '@/lib/listing-analytics'
+import { hit } from '@/lib/rate-limit'
 type Params = { params: Promise<{ id: string }> }
 
 // Public detail view. Also expires overdue listings so status is always truthful.
@@ -98,6 +99,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     // Availability is an independent seller assertion, never inferred from quantity.
     if (typeof body === 'object' && body !== null && 'availabilityStatus' in body && Object.keys(body).length === 1) {
+      const limit = await hit('listing:availability:user:' + user.id, 30, 60 * 60 * 1000)
+      if (!limit.ok) throw new ApiError(429, 'Availability updates are limited. Please try again later.')
       const value = body.availabilityStatus
       const allowed = ['UNKNOWN', 'IN_STOCK', 'AVAILABLE_ON_ORDER', 'OUT_OF_STOCK']
       if (typeof value !== 'string' || !allowed.includes(value)) throw new ApiError(400, 'Choose a valid availability status.')
