@@ -30,9 +30,9 @@ function CommerceFrame() {
     async function syncShortlist() {
       try {
         const guestIds = lovedIdsRef.current.slice(0, 40)
-        await Promise.all(guestIds.map((listingId) =>
-          apiPost('/api/saved-products', { listingId }).catch(() => null)
-        ))
+        for (const listingId of guestIds) {
+          await apiPost('/api/saved-products', { listingId }).catch(() => null)
+        }
         const result = await apiFetch<{ products: Array<{ listing: { id: string } }> }>('/api/saved-products')
         if (!cancelled) mergeLovedIds(result.products.map((item) => item.listing.id))
       } catch {
