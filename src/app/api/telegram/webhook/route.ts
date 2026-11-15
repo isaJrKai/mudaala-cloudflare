@@ -204,7 +204,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
 
   const user = await db.user.findUnique({
     where: { id: linked.userId },
-    select: { id: true, name: true, profile: { select: { businessName: true, shopCode: true } } },
+    select: { id: true, name: true, profile: { select: { businessName: true, shopCode: true, category: true, county: true, area: true, description: true } } },
   })
   if (!user) {
     await db.appSetting.deleteMany({ where: { key: telegramKey(telegramUserId) } })
