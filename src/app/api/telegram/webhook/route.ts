@@ -572,6 +572,22 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     return
   }
 
+  if (command === '/messages') {
+    const enquiries = await db.enquiry.findMany({
+      where: { buyerTelegramHash: identityHash, status: 'OPEN' },
+      include: { listing: { select: { title: true } }, messages: { orderBy: { createdAt: 'desc' }, take: 1 } },
+      orderBy: { lastMessageAt: 'desc' },
+      take: 10,
+    })
+    if (!enquiries.length) {
+      await sendMessage(chatId, 'You have no open Mudaala enquiries yet.')
+      return
+    }
+    const lines = enquiries.map((item) => item.listing.title + '\\nLatest: ' + (item.messages[0]?.body || 'Enquiry created') + '\\n/respond ' + item.id + ' your message')
+    await sendMessage(chatId, 'Your recent Mudaala enquiries:\\n\\n' + lines.join('\\n\\n'))
+    return
+  }
+
   if (command === '/followup') {
     const enquiryId = parts[1] || ''
     const choice = (parts[2] || '').toLowerCase()
