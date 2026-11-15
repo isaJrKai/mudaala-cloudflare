@@ -21,12 +21,11 @@ export function TelegramEnquiryButton({ listingId, enabled }: { listingId: strin
           setBusy(true)
           setError(null)
           try {
-            const response = await apiFetch('/api/telegram/contact-token', {
+            const payload = await apiFetch<{ url?: string }>('/api/telegram/contact-token', {
               method: 'POST',
               body: JSON.stringify({ listingId }),
             })
-            const payload = await response.json() as { url?: string; error?: string }
-            if (!response.ok || !payload.url) throw new Error(payload.error || 'Telegram enquiries are temporarily unavailable.')
+            if (!payload.url) throw new Error('Telegram enquiries are temporarily unavailable.')
             window.location.href = payload.url
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Could not open Telegram. Please try again.')
