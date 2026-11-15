@@ -458,7 +458,7 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
     return
   }
 
-  if (command === '/reply') {
+  if (command === '/reply' || command === '/respond') {
     const enquiryId = parts[1] || ''
     const replyText = parts.slice(2).join(' ').trim().slice(0, 1200)
     if (!enquiryId || !replyText) {
@@ -511,6 +511,23 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
     }
     await db.enquiryMessage.update({ where: { id: created.id }, data: { deliveryStatus: delivered ? 'SENT' : 'FAILED' } })
     await sendMessage(chatId, delivered ? 'Your reply was sent.' : 'Your reply was saved, but Telegram could not deliver it. Please retry later.')
+    return
+  }
+
+  if (command === '/messages') {
+    const buyerHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
+    const enquiries = await db.enquiry.findMany({
+      where: { buyerTelegramHash: buyerHash, status: 'OPEN' },
+      include: { listing: { select: { title: true } }, messages: { orderBy: { createdAt: 'desc' }, take: 1 } },
+      orderBy: { lastMessageAt: 'desc' },
+      take: 10,
+    })
+    if (!enquiries.length) {
+      await sendMessage(chatId, 'You have no open Mudaala enquiries yet.')
+      return
+    }
+    const lines = enquiries.map((item) => item.listing.title + '\\nLatest: ' + (item.messages[0]?.body || 'Enquiry created') + '\\n/respond ' + item.id + ' your message')
+    await sendMessage(chatId, 'Your recent Mudaala enquiries:\\n\\n' + lines.join('\\n\\n'))
     return
   }
 
