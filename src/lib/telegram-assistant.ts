@@ -147,8 +147,8 @@ export async function replyToTelegramMerchant(input: {
 
   const nextHistory: ChatMessage[] = [
     ...history,
-    { role: 'user', content: input.text.slice(0, 1200) },
-    { role: 'assistant', content: answer.slice(0, 1800) },
+    { role: 'user' as const, content: input.text.slice(0, 1200) },
+    { role: 'assistant' as const, content: answer.slice(0, 1800) },
   ].slice(-MAX_HISTORY)
 
   await db.appSetting.upsert({
