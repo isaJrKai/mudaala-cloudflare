@@ -92,6 +92,8 @@ export interface Listing {
   contactWhatsapp: string | null
   photos: string[]
   status: ListingStatus
+  availabilityStatus: 'UNKNOWN' | 'IN_STOCK' | 'AVAILABLE_ON_ORDER' | 'OUT_OF_STOCK'
+  availabilityUpdatedAt: string | null
   viewCount: number
   publishedAt: string
   refreshedAt: string
