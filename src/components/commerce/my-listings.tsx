@@ -160,6 +160,33 @@ export function MyListings() {
                       </Button>
                     </div>
                   ) : null}
+                  {listing.status === 'ACTIVE' ? (
+                    <label className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      Availability
+                      <select
+                        aria-label={`Availability for ${listing.title}`}
+                        value={listing.availabilityStatus || 'UNKNOWN'}
+                        disabled={rowBusy}
+                        onChange={async (event) => {
+                          const availabilityStatus = event.target.value
+                          setActiveAction({ id: listing.id, key: 'availability' })
+                          try {
+                            await apiPatch(`/api/listings/${listing.id}`, { availabilityStatus })
+                            await invalidate()
+                            toast({ title: 'Availability updated' })
+                          } catch (err) {
+                            toast({ title: 'Could not update availability', description: err instanceof Error ? err.message : 'Try again.', variant: 'destructive' })
+                          } finally { setActiveAction(null) }
+                        }}
+                        className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+                      >
+                        <option value="UNKNOWN">Not confirmed</option>
+                        <option value="IN_STOCK">In stock</option>
+                        <option value="AVAILABLE_ON_ORDER">Available on order</option>
+                        <option value="OUT_OF_STOCK">Out of stock</option>
+                      </select>
+                    </label>
+                  ) : null}
                   <div className="flex flex-wrap items-center gap-1.5">
                   <span
                     key={expiryFlash?.id === listing.id ? `flash-${expiryFlash.tick}` : 'static'}
