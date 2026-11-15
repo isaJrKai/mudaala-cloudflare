@@ -45,6 +45,7 @@ model User {
   shopperEnquiries Enquiry[] @relation("EnquiryShopper")
   merchantEnquiries Enquiry[] @relation("EnquiryMerchant")
   sentEnquiryMessages EnquiryMessage[] @relation("EnquiryMessageSender")
+  telegramContactTokens EnquiryContactToken[]
   savedSearches  SavedSearch[]
   notifications  Notification[]
   pushSubscriptions PushSubscription[]
@@ -192,6 +193,7 @@ model Listing {
   collectionItems ProductCollectionItem[]
   savedProducts SavedProduct[]
   enquiries Enquiry[]
+  telegramContactTokens EnquiryContactToken[]
 }
 
 // Shop-owned curated groups for seasonal edits, new arrivals and themed collections.
@@ -671,6 +673,8 @@ model EnquiryContactToken {
   expiresAt   DateTime
   usedAt      DateTime?
   createdAt   DateTime @default(now())
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  merchant    User     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
   @@index([listingId, expiresAt])
   @@index([merchantId, expiresAt])
