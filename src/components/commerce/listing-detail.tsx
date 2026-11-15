@@ -6,7 +6,7 @@
 
 import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, MapPin, Navigation, Package, Phone, Plus, Store } from 'lucide-react'
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, MapPin, MessageCircle, Navigation, Package, Phone, Plus, Store } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/commerce/brand-icons'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -135,7 +135,7 @@ export function ListingDetail({ id }: { id: string }) {
   const { navigate } = useAppStore()
   const addToBasket = useAddToBasket()
   const [added, flashAdded] = useAddedFlash()
-  const { user } = useSession()
+  const { user } = useSession()\n  const [telegramBusy, setTelegramBusy] = useState(false)\n  const [telegramError, setTelegramError] = useState<string | null>(null)
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['listing', id],
@@ -375,6 +375,36 @@ export function ListingDetail({ id }: { id: string }) {
               </Button>
             ) : null}
           </div>
+          {listing.type === 'OFFER' && listing.telegramContactEnabled ? (
+            <div className="mt-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={telegramBusy}
+                className="press h-11 w-full gap-1.5 text-[15px]"
+                onClick={async () => {
+                  setTelegramBusy(true)
+                  setTelegramError(null)
+                  try {
+                    const response = await apiFetch('/api/telegram/contact-token', {
+                      method: 'POST',
+                      body: JSON.stringify({ listingId: listing.id }),
+                    })
+                    const payload = await response.json() as { url?: string; error?: string }
+                    if (!response.ok || !payload.url) throw new Error(payload.error || 'Telegram enquiries are temporarily unavailable.')
+                    window.location.href = payload.url
+                  } catch (error) {
+                    setTelegramError(error instanceof Error ? error.message : 'Could not open Telegram. Please try again.')
+                    setTelegramBusy(false)
+                  }
+                }}
+              >
+                <MessageCircle className="size-4" aria-hidden />
+                {telegramBusy ? 'Opening Telegram…' : 'Message seller on Telegram'}
+              </Button>
+              {telegramError ? <p role="alert" className="mt-1.5 text-sm text-destructive">{telegramError}</p> : null}
+            </div>
+          ) : null}
           <Button asChild variant="outline" className="press mt-2 h-11 w-full gap-1.5 text-[15px]">
             <a
               href={directionsUrl}
