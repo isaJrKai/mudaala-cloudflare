@@ -21,7 +21,7 @@ import { LOVED_CAP, isLoved, toggleLoved, useLovedIds } from '@/lib/loved'
 import { useToast } from '@/hooks/use-toast'
 import type { Listing, ListingShopOwner } from '@/lib/client'
 import { listingThumbnailUrl } from '@/lib/image'
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'\nimport { apiFetch } from '@/lib/client'\nimport { useSession } from '@/hooks/use-session'
 
 interface ListingCardProps {
   listing: Listing & { user?: ListingShopOwner }
