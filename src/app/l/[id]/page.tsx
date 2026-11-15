@@ -205,7 +205,11 @@ export default async function AdPage({ params }: Params) {
             url: canonicalUrl,
             priceCurrency: listing.currency,
             ...(listing.price !== null ? { price: listing.price } : {}),
-            availability: 'https://schema.org/InStock',
+            ...(listing.availabilityStatus === 'IN_STOCK'
+              ? { availability: 'https://schema.org/InStock' }
+              : listing.availabilityStatus === 'OUT_OF_STOCK'
+                ? { availability: 'https://schema.org/OutOfStock' }
+                : {}),
             seller: { '@type': 'Organization', name: shopDisplayName },
           },
         }
@@ -307,8 +311,15 @@ export default async function AdPage({ params }: Params) {
               <dd className="font-medium">{timeAgo(listing.refreshedAt)}</dd>
             </div>
             <div className="flex items-center gap-2">
-              <dt className="text-muted-foreground">Availability:</dt>
+              <dt className="text-muted-foreground">Listing expiry:</dt>
               <dd className="font-medium">{expiryLabel(listing.expiresAt)}</dd>
+            </div>
+            <div className="flex items-center gap-2">
+              <dt className="text-muted-foreground">Seller-reported availability:</dt>
+              <dd className="font-medium">
+                {listing.availabilityStatus === 'IN_STOCK' ? 'In stock' : listing.availabilityStatus === 'AVAILABLE_ON_ORDER' ? 'Available on order' : listing.availabilityStatus === 'OUT_OF_STOCK' ? 'Out of stock' : 'Not confirmed'}
+                {listing.availabilityUpdatedAt ? ' · updated ' + new Date(listing.availabilityUpdatedAt).toLocaleDateString('en-UG', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+              </dd>
             </div>
             <div className="flex items-center gap-2">
               <dt className="text-muted-foreground">Views:</dt>
