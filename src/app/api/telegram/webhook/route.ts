@@ -115,6 +115,65 @@ const shopKeyboard = {
   is_persistent: true,
 }
 
+async function searchListings(chatId: number, rawQuery: string): Promise<void> {
+  const query = rawQuery.trim().slice(0, 120)
+  if (!query) {
+    await sendMessage(chatId, 'What are you looking for? Try /search shoes or /search building materials.')
+    return
+  }
+  const limit = await hit('telegram:search:' + chatId, 12, 60 * 60 * 1000)
+  if (!limit.ok) {
+    await sendMessage(chatId, 'You have made several searches recently. Please try again in a little while.')
+    return
+  }
+  const terms = [...new Set(query.toLocaleLowerCase().normalize('NFKC')
+    .split(/\\s+/)
+    .map((term) => term.replace(/[^\\p{L}\\p{N}-]/gu, ''))
+    .filter((term) => term.length >= 2))].slice(0, 5)
+  if (!terms.length) {
+    await sendMessage(chatId, 'Please include a product or service name with at least two letters.')
+    return
+  }
+  const listings = await db.listing.findMany({
+    where: {
+      type: 'OFFER',
+      status: 'ACTIVE',
+      isSeed: false,
+      expiresAt: { gt: new Date() },
+      AND: terms.map((term) => ({
+        OR: [
+          { title: { contains: term, mode: 'insensitive' } },
+          { description: { contains: term, mode: 'insensitive' } },
+          { category: { contains: term, mode: 'insensitive' } },
+          { county: { contains: term, mode: 'insensitive' } },
+          { area: { contains: term, mode: 'insensitive' } },
+        ],
+      })),
+    },
+    select: {
+      id: true, title: true, price: true, currency: true, county: true, area: true,
+      user: { select: { profile: { select: { businessName: true } } } },
+    },
+    orderBy: [{ refreshedAt: 'desc' }, { publishedAt: 'desc' }],
+    take: 5,
+  })
+  if (!listings.length) {
+    await sendMessage(chatId, 'I could not find an active Mudaala listing matching “' + query + '”. Try fewer or different words. You can also browse at https://mudaala.store.')
+    return
+  }
+  const lines = listings.map((item, index) => {
+    const price = item.price === null ? 'Ask seller' : item.currency + ' ' + item.price.toLocaleString('en-UG')
+    const location = [item.area, item.county].filter(Boolean).join(', ')
+    const shop = item.user.profile?.businessName
+    return (index + 1) + '. ' + item.title + '\\n' + price + (location ? ' · ' + location : '') + (shop ? '\\nShop: ' + shop : '')
+  })
+  const inline_keyboard = listings.map((item) => [{
+    text: 'View ' + item.title.slice(0, 32),
+    url: 'https://mudaala.store/l/' + encodeURIComponent(item.id),
+  }])
+  await sendMessage(chatId, 'Active Mudaala listings for “' + query + '”:\\n\\n' + lines.join('\\n\\n') + '\\n\\nOpen a listing to see its details and contact the seller.', { inline_keyboard })
+}
+
 async function handleMessage(message: TelegramMessage): Promise<void> {
   const chatId = message.chat?.id
   const telegramUserId = message.from?.id
@@ -127,6 +186,11 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     if (command === '/start') await recordTelegramActivation(telegramUserId, chatId).catch((error) => console.warn('[telegram] activation record failed:', error instanceof Error ? error.message : 'unknown error'))
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
     await sendMessage(chatId, 'Welcome to Mudaala Merchant.\n\nOpen your shop workspace to manage your catalogue, shop details and performance.\n\n/link CODE - connect an existing Mudaala account.\n/shop - open your merchant workspace.\n/publicshop - get your public customer-facing shop link.\n/products - view your active products.\n/help - show these commands.\n\nNew to Mudaala? Tap Open My Shop to register and set up your shop inside Telegram.', shopKeyboard)
+    return
+  }
+
+  if (command === '/search') {
+    await searchListings(chatId, parts.slice(1).join(' '))
     return
   }
 
