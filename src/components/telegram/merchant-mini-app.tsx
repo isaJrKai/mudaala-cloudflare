@@ -238,8 +238,7 @@ export function TelegramMerchantMiniApp() {
     setRegisterError('')
     try {
       const initData = window.Telegram?.WebApp?.initData
-      if (!initData) throw new Error('Telegram sign-in data is missing. Close and reopen the Mini App.')
-      await requestJson('/api/auth/login', {
+      const session = await requestJson<{ user: User }>('/api/auth/login', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ phone: registerPhone, password: registerPassword }),
@@ -251,10 +250,11 @@ export function TelegramMerchantMiniApp() {
           body: JSON.stringify({ initData }),
         })
       }
+      setUser(session.user)
       setOnboarding(false)
       setLoading(true)
       if (initData) await authenticate(initData)
-      else await loadShop()
+      else await loadShop(session.user)
     } catch (cause) {
       setRegisterError(cause instanceof Error ? cause.message : 'We could not sign you in.')
     } finally {
