@@ -583,8 +583,8 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       await sendMessage(chatId, 'You have no open Mudaala enquiries yet.')
       return
     }
-    const lines = enquiries.map((item) => item.listing.title + '\\nLatest: ' + (item.messages[0]?.body || 'Enquiry created') + '\\n/respond ' + item.id + ' your message')
-    await sendMessage(chatId, 'Your recent Mudaala enquiries:\\n\\n' + lines.join('\\n\\n'))
+    const lines = enquiries.map((item) => item.listing.title + '\nLatest: ' + (item.messages[0]?.body || 'Enquiry created') + '\n/respond ' + item.id + ' your message')
+    await sendMessage(chatId, 'Your recent Mudaala enquiries:\n\n' + lines.join('\n\n'))
     return
   }
 
