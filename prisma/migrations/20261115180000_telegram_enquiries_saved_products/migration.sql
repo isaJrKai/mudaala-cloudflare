@@ -69,6 +69,36 @@ ALTER TABLE "EnquiryContactToken" ADD CONSTRAINT "EnquiryContactToken_listingId_
 ALTER TABLE "EnquiryContactToken" ADD CONSTRAINT "EnquiryContactToken_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "EnquiryContactToken" ADD CONSTRAINT "EnquiryContactToken_shopperId_fkey" FOREIGN KEY ("shopperId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
+-- Private commerce records must never be reachable through Supabase's direct
+-- anon/authenticated Data API roles. The Worker uses its restricted runtime
+-- role; participant ownership is enforced in the application API.
+ALTER TABLE public."SavedProduct" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY deny_direct_api_clients ON public."SavedProduct"
+  FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."SavedProduct" TO mudaala_runtime;
+CREATE POLICY mudaala_runtime_access ON public."SavedProduct"
+  FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
+
+ALTER TABLE public."Enquiry" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY deny_direct_api_clients ON public."Enquiry"
+  FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."Enquiry" TO mudaala_runtime;
+CREATE POLICY mudaala_runtime_access ON public."Enquiry"
+  FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
+
+ALTER TABLE public."EnquiryMessage" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY deny_direct_api_clients ON public."EnquiryMessage"
+  FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."EnquiryMessage" TO mudaala_runtime;
+CREATE POLICY mudaala_runtime_access ON public."EnquiryMessage"
+  FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
+
+ALTER TABLE public."EnquiryContactToken" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY deny_direct_api_clients ON public."EnquiryContactToken"
+  FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."EnquiryContactToken" TO mudaala_runtime;
+CREATE POLICY mudaala_runtime_access ON public."EnquiryContactToken"
+  FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
 
 -- Explicit seller-reported listing availability. Existing records remain UNKNOWN.
 ALTER TABLE "Listing" ADD COLUMN "availabilityStatus" TEXT NOT NULL DEFAULT 'UNKNOWN';
