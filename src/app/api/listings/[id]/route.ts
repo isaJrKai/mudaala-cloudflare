@@ -73,7 +73,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     if (telegramSetting) {
       try {
         const settings = JSON.parse(telegramSetting.value) as { enabled?: unknown; activatedAt?: unknown; chatId?: unknown }
-        telegramContactEnabled = settings.enabled === true && typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)
+        telegramContactEnabled = Boolean(listing.user.profile) && settings.enabled === true && typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)
       } catch { telegramContactEnabled = false }
     }
 
