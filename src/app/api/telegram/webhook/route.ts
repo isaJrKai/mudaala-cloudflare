@@ -185,7 +185,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   if (command === '/start' || command === '/help') {
     if (command === '/start') await recordTelegramActivation(telegramUserId, chatId).catch((error) => console.warn('[telegram] activation record failed:', error instanceof Error ? error.message : 'unknown error'))
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
-    await sendMessage(chatId, 'Welcome to Mudaala Merchant.\n\nOpen your shop workspace to manage your catalogue, shop details and performance.\n\n/link CODE - connect an existing Mudaala account.\n/shop - open your merchant workspace.\n/publicshop - get your public customer-facing shop link.\n/products - view your active products.\n/help - show these commands.\n\nNew to Mudaala? Tap Open My Shop to register and set up your shop inside Telegram.', shopKeyboard)
+    await sendMessage(chatId, 'Welcome to Mudaala.\\n\\nFind real products and shops with /search followed by what you need. Open a listing to view details and contact its seller.\\n\\nIf you run a shop, connect your Mudaala account with /link CODE, then use /shop or /products to manage it.\\n\\n/search <product> - find active Mudaala listings.\\n/link CODE - connect your merchant account.\\n/shop - open your merchant workspace.\\n/publicshop - get your public shop link.\\n/products - view your active products.\\n/help - show these commands.', shopKeyboard)
     return
   }
 
