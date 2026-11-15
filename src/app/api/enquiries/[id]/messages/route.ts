@@ -38,7 +38,7 @@ export async function GET(_request: Request, { params }: Params) {
       where: { enquiryId: id },
       orderBy: { createdAt: 'asc' },
       take: 200,
-      select: { id: true, senderType: true, senderUserId: true, body: true, deliveryStatus: true, createdAt: true },
+      select: { id: true, senderType: true, body: true, deliveryStatus: true, createdAt: true },
     })
     return jsonOk({ messages })
   })
