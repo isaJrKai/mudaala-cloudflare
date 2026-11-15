@@ -3,6 +3,7 @@ import { ApiError, jsonOk, route } from '@/lib/api'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { replyToTelegramMerchant } from '@/lib/telegram-assistant'
+import { recordTelegramActivation } from '@/lib/telegram-merchant'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -123,6 +124,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   const parts = text.split(/\s+/)
   const command = (parts[0] || '').split('@')[0].toLowerCase()
   if (command === '/start' || command === '/help') {
+    if (command === '/start') await recordTelegramActivation(telegramUserId, chatId).catch((error) => console.warn('[telegram] activation record failed:', error instanceof Error ? error.message : 'unknown error'))
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
     await sendMessage(chatId, 'Welcome to Mudaala Merchant.\n\nOpen your shop workspace to manage your catalogue, shop details and performance.\n\n/link CODE - connect an existing Mudaala account.\n/shop - open your merchant workspace.\n/publicshop - get your public customer-facing shop link.\n/products - view your active products.\n/help - show these commands.\n\nNew to Mudaala? Tap Open My Shop to register and set up your shop inside Telegram.', shopKeyboard)
     return
@@ -179,6 +181,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       create: { key: mappingKey, value: JSON.stringify({ userId: user.id, linkedAt: new Date().toISOString() }) },
       update: { value: JSON.stringify({ userId: user.id, linkedAt: new Date().toISOString() }) },
     })
+    await recordTelegramActivation(telegramUserId, chatId)
     await sendMessage(chatId, 'Connected successfully to ' + (user.profile?.businessName || user.name) + '.\n\nYour merchant workspace is ready. Open it below to manage your shop.', shopKeyboard)
     return
   }
