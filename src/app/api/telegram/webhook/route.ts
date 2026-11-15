@@ -368,29 +368,69 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       await sendMessage(chatId, 'The Mudaala account for that code could not be found. Generate a new code.')
       return
     }
-    // Consume the one-time code before creating the account mapping. A concurrent
-    // webhook delivery can therefore win only once.
-    const consumed = await db.appSetting.deleteMany({ where: { key } })
-    if (consumed.count !== 1) {
-      await sendMessage(chatId, 'That code has already been used. Generate a new one in your Mudaala Account.')
-      return
-    }
     const mappingKey = telegramKey(telegramUserId)
-    const existing = await db.appSetting.findUnique({ where: { key: mappingKey } })
-    if (existing) {
-      let old: { userId?: string } = {}
-      try { old = JSON.parse(existing.value) as typeof old } catch { /* replace malformed mapping */ }
-      if (old.userId && old.userId !== user.id) {
+    const now = new Date()
+    try {
+      await db.$transaction(async (tx) => {
+        // Re-read and consume the exact one-time code inside the transaction.
+        // If a concurrent request wins, this transaction rolls back in full.
+        const liveCode = await tx.appSetting.findUnique({ where: { key } })
+        if (!liveCode || liveCode.value !== record.value) throw new Error('TELEGRAM_LINK_CODE_USED')
+        const livePayload = JSON.parse(liveCode.value) as { userId?: unknown; expiresAt?: unknown }
+        if (livePayload.userId !== user.id || typeof livePayload.expiresAt !== 'string' || !Number.isFinite(Date.parse(livePayload.expiresAt)) || Date.parse(livePayload.expiresAt) <= now.getTime()) {
+          throw new Error('TELEGRAM_LINK_CODE_EXPIRED')
+        }
+
+        const existing = await tx.appSetting.findUnique({ where: { key: mappingKey } })
+        let previous: { userId?: string } = {}
+        if (existing) {
+          try { previous = JSON.parse(existing.value) as typeof previous } catch { /* malformed mapping can be repaired */ }
+          if (previous.userId && previous.userId !== user.id) throw new Error('TELEGRAM_ALREADY_LINKED')
+        }
+
+        const consumed = await tx.appSetting.deleteMany({ where: { key, value: record.value } })
+        if (consumed.count !== 1) throw new Error('TELEGRAM_LINK_CODE_USED')
+
+        const mappingValue = JSON.stringify({ userId: user.id, linkedAt: now.toISOString() })
+        if (existing) {
+          await tx.appSetting.update({ where: { key: mappingKey }, data: { value: mappingValue } })
+        } else {
+          // The unique key is the final concurrency guard: two different
+          // account codes cannot race to overwrite one Telegram identity.
+          await tx.appSetting.create({ data: { key: mappingKey, value: mappingValue } })
+        }
+
+        const merchantKey = 'telegram:merchant:' + user.id
+        const merchantRecord = await tx.appSetting.findUnique({ where: { key: merchantKey } })
+        let merchantSettings: { enabled?: unknown; activatedAt?: unknown; chatId?: unknown } = {}
+        try { merchantSettings = JSON.parse(merchantRecord?.value || '{}') as typeof merchantSettings } catch { /* repair malformed settings */ }
+        const nextSettings = {
+          ...merchantSettings,
+          chatId,
+          activatedAt: typeof merchantSettings.activatedAt === 'string' ? merchantSettings.activatedAt : now.toISOString(),
+        }
+        await tx.appSetting.upsert({
+          where: { key: merchantKey },
+          create: { key: merchantKey, value: JSON.stringify(nextSettings) },
+          update: { value: JSON.stringify(nextSettings) },
+        })
+      })
+    } catch (error) {
+      const code = error instanceof Error ? error.message : ''
+      if (code === 'TELEGRAM_ALREADY_LINKED' || (error as { code?: string })?.code === 'P2002') {
         await sendMessage(chatId, 'This Telegram account is already linked to another Mudaala account. Unlink it there before connecting a different shop.')
         return
       }
+      if (code === 'TELEGRAM_LINK_CODE_EXPIRED') {
+        await sendMessage(chatId, 'That code has expired. Generate a new one in your Mudaala Account.')
+        return
+      }
+      if (code === 'TELEGRAM_LINK_CODE_USED') {
+        await sendMessage(chatId, 'That code has already been used. Generate a new one in your Mudaala Account.')
+        return
+      }
+      throw error
     }
-    await db.appSetting.upsert({
-      where: { key: mappingKey },
-      create: { key: mappingKey, value: JSON.stringify({ userId: user.id, linkedAt: new Date().toISOString() }) },
-      update: { value: JSON.stringify({ userId: user.id, linkedAt: new Date().toISOString() }) },
-    })
-    await recordTelegramActivation(telegramUserId, chatId)
     await sendMessage(chatId, 'Connected successfully to ' + (user.profile?.businessName || user.name) + '.\n\nYour merchant workspace is ready. Open it below to manage your shop.', shopKeyboard)
     return
   }
