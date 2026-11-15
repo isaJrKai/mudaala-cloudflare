@@ -17,12 +17,13 @@ import { mergeLovedIds, useLovedIds } from '@/lib/loved'
 function CommerceFrame() {
   const { view } = useAppStore()
   const { user } = useSession()
+  const userId = user?.id
   const lovedIds = useLovedIds()
 
   // Restore account-saved products on every device. Also upload this device's
   // guest shortlist once the account is known, then merge the server truth.
   useEffect(() => {
-    if (!user) return
+    if (!userId) return
     let cancelled = false
     async function syncShortlist() {
       try {
@@ -38,7 +39,7 @@ function CommerceFrame() {
     }
     void syncShortlist()
     return () => { cancelled = true }
-  }, [user?.id, lovedIds])
+  }, [userId, lovedIds])
   const workspace = isMerchantWorkspaceView(view.name)
 
   return (
