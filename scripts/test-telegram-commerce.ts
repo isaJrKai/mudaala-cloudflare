@@ -258,7 +258,7 @@ async function run() {
     message: { text: '/start ' + accountRawToken, chat: { id: buyerTelegramId, type: 'private' }, from: { id: buyerTelegramId } },
   })
   assertStatus(started.status, 200, 'buyer listing deep-link start')
-  const confirmationMessage = telegramRequests.find((item) => item.method === 'sendMessage' && item.body.chat_id === buyerTelegramId && item.body.reply_markup)
+  const confirmationMessage = telegramRequests.find((item) => item.method === 'sendMessage' && item.body.chat_id === buyerTelegramId && item.body.reply_markup && String(item.body.text).includes('You are enquiring about this Mudaala listing'))
   assert.ok(confirmationMessage, 'buyer receives an explicit enquiry confirmation message')
   const markup = confirmationMessage.body.reply_markup as { inline_keyboard?: Array<Array<{ callback_data?: string }>> }
   const callbackData = markup.inline_keyboard?.[0]?.[0]?.callback_data
