@@ -390,6 +390,62 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
     return
   }
 
+  if (command === '/reply' || command === '/respond') {
+    const enquiryId = parts[1] || ''
+    const replyText = parts.slice(2).join(' ').trim().slice(0, 1200)
+    if (!enquiryId || !replyText) {
+      await sendMessage(chatId, 'Use /' + command.slice(1) + ' ENQUIRY_ID your message')
+      return
+    }
+    const isMerchant = command === '/reply'
+    const enquiry = await db.enquiry.findFirst({
+      where: {
+        id: enquiryId,
+        status: 'OPEN',
+        ...(isMerchant ? { merchantId: user.id } : { buyerTelegramHash: identityHash }),
+      },
+      select: { id: true, merchantId: true, buyerTelegramHash: true, listing: { select: { title: true } } },
+    })
+    if (!enquiry) {
+      await sendMessage(chatId, 'That open enquiry was not found for your account. Check the enquiry reference and try again.')
+      return
+    }
+    const created = await db.enquiryMessage.create({
+      data: {
+        enquiryId: enquiry.id,
+        senderType: isMerchant ? 'MERCHANT' : 'SHOPPER',
+        senderUserId: isMerchant ? user.id : null,
+        body: replyText,
+        deliveryStatus: 'PENDING',
+      },
+    })
+    await db.enquiry.update({ where: { id: enquiry.id }, data: { lastMessageAt: created.createdAt } })
+    let destination: number | null = null
+    if (isMerchant && enquiry.buyerTelegramHash) {
+      const buyerChat = await db.appSetting.findUnique({ where: { key: 'telegram:chat:' + enquiry.buyerTelegramHash } })
+      const value = buyerChat?.value ? Number(buyerChat.value) : NaN
+      if (Number.isSafeInteger(value)) destination = value
+    } else if (!isMerchant) {
+      const merchantSetting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + enquiry.merchantId } })
+      if (merchantSetting) {
+        try {
+          const settings = JSON.parse(merchantSetting.value) as { enabled?: unknown; chatId?: unknown }
+          if (settings.enabled === true && Number.isSafeInteger(settings.chatId)) destination = settings.chatId as number
+        } catch { /* no active merchant Telegram destination */ }
+      }
+    }
+    let delivered = false
+    if (destination !== null) {
+      try {
+        await sendMessage(destination, 'Mudaala enquiry · ' + enquiry.listing.title + '\\nReference: ' + enquiry.id + '\\n\\n' + replyText)
+        delivered = true
+      } catch { delivered = false }
+    }
+    await db.enquiryMessage.update({ where: { id: created.id }, data: { deliveryStatus: delivered ? 'SENT' : 'FAILED' } })
+    await sendMessage(chatId, delivered ? 'Your reply was sent.' : 'Your reply was saved, but Telegram could not deliver it. Please retry later.')
+    return
+  }
+
   if (command === '/publicshop') {
     await sendMessage(chatId, 'Your public Mudaala shop link: https://mudaala.store/#/shop/' + encodeURIComponent(user.id))
     return
