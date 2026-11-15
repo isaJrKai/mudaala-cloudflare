@@ -96,6 +96,19 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       throw new ApiError(400, 'Request body must be valid JSON')
     })
 
+    // Availability is an independent seller assertion, never inferred from quantity.
+    if (typeof body === 'object' && body !== null && 'availabilityStatus' in body && Object.keys(body).length === 1) {
+      const value = body.availabilityStatus
+      const allowed = ['UNKNOWN', 'IN_STOCK', 'AVAILABLE_ON_ORDER', 'OUT_OF_STOCK']
+      if (typeof value !== 'string' || !allowed.includes(value)) throw new ApiError(400, 'Choose a valid availability status.')
+      if (listing.status !== 'ACTIVE') throw new ApiError(409, 'Only active listings can update availability.')
+      const changed = await db.listing.updateMany({ where: { id, userId: user.id, status: 'ACTIVE', updatedAt: listing.updatedAt }, data: { availabilityStatus: value, availabilityUpdatedAt: new Date() } })
+      if (!changed.count) throw new ApiError(409, 'This listing changed while you were editing. Reload and try again.')
+      const updated = await db.listing.findFirst({ where: { id, userId: user.id } })
+      if (!updated) throw new ApiError(404, 'Listing not found')
+      return jsonOk({ listing: serializeListing(updated) })
+    }
+
     // Two shapes are accepted: field edits, or a deliberate status change.
     const hasStatusOnly = typeof body === 'object' && body !== null && 'status' in body && Object.keys(body).length === 1
     if (hasStatusOnly) {
