@@ -680,6 +680,11 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     return
   }
 
+  if (!user.profile && ['/publicshop', '/products', '/enquiries', '/reply'].includes(command)) {
+    await sendMessage(chatId, 'That command is for Mudaala shop owners. As a shopper, use /search, /messages and /respond. If you want to sell, open /shop to create a shop profile.')
+    return
+  }
+
   if (command === '/publicshop') {
     await sendMessage(chatId, 'Your public Mudaala shop link: https://mudaala.store/#/shop/' + encodeURIComponent(user.id))
     return
@@ -713,7 +718,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       shopCode: user.profile.shopCode,
     } : {},
   })
-  await sendMessage(chatId, answer, shopKeyboard)
+  await sendMessage(chatId, answer, user.profile ? shopKeyboard : undefined)
 }
 
 export async function POST(request: Request) {
