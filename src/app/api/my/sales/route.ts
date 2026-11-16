@@ -4,6 +4,7 @@ import { saleCreateSchema } from '@/lib/business-records'
 
 function serializeSale(sale: {
   id: string; status: string; channel: string; currency: string; soldAt: Date
+  sourceListingId: string | null; sourceListingTitle: string | null
   notes: string | null; createdAt: Date
   items: { id: string; productId: string; productName: string; unit: string
     quantity: { toString(): string }; unitPrice: { toString(): string }
@@ -49,13 +50,35 @@ export async function POST(request: Request) {
   return route(async () => {
     const user = await requireUser()
     const data = await parseBody(request, saleCreateSchema)
+    // A listing attribution is only valid when the seller says the sale came
+    // through Mudaala. Enforce this before idempotency replay as well.
+    if (data.sourceListingId && data.channel !== 'MUDAALA') {
+      throw new ApiError(400, 'Choose “Found on Mudaala” as the sale channel to attribute a Mudaala listing')
+    }
     const productIds = data.items.map((item) => item.productId)
     let result
     try {
       result = await db.$transaction(async (tx) => {
         if (data.idempotencyKey) {
           const previous = await tx.sale.findFirst({ where: { userId: user.id, idempotencyKey: data.idempotencyKey }, include: { items: true } })
-          if (previous) return { sale: previous, replayed: true }
+          if (previous) {
+            // An idempotency key identifies one immutable request. In particular,
+            // a retry cannot add, remove or change its listing attribution.
+            if ((previous.sourceListingId ?? null) !== (data.sourceListingId ?? null)) {
+              throw new ApiError(409, 'This sale was already recorded with different listing attribution. Refresh your sales and try again.')
+            }
+            return { sale: previous, replayed: true }
+          }
+        }
+        const sourceListing = data.sourceListingId
+          ? await tx.listing.findFirst({
+              where: { id: data.sourceListingId, userId: user.id, isSeed: false },
+              select: { id: true, title: true },
+            })
+          : null
+        if (data.sourceListingId && !sourceListing) {
+          // Do not reveal whether an arbitrary listing belongs to another seller.
+          throw new ApiError(404, 'That Mudaala listing could not be matched to this shop')
         }
         const products = await tx.businessProduct.findMany({ where: { userId: user.id, id: { in: productIds }, archived: false } })
         if (products.length !== productIds.length) throw new ApiError(400, 'One or more products are unavailable in your business catalogue')
@@ -67,6 +90,8 @@ export async function POST(request: Request) {
             userId: user.id,
             idempotencyKey: data.idempotencyKey ?? null,
             channel: data.channel,
+            sourceListingId: sourceListing?.id ?? null,
+            sourceListingTitle: sourceListing?.title ?? null,
             currency: products[0]!.currency,
             soldAt: data.soldAt ? new Date(data.soldAt) : new Date(),
             notes: data.notes?.trim() || null,
@@ -105,7 +130,12 @@ export async function POST(request: Request) {
       // decrement stock. The losing request returns the winning record.
       if (data.idempotencyKey && typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
         const previous = await db.sale.findFirst({ where: { userId: user.id, idempotencyKey: data.idempotencyKey }, include: { items: true } })
-        if (previous) return jsonOk({ sale: serializeSale(previous), replayed: true })
+        if (previous) {
+          if ((previous.sourceListingId ?? null) !== (data.sourceListingId ?? null)) {
+            throw new ApiError(409, 'This sale was already recorded with different listing attribution. Refresh your sales and try again.')
+          }
+          return jsonOk({ sale: serializeSale(previous), replayed: true })
+        }
       }
       throw error
     }

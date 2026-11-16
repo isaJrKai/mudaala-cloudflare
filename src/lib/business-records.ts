@@ -45,6 +45,7 @@ export const stockMovementSchema = z.object({
 export const saleCreateSchema = z.object({
   idempotencyKey: z.string().uuid().optional(),
   channel: z.enum(['MUDAALA', 'WHATSAPP', 'PHONE', 'IN_PERSON', 'OTHER']).default('OTHER'),
+  sourceListingId: z.string().trim().min(1).max(64).optional().nullable(),
   soldAt: z.string().datetime().optional(),
   notes: z.string().trim().max(500).optional().nullable(),
   items: z.array(z.object({

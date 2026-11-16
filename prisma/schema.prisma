@@ -184,6 +184,7 @@ model Listing {
   businessProducts BusinessProduct[]
   dailyAnalytics ListingDailyAnalytics[]
   collectionItems ProductCollectionItem[]
+  salesFromListing Sale[] @relation("SaleSourceListing")
 }
 
 // Shop-owned curated groups for seasonal edits, new arrivals and themed collections.
@@ -490,6 +491,11 @@ model Sale {
   status    String     @default("COMPLETED") // COMPLETED | VOIDED
   idempotencyKey String?
   channel   String     @default("OTHER") // MUDAALA | WHATSAPP | PHONE | IN_PERSON | OTHER
+  // Seller assertion: the Mudaala listing they say originated this sale.
+  // The title snapshot survives listing deletion; this is not buyer verification.
+  sourceListingId    String?
+  sourceListing      Listing? @relation("SaleSourceListing", fields: [sourceListingId], references: [id], onDelete: SetNull)
+  sourceListingTitle String?
   currency  String     @default("UGX")
   soldAt    DateTime   @default(now())
   notes     String?
@@ -502,6 +508,7 @@ model Sale {
   @@unique([userId, idempotencyKey])
   @@index([userId, soldAt])
   @@index([userId, status, soldAt])
+  @@index([userId, sourceListingId, status, soldAt])
 }
 
 // Snapshots keep past sales readable even if the product is later renamed or

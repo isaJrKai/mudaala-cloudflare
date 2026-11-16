@@ -10,8 +10,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 type Product = { id: string; name: string; sku: string | null; unit: string; currency: string; sellingPrice: number; costPrice: number | null; stockOnHand: number; reorderLevel: number; trackInventory: boolean; archived: boolean }
-type Sale = { id: string; status: string; channel: string; currency: string; soldAt: string; notes: string | null; revenue: number; grossProfit: number | null; items: { productName: string; quantity: number; unit: string; unitPrice: number }[] }
-type BusinessAnalytics = { period: string; since: string; sales: { currency: string; completedSales: number; recordedRevenue: number; estimatedGrossProfit: number | null; saleLines: number; linesWithKnownCost: number; costCoverage: number | null }[]; listingViews: number; listingCount: number; engagement: { views: number; callClicks: number; whatsappClicks: number; shareClicks: number; contactClicks: number; topListings: { listingId: string; title: string; views: number; callClicks: number; whatsappClicks: number; shareClicks: number }[]; definitions: Record<string, string> }; shopEngagement: { views: number; callClicks: number; whatsappClicks: number; shareClicks: number; contactClicks: number }; activeBusinessProducts: number; inventoryTrackedProducts: number }
+type OwnerListing = { id: string; title: string; status: string; isSeed: boolean }
+type Sale = { id: string; status: string; channel: string; currency: string; soldAt: string; sourceListingId: string | null; sourceListingTitle: string | null; notes: string | null; revenue: number; grossProfit: number | null; items: { productName: string; quantity: number; unit: string; unitPrice: number }[] }
+type BusinessAnalytics = { period: string; since: string; sellerReportedAttribution: { byCurrency: { currency: string; salesCount: number; revenue: number }[]; byListing: { listingId: string | null; listingTitle: string; currency: string; salesCount: number; revenue: number }[]; evidence: string }; sales: { currency: string; completedSales: number; recordedRevenue: number; estimatedGrossProfit: number | null; saleLines: number; linesWithKnownCost: number; costCoverage: number | null }[]; listingViews: number; listingCount: number; engagement: { views: number; callClicks: number; whatsappClicks: number; shareClicks: number; contactClicks: number; topListings: { listingId: string; title: string; views: number; callClicks: number; whatsappClicks: number; shareClicks: number }[]; definitions: Record<string, string> }; shopEngagement: { views: number; callClicks: number; whatsappClicks: number; shareClicks: number; contactClicks: number }; activeBusinessProducts: number; inventoryTrackedProducts: number }
 const ugx = (amount: number) => new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(amount)
 
 export function BusinessRecordsPanel() {
@@ -29,6 +30,7 @@ export function BusinessRecordsPanel() {
   const [saleRequestKey, setSaleRequestKey] = useState('')
   const [salePrice, setSalePrice] = useState('')
   const [channel, setChannel] = useState('IN_PERSON')
+  const [sourceListingId, setSourceListingId] = useState('')
   const [stockProductId, setStockProductId] = useState('')
   const [stockQty, setStockQty] = useState('')
   const [stockNote, setStockNote] = useState('')
@@ -36,6 +38,7 @@ export function BusinessRecordsPanel() {
   const [thresholdValue, setThresholdValue] = useState('0')
   const [error, setError] = useState('')
 
+  const listingsQuery = useQuery({ queryKey: ['my-listings-for-sale-attribution'], queryFn: () => apiGet<{ listings: OwnerListing[] }>('/api/my/listings'), staleTime: 30000 })
   const productsQuery = useQuery({ queryKey: ['business-products'], queryFn: () => apiGet<{ products: Product[] }>('/api/my/business-products'), staleTime: 15000 })
   const salesQuery = useQuery({ queryKey: ['business-sales'], queryFn: () => apiGet<{ sales: Sale[] }>('/api/my/sales?limit=20'), staleTime: 15000 })
   const analyticsQuery = useQuery({ queryKey: ['business-analytics'], queryFn: () => apiGet<BusinessAnalytics>('/api/my/business-analytics?period=30d'), staleTime: 30000 })
@@ -54,9 +57,9 @@ export function BusinessRecordsPanel() {
   const recordSale = useMutation({
     mutationFn: (idempotencyKey: string) => {
       if (!selected) throw new Error('Add a product before recording a sale')
-      return apiPost('/api/my/sales', { idempotencyKey, channel, items: [{ productId: selected.id, quantity: Number(saleQty), ...(salePrice.trim() ? { unitPrice: Number(salePrice) } : {}) }] })
+      return apiPost('/api/my/sales', { idempotencyKey, channel, ...(sourceListingId ? { sourceListingId } : {}), items: [{ productId: selected.id, quantity: Number(saleQty), ...(salePrice.trim() ? { unitPrice: Number(salePrice) } : {}) }] })
     },
-    onSuccess: async () => { setSaleQty('1'); setSalePrice(''); setSaleRequestKey(''); setError(''); await refresh() },
+    onSuccess: async () => { setSaleQty('1'); setSalePrice(''); setSaleRequestKey(''); setSourceListingId(''); setError(''); await refresh() },
     onError: (e) => setError(e instanceof Error ? e.message : 'Could not record sale'),
   })
   const restock = useMutation({
@@ -93,7 +96,7 @@ export function BusinessRecordsPanel() {
       </div>
     </div>
     {error ? <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">{error}</div> : null}
-    {(productsQuery.isError || salesQuery.isError || analyticsQuery.isError) ? <div role="alert" className="rounded-md border p-3 text-sm">Some records could not be loaded. <Button variant="link" onClick={() => { void productsQuery.refetch(); void salesQuery.refetch(); void analyticsQuery.refetch() }}>Retry</Button></div> : null}
+    {(productsQuery.isError || salesQuery.isError || analyticsQuery.isError || listingsQuery.isError) ? <div role="alert" className="rounded-md border p-3 text-sm">Some records could not be loaded. <Button variant="link" onClick={() => { void productsQuery.refetch(); void salesQuery.refetch(); void analyticsQuery.refetch(); void listingsQuery.refetch() }}>Retry</Button></div> : null}
 
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Business performance for the last 30 days">
       <Card><CardContent className="pt-5"><p className="text-sm text-muted-foreground">Recorded revenue · 30 days</p><p className="mt-1 text-2xl font-bold tabular-nums">{ugx(salesSummary?.recordedRevenue ?? 0)}</p><p className="mt-1 text-xs text-muted-foreground">Completed sales you recorded</p></CardContent></Card>
@@ -104,6 +107,17 @@ export function BusinessRecordsPanel() {
       <Card><CardContent className="pt-5"><p className="text-sm text-muted-foreground">WhatsApp clicks · 30 days</p><p className="mt-1 text-2xl font-bold tabular-nums">{(analyticsQuery.data?.engagement.whatsappClicks ?? 0).toLocaleString()}</p><p className="mt-1 text-xs text-muted-foreground">Taps, not confirmed messages</p></CardContent></Card>
       <Card><CardContent className="pt-5"><p className="text-sm text-muted-foreground">Share clicks · 30 days</p><p className="mt-1 text-2xl font-bold tabular-nums">{(analyticsQuery.data?.engagement.shareClicks ?? 0).toLocaleString()}</p><p className="mt-1 text-xs text-muted-foreground">Share actions, not delivered links</p></CardContent></Card>
     </div>
+
+    <Card>
+      <CardHeader><CardTitle>Sales you reported from Mudaala listings</CardTitle><p className="text-sm text-muted-foreground">These are your own attributions, not buyer-confirmed or independently verified trades.</p></CardHeader>
+      <CardContent className="space-y-3">
+        {(analyticsQuery.data?.sellerReportedAttribution.byCurrency ?? []).length === 0 ? <p className="text-sm text-muted-foreground">No sales have been attributed to a Mudaala listing in this period. When recording a sale, select the listing that brought the customer.</p> : <>
+          <div className="flex flex-wrap gap-6">{analyticsQuery.data!.sellerReportedAttribution.byCurrency.map((row) => <div key={row.currency}><p className="text-xs text-muted-foreground">Seller-reported sales · {row.currency}</p><p className="text-xl font-semibold tabular-nums">{row.salesCount}</p><p className="text-sm">{row.revenue.toLocaleString('en-UG')} {row.currency}</p></div>)}</div>
+          <div className="divide-y">{analyticsQuery.data!.sellerReportedAttribution.byListing.map((row, index) => <div key={(row.listingId ?? row.listingTitle) + row.currency + index} className="flex items-center justify-between gap-3 py-2"><div className="min-w-0"><p className="truncate text-sm font-medium">{row.listingTitle}</p><p className="text-xs text-muted-foreground">{row.salesCount} seller-reported sale(s)</p></div><p className="shrink-0 text-sm font-semibold tabular-nums">{row.revenue.toLocaleString('en-UG')} {row.currency}</p></div>)}</div>
+        </>}
+        <p className="text-xs text-muted-foreground">{analyticsQuery.data?.sellerReportedAttribution.evidence}</p>
+      </CardContent>
+    </Card>
 
     <Card>
       <CardHeader>
@@ -152,7 +166,8 @@ export function BusinessRecordsPanel() {
         {active.length === 0 ? <p className="rounded-md border border-dashed p-5 text-center text-sm text-muted-foreground">Add a product first, then record a completed sale from any channel.</p> : <form className="space-y-3" onSubmit={submitSale}>
           <div className="space-y-1.5"><Label htmlFor="business-sale-product">Product</Label><select id="business-sale-product" value={selected?.id ?? ''} onChange={(e) => setProductId(e.target.value)} className="flex h-10 w-full rounded-md border bg-background px-3 text-sm">{active.map((p) => <option key={p.id} value={p.id}>{p.name} - {ugx(p.sellingPrice)}</option>)}</select></div>
           <div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1.5"><Label htmlFor="business-sale-qty">Quantity sold</Label><Input id="business-sale-qty" type="number" min="0.001" step="0.001" value={saleQty} onChange={(e) => setSaleQty(e.target.value)} required /></div><div className="space-y-1.5"><Label htmlFor="business-sale-price">Unit sale price (UGX)</Label><Input id="business-sale-price" type="number" min="0" step="0.01" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} placeholder={selected ? String(selected.sellingPrice) : ''} /></div></div>
-          <div className="space-y-1.5"><Label htmlFor="business-sale-channel">Where was it sold?</Label><select id="business-sale-channel" value={channel} onChange={(e) => setChannel(e.target.value)} className="flex h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="IN_PERSON">In person</option><option value="WHATSAPP">WhatsApp</option><option value="PHONE">Phone call</option><option value="MUDAALA">Found on Mudaala</option><option value="OTHER">Other</option></select></div>
+          <div className="space-y-1.5"><Label htmlFor="business-sale-channel">Where was it sold?</Label><select id="business-sale-channel" value={channel} onChange={(e) => { setChannel(e.target.value); if (e.target.value !== 'MUDAALA') setSourceListingId('') }} className="flex h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="IN_PERSON">In person</option><option value="WHATSAPP">WhatsApp</option><option value="PHONE">Phone call</option><option value="MUDAALA">Found on Mudaala</option><option value="OTHER">Other</option></select></div>
+          {channel === 'MUDAALA' ? <div className="space-y-1.5"><Label htmlFor="business-sale-source-listing">Which Mudaala listing brought this sale? (optional)</Label><select id="business-sale-source-listing" value={sourceListingId} onChange={(e) => setSourceListingId(e.target.value)} className="flex h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="">No listing attribution</option>{(listingsQuery.data?.listings ?? []).filter((listing) => !listing.isSeed).map((listing) => <option key={listing.id} value={listing.id}>{listing.title} · {listing.status.toLowerCase()}</option>)}</select><p className="text-xs text-muted-foreground">Select a listing only if you believe it brought this sale. This is your report, not buyer verification.</p></div> : null}
           {selected ? <p className="text-xs text-muted-foreground">Estimated line revenue: {ugx(Number(saleQty || 0) * Number(salePrice || selected.sellingPrice))}. {selected.trackInventory ? 'Recorded stock decreases when saved.' : 'Stock tracking is off for this product.'}</p> : null}
           <Button type="submit" disabled={recordSale.isPending} className="w-full"><ShoppingBag className="mr-2 size-4" aria-hidden />{recordSale.isPending ? 'Recording sale…' : 'Record completed sale'}</Button><p className="text-xs text-muted-foreground">This records your business book; it does not claim Mudaala processed payment.</p>
         </form>}
@@ -169,7 +184,7 @@ export function BusinessRecordsPanel() {
     </CardContent></Card>
 
     <Card><CardHeader><CardTitle>Recent recorded sales</CardTitle></CardHeader><CardContent>
-      {salesQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading sales…</p> : (salesQuery.data?.sales.length ?? 0) === 0 ? <p className="text-sm text-muted-foreground">No sales recorded yet. Include in-person and WhatsApp sales.</p> : <div className="divide-y">{salesQuery.data?.sales.map((sale) => <div key={sale.id} className="flex flex-wrap items-start gap-3 py-3"><div className="min-w-0 flex-1"><p className="text-sm font-medium">{sale.items.map((item) => item.quantity + ' ' + item.unit + ' · ' + item.productName).join(', ')}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(sale.soldAt).toLocaleString()} · {sale.channel.replace('_', ' ').toLowerCase()}</p></div><div className="text-right"><p className="text-sm font-semibold tabular-nums">{sale.status === 'VOIDED' ? 'Voided · ' + ugx(sale.revenue) : ugx(sale.revenue)}</p><p className="text-xs text-muted-foreground">{sale.status === 'VOIDED' ? 'Excluded from active sales' : sale.grossProfit === null ? 'Profit unknown' : 'Est. gross profit ' + ugx(sale.grossProfit)}</p><p className="text-xs">{sale.status === 'VOIDED' ? 'Voided record' : 'Recorded sale'}</p></div>{sale.status === 'COMPLETED' ? <Button variant="ghost" size="sm" onClick={() => { if (window.confirm('Void this recorded sale? If stock was tracked, its quantity will be restored and the action will remain in the history.')) voidSale.mutate(sale.id) }} disabled={voidSale.isPending}>Void</Button> : null}</div>)}</div>}
+      {salesQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading sales…</p> : (salesQuery.data?.sales.length ?? 0) === 0 ? <p className="text-sm text-muted-foreground">No sales recorded yet. Include in-person and WhatsApp sales.</p> : <div className="divide-y">{salesQuery.data?.sales.map((sale) => <div key={sale.id} className="flex flex-wrap items-start gap-3 py-3"><div className="min-w-0 flex-1"><p className="text-sm font-medium">{sale.items.map((item) => item.quantity + ' ' + item.unit + ' · ' + item.productName).join(', ')}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(sale.soldAt).toLocaleString()} · {sale.channel.replace('_', ' ').toLowerCase()}{sale.sourceListingTitle ? ` · From Mudaala listing: ${sale.sourceListingTitle}` : ''}</p></div><div className="text-right"><p className="text-sm font-semibold tabular-nums">{sale.status === 'VOIDED' ? 'Voided · ' + ugx(sale.revenue) : ugx(sale.revenue)}</p><p className="text-xs text-muted-foreground">{sale.status === 'VOIDED' ? 'Excluded from active sales' : sale.grossProfit === null ? 'Profit unknown' : 'Est. gross profit ' + ugx(sale.grossProfit)}</p><p className="text-xs">{sale.status === 'VOIDED' ? 'Voided record' : 'Recorded sale'}</p></div>{sale.status === 'COMPLETED' ? <Button variant="ghost" size="sm" onClick={() => { if (window.confirm('Void this recorded sale? If stock was tracked, its quantity will be restored and the action will remain in the history.')) voidSale.mutate(sale.id) }} disabled={voidSale.isPending}>Void</Button> : null}</div>)}</div>}
       <p className="mt-3 text-xs text-muted-foreground">Gross profit uses entered product costs and excludes rent, transport, wages and other operating expenses. Recent sales are shown here; export CSV for records.</p>
     </CardContent></Card>
   </section>

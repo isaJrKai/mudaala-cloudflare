@@ -3,6 +3,7 @@ name: Validate Mudaala pull requests
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
@@ -137,6 +138,8 @@ jobs:
           # the exact RLS/grant SQL that will run on a fresh production upgrade.
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."StockMovement", public."SaleItem", public."Sale", public."BusinessProduct", public."ListingDailyAnalytics", public."ShopDailyAnalytics" CASCADE;'
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020000000_business_records_foundation/migration.sql
+          # Exercise the exact additive seller-reported listing attribution migration.
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261109010000_sale_listing_attribution/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020190000_listing_daily_analytics/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261020200000_business_records_rls/migration.sql
           # Exercise the exact additive collection migration against disposable PostgreSQL.
