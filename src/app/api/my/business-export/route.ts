@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { route, requireUser, ApiError } from '@/lib/api'
+import { route, requireSeller, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 
 function cell(value: unknown): string {
@@ -16,7 +16,7 @@ function csv(headers: string[], rows: unknown[][]): string {
 
 export async function GET(request: Request) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const url = new URL(request.url)
     const type = url.searchParams.get('type') ?? 'sales'
     let body: string
