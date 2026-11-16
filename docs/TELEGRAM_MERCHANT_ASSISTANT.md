@@ -4,7 +4,7 @@
 
 This opt-in channel reuses Mudaala's existing user, shop and listing records. It does not create a second inventory database or replace in-app chat, phone or WhatsApp contact.
 
-Initial commands: `/start`, `/help`, `/link CODE`, `/shop` and `/products`. Product creation/editing and photo uploads are intentionally excluded until they can reuse the existing listing validation, prohibited-item checks, upload quarantine and image moderation pipeline.
+Initial commands: `/start`, `/help`, `/link CODE`, `/unlink`, `/shop` and `/products`. Product creation/editing and photo uploads are intentionally excluded until they can reuse the existing listing validation, prohibited-item checks, upload quarantine and image moderation pipeline.
 
 ## Product-quality guardrails
 
