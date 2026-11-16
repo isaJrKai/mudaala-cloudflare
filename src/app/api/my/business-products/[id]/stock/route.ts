@@ -1,4 +1,4 @@
-import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, parseBody, requireSeller, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { stockMovementSchema } from '@/lib/business-records'
 
@@ -6,7 +6,7 @@ type Context = { params: Promise<{ id: string }> }
 
 export async function GET(_request: Request, context: Context) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const { id } = await context.params
     const product = await db.businessProduct.findFirst({ where: { id, userId: user.id }, select: { id: true } })
     if (!product) throw new ApiError(404, 'Product not found')
@@ -27,7 +27,7 @@ export async function GET(_request: Request, context: Context) {
 
 export async function POST(request: Request, context: Context) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const { id } = await context.params
     const data = await parseBody(request, stockMovementSchema)
     const add = data.type === 'RESTOCK' || data.type === 'RETURN' ||
