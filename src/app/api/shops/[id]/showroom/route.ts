@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, parseBody, requireSeller, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { CATEGORY_KEYS, findProhibitedItem } from '@/lib/constants'
 import { containsMarketplaceEmoji } from '@/lib/validation'
@@ -25,7 +25,7 @@ const showroomItemSchema = z.object({
 export async function POST(request: Request, { params }: Params) {
   return route(async () => {
     const { id } = await params
-    const user = await requireUser('Sign in as the shop owner to manage this showroom')
+    const user = await requireSeller('Sign in as the shop owner to manage this showroom')
     if (user.id !== id) throw new ApiError(403, 'Only this shop owner can add showroom items')
 
     const data = await parseBody(request, showroomItemSchema)
