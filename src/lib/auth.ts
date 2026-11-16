@@ -38,10 +38,10 @@ export function verifyPassword(password: string, stored: string): boolean {
   return timingSafeEqual(candidate, expected)
 }
 
-export async function createSession(userId: string): Promise<{ token: string; expiresAt: Date }> {
+export async function createSession(userId: string, authMethod: 'PASSWORD' | 'GOOGLE' = 'PASSWORD'): Promise<{ token: string; expiresAt: Date }> {
   const token = randomBytes(32).toString('hex')
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000)
-  await db.session.create({ data: { id: token, userId, expiresAt } })
+  await db.session.create({ data: { id: token, userId, authMethod, expiresAt } })
   // Opportunistic cleanup of expired sessions.
   await db.session.deleteMany({ where: { expiresAt: { lt: new Date() } } })
   return { token, expiresAt }
