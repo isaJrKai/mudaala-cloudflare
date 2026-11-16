@@ -29,12 +29,37 @@ function telegramKey(id: number): string {
   return 'telegram:user:' + digest
 }
 
+function telegramAccountKey(userId: string): string {
+  return 'telegram:account:' + userId
+}
+
 async function linkedMudaalaUserId(telegramUserId: number): Promise<string | null> {
-  const mapping = await db.appSetting.findUnique({ where: { key: telegramKey(telegramUserId) } })
+  const mappingKey = telegramKey(telegramUserId)
+  const mapping = await db.appSetting.findUnique({ where: { key: mappingKey } })
   if (!mapping) return null
   try {
     const value = JSON.parse(mapping.value) as { userId?: unknown }
-    return typeof value.userId === 'string' ? value.userId : null
+    if (typeof value.userId !== 'string') return null
+    const accountKey = telegramAccountKey(value.userId)
+    const reverse = await db.appSetting.findUnique({ where: { key: accountKey } })
+    if (reverse) return reverse.value === mappingKey ? value.userId : null
+
+    // Backward-compatible lazy adoption: legacy accounts with exactly one
+    // Telegram mapping remain linked; ambiguous legacy multi-links are denied
+    // until the account owner links again and chooses one identity.
+    const mappings = await db.appSetting.findMany({
+      where: { key: { startsWith: 'telegram:user:' } },
+      select: { key: true, value: true },
+    })
+    const owned = mappings.filter((item) => {
+      try { return (JSON.parse(item.value) as { userId?: unknown }).userId === value.userId } catch { return false }
+    })
+    if (owned.length !== 1 || owned[0]?.key !== mappingKey) return null
+    await db.appSetting.create({ data: { key: accountKey, value: mappingKey } }).catch((error) => {
+      if ((error as { code?: string })?.code !== 'P2002') throw error
+    })
+    const adopted = await db.appSetting.findUnique({ where: { key: accountKey } })
+    return adopted?.value === mappingKey ? value.userId : null
   } catch {
     return null
   }
@@ -451,6 +476,20 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
         const consumed = await tx.appSetting.deleteMany({ where: { key, value: record.value } })
         if (consumed.count !== 1) throw new Error('TELEGRAM_LINK_CODE_USED')
 
+        // Revoke every other Telegram identity previously attached to this
+        // Mudaala account before making the new identity authoritative.
+        const accountMappings = await tx.appSetting.findMany({
+          where: { key: { startsWith: 'telegram:user:' } },
+          select: { key: true, value: true },
+        })
+        const staleKeys = accountMappings.filter((item) => {
+          if (item.key === mappingKey) return false
+          try { return (JSON.parse(item.value) as { userId?: unknown }).userId === user.id } catch { return false }
+        }).map((item) => item.key)
+        if (staleKeys.length) {
+          await tx.appSetting.deleteMany({ where: { key: { in: staleKeys } } })
+        }
+
         const mappingValue = JSON.stringify({ userId: user.id, linkedAt: now.toISOString() })
         if (existing) {
           await tx.appSetting.update({ where: { key: mappingKey }, data: { value: mappingValue } })
@@ -459,6 +498,11 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
           // account codes cannot race to overwrite one Telegram identity.
           await tx.appSetting.create({ data: { key: mappingKey, value: mappingValue } })
         }
+        await tx.appSetting.upsert({
+          where: { key: telegramAccountKey(user.id) },
+          create: { key: telegramAccountKey(user.id), value: mappingKey },
+          update: { value: mappingKey },
+        })
 
         const merchantKey = 'telegram:merchant:' + user.id
         const merchantRecord = await tx.appSetting.findUnique({ where: { key: merchantKey } })
@@ -495,6 +539,37 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     return
   }
 
+  if (command === '/unlink') {
+    const linkedUserId = await linkedMudaalaUserId(telegramUserId)
+    if (!linkedUserId) {
+      await sendMessage(chatId, 'This Telegram account is not currently linked to a Mudaala account.')
+      return
+    }
+    const mappingKey = telegramKey(telegramUserId)
+    await db.$transaction(async (tx) => {
+      const reverseKey = telegramAccountKey(linkedUserId)
+      const reverse = await tx.appSetting.findUnique({ where: { key: reverseKey } })
+      if (reverse?.value === mappingKey) {
+        await tx.appSetting.delete({ where: { key: reverseKey } })
+      }
+      await tx.appSetting.deleteMany({ where: { key: mappingKey } })
+      const merchantKey = 'telegram:merchant:' + linkedUserId
+      const merchantRecord = await tx.appSetting.findUnique({ where: { key: merchantKey } })
+      if (merchantRecord) {
+        let settings: { enabled?: unknown; chatId?: unknown; activatedAt?: unknown } = {}
+        try { settings = JSON.parse(merchantRecord.value) as typeof settings } catch { /* malformed settings are disabled */ }
+        if (settings.chatId === chatId) {
+          await tx.appSetting.update({
+            where: { key: merchantKey },
+            data: { value: JSON.stringify({ ...settings, enabled: false, chatId: null, activatedAt: null }) },
+          })
+        }
+      }
+    })
+    await sendMessage(chatId, 'Your Telegram account has been disconnected from Mudaala. Merchant Telegram enquiries have been switched off. You can reconnect any time using a fresh /link CODE.')
+    return
+  }
+
   if (command === '/followup') {
     const enquiryId = parts[1] || ''
     const choice = (parts[2] || '').toLowerCase()
@@ -522,7 +597,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   }
 
   const mapping = await db.appSetting.findUnique({ where: { key: telegramKey(telegramUserId) } })
-  if (!mapping) {
+  if (!mapping || await linkedMudaalaUserId(telegramUserId) === null) {
     if (command === '/messages') {
       const buyerHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
       const enquiries = await db.enquiry.findMany({
