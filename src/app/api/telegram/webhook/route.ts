@@ -5,12 +5,18 @@ import { hit } from '@/lib/rate-limit'
 import { replyToTelegramMerchant } from '@/lib/telegram-assistant'
 import { recordTelegramActivation } from '@/lib/telegram-merchant'
 import { telegramApiUrl } from '@/lib/telegram-api'
+import { CATEGORY_KEYS } from '@/lib/constants'
+import { listingCreateSchema } from '@/lib/validation'
+import { publishListingForSeller } from '@/lib/listing-publisher'
+import { importTelegramProductPhoto } from '@/lib/telegram-product-photo'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 type TelegramMessage = {
   text?: string
+  caption?: string
+  photo?: Array<{ file_id?: string; file_size?: number; width?: number; height?: number }>
   chat?: { id?: number; type?: string }
   from?: { id?: number }
 }
@@ -162,6 +168,14 @@ async function cleanupTelegramRecords(): Promise<void> {
   })
   if (staleCodes.length) {
     await db.appSetting.deleteMany({ where: { key: { in: staleCodes.map((item) => item.key) } } })
+  }
+  const staleProductDrafts = await db.appSetting.findMany({
+    where: { key: { startsWith: 'telegram:product-draft:' }, updatedAt: { lt: new Date(now - 60 * 60 * 1000) } },
+    select: { key: true },
+    take: 100,
+  })
+  if (staleProductDrafts.length) {
+    await db.appSetting.deleteMany({ where: { key: { in: staleProductDrafts.map((item) => item.key) } } })
   }
   const staleConversations = await db.appSetting.findMany({
     where: { key: { startsWith: 'telegram:conversation:' }, updatedAt: { lt: new Date(now - 24 * 60 * 60 * 1000) } },
@@ -417,8 +431,8 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
 async function handleMessage(message: TelegramMessage): Promise<void> {
   const chatId = message.chat?.id
   const telegramUserId = message.from?.id
-  const text = (message.text || '').trim()
-  if (!chatId || !telegramUserId || !text || message.chat?.type !== 'private') return
+  const text = (message.text || message.caption || '').trim()
+  if (!chatId || !telegramUserId || (!text && !message.photo?.length) || message.chat?.type !== 'private') return
 
   const parts = text.split(/\s+/)
   const command = (parts[0] || '').split('@')[0].toLowerCase()
@@ -473,7 +487,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     }
     const user = await db.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, name: true, profile: { select: { businessName: true, shopCode: true, category: true, county: true, area: true, description: true } } },
+      select: { id: true, name: true, country: true, profile: { select: { businessName: true, shopCode: true, category: true, county: true, area: true, description: true, phone: true, whatsapp: true } } },
     })
     if (!user) {
       await db.appSetting.deleteMany({ where: { key } })
@@ -569,6 +583,44 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     return
   }
 
+  if (message.photo?.length) {
+    const linkedUserId = await linkedMudaalaUserId(telegramUserId)
+    if (!linkedUserId) {
+      await sendMessage(chatId, 'To publish products, first connect your Mudaala shop with /link CODE. You can create a link code in Mudaala Account.')
+      return
+    }
+    const photo = [...message.photo].reverse().find((item) => typeof item.file_id === 'string' && item.file_id.length > 0)
+    if (!photo?.file_id) {
+      await sendMessage(chatId, 'I could not read that photo. Please send it again.')
+      return
+    }
+    const verdict = await hit('telegram:photo-upload:' + linkedUserId, 10, 60 * 60 * 1000)
+    if (!verdict.ok) {
+      await sendMessage(chatId, 'You have sent several product photos recently. Please wait a little before trying again.')
+      return
+    }
+    try {
+      const photoUrl = await importTelegramProductPhoto(photo.file_id, linkedUserId)
+      const draftKey = 'telegram:product-draft:' + createHash('sha256').update(String(telegramUserId)).digest('hex')
+      await db.appSetting.upsert({
+        where: { key: draftKey },
+        create: { key: draftKey, value: JSON.stringify({ userId: linkedUserId, photoUrl, createdAt: new Date().toISOString() }) },
+        update: { value: JSON.stringify({ userId: linkedUserId, photoUrl, createdAt: new Date().toISOString() }) },
+      })
+      await sendMessage(chatId, 'Photo received and passed Mudaala photo safety checks. Now send the product name and price in this format:\n\nProduct name | 85000\n\nSend /cancel to discard this photo.')
+    } catch (error) {
+      await sendMessage(chatId, error instanceof ApiError ? error.message : 'I could not process that photo right now. Please try again later.')
+    }
+    return
+  }
+
+  if (command === '/cancel') {
+    const draftKey = 'telegram:product-draft:' + createHash('sha256').update(String(telegramUserId)).digest('hex')
+    await db.appSetting.deleteMany({ where: { key: draftKey } })
+    await sendMessage(chatId, 'The current product photo draft has been cancelled.')
+    return
+  }
+
   if (command === '/unlink') {
     const linkedUserId = await linkedMudaalaUserId(telegramUserId)
     if (!linkedUserId) {
@@ -628,7 +680,64 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
 
   const mapping = await db.appSetting.findUnique({ where: { key: telegramKey(telegramUserId) } })
   if (!mapping || await linkedMudaalaUserId(telegramUserId) === null) {
-    if (command === '/messages') {
+    const draftKey = 'telegram:product-draft:' + createHash('sha256').update(String(telegramUserId)).digest('hex')
+  const pendingDraft = await db.appSetting.findUnique({ where: { key: draftKey } })
+  if (pendingDraft && !command.startsWith('/')) {
+    let draft: { userId?: unknown; photoUrl?: unknown; createdAt?: unknown } = {}
+    try { draft = JSON.parse(pendingDraft.value) as typeof draft } catch { /* invalid drafts are discarded below */ }
+    const createdAt = typeof draft.createdAt === 'string' ? Date.parse(draft.createdAt) : NaN
+    if (draft.userId !== user.id || typeof draft.photoUrl !== 'string' || !Number.isFinite(createdAt) || Date.now() - createdAt > 60 * 60 * 1000) {
+      await db.appSetting.deleteMany({ where: { key: draftKey } })
+      await sendMessage(chatId, 'That product photo draft expired. Send the photo again to start a new listing.')
+      return
+    }
+    const partsForListing = text.split('|').map((part) => part.trim())
+    const rawPrice = (partsForListing[1] || '').replace(/,/g, '')
+    const price = /^\d+(?:\.\d{1,2})?$/.test(rawPrice) ? Number(rawPrice) : NaN
+    const title = partsForListing[0] || ''
+    if (partsForListing.length !== 2 || title.length < 4 || title.length > 120 || !Number.isFinite(price) || price < 0 || price > 100_000_000) {
+      await sendMessage(chatId, 'Please send the product name and price like this:\n\nNike sneakers | 85000')
+      return
+    }
+    const category = user.profile?.category
+    const county = user.profile?.county
+    const phone = user.profile?.phone
+    if (!category || !CATEGORY_KEYS.includes(category) || !county || !phone) {
+      await sendMessage(chatId, 'Before publishing, complete your shop category, district and contact phone in My Shop. Then send the product name and price here again.')
+      return
+    }
+    const businessName = user.profile?.businessName || user.name
+    const data = listingCreateSchema.safeParse({
+      type: 'OFFER',
+      title,
+      description: title + ' offered by ' + businessName + '. Contact the shop for availability and product details.',
+      category,
+      price,
+      priceNegotiable: false,
+      unit: category === 'services' ? null : 'piece',
+      quantity: null,
+      country: user.country || 'UG',
+      county,
+      area: user.profile?.area || null,
+      contactPhone: phone,
+      contactWhatsapp: user.profile?.whatsapp || null,
+      photos: [draft.photoUrl],
+    })
+    if (!data.success) {
+      await sendMessage(chatId, 'I still need a valid shop category, district and contact number. Open My Shop to update those details, then try again.')
+      return
+    }
+    try {
+      const listing = await publishListingForSeller({ seller: { id: user.id, country: user.country }, data: data.data, ipKey: 'telegram-' + chatId })
+      await db.appSetting.deleteMany({ where: { key: draftKey } })
+      await sendMessage(chatId, 'Your product is now published on Mudaala.\n' + title + ' · UGX ' + price.toLocaleString('en-UG') + '\n\nView product: https://mudaala.store/l/' + encodeURIComponent(listing.id), shopKeyboard)
+    } catch (error) {
+      await sendMessage(chatId, error instanceof ApiError ? error.message : 'I could not publish that product right now. Your photo draft is saved; please try again.')
+    }
+    return
+  }
+
+  if (command === '/messages') {
       const buyerHash = buyerIdentityHash(telegramUserId)
       const enquiries = await db.enquiry.findMany({
         where: { buyerTelegramHash: buyerHash, status: 'OPEN' },
