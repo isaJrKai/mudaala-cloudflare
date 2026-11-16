@@ -92,7 +92,8 @@ export async function importTelegramProductPhoto(fileId: string, sellerId: strin
   const photoResponse = await fetch(fileUrl, { signal: AbortSignal.timeout(15000) })
   if (!photoResponse.ok) throw new ApiError(502, 'Telegram could not download that photo. Please send it again.')
   const raw = await readLimited(photoResponse, MAX_BYTES)
-  const clean = stripJpegMetadata(raw)
+  // Storage SDK inputs are Node Buffers; preserve the sanitized bytes in that type.
+  const clean = Buffer.from(stripJpegMetadata(raw))
   if (clean.length < 4) throw new ApiError(400, 'That product photo is empty or invalid.')
 
   const storage = chooseStorage()
