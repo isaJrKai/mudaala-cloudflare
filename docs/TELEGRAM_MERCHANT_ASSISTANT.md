@@ -26,7 +26,7 @@ After deployment, register the webhook from a trusted local environment using `T
 TELEGRAM_BOT_TOKEN='…' TELEGRAM_WEBHOOK_SECRET='…' node scripts/register-telegram-webhook.mjs
 ```
 
-The helper sets `https://mudaala.store/api/telegram/webhook`, enables only message updates and supplies Telegram's `X-Telegram-Bot-Api-Secret-Token` header value. Never place the bot token in source control, logs or chat.
+The helper sets `https://mudaala.store/api/telegram/webhook`, enables message and callback-query updates and supplies Telegram's `X-Telegram-Bot-Api-Secret-Token` header value. Never place the bot token in source control, logs or chat.
 
 ## Merchant flow
 
