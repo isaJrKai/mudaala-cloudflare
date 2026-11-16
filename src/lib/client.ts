@@ -204,6 +204,7 @@ export interface SessionUser {
   createdAt: string
   /** Server-derived from the admin phone allowlist; never user-editable. */
   isAdmin: boolean
+  googleLinked?: boolean
 }
 
 export interface ListingsPage {
