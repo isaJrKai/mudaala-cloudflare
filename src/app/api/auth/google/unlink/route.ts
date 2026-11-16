@@ -3,7 +3,6 @@ import { getCurrentSessionToken } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
-import { hashPhoneForVerification } from '@/lib/sms'
 import { hasSameRequestOrigin } from '@/lib/google-oidc'
 
 const RECENT_AUTH_MS = 10 * 60 * 1000
@@ -31,19 +30,9 @@ export async function DELETE(request: Request) {
       throw new ApiError(403, 'Sign in again with your Mudaala password before unlinking Google')
     }
 
-    const phoneProof = await db.phoneVerificationChallenge.findFirst({
-      where: {
-        userId: user.id,
-        phoneHash: hashPhoneForVerification(user.phone),
-        proofConsumedAt: null,
-        verifiedAt: { gte: new Date(now.getTime() - RECENT_AUTH_MS) },
-        usedAt: { not: null },
-      },
-      select: { id: true },
-    })
-    if (!phoneProof) {
-      throw new ApiError(403, 'Verify control of your registered phone by SMS before unlinking Google')
-    }
+    // A fresh password-authenticated session is required for this sensitive
+    // change. SMS is not a dependency for unlinking; Google sessions are revoked
+    // immediately and seller access will require a linked identity again.
 
     const identity = await db.googleIdentity.findUnique({
       where: { userId_provider: { userId: user.id, provider: 'google' } },
@@ -51,22 +40,7 @@ export async function DELETE(request: Request) {
     })
     if (!identity) throw new ApiError(404, 'No Google account is linked to this Mudaala account')
 
-    // Consume the one-use phone proof and unlink in the same transaction.
-    // If the identity delete fails, the proof remains available for a retry.
     await db.$transaction(async (tx) => {
-      const proofConsumed = await tx.phoneVerificationChallenge.updateMany({
-        where: {
-          id: phoneProof.id,
-          userId: user.id,
-          phoneHash: hashPhoneForVerification(user.phone),
-          proofConsumedAt: null,
-          verifiedAt: { gte: new Date(now.getTime() - RECENT_AUTH_MS) },
-        },
-        data: { proofConsumedAt: now },
-      })
-      if (proofConsumed.count !== 1) {
-        throw new ApiError(409, 'That phone verification has already been used. Verify your phone again')
-      }
       await tx.googleIdentity.delete({ where: { id: identity.id } })
       // A successful unlink must also revoke sessions that were established
       // through this Google identity. The current password-authenticated
