@@ -68,7 +68,10 @@ export async function POST(request: Request, { params }: Params) {
     if (senderType === 'MERCHANT') {
       const identityHash = enquiry.buyerTelegramHash || (enquiry.shopperId ? createHash('sha256').update(enquiry.shopperId).digest('hex') : null)
       if (identityHash) {
-        const record = await db.appSetting.findUnique({ where: { key: 'telegram:chat:' + identityHash } })
+        const chatKey = enquiry.buyerTelegramHash
+          ? 'telegram:buyer-chat:' + enquiry.buyerTelegramHash
+          : 'telegram:chat:' + identityHash
+        const record = await db.appSetting.findUnique({ where: { key: chatKey } })
         const value = record?.value ? Number(record.value) : NaN
         if (Number.isSafeInteger(value)) chatId = value
       }
