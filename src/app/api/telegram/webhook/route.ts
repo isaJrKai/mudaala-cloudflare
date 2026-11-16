@@ -730,10 +730,10 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     }
     const partsForListing = text.split('|').map((part) => part.trim())
     const rawPrice = (partsForListing[1] || '').replace(/,/g, '')
-    const price = /^\\d+(?:\\.\\d{1,2})?$/.test(rawPrice) ? Number(rawPrice) : NaN
+    const price = /^\d+(?:\.\d{1,2})?$/.test(rawPrice) ? Number(rawPrice) : NaN
     const title = partsForListing[0] || ''
     if (partsForListing.length !== 2 || title.length < 4 || title.length > 120 || !Number.isFinite(price) || price < 0 || price > 100_000_000) {
-      await sendMessage(chatId, 'Please send the product name and price like this:\\n\\nNike sneakers | 85000')
+      await sendMessage(chatId, 'Please send the product name and price like this:\n\nNike sneakers | 85000')
       return
     }
     const category = user.profile?.category
@@ -767,7 +767,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     try {
       const listing = await publishListingForSeller({ seller: { id: user.id, country: user.country }, data: data.data, ipKey: 'telegram-' + chatId })
       await db.appSetting.deleteMany({ where: { key: draftKey } })
-      await sendMessage(chatId, 'Your product is now published on Mudaala.\\n' + title + ' · UGX ' + price.toLocaleString('en-UG') + '\\n\\nView product: https://mudaala.store/l/' + encodeURIComponent(listing.id), shopKeyboard)
+      await sendMessage(chatId, 'Your product is now published on Mudaala.\n' + title + ' · UGX ' + price.toLocaleString('en-UG') + '\n\nView product: https://mudaala.store/l/' + encodeURIComponent(listing.id), shopKeyboard)
     } catch (error) {
       await sendMessage(chatId, error instanceof ApiError ? error.message : 'I could not publish that product right now. Your photo draft is saved; please try again.')
     }
