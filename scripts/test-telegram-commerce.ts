@@ -452,8 +452,6 @@ async function run() {
   assert.equal((JSON.parse(replacementMapping!.value) as { userId: string }).userId, merchant.id, 'replacement Telegram identity maps to the merchant')
   assert.equal((await db.appSetting.findUnique({ where: { key: merchantAccountKey } }))?.value, replacementMappingKey, 'reverse account mapping points only to the active Telegram identity')
   assert.equal(await db.appSetting.findUnique({ where: { key: merchantChatKey } }), null, 'relink removes the revoked identity chat route')
-  assert.ok(await db.appSetting.findUnique({ where: { key: replacementChatKey } }), 'replacement identity chat route remains active')
-
   const revokedIdentityCommand = await postTelegramUpdate({
     update_id: updateBase + 81,
     message: { text: '/enquiries', chat: { id: merchantTelegramId, type: 'private' }, from: { id: merchantTelegramId } },
@@ -467,6 +465,7 @@ async function run() {
     message: { text: '/start', chat: { id: replacementTelegramId, type: 'private' }, from: { id: replacementTelegramId } },
   })
   assertStatus(replacementStarted.status, 200, 'replacement Telegram identity start')
+  assert.ok(await db.appSetting.findUnique({ where: { key: replacementChatKey } }), 'replacement identity chat route remains active after /start')
   assert.ok(await db.appSetting.findUnique({ where: { key: replacementChatKey } }), 'replacement /start creates a private chat route')
   const unlinked = await postTelegramUpdate({
     update_id: updateBase + 84,
