@@ -117,16 +117,6 @@ Reviewed the current Prisma User model, shared API helpers, account deletion, li
 6. Only then enable the new-seller policy in production, with the existing-merchant transition staged and measurable.
 
 
-## SMS-independent Google seller identity update
-
-The Google link and unlink flows now use a recent password-authenticated Mudaala session plus Google's server-verified OIDC identity. They do not require Africa's Talking or any SMS challenge. Existing SMS endpoints remain separate for password reset and other phone-verification use cases.
-
-- Buyers remain guests and can browse/contact sellers without Google.
-- Seller management remains protected by the centralized `requireSeller()` guard.
-- Existing merchants marked `sellerGoogleExempt` remain grandfathered.
-- New sellers must link Google before seller capabilities are granted when `SELLER_GOOGLE_REQUIRED=true`.
-- Keep the production feature flag disabled until the Google Cloud Console redirect URI is confirmed and a real production OAuth login/link test succeeds. Do not activate the gate before that check, because it would block new sellers from managing shops.
-
 ## Implementation status — Google account linking foundation
 
 The feature branch now contains an initial, additive implementation:

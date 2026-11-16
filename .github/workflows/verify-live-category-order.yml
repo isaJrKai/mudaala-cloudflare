@@ -90,7 +90,7 @@ jobs:
               const feedbackButton = page.getByRole('button', { name: 'Report a bug', exact: true });
               await feedbackButton.waitFor({ state: 'visible', timeout: 10000 });
               const feedbackBox = await feedbackButton.boundingBox();
-              const navBox = await page.getByRole('navigation', { name: 'Marketplace navigation' }).boundingBox();
+              const navBox = await page.getByRole('navigation', { name: 'Primary' }).boundingBox();
               if (!feedbackBox || !navBox || feedbackBox.y + feedbackBox.height > navBox.y) {
                 throw new Error('Mobile feedback button overlaps the primary bottom navigation');
               }
@@ -118,7 +118,7 @@ jobs:
                 throw new Error('Narrow 320px viewport has horizontal overflow: ' + JSON.stringify(narrowViewport));
               }
               const narrowFeedback = await feedbackButton.boundingBox();
-              const narrowNav = await page.getByRole('navigation', { name: 'Marketplace navigation' }).boundingBox();
+              const narrowNav = await page.getByRole('navigation', { name: 'Primary' }).boundingBox();
               const narrowInstall = await page.getByRole('button', { name: /Get app|Get the app|Install Mudaala/ }).boundingBox().catch(() => null);
               if (!narrowFeedback || !narrowNav ||
                   narrowFeedback.x < 0 || narrowFeedback.x + narrowFeedback.width > 320 ||

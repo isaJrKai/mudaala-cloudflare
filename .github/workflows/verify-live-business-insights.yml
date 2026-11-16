@@ -73,6 +73,34 @@ jobs:
               }
               registered = true;
 
+              // Prove Google seller linking no longer depends on an SMS provider.
+              // Registration creates a fresh PASSWORD session; the endpoint must
+              // return a valid Google authorization URL without issuing an OTP.
+              const googleStart = await context.request.post(base + '/api/auth/google/start', {
+                headers: { origin: base, referer: base + '/' },
+                timeout,
+              });
+              if (googleStart.status() !== 200) {
+                throw new Error('Password-authenticated Google link start failed with HTTP ' + googleStart.status());
+              }
+              const googleStartPayload = await googleStart.json().catch(() => null);
+              if (typeof googleStartPayload?.authorizationUrl !== 'string') {
+                throw new Error('Google link start did not return authorizationUrl');
+              }
+              const googleAuthorization = new URL(googleStartPayload.authorizationUrl);
+              if (
+                googleAuthorization.origin !== 'https://accounts.google.com' ||
+                googleAuthorization.pathname !== '/o/oauth2/v2/auth' ||
+                googleAuthorization.searchParams.get('redirect_uri') !== base + '/api/auth/google/callback' ||
+                googleAuthorization.searchParams.get('response_type') !== 'code' ||
+                googleAuthorization.searchParams.get('code_challenge_method') !== 'S256' ||
+                !/^[a-f0-9]{64}$/.test(googleAuthorization.searchParams.get('state') || '') ||
+                !googleAuthorization.searchParams.get('nonce') ||
+                !googleAuthorization.searchParams.get('code_challenge')
+              ) {
+                throw new Error('Google link start returned an invalid or unsafe OAuth authorization URL');
+              }
+
               const sessionPromise = page.waitForResponse((response) => {
                 return new URL(response.url()).pathname === '/api/auth/me' && response.request().method() === 'GET';
               }, { timeout });
@@ -132,6 +160,7 @@ jobs:
               }
 
               result = {
+                googleLinkInitiationWithoutSms: 'pass',
                 authenticatedDashboard: 'pass',
                 initial30DayAnalytics: 'pass',
                 sevenDaySwitch: 'pass',
