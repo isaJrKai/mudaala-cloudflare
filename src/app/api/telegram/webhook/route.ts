@@ -518,7 +518,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
           create: { key: merchantKey, value: JSON.stringify(nextSettings) },
           update: { value: JSON.stringify(nextSettings) },
         })
-      })
+      }, { isolationLevel: 'Serializable' })
     } catch (error) {
       const code = error instanceof Error ? error.message : ''
       if (code === 'TELEGRAM_ALREADY_LINKED' || (error as { code?: string })?.code === 'P2002') {
