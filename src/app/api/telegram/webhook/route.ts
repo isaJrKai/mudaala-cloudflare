@@ -622,7 +622,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
 
   if (command === '/shop') {
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
-    await sendMessage(chatId, 'Your shop is ready. Open My Shop for the full workspace, or use this chat for product publishing and enquiries.', shopKeyboard)
+    await sendMessage(chatId, 'Your shop is ready. Open My Shop for the full workspace. Use /products and /enquiries here in chat; photo-based product publishing in chat is being added.', shopKeyboard)
     return
   }
 
@@ -845,7 +845,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       take: 10,
     })
     if (!listings.length) {
-      await sendMessage(chatId, 'You have no active products yet. Send a product photo here to start creating one.', shopKeyboard)
+      await sendMessage(chatId, 'You have no active products yet. Open My Shop to add your first product. Photo-based product publishing in chat is being added.', shopKeyboard)
       return
     }
     const lines = listings.map((item) => '- ' + item.title + ' - ' + (item.price === null ? 'Ask seller' : item.currency + ' ' + item.price.toLocaleString('en-UG')) + ' (' + item.county + ')')
