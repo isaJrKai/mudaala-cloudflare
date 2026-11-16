@@ -1,16 +1,10 @@
 import { NextRequest } from 'next/server'
 import { route, jsonOk, parseBody, requireSeller, ApiError } from '@/lib/api'
-import { hit, PUBLISH_DAY_MAX, PUBLISH_WINDOW_MS } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
-import { listingCreateSchema, listingQuerySchema, normalizePhone, type CountryKey } from '@/lib/validation'
+import { listingCreateSchema, listingQuerySchema } from '@/lib/validation'
 import { db } from '@/lib/db'
-import {
-  searchListings,
-  notifySavedSearchMatches,
-  sanitizePhotos,
-  serializeListing,
-} from '@/lib/listings'
-import { LISTING_ACTIVE_DAYS, countryDef, currencyDef, findProhibitedItem } from '@/lib/constants'
+import { searchListings, serializeListing } from '@/lib/listings'
+import { publishListingForSeller } from '@/lib/listing-publisher'
 
 // Public search - filter, sort and paginate in the database, not the browser.
 export async function GET(request: NextRequest) {
@@ -40,95 +34,12 @@ export async function POST(request: Request) {
   return route(async () => {
     const user = await requireSeller('Sign in to publish a listing')
 
-    // 20 listings per user per day - a real shop restocking is welcome;
-    // catalogue-spam is not. The IP bucket rides beside it so one machine
-    // juggling many accounts cannot multiply the budget ( getClientIp is
-    // the edge-stamped address; a spoofed x-forwarded-for opens nothing).
-    const ip = getClientIp(request)
-    const ipVerdict = await hit(`publish:ip:${ip}`, PUBLISH_DAY_MAX, PUBLISH_WINDOW_MS)
-    if (!ipVerdict.ok) {
-      throw new ApiError(429, 'You have published a lot today - please continue tomorrow')
-    }
-    const verdict = await hit(`publish:user:${user.id}`, PUBLISH_DAY_MAX, PUBLISH_WINDOW_MS)
-    if (!verdict.ok) {
-      throw new ApiError(429, 'You have published a lot today - please continue tomorrow')
-    }
-
     const data = await parseBody(request, listingCreateSchema)
-
-    // Prohibited items: check the words a seller chose BEFORE anything is
-    // written. The list lives in constants.ts and is meant to be edited;
-    // the rejection says plainly what is not allowed and why.
-    const banned = findProhibitedItem(data.title, data.description ?? '')
-    if (banned) {
-      throw new ApiError(400, banned.message, {
-        title: 'This listing cannot be published - ' + banned.label.toLowerCase(),
-      })
-    }
-
-    // Country comes from the account (the client may also send it); currency
-    // defaults to that country's currency unless the listing picks one.
-    const country = (data.country ?? user.country ?? 'UG') as CountryKey
-    const currency = data.currency ?? currencyDef(country).key
-    const contactPhone = normalizePhone(data.contactPhone, country)
-    if (!contactPhone) {
-      throw new ApiError(400, 'Enter a valid phone number for the selected country', {
-        contactPhone: 'Invalid phone number for the selected country',
-      })
-    }
-    const contactWhatsapp = data.contactWhatsapp ? normalizePhone(data.contactWhatsapp, country) : null
-    if (data.contactWhatsapp && !contactWhatsapp) {
-      throw new ApiError(400, 'Enter a valid WhatsApp number for the selected country', {
-        contactWhatsapp: 'Invalid WhatsApp number for the selected country',
-      })
-    }
-    // The location must belong to the listing's country.
-    const def = countryDef(country)
-    if (!def.locations.includes(data.county)) {
-      throw new ApiError(400, `Choose a district or region in ${def.name}`, {
-        county: `Choose a district or region in ${def.name}`,
-      })
-    }
-
-    const now = new Date()
-    const photos = sanitizePhotos(data.photos)
-    const listing = await db.listing.create({
-      data: {
-        userId: user.id,
-        type: data.type,
-        title: data.title,
-        description: data.description,
-        category: data.category,
-        price: data.price,
-        compareAtPrice: data.compareAtPrice ?? null,
-        currency,
-        priceNegotiable: data.priceNegotiable,
-        unit: data.unit,
-        quantity: data.quantity,
-        county: data.county,
-        country,
-        area: data.area,
-        contactPhone,
-        contactWhatsapp,
-        photos: JSON.stringify(photos),
-        status: 'ACTIVE',
-        publishedAt: now,
-        refreshedAt: now,
-        expiresAt: new Date(now.getTime() + LISTING_ACTIVE_DAYS * 24 * 60 * 60 * 1000),
-      },
+    const listing = await publishListingForSeller({
+      seller: user,
+      data,
+      ipKey: getClientIp(request),
     })
-
-    // Record merchant-side creation and photo upload separately from buyer analytics.
-    const growthEvents = [{ userId: user.id, eventType: 'PRODUCT_CREATED', entityId: listing.id, idempotencyKey: `product-created:${listing.id}` }]
-    if (photos.length > 0) growthEvents.push({ userId: user.id, eventType: 'PRODUCT_PHOTO_ADDED', entityId: listing.id, idempotencyKey: `product-photo-added:${listing.id}` })
-    await db.merchantGrowthEvent.createMany({ data: growthEvents, skipDuplicates: true }).catch((err) =>
-      console.error('[growth-coach] product event recording failed:', err),
-    )
-
-    // Real saved-search notifications (never fake counts).
-    await notifySavedSearchMatches(listing).catch((err) =>
-      console.error('[listings] saved-search match failed:', err),
-    )
 
     return jsonOk({ listing: serializeListing(listing) }, 201)
   })
