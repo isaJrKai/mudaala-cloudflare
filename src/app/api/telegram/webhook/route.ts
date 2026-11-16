@@ -108,9 +108,8 @@ async function setShopMenuButton(chatId: number): Promise<void> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       chat_id: chatId,
-      // Keep merchant controls inside the ordinary Telegram chat.
-      // The bot does not expose a Telegram Mini App entry point.
-      menu_button: { type: 'commands' },
+      // Keep the existing merchant Mini App available from Telegram's menu.
+      menu_button: { type: 'web_app', text: 'My Shop', web_app: { url: 'https://mudaala.store/telegram' } },
     }),
     signal: AbortSignal.timeout(8000),
   })
@@ -179,6 +178,7 @@ async function cleanupTelegramRecords(): Promise<void> {
 
 const shopKeyboard = {
   keyboard: [
+    [{ text: 'Open My Shop', web_app: { url: 'https://mudaala.store/telegram' } }],
     [{ text: '/products' }, { text: '/publicshop' }],
     [{ text: '/enquiries' }, { text: '/help' }],
   ],
@@ -565,7 +565,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       }
       throw error
     }
-    await sendMessage(chatId, 'Connected successfully to ' + (user.profile?.businessName || user.name) + '.\n\nYour shop is connected. You can manage it here in Telegram.', shopKeyboard)
+    await sendMessage(chatId, 'Connected successfully to ' + (user.profile?.businessName || user.name) + '.\n\nYour shop is connected. Open My Shop for the full workspace, or use this chat to manage products and enquiries.', shopKeyboard)
     return
   }
 
@@ -622,7 +622,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
 
   if (command === '/shop') {
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
-    await sendMessage(chatId, 'Your merchant controls are available here in Telegram. Use /products to view your catalogue and /enquiries to manage shopper messages. Chat-based product publishing is not enabled yet.', shopKeyboard)
+    await sendMessage(chatId, 'Your shop is ready. Open My Shop for the full workspace, or use this chat for product publishing and enquiries.', shopKeyboard)
     return
   }
 
@@ -845,7 +845,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       take: 10,
     })
     if (!listings.length) {
-      await sendMessage(chatId, 'You have no active products yet. Chat-based product publishing is not enabled yet.', shopKeyboard)
+      await sendMessage(chatId, 'You have no active products yet. Send a product photo here to start creating one.', shopKeyboard)
       return
     }
     const lines = listings.map((item) => '- ' + item.title + ' - ' + (item.price === null ? 'Ask seller' : item.currency + ' ' + item.price.toLocaleString('en-UG')) + ' (' + item.county + ')')
