@@ -689,13 +689,34 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
 
   if (command === '/shop') {
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
-    await sendMessage(chatId, 'Your shop is ready. Open My Shop for the full workspace. Use /products and /enquiries here in chat; photo-based product publishing in chat is being added.', shopKeyboard)
+    await sendMessage(chatId, 'Your shop is ready. Open My Shop for the full workspace. Use /products and /enquiries here in chat, or send a product photo followed by its name and price.', shopKeyboard)
     return
   }
 
   const mapping = await db.appSetting.findUnique({ where: { key: telegramKey(telegramUserId) } })
   if (!mapping || await linkedMudaalaUserId(telegramUserId) === null) {
-    const draftKey = 'telegram:product-draft:' + createHash('sha256').update(String(telegramUserId)).digest('hex')
+    await sendMessage(chatId, 'Connect your Mudaala account first with /link CODE. You can generate a code in Mudaala Account.')
+    return
+  }
+
+  let linked: { userId?: unknown }
+  try { linked = JSON.parse(mapping.value) as typeof linked } catch { linked = {} }
+  if (typeof linked.userId !== 'string') {
+    await sendMessage(chatId, 'Your link needs to be refreshed. Generate a new code from Mudaala Account and link again.')
+    return
+  }
+
+  const user = await db.user.findUnique({
+    where: { id: linked.userId },
+    select: { id: true, name: true, country: true, profile: { select: { businessName: true, shopCode: true, category: true, county: true, area: true, description: true, phone: true, whatsapp: true } } },
+  })
+  if (!user) {
+    await db.appSetting.deleteMany({ where: { key: telegramKey(telegramUserId) } })
+    await sendMessage(chatId, 'The linked Mudaala account no longer exists. Link your account again.')
+    return
+  }
+
+  const draftKey = 'telegram:product-draft:' + createHash('sha256').update(String(telegramUserId)).digest('hex')
   const pendingDraft = await db.appSetting.findUnique({ where: { key: draftKey } })
   if (pendingDraft && !command.startsWith('/')) {
     let draft: { userId?: unknown; photoUrl?: unknown; createdAt?: unknown } = {}
@@ -709,10 +730,10 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     }
     const partsForListing = text.split('|').map((part) => part.trim())
     const rawPrice = (partsForListing[1] || '').replace(/,/g, '')
-    const price = /^\d+(?:\.\d{1,2})?$/.test(rawPrice) ? Number(rawPrice) : NaN
+    const price = /^\\d+(?:\\.\\d{1,2})?$/.test(rawPrice) ? Number(rawPrice) : NaN
     const title = partsForListing[0] || ''
     if (partsForListing.length !== 2 || title.length < 4 || title.length > 120 || !Number.isFinite(price) || price < 0 || price > 100_000_000) {
-      await sendMessage(chatId, 'Please send the product name and price like this:\n\nNike sneakers | 85000')
+      await sendMessage(chatId, 'Please send the product name and price like this:\\n\\nNike sneakers | 85000')
       return
     }
     const category = user.profile?.category
@@ -746,86 +767,10 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     try {
       const listing = await publishListingForSeller({ seller: { id: user.id, country: user.country }, data: data.data, ipKey: 'telegram-' + chatId })
       await db.appSetting.deleteMany({ where: { key: draftKey } })
-      await sendMessage(chatId, 'Your product is now published on Mudaala.\n' + title + ' · UGX ' + price.toLocaleString('en-UG') + '\n\nView product: https://mudaala.store/l/' + encodeURIComponent(listing.id), shopKeyboard)
+      await sendMessage(chatId, 'Your product is now published on Mudaala.\\n' + title + ' · UGX ' + price.toLocaleString('en-UG') + '\\n\\nView product: https://mudaala.store/l/' + encodeURIComponent(listing.id), shopKeyboard)
     } catch (error) {
       await sendMessage(chatId, error instanceof ApiError ? error.message : 'I could not publish that product right now. Your photo draft is saved; please try again.')
     }
-    return
-  }
-
-  if (command === '/messages') {
-      const buyerHash = buyerIdentityHash(telegramUserId)
-      const enquiries = await db.enquiry.findMany({
-        where: { buyerTelegramHash: buyerHash, status: 'OPEN' },
-        include: { listing: { select: { title: true } }, messages: { orderBy: { createdAt: 'desc' }, take: 1 } },
-        orderBy: { lastMessageAt: 'desc' },
-        take: 10,
-      })
-      if (!enquiries.length) {
-        await sendMessage(chatId, 'You have no open Mudaala enquiries yet.')
-        return
-      }
-      const lines = enquiries.map((item) => item.listing.title + '\n' + 'Latest: ' + (item.messages[0]?.body || 'Enquiry created') + '\n' + '/respond ' + item.id + ' your message')
-      await sendMessage(chatId, 'Your recent Mudaala enquiries:\n\n' + lines.join('\n\n'))
-      return
-    }
-    if (command === '/respond') {
-      const enquiryId = parts[1] || ''
-      const replyText = parts.slice(2).join(' ').trim().slice(0, 1200)
-      if (!enquiryId || !replyText) {
-        await sendMessage(chatId, 'Use /respond ENQUIRY_ID your message')
-        return
-      }
-      const buyerHash = buyerIdentityHash(telegramUserId)
-      const enquiry = await db.enquiry.findFirst({
-        where: { id: enquiryId, status: 'OPEN', buyerTelegramHash: buyerHash },
-        select: { id: true, merchantId: true, listing: { select: { title: true } } },
-      })
-      if (!enquiry) {
-        await sendMessage(chatId, 'That open enquiry was not found for your Telegram account.')
-        return
-      }
-      const created = await db.enquiryMessage.create({
-        data: { enquiryId, senderType: 'SHOPPER', body: replyText, deliveryStatus: 'PENDING' },
-      })
-      await db.enquiry.update({ where: { id: enquiryId }, data: { lastMessageAt: created.createdAt } })
-      const setting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + enquiry.merchantId } })
-      let merchantChatId: number | null = null
-      if (setting) {
-        try {
-          const merchant = JSON.parse(setting.value) as { activatedAt?: unknown; chatId?: unknown }
-          if (typeof merchant.activatedAt === 'string' && Number.isSafeInteger(merchant.chatId)) merchantChatId = merchant.chatId as number
-        } catch { /* no active merchant Telegram destination */ }
-      }
-      let delivered = false
-      if (merchantChatId !== null) {
-        try {
-          await sendMessage(merchantChatId, 'Mudaala enquiry · ' + enquiry.listing.title + '\nReference: ' + enquiry.id + '\n\n' + replyText)
-          delivered = true
-        } catch { delivered = false }
-      }
-      await db.enquiryMessage.update({ where: { id: created.id }, data: { deliveryStatus: delivered ? 'SENT' : 'FAILED' } })
-      await sendMessage(chatId, delivered ? 'Your reply was sent to the seller.' : 'Your reply was saved, but Telegram could not deliver it.')
-      return
-    }
-    const answer = await replyToTelegramMerchant({ telegramUserId, text })
-    await sendMessage(chatId, answer, shopKeyboard)
-    return
-  }
-  let linked: { userId?: unknown }
-  try { linked = JSON.parse(mapping.value) as typeof linked } catch { linked = {} }
-  if (typeof linked.userId !== 'string') {
-    await sendMessage(chatId, 'Your link needs to be refreshed. Generate a new code from Mudaala Account and link again.')
-    return
-  }
-
-  const user = await db.user.findUnique({
-    where: { id: linked.userId },
-    select: { id: true, name: true, country: true, profile: { select: { businessName: true, shopCode: true, category: true, county: true, area: true, description: true, phone: true, whatsapp: true } } },
-  })
-  if (!user) {
-    await db.appSetting.deleteMany({ where: { key: telegramKey(telegramUserId) } })
-    await sendMessage(chatId, 'The linked Mudaala account no longer exists. Link your account again.')
     return
   }
 
