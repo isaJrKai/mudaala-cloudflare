@@ -68,6 +68,12 @@ export async function DELETE(request: Request) {
         throw new ApiError(409, 'That phone verification has already been used. Verify your phone again')
       }
       await tx.googleIdentity.delete({ where: { id: identity.id } })
+      // A successful unlink must also revoke sessions that were established
+      // through this Google identity. The current password-authenticated
+      // session is intentionally preserved.
+      await tx.session.deleteMany({
+        where: { userId: user.id, authMethod: 'GOOGLE' },
+      })
       await tx.auditLog.create({
         data: {
           actorId: user.id,
