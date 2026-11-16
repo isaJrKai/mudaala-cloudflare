@@ -10,7 +10,7 @@
  */
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
 import { PrismaClient } from '@prisma/client'
 
@@ -279,7 +279,7 @@ async function run() {
     },
   })
   assertStatus(confirmed.status, 200, 'buyer enquiry confirmation callback')
-  const buyerHash = createHash('sha256').update(String(buyerTelegramId)).digest('hex')
+  const buyerHash = createHmac('sha256', process.env.SETTINGS_ENCRYPTION_KEY || process.env.SETTINGS_ENC_KEY || '').update('mudaala:telegram-buyer:v1:').update(String(buyerTelegramId)).digest('hex')
   const enquiry = await db.enquiry.findFirst({
     where: { listingId: merchantListing.id, shopperId: shopper.id, buyerTelegramHash: buyerHash },
     include: { messages: true },
