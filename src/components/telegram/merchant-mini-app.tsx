@@ -68,9 +68,9 @@ function go(path: string) {
 }
 
 function Metric({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
-  return <div className="rounded-2xl border border-[#e1e6dd] bg-white p-4">
+  return <div className="group rounded-[22px] border border-[#e1e5d9] bg-[#fbfaf5] p-4 transition-[transform,border-color,background-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-[#cbd8c9] motion-reduce:transition-none motion-reduce:hover:transform-none">
     <p className="text-xs font-medium text-[#718276]">{label}</p>
-    <p className="mt-2 text-2xl font-semibold tabular-nums text-[#183b2d]">{value}</p>
+    <p className="mt-2 font-serif text-[2rem] leading-none font-semibold tracking-tight tabular-nums text-[#183b2d]">{value}</p>
     {detail ? <p className="mt-1 text-[11px] leading-4 text-[#718276]">{detail}</p> : null}
   </div>
 }
@@ -339,20 +339,19 @@ export function TelegramMerchantMiniApp() {
           setLoading(false)
         }}
       /> : null}
-      <main className="min-h-dvh bg-[#f5f5ef] px-4 pb-28 pt-[max(18px,env(safe-area-inset-top))] text-[#183b2d]">
-        <div className="mx-auto max-w-xl space-y-5">
+      <main className="relative isolate min-h-dvh overflow-x-clip bg-[#f3f1e8] px-4 pb-28 pt-[max(18px,env(safe-area-inset-top))] text-[#183b2d]">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-16 top-24 z-0 size-64 rotate-12 opacity-[0.07]"><Image src="/logo.svg" alt="" width={256} height={256} /></div>
+        <div className="relative z-10 mx-auto max-w-xl space-y-6">
           <header className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#10100f] bg-[#10100f]" style={{ backgroundImage: "url(/mudaala-african-textile.svg)", backgroundSize: 'cover', backgroundPosition: 'center' }}>
-                <span className="flex size-8 items-center justify-center rounded-full bg-[#f5f0e4]"><Image src="/logo.svg" alt="Mudaala" width={23} height={23} priority /></span>
-              </span>
-              <div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#718276]">MUDAALA</p><p className="text-sm font-semibold">Merchant shop</p></div>
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-[18px] border border-[#d7e1d2] bg-[#e9efe3] shadow-[inset_0_1px_0_rgba(255,255,255,.8)]"><Image src="/logo.svg" alt="Mudaala leaf" width={29} height={29} priority /></span>
+              <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#718276]">MUDAALA</p><p className="text-[15px] font-semibold tracking-tight">Merchant space</p></div>
             </div>
-            {!loading && !onboarding && !error ? <button type="button" onClick={() => void loadShop()} disabled={refreshing} aria-label="Refresh shop" className="flex size-10 items-center justify-center rounded-full border border-[#dce3d9] bg-white text-[#315b46] disabled:opacity-50"><RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} /></button> : null}
+            {!loading && !onboarding && !error ? <button type="button" onClick={() => void loadShop()} disabled={refreshing} aria-label="Refresh shop" className="press flex size-10 items-center justify-center rounded-full border border-[#dce3d9] bg-[#fbfaf5] text-[#315b46] transition-colors duration-200 hover:bg-white disabled:opacity-50"><RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} /></button> : null}
           </header>
 
           {loading ? <section className="space-y-3 rounded-[26px] border border-[#e1e6dd] bg-white p-5" aria-busy="true"><div className="h-3 w-24 animate-pulse rounded bg-[#e9eee6]" /><div className="h-7 w-48 animate-pulse rounded bg-[#e9eee6]" /><div className="grid grid-cols-2 gap-3 pt-2"><div className="h-24 animate-pulse rounded-2xl bg-[#f1f4ee]" /><div className="h-24 animate-pulse rounded-2xl bg-[#f1f4ee]" /></div></section> : onboarding ? (
-            <section className="rounded-[26px] border border-[#e1e6dd] bg-white p-5">
+            <section className="rounded-[28px] border border-[#e0e4d8] bg-[#fbfaf5] p-6 shadow-[0_16px_40px_-32px_rgba(30,59,43,.35)]">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#8b7440]">Start selling with Mudaala</p>
               <h1 className="mt-2 text-2xl font-semibold tracking-tight">{authMode === 'register' ? 'Create your merchant account' : 'Sign in to Mudaala'}</h1>
               <p className="mt-2 text-sm leading-6 text-[#65766a]">{authMode === 'register' ? 'Set up your Mudaala account here in Telegram. You will create your shop next, using the same Mudaala account and catalogue.' : 'Sign in with your existing Mudaala phone number and password. We will connect this Telegram account to your shop.'}</p>
@@ -380,12 +379,13 @@ export function TelegramMerchantMiniApp() {
             </section>
           ) : (
             <>
-              <section className="overflow-hidden rounded-[26px] bg-[#164b37] p-5 text-white">
-                <div className="flex items-start justify-between gap-3">
-                  <div><p className="text-xs font-medium text-white/65">Your Mudaala shop</p><h1 className="mt-1 text-[26px] font-semibold tracking-tight">{shopName}</h1><p className="mt-1 text-xs text-white/65">{[profile?.area, profile?.county].filter(Boolean).join(', ') || 'Add your shop location'}</p></div>
-                  <span className="rounded-full border border-white/20 px-3 py-1 text-[10px] font-semibold tracking-wide text-[#f5d17b]">MERCHANT</span>
+              <section className="relative isolate overflow-hidden rounded-[30px] border border-[#285b43] bg-[#164b37] p-6 text-white shadow-[0_18px_42px_-30px_rgba(22,75,55,.75)]">
+                <div aria-hidden="true" className="pointer-events-none absolute -right-5 -top-8 -z-0 rotate-12 opacity-[0.13]"><Image src="/logo.svg" alt="" width={156} height={156} /></div>
+                <div className="relative z-10 flex items-start justify-between gap-3">
+                  <div><p className="text-[11px] font-medium tracking-wide text-[#d9e6d7]/75">Good to see you</p><h1 className="mt-2 max-w-[17rem] font-serif text-[30px] font-semibold leading-[1.05] tracking-tight text-[#fffaf0]">{shopName}</h1><p className="mt-2 text-xs text-white/65">{[profile?.area, profile?.county].filter(Boolean).join(', ') || 'Add your shop location'}</p></div>
+                  <span className="mt-1 flex size-9 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10"><Image src="/logo.svg" alt="" width={21} height={21} className="brightness-0 invert" /></span>
                 </div>
-                <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/15 pt-4">
+                <div className="relative z-10 mt-6 flex items-center justify-between gap-3 border-t border-white/15 pt-4">
                   <div><p className="text-[10px] uppercase tracking-[0.15em] text-white/60">MU-CODE</p><p className="mt-1 text-lg font-semibold tracking-[0.12em]">{profile?.shopCode || 'Set up your shop'}</p></div>
                   <button type="button" onClick={() => go('/#/account')} className="inline-flex h-10 items-center gap-2 rounded-full bg-[#f4c45d] px-4 text-xs font-bold text-[#263e2f]">Shop details <ArrowUpRight className="size-4" /></button>
                 </div>
@@ -401,7 +401,7 @@ export function TelegramMerchantMiniApp() {
                 <section className="rounded-2xl border border-[#e1e6dd] bg-white p-4">
                   <div className="flex items-center justify-between gap-3"><div><h2 className="text-sm font-semibold">Run your shop</h2><p className="mt-1 text-xs text-[#718276]">The everyday tools for your business</p></div><Store className="size-5 text-[#718276]" /></div>
                   <div className="mt-4 grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => go('/#/publish')} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#164b37] px-3 text-xs font-semibold text-white"><Plus className="size-4" /> Add product</button>
+                    <button type="button" onClick={() => go('/#/publish')} className="press flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#e7b64c] bg-[#f3b51b] px-3 text-xs font-bold text-[#173d2e] transition-[transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-[#e9aa0c] active:scale-[.98] motion-reduce:transition-none"><Plus className="size-4" /> Add product</button>
                     <button type="button" onClick={() => setTab('products')} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#edf2eb] px-3 text-xs font-semibold text-[#244b37]">Manage products <ChevronRight className="size-4" /></button>
                     <button type="button" onClick={() => setTab('insights')} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#edf2eb] px-3 text-xs font-semibold text-[#244b37]">Shop insights <ChevronRight className="size-4" /></button>
                     <button type="button" onClick={() => setTab('shop')} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#edf2eb] px-3 text-xs font-semibold text-[#244b37]">Shop details <ChevronRight className="size-4" /></button>
@@ -432,12 +432,12 @@ export function TelegramMerchantMiniApp() {
             </>
           )}
         </div>
-        {!loading && !onboarding && !error ? <nav aria-label="Merchant navigation" className="fixed inset-x-0 bottom-0 z-20 border-t border-[#dce3d9] bg-[#fbfcf8]/95 px-3 pb-[max(10px,env(safe-area-inset-bottom))] pt-2 backdrop-blur-sm"><div className="mx-auto grid max-w-xl grid-cols-4 gap-1">{([
+        {!loading && !onboarding && !error ? <nav aria-label="Merchant navigation" className="fixed inset-x-0 bottom-0 z-20 px-4 pb-[max(10px,env(safe-area-inset-bottom))] pt-2"><div className="mx-auto grid max-w-xl grid-cols-4 gap-1.5 rounded-[24px] border border-[#dce2d6] bg-[#fbfaf5] p-1.5 shadow-[0_12px_34px_-22px_rgba(24,59,45,.45)]">{([
           { id: 'home', label: 'Home', icon: Home },
           { id: 'products', label: 'Products', icon: Tag },
           { id: 'insights', label: 'Insights', icon: Eye },
           { id: 'shop', label: 'My shop', icon: Store },
-        ] as const).map((item) => { const Icon = item.icon; const selected = tab === item.id; return <button key={item.id} type="button" aria-current={selected ? 'page' : undefined} onClick={() => setTab(item.id)} className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold ${selected ? 'bg-[#eaf0e8] text-[#164b37]' : 'text-[#718276]'}`}><Icon className="size-[18px]" />{item.label}</button> })}</div></nav> : null}
+        ] as const).map((item) => { const Icon = item.icon; const selected = tab === item.id; return <button key={item.id} type="button" aria-current={selected ? 'page' : undefined} onClick={() => setTab(item.id)} className={`press flex min-h-14 flex-col items-center justify-center gap-1 rounded-[18px] text-[10px] font-semibold transition-[transform,background-color,color] duration-200 ease-out active:scale-[.96] motion-reduce:transition-none ${selected ? 'bg-[#e9efe3] text-[#164b37]' : 'text-[#718276] hover:bg-[#f0f1e9]'}`}><Icon className="size-[18px]" />{item.label}</button> })}</div></nav> : null}
       </main>
     </>
   )
