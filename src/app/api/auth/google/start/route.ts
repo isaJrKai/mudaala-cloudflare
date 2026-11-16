@@ -3,7 +3,6 @@ import { getCurrentSessionToken } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
-import { hashPhoneForVerification } from '@/lib/sms'
 import { secureRandomToken, sha256Hex, pkceChallenge, parseGoogleRedirectUri } from '@/lib/google-oidc'
 
 const STATE_TTL_MS = 5 * 60 * 1000
@@ -57,50 +56,23 @@ export async function POST(request: Request) {
     })
     if (existing) throw new ApiError(409, 'A Google account is already linked to this Mudaala account')
 
-    const phoneProof = await db.phoneVerificationChallenge.findFirst({
-      where: {
-        userId: user.id,
-        phoneHash: hashPhoneForVerification(user.phone),
-        proofConsumedAt: null,
-        verifiedAt: { gte: new Date(now.getTime() - RECENT_AUTH_MS) },
-        usedAt: { not: null },
-      },
-      orderBy: { verifiedAt: 'desc' },
-      select: { id: true },
-    })
-    if (!phoneProof) {
-      throw new ApiError(403, 'Verify control of your registered phone by SMS before linking Google')
-    }
+    // A fresh password-authenticated Mudaala session proves control of the
+    // existing account. Google then independently proves control of the external
+    // identity. SMS is deliberately not a prerequisite for seller identity linking.
     const state = secureRandomToken()
     const nonce = secureRandomToken()
     const codeVerifier = secureRandomToken()
     const stateHash = await sha256Hex(state)
     const nonceHash = await sha256Hex(nonce)
-    // Consume the phone proof and create the one-use OAuth state atomically.
-    // A database failure cannot burn the proof without creating a usable flow.
-    await db.$transaction(async (tx) => {
-      const proofConsumed = await tx.phoneVerificationChallenge.updateMany({
-        where: {
-          id: phoneProof.id,
-          userId: user.id,
-          phoneHash: hashPhoneForVerification(user.phone),
-          proofConsumedAt: null,
-          verifiedAt: { gte: new Date(now.getTime() - RECENT_AUTH_MS) },
-        },
-        data: { proofConsumedAt: now },
-      })
-      if (proofConsumed.count !== 1) {
-        throw new ApiError(409, 'That phone verification has already been used. Verify your phone again')
-      }
-      await tx.googleOAuthState.deleteMany({ where: { expiresAt: { lt: now } } })
-      await tx.googleOAuthState.create({
-        data: {
-          userId: user.id,
-          stateHash,
-          nonceHash,
-          expiresAt: new Date(now.getTime() + STATE_TTL_MS),
-        },
-      })
+    await db.googleOAuthState.deleteMany({ where: { expiresAt: { lt: now } } })
+    await db.googleOAuthState.create({
+      data: {
+        userId: user.id,
+        purpose: 'LINK',
+        stateHash,
+        nonceHash,
+        expiresAt: new Date(now.getTime() + STATE_TTL_MS),
+      },
     })
 
     const authorization = new URL('https://accounts.google.com/o/oauth2/v2/auth')
