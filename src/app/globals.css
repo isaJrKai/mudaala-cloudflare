@@ -515,7 +515,7 @@ svg.mango-stroke { stroke: currentColor; }
 .mango-focus:focus-visible { outline: 3px solid var(--mango-strong); outline-offset: 3px; }
 @media (max-width: 640px) {
   .mudaala-page--home { --orbit-size: 17rem; --orbit-top: -7rem; --orbit-right: -12rem; --orbit-weight: 1.8rem; }
-  .mudaala-page--browse { --orbit-size: 10rem; --orbit-top: 4rem; --orbit-right: -8rem; --orbit-weight: 1rem; }
+  .mudaala-page--browse { --orbit-size: 9rem; --orbit-top: 3rem; --orbit-right: -6.5rem; --orbit-weight: .9rem; }
   .mudaala-page--listing, .mudaala-page--shop { --orbit-size: 10rem; --orbit-top: 2rem; --orbit-right: -8rem; --orbit-weight: 1rem; }
   .mudaala-page--publish, .mudaala-page--edit, .mudaala-page--my-listings,
   .mudaala-page--account, .mudaala-page--following,
@@ -575,7 +575,15 @@ svg.mango-stroke { stroke: currentColor; }
   main {
     min-width: 0;
     max-width: 100%;
+    padding-bottom: calc(8rem + env(safe-area-inset-bottom));
   }
+
+  .browse-filter-scroller {
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .browse-filter-scroller::-webkit-scrollbar { display: none; }
 
   .mudaala-page {
     min-width: 0;
