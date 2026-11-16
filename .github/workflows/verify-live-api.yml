@@ -314,7 +314,7 @@ jobs:
               await tapMobile(cartSheet.getByRole('button', { name: 'Close the cart' }));
               await cartSheet.waitFor({ state: 'hidden', timeout: 10000 });
 
-              const primary = page.getByRole('navigation', { name: 'Primary' });
+              const primary = page.getByRole('navigation', { name: 'Marketplace navigation' });
               const post = primary.getByRole('button', { name: 'Post' });
               await post.waitFor({ state: 'visible', timeout: 20000 });
               await tapMobile(post);
