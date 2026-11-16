@@ -1,4 +1,4 @@
-import { route, jsonOk, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, requireSeller, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { ugandaCalendarDay } from '@/lib/listing-analytics'
 
@@ -13,7 +13,7 @@ type SalesAggregate = {
 
 export async function GET(request: Request) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const url = new URL(request.url)
     const period = url.searchParams.get('period') ?? '30d'
     const days = period === '7d' ? 7 : period === '30d' ? 30 : period === '90d' ? 90 : null
