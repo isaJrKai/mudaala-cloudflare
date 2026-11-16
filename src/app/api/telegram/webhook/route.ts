@@ -622,7 +622,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
 
   if (command === '/shop') {
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
-    await sendMessage(chatId, 'Your merchant controls are here in Telegram. Send a product photo to start adding a product, or use /products to view your catalogue.', shopKeyboard)
+    await sendMessage(chatId, 'Your merchant controls are available here in Telegram. Use /products to view your catalogue and /enquiries to manage shopper messages. Chat-based product publishing is not enabled yet.', shopKeyboard)
     return
   }
 
@@ -845,11 +845,11 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       take: 10,
     })
     if (!listings.length) {
-      await sendMessage(chatId, 'You have no active products yet. Send a product photo with its price to start creating your first listing.', shopKeyboard)
+      await sendMessage(chatId, 'You have no active products yet. Chat-based product publishing is not enabled yet.', shopKeyboard)
       return
     }
     const lines = listings.map((item) => '- ' + item.title + ' - ' + (item.price === null ? 'Ask seller' : item.currency + ' ' + item.price.toLocaleString('en-UG')) + ' (' + item.county + ')')
-    await sendMessage(chatId, 'Your latest active products:\n\n' + lines.join('\n') + '\n\nSend a product photo with its price to add another listing.', shopKeyboard)
+    await sendMessage(chatId, 'Your latest active products:\n\n' + lines.join('\n') + '\n\nUse your Mudaala account to add another listing.', shopKeyboard)
     return
   }
   const answer = await replyToTelegramMerchant({
