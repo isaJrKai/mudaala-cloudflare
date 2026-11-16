@@ -56,7 +56,7 @@ function CommerceFrame() {
       <RailShell workspace={workspace}>
         <main
           className={[
-            'mx-auto w-full flex-1 px-4 pb-28 pt-5 sm:px-6 sm:pt-7 lg:px-8 lg:pb-10',
+            'mx-auto w-full flex-1 px-4 pb-32 pt-5 sm:px-6 sm:pt-7 lg:px-8 lg:pb-10',
             workspace ? 'max-w-6xl' : 'max-w-7xl',
           ].join(' ')}
         >
