@@ -51,6 +51,10 @@ function telegramChatKey(telegramUserId: number): string {
   return 'telegram:chat:' + digest
 }
 
+function telegramBuyerChatKey(telegramUserId: number): string {
+  return 'telegram:buyer-chat:' + buyerIdentityHash(telegramUserId)
+}
+
 async function linkedMudaalaUserId(telegramUserId: number): Promise<string | null> {
   const mappingKey = telegramKey(telegramUserId)
   const mapping = await db.appSetting.findUnique({ where: { key: mappingKey } })
@@ -427,6 +431,11 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
         create: { key: 'telegram:chat:' + identityHash, value: String(chatId) },
         update: { value: String(chatId) },
       })
+      await db.appSetting.upsert({
+        where: { key: telegramBuyerChatKey(telegramUserId) },
+        create: { key: telegramBuyerChatKey(telegramUserId), value: String(chatId) },
+        update: { value: String(chatId) },
+      })
       if (parts[1]) {
         await startListingEnquiry(chatId, telegramUserId, parts[1])
         return
@@ -573,7 +582,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       if (reverse?.value === mappingKey) {
         await tx.appSetting.delete({ where: { key: reverseKey } })
       }
-      await tx.appSetting.deleteMany({ where: { key: { in: [mappingKey, telegramChatKey(telegramUserId)] } } })
+      await tx.appSetting.deleteMany({ where: { key: { in: [mappingKey, telegramChatKey(telegramUserId), telegramBuyerChatKey(telegramUserId)] } } })
       const merchantKey = 'telegram:merchant:' + linkedUserId
       const merchantRecord = await tx.appSetting.findUnique({ where: { key: merchantKey } })
       if (merchantRecord) {
@@ -762,7 +771,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     await db.enquiry.update({ where: { id: enquiry.id }, data: { lastMessageAt: created.createdAt } })
     let destination: number | null = null
     if (isMerchant && enquiry.buyerTelegramHash) {
-      const buyerChat = await db.appSetting.findUnique({ where: { key: 'telegram:chat:' + enquiry.buyerTelegramHash } })
+      const buyerChat = await db.appSetting.findUnique({ where: { key: 'telegram:buyer-chat:' + enquiry.buyerTelegramHash } })
       const value = buyerChat?.value ? Number(buyerChat.value) : NaN
       if (Number.isSafeInteger(value)) destination = value
     } else if (!isMerchant) {
