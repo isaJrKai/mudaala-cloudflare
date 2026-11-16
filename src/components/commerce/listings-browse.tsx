@@ -332,7 +332,7 @@ export function ListingsBrowse() {
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
             type="search"
-            placeholder="Search products, shops or enter a MU-CODE"
+            placeholder="Search products, shops or MU-CODE"
             className="h-11 min-w-0 pl-9 text-sm"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
@@ -367,7 +367,7 @@ export function ListingsBrowse() {
       ) : null}
 
       {/* Active filter chips + sort */}
-      <div className="flex items-center gap-2 overflow-x-auto scrollbar-slim pb-0.5">
+      <div className="browse-filter-scroller flex min-w-0 max-w-full items-center gap-2 overflow-x-auto pb-0.5">
         <Select value={filters.sort} onValueChange={(v) => setFilters({ sort: v as typeof filters.sort })}>
           <SelectTrigger size="sm" className="shrink-0 border-dashed text-muted-foreground" aria-label={copy.browse.sortLabel}>
             <SelectValue />
@@ -1197,8 +1197,8 @@ function SaveSearchButton() {
 
   return (
     <>
-      <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={openDialog}>
-        <Bookmark className="size-3.5" aria-hidden /> {copy.browse.saveSearch}
+      <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={openDialog} aria-label={copy.browse.saveSearch}>
+        <Bookmark className="size-3.5" aria-hidden /> <span className="hidden sm:inline">{copy.browse.saveSearch}</span>
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-sm">
