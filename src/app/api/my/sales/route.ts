@@ -1,4 +1,4 @@
-import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, parseBody, requireSeller, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { saleCreateSchema } from '@/lib/business-records'
 
@@ -31,7 +31,7 @@ function serializeSale(sale: {
 
 export async function GET(request: Request) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const url = new URL(request.url)
     const takeRaw = Number(url.searchParams.get('limit') || 50)
     const take = Number.isInteger(takeRaw) ? Math.min(100, Math.max(1, takeRaw)) : 50
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const data = await parseBody(request, saleCreateSchema)
     const productIds = data.items.map((item) => item.productId)
     let result

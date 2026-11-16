@@ -1,12 +1,12 @@
 'use client'
 
-import { ArrowLeft, ExternalLink, LayoutDashboard, Package, Plus, Settings, Store } from 'lucide-react'
+import { ArrowLeft, ExternalLink, LayoutDashboard, Package, Plus, Settings, Store, MessageSquare } from 'lucide-react'
 import { useAppStore, type ViewName } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-const WORKSPACE_VIEWS: ViewName[] = ['business', 'my-listings', 'edit', 'account', 'settings']
+const WORKSPACE_VIEWS: ViewName[] = ['business', 'my-listings', 'edit', 'account', 'settings', 'enquiries']
 
 export function isMerchantWorkspaceView(name: ViewName): boolean {
   return WORKSPACE_VIEWS.includes(name)
@@ -26,6 +26,7 @@ export function AppSidebar() {
     { name: 'business', label: 'Overview', icon: <LayoutDashboard aria-hidden /> },
     { name: 'my-listings', label: 'Products', icon: <Package aria-hidden /> },
     { name: 'account', label: 'Shop profile', icon: <Store aria-hidden /> },
+    { name: 'enquiries', label: 'Enquiries', icon: <MessageSquare aria-hidden /> },
     { name: 'settings', label: 'Settings', icon: <Settings aria-hidden /> },
   ]
 

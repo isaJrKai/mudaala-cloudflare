@@ -105,13 +105,16 @@ export function TelegramMerchantMiniApp() {
   const [isTelegramWebView, setIsTelegramWebView] = useState(false)
 
   useEffect(() => {
-    const telegram = /Telegram/i.test(window.navigator.userAgent) || Boolean(window.Telegram?.WebApp)
-    setIsTelegramWebView(telegram)
-    if (!telegram) {
-      setOnboarding(true)
-      setOnboardingStep('account')
-      setLoading(false)
-    }
+    const timer = window.setTimeout(() => {
+      const telegram = /Telegram/i.test(window.navigator.userAgent) || Boolean(window.Telegram?.WebApp)
+      setIsTelegramWebView(telegram)
+      if (!telegram) {
+        setOnboarding(true)
+        setOnboardingStep('account')
+        setLoading(false)
+      }
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [])
 
   // Never leave Telegram merchants on an endless skeleton if its bridge stalls.

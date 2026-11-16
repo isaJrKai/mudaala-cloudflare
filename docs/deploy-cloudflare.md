@@ -30,6 +30,8 @@ The Worker must receive the production values for:
 - `CRON_SECRET` for the protected scheduled sweep endpoint.
 - `SETTINGS_ENCRYPTION_KEY` (or its supported legacy alias) for encryption of stored settings.
 - `ADMIN_PHONES` for the administrator allowlist.
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` for Google OAuth. The redirect URI must be the exact HTTPS callback URL for the deployment, e.g. `https://mudaala.store/api/auth/google/callback` in production.
+- `AT_API_KEY` and `AT_USERNAME` for Africa's Talking SMS delivery; `AT_SENDER_ID` is optional. These are needed for the new phone-verification challenge and existing SMS password reset.
 - `STORAGE_ENDPOINT`, `STORAGE_BUCKET`, `STORAGE_KEY`, `STORAGE_SECRET`, and `STORAGE_PUBLIC_URL` for S3-compatible photo storage.
 
 Set secrets in the appropriate Cloudflare/GitHub secret stores. Use the repository's current deployment workflow as the source of truth for the secret names and deployment steps. Never copy production secrets into `.env.example`, test fixtures, screenshots, or logs.
@@ -55,3 +57,13 @@ The response must indicate that the app and database are up. Health checks confi
 ## Photos
 
 Photo uploads use the storage configuration above. After a photo-related change, verify an authenticated upload, the returned public URL, object persistence after refresh, and rendering on the public shop/listing page. Avoid test uploads or test accounts in production unless they are clearly controlled and removed safely.
+
+## Google seller sign-in rollout
+
+- Keep `SELLER_GOOGLE_REQUIRED` unset or `false` until Google OAuth is configured and the complete flow is verified in preview.
+- Configure `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as Worker secrets. Set `GOOGLE_REDIRECT_URI` to the exact callback URL for the environment being tested.
+- Production callback: `https://mudaala.store/api/auth/google/callback`.
+- The OAuth web client must allow the exact callback URI and the matching authorized JavaScript origin.
+- Never put the Google client secret in GitHub, `.env.example`, issue comments, or chat.
+- Existing merchant linking additionally requires the Africa's Talking SMS credentials listed above. The SMS code is sent to the phone already registered on the Mudaala account.
+- Do not apply the new production database migration or enable seller enforcement until preview tests pass and a rollback plan is reviewed.

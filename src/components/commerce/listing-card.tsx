@@ -19,6 +19,8 @@ import { TypeBadge, StatusBadge, FreshnessDot } from './badges'
 import { useAddedFlash } from './basket-view'
 import { LOVED_CAP, isLoved, toggleLoved, useLovedIds } from '@/lib/loved'
 import { useToast } from '@/hooks/use-toast'
+import { useSession } from '@/hooks/use-session'
+import { apiFetch } from '@/lib/client'
 import type { Listing, ListingShopOwner } from '@/lib/client'
 import { listingThumbnailUrl } from '@/lib/image'
 import { cn } from '@/lib/utils'
@@ -94,9 +96,23 @@ export function HeartButton({
   const lovedIds = useLovedIds()
   const loved = isLoved(lovedIds, listingId)
   const { toast } = useToast()
+  const { user } = useSession()
 
-  function handleToggle() {
+  async function handleToggle() {
     const result = toggleLoved(listingId)
+    if (user && (result === 'loved' || result === 'unloved')) {
+      try {
+        await apiFetch('/api/saved-products', {
+          method: result === 'loved' ? 'POST' : 'DELETE',
+          body: JSON.stringify({ listingId }),
+        })
+      } catch {
+        // Keep the local state consistent with the account source of truth.
+        // A failed remove must not look successful and then reappear on reload.
+        toggleLoved(listingId)
+        toast({ title: 'Could not update your shortlist', description: 'Your account shortlist was not changed. Please try again.' })
+      }
+    }
     if (result === 'full') {
       toast({
         title: 'Your shortlist is full',

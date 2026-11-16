@@ -18,6 +18,7 @@ import { notFound, permanentRedirect } from 'next/navigation'
 import { cache } from 'react'
 import { MapPin, Navigation, Package, Store } from 'lucide-react'
 import { ShowNumber } from '@/components/commerce/show-number'
+import { TelegramEnquiryButton } from '@/components/commerce/telegram-enquiry-button'
 import { PublicPhotoGallery } from '@/components/commerce/public-photo-gallery'
 import { StatusBadge, TypeBadge } from '@/components/commerce/badges'
 import { ShareAdRow } from '@/components/commerce/share-row'
@@ -172,6 +173,14 @@ export default async function AdPage({ params }: Params) {
   const activeSince = owner.profile?.createdAt ?? owner.createdAt
   const directionsUrl = mapsSearchUrl({ area: listing.area, county: listing.county, country: countryDef(listing.country ?? 'UG').name })
   const market = await marketContext(listing)
+  const telegramSetting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + listing.userId } })
+  let telegramContactEnabled = false
+  if (telegramSetting) {
+    try {
+      const settings = JSON.parse(telegramSetting.value) as { enabled?: unknown; activatedAt?: unknown; chatId?: unknown }
+      telegramContactEnabled = Boolean(owner.profile) && settings.enabled === true && typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)
+    } catch { telegramContactEnabled = false }
+  }
 
   // Same fire-and-forget counter the API detail uses; crawlers included,
   // because a view is a view whoever asked.
@@ -196,7 +205,8 @@ export default async function AdPage({ params }: Params) {
             url: canonicalUrl,
             priceCurrency: listing.currency,
             ...(listing.price !== null ? { price: listing.price } : {}),
-            availability: 'https://schema.org/InStock',
+            // Availability is seller-reported and not independently verified.
+            // Do not publish it as authoritative Offer metadata.
             seller: { '@type': 'Organization', name: shopDisplayName },
           },
         }
@@ -298,8 +308,15 @@ export default async function AdPage({ params }: Params) {
               <dd className="font-medium">{timeAgo(listing.refreshedAt)}</dd>
             </div>
             <div className="flex items-center gap-2">
-              <dt className="text-muted-foreground">Availability:</dt>
+              <dt className="text-muted-foreground">Listing expiry:</dt>
               <dd className="font-medium">{expiryLabel(listing.expiresAt)}</dd>
+            </div>
+            <div className="flex items-center gap-2">
+              <dt className="text-muted-foreground">Seller-reported availability:</dt>
+              <dd className="font-medium">
+                {listing.availabilityStatus === 'IN_STOCK' ? 'In stock' : listing.availabilityStatus === 'AVAILABLE_ON_ORDER' ? 'Available on order' : listing.availabilityStatus === 'OUT_OF_STOCK' ? 'Out of stock' : 'Not confirmed'}
+                {listing.availabilityUpdatedAt ? ' · updated ' + new Date(listing.availabilityUpdatedAt).toLocaleDateString('en-UG', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+              </dd>
             </div>
             <div className="flex items-center gap-2">
               <dt className="text-muted-foreground">Views:</dt>
@@ -366,6 +383,7 @@ export default async function AdPage({ params }: Params) {
           <div className="mt-3">
             <SafetyCard />
           </div>
+          {listing.type === 'OFFER' ? <TelegramEnquiryButton listingId={listing.id} enabled={telegramContactEnabled} /> : null}
           <ShowNumber listingId={listing.id} listingTitle={listing.title} listingType={listing.type as ListingType} />
           <Button asChild variant="outline" className="press mt-2 h-11 w-full gap-1.5 text-[15px]">
             <a href={directionsUrl} target="_blank" rel="noopener noreferrer" aria-label={copy.listing.directionsAria(placeOf(listing))}>

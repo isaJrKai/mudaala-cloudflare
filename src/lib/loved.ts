@@ -79,3 +79,11 @@ export function unlove(listingId: string): void {
 }
 
 export const LOVED_CAP = MAX_LOVED
+
+
+/** Merge account-saved products into the local shortlist without duplicates. */
+export function mergeLovedIds(incoming: string[]): void {
+  const valid = incoming.filter((id): id is string => typeof id === 'string' && id.length > 0)
+  const merged = [...new Set([...ids, ...valid])].slice(0, MAX_LOVED)
+  if (merged.length !== ids.length || merged.some((id, index) => id !== ids[index])) commit(merged)
+}

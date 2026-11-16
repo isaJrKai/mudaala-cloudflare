@@ -7,14 +7,14 @@
 // Home mount) so the GET stays read-only - refreshing the dashboard never
 // silently zeroes the card while the user is looking at it.
 
-import { route, jsonOk, requireUser } from '@/lib/api'
+import { route, jsonOk, requireSeller } from '@/lib/api'
 import { db } from '@/lib/db'
 import { STALE_LISTING_DAYS } from '@/lib/constants'
 import { activeListingExpiryFilter } from '@/lib/listing-visibility'
 
 export async function GET() {
   return route(async () => {
-    const user = await requireUser('Sign in to see your home dashboard')
+    const user = await requireSeller('Sign in to see your home dashboard')
     // Scheduled maintenance changes persisted status; reads enforce expiry directly.
     const now = new Date()
     const activeExpiry = activeListingExpiryFilter(now)

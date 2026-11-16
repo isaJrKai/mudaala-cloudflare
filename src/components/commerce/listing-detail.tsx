@@ -27,6 +27,7 @@ import { categoryLabel, unitLabel, countryDef } from '@/lib/constants'
 import { ShareAdRow } from './share-row'
 import { RelatedListings } from './related-listings'
 import { SafetyCard } from './safety-card'
+import { TelegramEnquiryButton } from './telegram-enquiry-button'
 import { ReportButton } from './report-button'
 import { PlaceholderTile } from './placeholder-tile'
 import { HeartButton } from './listing-card'
@@ -204,6 +205,7 @@ export function ListingDetail({ id }: { id: string }) {
           <div className="flex flex-wrap items-center gap-2">
             <TypeBadge type={listing.type} />
             <StatusBadge status={listing.status} />
+            {listing.availabilityStatus && listing.availabilityStatus !== 'UNKNOWN' ? <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">{({ IN_STOCK: 'In stock', AVAILABLE_ON_ORDER: 'Available on order', OUT_OF_STOCK: 'Out of stock' } as const)[listing.availabilityStatus]} · seller-reported{listing.availabilityUpdatedAt ? ' · updated ' + timeAgo(listing.availabilityUpdatedAt) : ''}</span> : <span className="text-xs text-muted-foreground">Availability not confirmed</span>}
             <span className="text-xs text-muted-foreground">{categoryLabel(listing.category)}</span>
           </div>
 
@@ -375,6 +377,7 @@ export function ListingDetail({ id }: { id: string }) {
               </Button>
             ) : null}
           </div>
+          {listing.type === 'OFFER' ? <TelegramEnquiryButton listingId={listing.id} enabled={Boolean(listing.telegramContactEnabled)} /> : null}
           <Button asChild variant="outline" className="press mt-2 h-11 w-full gap-1.5 text-[15px]">
             <a
               href={directionsUrl}

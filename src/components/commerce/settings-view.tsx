@@ -1,14 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Bell, ExternalLink, FileText, Globe2, LockKeyhole, Search, ShieldCheck, Store } from 'lucide-react'
+import { ArrowLeft, Bell, ExternalLink, FileText, Globe2, Link2, LockKeyhole, Search, ShieldCheck, Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { apiPost, clearSessionToken } from '@/lib/client'
+import { apiFetch, apiPost, clearSessionToken } from '@/lib/client'
 import { useAppStore } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { EmptyState } from './empty-state'
@@ -25,12 +25,59 @@ export function SettingsView() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [busy, setBusy] = useState(false)
+  const [googlePhoneBusy, setGooglePhoneBusy] = useState(false)
+  const [googlePhoneStep, setGooglePhoneStep] = useState(false)
+  const [googlePhoneCode, setGooglePhoneCode] = useState('')
   const [error, setError] = useState('')
 
   if (isLoading) return <ListingListSkeleton count={3} />
   if (!user) return <EmptyState title="Sign in to manage settings" description="Your account settings are available after you sign in." action={<Button onClick={() => setAuthOpen(true)}>Sign in</Button>} />
   // Capture the authenticated user after the guard so async callbacks retain the non-null type.
   const signedInUser = user
+
+  async function requestGooglePhoneCode() {
+    setGooglePhoneBusy(true)
+    try {
+      const result = await apiPost<{ ok: boolean; message: string }>('/api/auth/google/phone/start')
+      setGooglePhoneStep(true)
+      toast({ title: 'Check your registered phone', description: result.message })
+    } catch (err) {
+      toast({ title: 'Could not send security code', description: err instanceof Error ? err.message : 'Please try again.', variant: 'destructive' })
+    } finally {
+      setGooglePhoneBusy(false)
+    }
+  }
+
+  async function verifyGooglePhoneAndLink(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setGooglePhoneBusy(true)
+    try {
+      await apiPost<{ ok: boolean; message: string }>('/api/auth/google/phone/verify', { code: googlePhoneCode.trim() })
+      const result = await apiPost<{ authorizationUrl: string }>('/api/auth/google/start')
+      window.location.assign(result.authorizationUrl)
+    } catch (err) {
+      toast({ title: 'Phone verification failed', description: err instanceof Error ? err.message : 'Check the code and try again.', variant: 'destructive' })
+    } finally {
+      setGooglePhoneBusy(false)
+    }
+  }
+
+  async function verifyGooglePhoneAndUnlink(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setGooglePhoneBusy(true)
+    try {
+      await apiPost<{ ok: boolean; message: string }>('/api/auth/google/phone/verify', { code: googlePhoneCode.trim() })
+      const result = await apiFetch<{ ok: boolean; message: string }>('/api/auth/google/unlink', { method: 'DELETE' })
+      toast({ title: 'Google account unlinked', description: result.message })
+      setGooglePhoneStep(false)
+      setGooglePhoneCode('')
+      await queryClient.invalidateQueries()
+    } catch (err) {
+      toast({ title: 'Could not unlink Google', description: err instanceof Error ? err.message : 'Check the code and try again.', variant: 'destructive' })
+    } finally {
+      setGooglePhoneBusy(false)
+    }
+  }
 
   async function requestCode() {
     setBusy(true); setError('')
@@ -84,8 +131,51 @@ export function SettingsView() {
         </div>
       </Section>
 
+      <Section icon={<Link2 className="size-4" aria-hidden />} title="Google sign-in" description="Link a Google account to strengthen control and recovery of your Mudaala seller account. This does not verify your shop or phone number.">
+        <div className="rounded-lg border bg-card p-4">
+          {signedInUser.googleLinked ? (
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-emerald-700">Google account linked</p>
+              <p className="text-sm text-muted-foreground">To unlink it, sign in again with your Mudaala password and confirm control of your registered phone.</p>
+              {!googlePhoneStep ? (
+                <Button variant="outline" onClick={requestGooglePhoneCode} disabled={googlePhoneBusy}>{googlePhoneBusy ? 'Sending code…' : 'Verify phone to unlink'}</Button>
+              ) : (
+                <form onSubmit={verifyGooglePhoneAndUnlink} className="max-w-sm space-y-2">
+                  <Label htmlFor="google-unlink-phone-code">6-digit SMS security code</Label>
+                  <Input id="google-unlink-phone-code" inputMode="numeric" autoComplete="one-time-code" value={googlePhoneCode} onChange={event => setGooglePhoneCode(event.target.value.replace(/\D/g, '').slice(0, 6))} pattern="[0-9]{6}" maxLength={6} required />
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" variant="destructive" disabled={googlePhoneBusy || googlePhoneCode.length !== 6}>{googlePhoneBusy ? 'Unlinking…' : 'Verify & unlink Google'}</Button>
+                    <Button type="button" variant="outline" disabled={googlePhoneBusy} onClick={requestGooglePhoneCode}>Resend code</Button>
+                  </div>
+                </form>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">First confirm control of your registered phone by SMS. Then connect the Google account you want to use for seller sign-in. You may need to sign in again first.</p>
+              {!googlePhoneStep ? (
+                <Button onClick={requestGooglePhoneCode} disabled={googlePhoneBusy}>{googlePhoneBusy ? 'Sending code…' : 'Verify phone & continue'}</Button>
+              ) : (
+                <form onSubmit={verifyGooglePhoneAndLink} className="max-w-sm space-y-2">
+                  <Label htmlFor="google-phone-code">6-digit SMS security code</Label>
+                  <Input id="google-phone-code" inputMode="numeric" autoComplete="one-time-code" value={googlePhoneCode} onChange={event => setGooglePhoneCode(event.target.value.replace(/\D/g, '').slice(0, 6))} pattern="[0-9]{6}" maxLength={6} required />
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" disabled={googlePhoneBusy || googlePhoneCode.length !== 6}>{googlePhoneBusy ? 'Verifying…' : 'Verify & connect Google'}</Button>
+                    <Button type="button" variant="outline" disabled={googlePhoneBusy} onClick={requestGooglePhoneCode}>Resend code</Button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+        </div>
+      </Section>
+
       <Section icon={<Store className="size-4" aria-hidden />} title="Shop profile" description="Your shop name, photos, location and public contacts are part of your account profile.">
         <Button variant="outline" onClick={() => navigate({ name: 'account' })}>Manage shop profile</Button>
+      </Section>
+
+      <Section title="Telegram account" description="Link your Mudaala account to the official bot. Shop owners can separately choose whether to accept Telegram enquiries.">
+        <TelegramEnquirySettings />
       </Section>
 
       <Section icon={<Bell className="size-4" aria-hidden />} title="Notifications" description="Choose how Mudaala reaches you and review your shop updates.">
@@ -116,8 +206,89 @@ export function SettingsView() {
   )
 }
 
-function Section({ icon, title, description, children }: { icon: React.ReactNode; title: string; description: string; children: React.ReactNode }) {
-  return <section className="space-y-3" aria-label={title}><div className="flex items-start gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">{icon}</span><div><h2 className="text-base font-semibold">{title}</h2><p className="mt-0.5 text-sm text-muted-foreground">{description}</p></div></div><div className="sm:pl-12">{children}</div></section>
+
+function TelegramEnquirySettings() {
+  const [status, setStatus] = useState<{ connected: boolean; enabled: boolean; hasShopProfile: boolean; botUrl: string } | null>(null)
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function refresh() {
+    try {
+      const result = await apiFetch<{ connected: boolean; enabled: boolean; hasShopProfile: boolean; botUrl: string }>('/api/telegram/merchant')
+      setStatus(result)
+      setError('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load Telegram settings.')
+    }
+  }
+
+  async function connect() {
+    setBusy(true); setError('')
+    try {
+      const result = await apiPost<{ code: string }>('/api/telegram/link-code', {})
+      setCode(result.code)
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create a Telegram link code.')
+    } finally { setBusy(false) }
+  }
+
+  async function toggle(enabled: boolean) {
+    setBusy(true); setError('')
+    try {
+      const result = await apiFetch<{ connected: boolean; enabled: boolean; hasShopProfile: boolean; botUrl: string }>('/api/telegram/merchant', {
+        method: 'PUT', body: JSON.stringify({ enabled }),
+      })
+      setStatus(result)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update Telegram enquiries.')
+    } finally { setBusy(false) }
+  }
+
+  // Load the current connection state when the settings section opens.
+  useEffect(() => {
+    void apiFetch<{ connected: boolean; enabled: boolean; hasShopProfile: boolean; botUrl: string }>('/api/telegram/merchant')
+      .then(setStatus)
+      .catch(err => setError(err instanceof Error ? err.message : 'Could not load Telegram settings.'))
+  }, [])
+
+  return (
+    <div className="space-y-3 rounded-lg border bg-card p-4">
+      {status?.connected ? (
+        <>
+          <div className="flex items-center justify-between gap-3">
+            <div><p className="text-sm font-medium">Telegram account connected</p><p className="text-xs text-muted-foreground">The bot has been opened from your linked Telegram account.</p></div>
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">Connected</span>
+          </div>
+          {status.hasShopProfile ? (
+            <label className="flex items-center justify-between gap-4 border-t pt-3">
+              <span><span className="block text-sm font-medium">Accept Telegram enquiries</span><span className="block text-xs text-muted-foreground">Show Telegram contact on your active product listings.</span></span>
+              <input type="checkbox" checked={status.enabled} disabled={busy} onChange={event => void toggle(event.target.checked)} className="size-5 accent-primary" />
+            </label>
+          ) : (
+            <p className="border-t pt-3 text-sm text-muted-foreground">Your account is linked. As a shopper, use /search and /messages in Telegram. If you decide to sell, create a shop profile before enabling seller enquiries.</p>
+          )}
+          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void refresh()}>Refresh connection</Button>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">Connect the Telegram account you use with the Mudaala bot. Then open the bot and press Start to confirm it can deliver enquiries to you.</p>
+          {code ? <div className="rounded-md bg-muted p-3"><p className="text-xs text-muted-foreground">Your one-time link code · expires in 10 minutes</p><p className="my-1 font-mono text-xl font-bold tracking-widest">{code}</p><p className="text-sm">In Telegram, send <strong>/link {code}</strong> to <strong>@MudaalaMerchantbot</strong>, then press Start if prompted.</p></div> : null}
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" disabled={busy} onClick={() => void connect()}>{busy ? 'Preparing…' : code ? 'Generate a new code' : 'Connect Telegram'}</Button>
+            <Button type="button" variant="outline" onClick={() => window.open('https://t.me/MudaalaMerchantbot', '_blank', 'noopener,noreferrer')}>Open Telegram bot</Button>
+            <Button type="button" variant="ghost" onClick={() => void refresh()}>I pressed Start · Refresh</Button>
+          </div>
+        </>
+      )}
+      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+    </div>
+  )
+}
+
+function Section({ icon, title, description, children }: { icon?: React.ReactNode; title: string; description: string; children: React.ReactNode }) {
+  return <section className="space-y-3" aria-label={title}><div className="flex items-start gap-3">{icon ? <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">{icon}</span> : null}<div><h2 className="text-base font-semibold">{title}</h2><p className="mt-0.5 text-sm text-muted-foreground">{description}</p></div></div><div className={icon ? 'sm:pl-12' : ''}>{children}</div></section>
 }
 
 function SettingsLink({ icon, title, description, onClick, external = false }: { icon: React.ReactNode; title: string; description: string; onClick: () => void; external?: boolean }) {

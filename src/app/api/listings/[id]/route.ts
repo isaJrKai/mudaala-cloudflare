@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { route, jsonOk, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, requireSeller, ApiError } from '@/lib/api'
 import { listingUpdateSchema, listingStatusSchema, isTransitionAllowed, fieldErrors, listingNeedsUnit, normalizePhone, type CountryKey } from '@/lib/validation'
 import { db } from '@/lib/db'
 import { expireOverdueListings, getOwnedListingOr404, sanitizePhotos, serializeListing } from '@/lib/listings'
@@ -7,6 +7,7 @@ import { LISTING_ACTIVE_DAYS, countryDef, findProhibitedItem } from '@/lib/const
 import { getSessionUser } from '@/lib/auth'
 import { isAdminUser } from '@/lib/admin'
 import { recordListingDailyEvent } from '@/lib/listing-analytics'
+import { hit } from '@/lib/rate-limit'
 type Params = { params: Promise<{ id: string }> }
 
 // Public detail view. Also expires overdue listings so status is always truthful.
@@ -65,10 +66,21 @@ export async function GET(_request: NextRequest, { params }: Params) {
       ])
     }
 
+    // Telegram contact is public only as a boolean capability. Chat IDs,
+    // Telegram identities and seller opt-in records never leave the server.
+    const telegramSetting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + listing.userId } })
+    let telegramContactEnabled = false
+    if (telegramSetting) {
+      try {
+        const settings = JSON.parse(telegramSetting.value) as { enabled?: unknown; activatedAt?: unknown; chatId?: unknown }
+        telegramContactEnabled = Boolean(listing.user.profile) && settings.enabled === true && typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)
+      } catch { telegramContactEnabled = false }
+    }
+
     // Return only the public seller identity fields needed by the listing page.
     // Do not spread the full User or BusinessProfile rows into a public response:
     // that would expose internal flags, legal-acceptance metadata, and private contact fields.
-    return jsonOk({ listing: { ...serializeListing(listing), user: listing.user } })
+    return jsonOk({ listing: { ...serializeListing(listing), telegramContactEnabled, user: listing.user } })
   })
 }
 
@@ -76,7 +88,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
 // transition - a fulfilled listing never silently becomes active again.
 export async function PATCH(request: NextRequest, { params }: Params) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const { id } = await params
     const listing = await getOwnedListingOr404(id, user.id)
 
@@ -84,6 +96,21 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const body = await request.json().catch(() => {
       throw new ApiError(400, 'Request body must be valid JSON')
     })
+
+    // Availability is an independent seller assertion, never inferred from quantity.
+    if (typeof body === 'object' && body !== null && 'availabilityStatus' in body && Object.keys(body).length === 1) {
+      const limit = await hit('listing:availability:user:' + user.id, 30, 60 * 60 * 1000)
+      if (!limit.ok) throw new ApiError(429, 'Availability updates are limited. Please try again later.')
+      const value = body.availabilityStatus
+      const allowed = ['UNKNOWN', 'IN_STOCK', 'AVAILABLE_ON_ORDER', 'OUT_OF_STOCK']
+      if (typeof value !== 'string' || !allowed.includes(value)) throw new ApiError(400, 'Choose a valid availability status.')
+      if (listing.status !== 'ACTIVE') throw new ApiError(409, 'Only active listings can update availability.')
+      const changed = await db.listing.updateMany({ where: { id, userId: user.id, status: 'ACTIVE', updatedAt: listing.updatedAt }, data: { availabilityStatus: value, availabilityUpdatedAt: new Date() } })
+      if (!changed.count) throw new ApiError(409, 'This listing changed while you were editing. Reload and try again.')
+      const updated = await db.listing.findFirst({ where: { id, userId: user.id } })
+      if (!updated) throw new ApiError(404, 'Listing not found')
+      return jsonOk({ listing: serializeListing(updated) })
+    }
 
     // Two shapes are accepted: field edits, or a deliberate status change.
     const hasStatusOnly = typeof body === 'object' && body !== null && 'status' in body && Object.keys(body).length === 1
@@ -249,7 +276,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 // Delete (owner only).
 export async function DELETE(_request: NextRequest, { params }: Params) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const { id } = await params
     // Owner-scoped atomic delete avoids a check-then-delete race.
     const removed = await db.listing.deleteMany({ where: { id, userId: user.id } })

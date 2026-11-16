@@ -1,4 +1,4 @@
-import { route, jsonOk, parseBody, requireUser, ApiError } from '@/lib/api'
+import { route, jsonOk, parseBody, requireSeller, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { businessProductCreateSchema } from '@/lib/business-records'
 
@@ -21,7 +21,7 @@ function serializeProduct(product: {
 
 export async function GET() {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const products = await db.businessProduct.findMany({
       where: { userId: user.id },
       orderBy: [{ archived: 'asc' }, { updatedAt: 'desc' }],
@@ -32,7 +32,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   return route(async () => {
-    const user = await requireUser()
+    const user = await requireSeller()
     const data = await parseBody(request, businessProductCreateSchema)
     let product
     try {

@@ -92,10 +92,14 @@ export interface Listing {
   contactWhatsapp: string | null
   photos: string[]
   status: ListingStatus
+  availabilityStatus?: 'UNKNOWN' | 'IN_STOCK' | 'AVAILABLE_ON_ORDER' | 'OUT_OF_STOCK'
+  availabilityUpdatedAt?: string | null
   viewCount: number
   publishedAt: string
   refreshedAt: string
   expiresAt: string
+  /** Public capability flag; never contains a Telegram ID or chat address. */
+  telegramContactEnabled?: boolean
 }
 
 export interface BusinessProfileT {
@@ -200,6 +204,7 @@ export interface SessionUser {
   createdAt: string
   /** Server-derived from the admin phone allowlist; never user-editable. */
   isAdmin: boolean
+  googleLinked?: boolean
 }
 
 export interface ListingsPage {
