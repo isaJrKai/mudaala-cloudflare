@@ -79,28 +79,31 @@ jobs:
               const profilePromise = page.waitForResponse((response) => {
                 return new URL(response.url()).pathname === '/api/profile' && response.request().method() === 'GET';
               }, { timeout });
-              const initialAnalyticsPromise = page.waitForResponse((response) => {
-                const url = new URL(response.url());
-                return url.pathname === '/api/my/business-analytics' && url.searchParams.get('period') === '30d';
-              }, { timeout });
-
               await page.goto(base + '/#/business', { waitUntil: 'domcontentloaded', timeout: 60000 });
-              const [sessionResponse, profileResponse, initialAnalytics] = await Promise.all([
+              const [sessionResponse, profileResponse] = await Promise.all([
                 sessionPromise,
                 profilePromise,
-                initialAnalyticsPromise,
               ]);
               if (!sessionResponse.ok()) throw new Error('Production session check failed with HTTP ' + sessionResponse.status());
               if (!profileResponse.ok()) throw new Error('Production profile check failed with HTTP ' + profileResponse.status());
-              if (!initialAnalytics.ok()) throw new Error('Production 30-day analytics failed with HTTP ' + initialAnalytics.status());
-              const initialPayload = await initialAnalytics.json();
-              if (initialPayload.period !== '30d') throw new Error('Production analytics returned the wrong initial period');
 
               const shopSetupDialog = page.getByRole('dialog').filter({ hasText: /Welcome to Mudaala/i });
               if (await shopSetupDialog.isVisible().catch(() => false)) {
                 await shopSetupDialog.getByRole('button', { name: 'Later', exact: true }).click();
                 await shopSetupDialog.waitFor({ state: 'hidden', timeout });
               }
+
+              // Business insights intentionally live under the collapsed progressive-disclosure
+              // section. Expand it before waiting for the lazy-mounted analytics query.
+              const initialAnalyticsPromise = page.waitForResponse((response) => {
+                const url = new URL(response.url());
+                return url.pathname === '/api/my/business-analytics' && url.searchParams.get('period') === '30d';
+              }, { timeout });
+              await page.getByRole('button', { name: /More business tools/ }).click();
+              const initialAnalytics = await initialAnalyticsPromise;
+              if (!initialAnalytics.ok()) throw new Error('Production 30-day analytics failed with HTTP ' + initialAnalytics.status());
+              const initialPayload = await initialAnalytics.json();
+              if (initialPayload.period !== '30d') throw new Error('Production analytics returned the wrong initial period');
 
               await page.getByText('Business insights', { exact: true }).waitFor({ state: 'visible', timeout });
               await page.getByText('Product views', { exact: true }).waitFor({ state: 'visible', timeout });
