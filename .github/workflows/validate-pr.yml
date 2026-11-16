@@ -497,6 +497,7 @@ jobs:
           ALLOW_BEARER_AUTH: "1"
           NEXT_PUBLIC_APP_URL: http://localhost:3000
           APP_ORIGIN: http://localhost:3000
+          SETTINGS_ENCRYPTION_KEY: ci-only-settings-encryption-key-32chars
           CSRF_TRUSTED_HOSTS: preview-sandbox.preview-platform.example
 
       - name: Verify scheduled maintenance authorization and idempotency under restricted role
