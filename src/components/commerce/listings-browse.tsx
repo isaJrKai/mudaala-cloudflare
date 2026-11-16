@@ -259,6 +259,30 @@ export function ListingsBrowse() {
     )
   }, [discoveryQuery.data?.shops, orderedCategories])
 
+  // Build one marketplace hierarchy: category → products + matching shops.
+  // Categories with shops but no current listings still remain discoverable.
+  const marketplaceCategoryGroups = useMemo(() => {
+    const groups = new Map<string, {
+      key: string
+      label: string
+      items: typeof discoveryFeedItems
+      shops: ShopDiscoveryResponse['shops']
+    }>()
+    for (const group of discoveryCategoryGroups) groups.set(group.key, { ...group, shops: [] })
+    for (const shop of discoveryShops) {
+      const key = shop.category || 'other'
+      const current = groups.get(key)
+      if (current) current.shops.push(shop)
+      else groups.set(key, { key, label: categoryLabel(key), items: [], shops: [shop] })
+    }
+    const rank = new Map<string, number>()
+    orderedCategories.forEach((category, index) => rank.set(category.key, index))
+    return [...groups.values()].sort((a, b) =>
+      (rank.get(a.key) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.key) ?? Number.MAX_SAFE_INTEGER)
+      || a.label.localeCompare(b.label),
+    )
+  }, [discoveryCategoryGroups, discoveryShops, orderedCategories])
+
   const renderListingGrid = (items: ListingsPage['items'], primary = false) => items.length > 0 ? (
     <div data-testid={primary ? 'listing-results-grid' : 'listing-feed-grid'} className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
       {items.map((listing) => (
@@ -275,16 +299,25 @@ export function ListingsBrowse() {
     </div>
   ) : null
 
-  const renderCategoryShelf = (group: typeof discoveryCategoryGroups[number], index: number) => (
-    <section key={group.key} className="min-w-0 space-y-2" aria-labelledby={`category-${group.key}-heading`}>
+  const renderCategoryShelf = (group: typeof marketplaceCategoryGroups[number], index: number) => (
+    <section key={group.key} className="min-w-0 space-y-3" aria-labelledby={`category-${group.key}-heading`}>
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <h2 id={`category-${group.key}-heading`} className="text-base font-semibold tracking-tight">{group.label}</h2>
-          <p className="text-[11px] text-muted-foreground">{group.items.length} {group.items.length === 1 ? 'listing' : 'listings'} · Local sellers</p>
+          <p className="text-[11px] text-muted-foreground">
+            {group.items.length} {group.items.length === 1 ? 'product' : 'products'} · {group.shops.length} {group.shops.length === 1 ? 'shop' : 'shops'}
+          </p>
         </div>
         <span className="shrink-0 text-[11px] text-muted-foreground">Explore category</span>
       </div>
-      {renderListingGrid(group.items, index === 0)}
+      {group.items.length > 0 ? renderListingGrid(group.items, index === 0) : (
+        <p className="text-xs text-muted-foreground">No products listed in this category yet.</p>
+      )}
+      <ExploreShopsSection shops={group.shops} loading={discoveryQuery.isLoading}
+        onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })} />
+      {group.shops.length === 0 && !discoveryQuery.isLoading ? (
+        <p className="text-xs text-muted-foreground">No shops in this category yet.</p>
+      ) : null}
     </section>
   )
 
@@ -481,17 +514,7 @@ export function ListingsBrowse() {
             </div>
             {showDiscoverySections ? (
               <>
-                {discoveryCategoryGroups[0] ? renderCategoryShelf(discoveryCategoryGroups[0], 0) : null}
-                <ExploreShopsSection
-                  shops={discoveryShops}
-                  loading={discoveryQuery.isLoading}
-                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
-                />
-                <ExploreShowroomsSection
-                  shops={discoveryQuery.data?.shops ?? []}
-                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
-                />
-                {discoveryCategoryGroups.slice(1).map((group, index) => renderCategoryShelf(group, index + 1))}
+                {marketplaceCategoryGroups.map((group, index) => renderCategoryShelf(group, index))}
                 <SpecialOffersSection
                   items={specialOfferItems}
                   shopLabels={shopLabels}
