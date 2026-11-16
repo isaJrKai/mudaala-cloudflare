@@ -108,11 +108,9 @@ async function setShopMenuButton(chatId: number): Promise<void> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       chat_id: chatId,
-      menu_button: {
-        type: 'web_app',
-        text: 'My Shop',
-        web_app: { url: 'https://mudaala.store/telegram' },
-      },
+      // Keep merchant controls inside the ordinary Telegram chat.
+      // The bot does not expose a Telegram Mini App entry point.
+      menu_button: { type: 'commands' },
     }),
     signal: AbortSignal.timeout(8000),
   })
@@ -180,7 +178,10 @@ async function cleanupTelegramRecords(): Promise<void> {
 }
 
 const shopKeyboard = {
-  keyboard: [[{ text: 'Open My Shop', web_app: { url: 'https://mudaala.store/telegram' } }]],
+  keyboard: [
+    [{ text: '/products' }, { text: '/publicshop' }],
+    [{ text: '/enquiries' }, { text: '/help' }],
+  ],
   resize_keyboard: true,
   is_persistent: true,
 }
