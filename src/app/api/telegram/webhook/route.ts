@@ -47,7 +47,7 @@ function telegramAccountKey(userId: string): string {
 }
 
 function telegramChatKey(telegramUserId: number): string {
-  const digest = buyerIdentityHash(telegramUserId)
+  const digest = createHash('sha256').update(String(telegramUserId)).digest('hex')
   return 'telegram:chat:' + digest
 }
 
@@ -418,7 +418,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
 
   const parts = text.split(/\s+/)
   const command = (parts[0] || '').split('@')[0].toLowerCase()
-  const identityHash = buyerIdentityHash(telegramUserId)
+  const identityHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
   if (command === '/start' || command === '/help') {
     if (command === '/start') {
       await recordTelegramActivation(telegramUserId, chatId).catch((error) => console.warn('[telegram] activation record failed:', error instanceof Error ? error.message : 'unknown error'))
@@ -697,7 +697,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
 
   if (command === '/messages') {
     const enquiries = await db.enquiry.findMany({
-      where: { buyerTelegramHash: identityHash, status: 'OPEN' },
+      where: { buyerTelegramHash: buyerIdentityHash(telegramUserId), status: 'OPEN' },
       include: { listing: { select: { title: true } }, messages: { orderBy: { createdAt: 'desc' }, take: 1 } },
       orderBy: { lastMessageAt: 'desc' },
       take: 10,
@@ -719,7 +719,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       return
     }
     const changed = await db.enquiry.updateMany({
-      where: { id: enquiryId, status: 'OPEN', OR: [{ shopperId: user.id }, { buyerTelegramHash: identityHash }] },
+      where: { id: enquiryId, status: 'OPEN', OR: [{ shopperId: user.id }, { buyerTelegramHash: buyerIdentityHash(telegramUserId) }] },
       data: { followUpConsentAt: choice === 'yes' ? new Date() : null },
     })
     if (!changed.count) {
@@ -742,7 +742,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       where: {
         id: enquiryId,
         status: 'OPEN',
-        ...(isMerchant ? { merchantId: user.id } : { buyerTelegramHash: identityHash }),
+        ...(isMerchant ? { merchantId: user.id } : { buyerTelegramHash: buyerIdentityHash(telegramUserId) }),
       },
       select: { id: true, merchantId: true, buyerTelegramHash: true, listing: { select: { title: true } } },
     })
