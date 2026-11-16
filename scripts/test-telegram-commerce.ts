@@ -427,6 +427,48 @@ async function run() {
   assertStatus(existingWebReply.status, 201, 'shopper web reply remains available after new-enquiry opt-out')
   assert.ok(telegramRequests.some((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId && String(item.body.text).includes('web reply after opt-out')), 'web inbox can still deliver an existing conversation after opt-out')
 
+  // Re-linking the same Mudaala account from a different Telegram identity
+  // revokes the previous identity, and /unlink revokes the active identity.
+  const replacementTelegramId = merchantTelegramId + 10
+  const replacementMappingKey = 'telegram:user:' + createHash('sha256').update(String(replacementTelegramId)).digest('hex')
+  const merchantAccountKey = 'telegram:account:' + merchant.id
+  settingKeys.push(replacementMappingKey, merchantAccountKey)
+  const replacementCodeResponse = await requestJson('/api/telegram/link-code', { method: 'POST', body: '{}' }, merchant.token)
+  assertStatus(replacementCodeResponse.status, 201, 'replacement merchant Telegram link code')
+  const replacementCode = String(replacementCodeResponse.body.code)
+  const replacementCodeKey = 'telegram:link-code:' + createHash('sha256').update(replacementCode).digest('hex')
+  settingKeys.push(replacementCodeKey)
+  const replacementLinked = await postTelegramUpdate({
+    update_id: updateBase + 80,
+    message: { text: '/link ' + replacementCode, chat: { id: replacementTelegramId, type: 'private' }, from: { id: replacementTelegramId } },
+  })
+  assertStatus(replacementLinked.status, 200, 'replacement Telegram identity linking')
+  assert.equal(await db.appSetting.findUnique({ where: { key: merchantMappingKey } }), null, 'previous Telegram identity mapping is revoked on relink')
+  const replacementMapping = await db.appSetting.findUnique({ where: { key: replacementMappingKey } })
+  assert.equal((JSON.parse(replacementMapping!.value) as { userId: string }).userId, merchant.id, 'replacement Telegram identity maps to the merchant')
+  assert.equal((await db.appSetting.findUnique({ where: { key: merchantAccountKey } }))?.value, replacementMappingKey, 'reverse account mapping points only to the active Telegram identity')
+
+  const revokedIdentityCommand = await postTelegramUpdate({
+    update_id: updateBase + 81,
+    message: { text: '/enquiries', chat: { id: merchantTelegramId, type: 'private' }, from: { id: merchantTelegramId } },
+  })
+  assertStatus(revokedIdentityCommand.status, 200, 'revoked Telegram identity command is handled safely')
+  const revokedIdentityResponse = telegramRequests.filter((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId).at(-1)
+  assert.ok(revokedIdentityResponse && !String(revokedIdentityResponse.body.text).includes(enquiry.id), 'revoked Telegram identity cannot access merchant enquiries')
+
+  const unlinked = await postTelegramUpdate({
+    update_id: updateBase + 82,
+    message: { text: '/unlink', chat: { id: replacementTelegramId, type: 'private' }, from: { id: replacementTelegramId } },
+  })
+  assertStatus(unlinked.status, 200, 'Telegram /unlink command')
+  assert.equal(await db.appSetting.findUnique({ where: { key: replacementMappingKey } }), null, 'unlink removes the active Telegram identity mapping')
+  assert.equal(await db.appSetting.findUnique({ where: { key: merchantAccountKey } }), null, 'unlink removes the reverse account mapping')
+  const disconnectedMerchantSettings = await db.appSetting.findUnique({ where: { key: merchantSettingKey } })
+  const disconnectedSettings = JSON.parse(disconnectedMerchantSettings!.value) as { enabled: boolean; chatId: number | null; activatedAt: string | null }
+  assert.equal(disconnectedSettings.enabled, false, 'unlink disables merchant Telegram enquiries')
+  assert.equal(disconnectedSettings.chatId, null, 'unlink clears merchant Telegram chat destination')
+  assert.equal(disconnectedSettings.activatedAt, null, 'unlink clears merchant Telegram activation')
+
   // Account shortlist operations are isolated and bounded at the database
   // transaction boundary, not only by the browser's local counter.
   const savedListings = await Promise.all(
@@ -475,7 +517,7 @@ async function run() {
   const afterRemove = await requestJson('/api/saved-products', {}, shopper.token)
   assert.equal(afterRemove.body.products.length, 39, 'shortlist count updates after removal')
 
-  console.log('Telegram commerce tests passed: guest and account contact capabilities, seller opt-in, self-enquiry guard, shortlist privacy and atomic 40-item cap.')
+  console.log('Telegram commerce tests passed: account-bound contact, one-to-one Telegram linking, identity revocation, /unlink, seller opt-in, enquiry privacy and shortlist cap.')
 }
 
 run()
