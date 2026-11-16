@@ -214,8 +214,9 @@ async function run() {
   const shopperLinkCode = String(shopperLinkCodeResponse.body.code)
   const shopperLinkCodeKey = 'telegram:link-code:' + createHash('sha256').update(shopperLinkCode).digest('hex')
   const shopperMappingKey = 'telegram:user:' + createHash('sha256').update(String(buyerTelegramId)).digest('hex')
+  const shopperAccountKey = 'telegram:account:' + shopper.id
   const shopperTelegramSettingsKey = 'telegram:merchant:' + shopper.id
-  settingKeys.push(shopperLinkCodeKey, shopperMappingKey, shopperTelegramSettingsKey)
+  settingKeys.push(shopperLinkCodeKey, shopperMappingKey, shopperAccountKey, shopperTelegramSettingsKey)
   const shopperLinked = await postTelegramUpdate({
     update_id: updateBase + 30,
     message: { text: '/link ' + shopperLinkCode, chat: { id: buyerTelegramId, type: 'private' }, from: { id: buyerTelegramId } },
