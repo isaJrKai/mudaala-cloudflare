@@ -111,7 +111,7 @@ async function postTelegramUpdate(update: Record<string, unknown>) {
 
 async function run() {
   const webhookRegistration = await readFile(new URL('./register-telegram-webhook.mjs', import.meta.url), 'utf8')
-  assert.match(webhookRegistration, /allowed_updates:\s*\[[^\]]*'message'[^\]]*'callback_query'/s, 'Telegram webhook must subscribe to callback_query so buyers can confirm enquiries')
+  assert.match(webhookRegistration, /allowed_updates:\s*\[[^\]]*'message'[^\]]*'callback_query'/, 'Telegram webhook must subscribe to callback_query so buyers can confirm enquiries')
   const merchant = await createUser('merchant')
   const shopper = await createUser('shopper')
   const stranger = await createUser('stranger')
