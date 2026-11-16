@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import { ApiError, jsonOk, route } from '@/lib/api'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
@@ -24,6 +24,18 @@ function secretMatches(expected: string, supplied: string | null): boolean {
   return a.length === b.length && timingSafeEqual(a, b)
 }
 
+// Telegram numeric IDs are enumerable. An unkeyed SHA-256 digest can be
+// reversed by brute force, so buyer identity hashes must be keyed and
+// domain-separated. This key is already required by production settings.
+function buyerIdentityHash(telegramUserId: number): string {
+  const key = process.env.SETTINGS_ENCRYPTION_KEY ?? process.env.SETTINGS_ENC_KEY
+  if (!key) throw new Error('Settings encryption key is required to protect Telegram buyer identity')
+  return createHmac('sha256', key)
+    .update('mudaala:telegram-buyer:v1:', 'utf8')
+    .update(String(telegramUserId), 'utf8')
+    .digest('hex')
+}
+
 function telegramKey(id: number): string {
   const digest = createHash('sha256').update(String(id)).digest('hex')
   return 'telegram:user:' + digest
@@ -36,6 +48,10 @@ function telegramAccountKey(userId: string): string {
 function telegramChatKey(telegramUserId: number): string {
   const digest = createHash('sha256').update(String(telegramUserId)).digest('hex')
   return 'telegram:chat:' + digest
+}
+
+function telegramBuyerChatKey(telegramUserId: number): string {
+  return 'telegram:buyer-chat:' + buyerIdentityHash(telegramUserId)
 }
 
 async function linkedMudaalaUserId(telegramUserId: number): Promise<string | null> {
@@ -293,7 +309,7 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
   }
 
   const tokenHash = createHash('sha256').update(rawToken).digest('hex')
-  const buyerHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
+  const buyerHash = buyerIdentityHash(telegramUserId)
   const result = await db.$transaction(async (tx) => {
     const now = new Date()
     const capability = await tx.enquiryContactToken.findFirst({
@@ -412,6 +428,11 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       await db.appSetting.upsert({
         where: { key: 'telegram:chat:' + identityHash },
         create: { key: 'telegram:chat:' + identityHash, value: String(chatId) },
+        update: { value: String(chatId) },
+      })
+      await db.appSetting.upsert({
+        where: { key: telegramBuyerChatKey(telegramUserId) },
+        create: { key: telegramBuyerChatKey(telegramUserId), value: String(chatId) },
         update: { value: String(chatId) },
       })
       if (parts[1]) {
@@ -560,7 +581,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       if (reverse?.value === mappingKey) {
         await tx.appSetting.delete({ where: { key: reverseKey } })
       }
-      await tx.appSetting.deleteMany({ where: { key: { in: [mappingKey, telegramChatKey(telegramUserId)] } } })
+      await tx.appSetting.deleteMany({ where: { key: { in: [mappingKey, telegramChatKey(telegramUserId), telegramBuyerChatKey(telegramUserId)] } } })
       const merchantKey = 'telegram:merchant:' + linkedUserId
       const merchantRecord = await tx.appSetting.findUnique({ where: { key: merchantKey } })
       if (merchantRecord) {
@@ -585,7 +606,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       await sendMessage(chatId, 'Choose explicitly: /followup ENQUIRY_ID yes or /followup ENQUIRY_ID no')
       return
     }
-    const buyerHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
+    const buyerHash = buyerIdentityHash(telegramUserId)
     const changed = await db.enquiry.updateMany({
       where: { id: enquiryId, buyerTelegramHash: buyerHash, status: 'OPEN' },
       data: { followUpConsentAt: choice === 'yes' ? new Date() : null },
@@ -607,7 +628,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   const mapping = await db.appSetting.findUnique({ where: { key: telegramKey(telegramUserId) } })
   if (!mapping || await linkedMudaalaUserId(telegramUserId) === null) {
     if (command === '/messages') {
-      const buyerHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
+      const buyerHash = buyerIdentityHash(telegramUserId)
       const enquiries = await db.enquiry.findMany({
         where: { buyerTelegramHash: buyerHash, status: 'OPEN' },
         include: { listing: { select: { title: true } }, messages: { orderBy: { createdAt: 'desc' }, take: 1 } },
@@ -629,7 +650,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
         await sendMessage(chatId, 'Use /respond ENQUIRY_ID your message')
         return
       }
-      const buyerHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
+      const buyerHash = buyerIdentityHash(telegramUserId)
       const enquiry = await db.enquiry.findFirst({
         where: { id: enquiryId, status: 'OPEN', buyerTelegramHash: buyerHash },
         select: { id: true, merchantId: true, listing: { select: { title: true } } },
@@ -684,7 +705,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
 
   if (command === '/messages') {
     const enquiries = await db.enquiry.findMany({
-      where: { buyerTelegramHash: identityHash, status: 'OPEN' },
+      where: { buyerTelegramHash: buyerIdentityHash(telegramUserId), status: 'OPEN' },
       include: { listing: { select: { title: true } }, messages: { orderBy: { createdAt: 'desc' }, take: 1 } },
       orderBy: { lastMessageAt: 'desc' },
       take: 10,
@@ -706,7 +727,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       return
     }
     const changed = await db.enquiry.updateMany({
-      where: { id: enquiryId, status: 'OPEN', OR: [{ shopperId: user.id }, { buyerTelegramHash: identityHash }] },
+      where: { id: enquiryId, status: 'OPEN', OR: [{ shopperId: user.id }, { buyerTelegramHash: buyerIdentityHash(telegramUserId) }] },
       data: { followUpConsentAt: choice === 'yes' ? new Date() : null },
     })
     if (!changed.count) {
@@ -729,7 +750,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       where: {
         id: enquiryId,
         status: 'OPEN',
-        ...(isMerchant ? { merchantId: user.id } : { buyerTelegramHash: identityHash }),
+        ...(isMerchant ? { merchantId: user.id } : { buyerTelegramHash: buyerIdentityHash(telegramUserId) }),
       },
       select: { id: true, merchantId: true, buyerTelegramHash: true, listing: { select: { title: true } } },
     })
@@ -749,7 +770,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     await db.enquiry.update({ where: { id: enquiry.id }, data: { lastMessageAt: created.createdAt } })
     let destination: number | null = null
     if (isMerchant && enquiry.buyerTelegramHash) {
-      const buyerChat = await db.appSetting.findUnique({ where: { key: 'telegram:chat:' + enquiry.buyerTelegramHash } })
+      const buyerChat = await db.appSetting.findUnique({ where: { key: 'telegram:buyer-chat:' + enquiry.buyerTelegramHash } })
       const value = buyerChat?.value ? Number(buyerChat.value) : NaN
       if (Number.isSafeInteger(value)) destination = value
     } else if (!isMerchant) {
@@ -774,7 +795,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   }
 
   if (command === '/messages') {
-    const buyerHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
+    const buyerHash = buyerIdentityHash(telegramUserId)
     const enquiries = await db.enquiry.findMany({
       where: { buyerTelegramHash: buyerHash, status: 'OPEN' },
       include: { listing: { select: { title: true } }, messages: { orderBy: { createdAt: 'desc' }, take: 1 } },
