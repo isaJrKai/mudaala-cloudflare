@@ -13,8 +13,6 @@
   "vars": {
     "RATE_LIMIT_REQUIRE_SHARED": "1",
     "APP_ORIGIN": "https://mudaala.store",
-    "GOOGLE_REDIRECT_URI": "https://mudaala.store/api/auth/google/callback",
-    "SELLER_GOOGLE_REQUIRED": "false",
     "GOOGLE_CLIENT_ID": "945073139445-5f3ht87b9pk47r4mrgo7p1v6rlh4jdqn.apps.googleusercontent.com",
     "GOOGLE_REDIRECT_URI": "https://mudaala.store/api/auth/google/callback",
     "SELLER_GOOGLE_REQUIRED": "false",
