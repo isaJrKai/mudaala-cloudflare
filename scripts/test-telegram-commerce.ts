@@ -193,7 +193,6 @@ async function run() {
   assert.equal((JSON.parse(linkedMerchantSettings.value) as { chatId: number }).chatId, merchantTelegramId, 'private chat destination is recorded')
   assert.equal((JSON.parse(linkedMerchantSettings.value) as { enabled: boolean }).enabled, true, 'linking preserves explicit enquiry opt-in')
   assert.equal(await db.appSetting.findUnique({ where: { key: linkCodeKey } }), null, 'link code is consumed exactly once')
-  assert.ok(await db.appSetting.findUnique({ where: { key: merchantChatKey } }), 'linked Telegram identity has a private chat route')
 
   const conflictingCodeResponse = await requestJson('/api/telegram/link-code', { method: 'POST', body: '{}' }, stranger.token)
   assertStatus(conflictingCodeResponse.status, 201, 'second account link code')
@@ -349,6 +348,7 @@ async function run() {
   })
   assertStatus(merchantStart.status, 200, 'linked merchant start command')
   assert.ok(telegramRequests.some((item) => item.method === 'setChatMenuButton'), 'linked merchant start configures the official Telegram Mini App menu button')
+  assert.ok(await db.appSetting.findUnique({ where: { key: merchantChatKey } }), 'merchant /start creates a private chat route')
   const assistantFallback = await postTelegramUpdate({
     update_id: updateBase + 13,
     message: { text: 'Can you tell me what products are available?', chat: { id: buyerTelegramId, type: 'private' }, from: { id: buyerTelegramId } },
@@ -462,8 +462,14 @@ async function run() {
   const revokedIdentityResponse = telegramRequests.filter((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId).at(-1)
   assert.ok(revokedIdentityResponse && !String(revokedIdentityResponse.body.text).includes(enquiry.id), 'revoked Telegram identity cannot access merchant enquiries')
 
+  const replacementStarted = await postTelegramUpdate({
+    update_id: updateBase + 83,
+    message: { text: '/start', chat: { id: replacementTelegramId, type: 'private' }, from: { id: replacementTelegramId } },
+  })
+  assertStatus(replacementStarted.status, 200, 'replacement Telegram identity start')
+  assert.ok(await db.appSetting.findUnique({ where: { key: replacementChatKey } }), 'replacement /start creates a private chat route')
   const unlinked = await postTelegramUpdate({
-    update_id: updateBase + 82,
+    update_id: updateBase + 84,
     message: { text: '/unlink', chat: { id: replacementTelegramId, type: 'private' }, from: { id: replacementTelegramId } },
   })
   assertStatus(unlinked.status, 200, 'Telegram /unlink command')
