@@ -200,6 +200,7 @@ model Listing {
   collectionItems ProductCollectionItem[]
   savedProducts SavedProduct[]
   enquiries Enquiry[]
+  telegramContactTokens EnquiryContactToken[]
 }
 
 // Shop-owned curated groups for seasonal edits, new arrivals and themed collections.
