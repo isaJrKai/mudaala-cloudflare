@@ -315,6 +315,10 @@ export function ListingsBrowse() {
       )}
       <ExploreShopsSection shops={group.shops} loading={discoveryQuery.isLoading}
         onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })} />
+      <ExploreShowroomsSection
+        shops={group.shops}
+        onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
+      />
       {group.shops.length === 0 && !discoveryQuery.isLoading ? (
         <p className="text-xs text-muted-foreground">No shops in this category yet.</p>
       ) : null}
