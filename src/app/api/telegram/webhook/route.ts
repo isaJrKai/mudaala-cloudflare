@@ -442,7 +442,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       }
     }
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
-    await sendMessage(chatId, 'Welcome to Mudaala.\n\nFind real products and shops with /search followed by what you need. Open a listing to view details and contact its seller.\n\nIf you run a shop, connect your Mudaala account with /link CODE, then use /shop or /products to manage it.\n\n/search <product> - find active Mudaala listings.\n/link CODE - connect your Mudaala account.\n/unlink - disconnect this Telegram account.\n/shop - open your merchant workspace.\n/publicshop - get your public shop link.\n/products - view your active products.\n/enquiries - view shopper enquiries.\n/messages - view your buyer enquiries.\n/reply ID message - reply to a shopper enquiry.\n/respond ID message - reply as a shopper.\n/followup ID yes|no - allow or revoke seller follow-up.\n/help - show these commands.', shopKeyboard)
+    await sendMessage(chatId, 'Welcome to Mudaala.\n\nFind real products and shops with /search followed by what you need. Open a listing to view details and contact its seller.\n\nIf you run a shop, connect your Mudaala account with /link CODE. Manage products and enquiries right here in this chat.\n\n/search <product> - find active Mudaala listings.\n/link CODE - connect your Mudaala account.\n/unlink - disconnect this Telegram account.\n/shop - show merchant chat controls.\n/publicshop - get your public shop link.\n/products - view your active products.\n/enquiries - view shopper enquiries.\n/messages - view your buyer enquiries.\n/reply ID message - reply to a shopper enquiry.\n/respond ID message - reply as a shopper.\n/followup ID yes|no - allow or revoke seller follow-up.\n/help - show these commands.', shopKeyboard)
     return
   }
 
@@ -565,7 +565,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       }
       throw error
     }
-    await sendMessage(chatId, 'Connected successfully to ' + (user.profile?.businessName || user.name) + '.\n\nYour merchant workspace is ready. Open it below to manage your shop.', shopKeyboard)
+    await sendMessage(chatId, 'Connected successfully to ' + (user.profile?.businessName || user.name) + '.\n\nYour shop is connected. You can manage it here in Telegram.', shopKeyboard)
     return
   }
 
@@ -622,7 +622,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
 
   if (command === '/shop') {
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
-    await sendMessage(chatId, 'Open your Mudaala merchant workspace to manage your shop, products and performance.', shopKeyboard)
+    await sendMessage(chatId, 'Your merchant controls are here in Telegram. Send a product photo to start adding a product, or use /products to view your catalogue.', shopKeyboard)
     return
   }
 
@@ -845,11 +845,11 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       take: 10,
     })
     if (!listings.length) {
-      await sendMessage(chatId, 'You have no active products yet. Open your merchant workspace to create your first listing.', shopKeyboard)
+      await sendMessage(chatId, 'You have no active products yet. Send a product photo with its price to start creating your first listing.', shopKeyboard)
       return
     }
     const lines = listings.map((item) => '- ' + item.title + ' - ' + (item.price === null ? 'Ask seller' : item.currency + ' ' + item.price.toLocaleString('en-UG')) + ' (' + item.county + ')')
-    await sendMessage(chatId, 'Your latest active products:\n\n' + lines.join('\n') + '\n\nOpen your merchant workspace to add or manage products.', shopKeyboard)
+    await sendMessage(chatId, 'Your latest active products:\n\n' + lines.join('\n') + '\n\nSend a product photo with its price to add another listing.', shopKeyboard)
     return
   }
   const answer = await replyToTelegramMerchant({
