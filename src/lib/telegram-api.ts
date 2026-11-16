@@ -1,4 +1,4 @@
-export type TelegramApiMethod = 'sendMessage' | 'setChatMenuButton' | 'answerCallbackQuery'
+export type TelegramApiMethod = 'sendMessage' | 'setChatMenuButton' | 'answerCallbackQuery' | 'getFile'
 
 /**
  * Telegram API endpoint selection.
