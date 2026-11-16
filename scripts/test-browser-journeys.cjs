@@ -482,7 +482,7 @@ async function verifyListingLifecycle(browser) {
     await page.goto(base + '/#/browse', { waitUntil: 'domcontentloaded', timeout: 60000 });
     const resultsGrid = page.getByTestId('listing-results-grid');
     await resultsGrid.waitFor({ state: 'visible', timeout });
-    await page.getByPlaceholder('Search products, shops, and things near you').fill(editedTitle);
+    await page.locator('input[type="search"]').fill(editedTitle);
     // Browse's unfiltered discovery view splits listings into category shelves.
     // Only the first shelf uses listing-results-grid; later shelves use
     // listing-feed-grid. Search/filter results use listing-results-grid alone.
