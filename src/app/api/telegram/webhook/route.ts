@@ -33,6 +33,11 @@ function telegramAccountKey(userId: string): string {
   return 'telegram:account:' + userId
 }
 
+function telegramChatKey(telegramUserId: number): string {
+  const digest = createHash('sha256').update(String(telegramUserId)).digest('hex')
+  return 'telegram:chat:' + digest
+}
+
 async function linkedMudaalaUserId(telegramUserId: number): Promise<string | null> {
   const mappingKey = telegramKey(telegramUserId)
   const mapping = await db.appSetting.findUnique({ where: { key: mappingKey } })
@@ -487,7 +492,10 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
           try { return (JSON.parse(item.value) as { userId?: unknown }).userId === user.id } catch { return false }
         }).map((item) => item.key)
         if (staleKeys.length) {
-          await tx.appSetting.deleteMany({ where: { key: { in: staleKeys } } })
+          // A revoked identity must not remain a delivery destination for old
+          // buyer enquiries. Remove its hashed chat route in the same transaction.
+          const staleChatKeys = staleKeys.map((item) => 'telegram:chat:' + item.slice('telegram:user:'.length))
+          await tx.appSetting.deleteMany({ where: { key: { in: [...staleKeys, ...staleChatKeys] } } })
         }
 
         const mappingValue = JSON.stringify({ userId: user.id, linkedAt: now.toISOString() })
@@ -552,7 +560,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       if (reverse?.value === mappingKey) {
         await tx.appSetting.delete({ where: { key: reverseKey } })
       }
-      await tx.appSetting.deleteMany({ where: { key: mappingKey } })
+      await tx.appSetting.deleteMany({ where: { key: { in: [mappingKey, telegramChatKey(telegramUserId)] } } })
       const merchantKey = 'telegram:merchant:' + linkedUserId
       const merchantRecord = await tx.appSetting.findUnique({ where: { key: merchantKey } })
       if (merchantRecord) {
