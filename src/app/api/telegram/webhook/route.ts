@@ -464,7 +464,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       }
     }
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
-    await sendMessage(chatId, 'Welcome to Mudaala.\n\nFind real products and shops with /search followed by what you need. Open a listing to view details and contact its seller.\n\nIf you run a shop, connect your Mudaala account with /link CODE. Manage products and enquiries right here in this chat.\n\n/search <product> - find active Mudaala listings.\n/link CODE - connect your Mudaala account.\n/unlink - disconnect this Telegram account.\n/shop - show merchant chat controls.\n/publicshop - get your public shop link.\n/products - view your active products.\n/enquiries - view shopper enquiries.\n/messages - view your buyer enquiries.\n/reply ID message - reply to a shopper enquiry.\n/respond ID message - reply as a shopper.\n/followup ID yes|no - allow or revoke seller follow-up.\n/help - show these commands.', shopKeyboard)
+    await sendMessage(chatId, 'Welcome to Mudaala.\n\nFind real products and shops with /search followed by what you need. Open a listing to view details and contact its seller.\n\nIf you run a shop, connect your Mudaala account with /link CODE. Send a product photo here, then its name and price (Product name | 85000) to publish. Manage products and enquiries right here in this chat.\n\n/search <product> - find active Mudaala listings.\n/link CODE - connect your Mudaala account.\n/unlink - disconnect this Telegram account.\n/shop - show merchant chat controls.\n/publicshop - get your public shop link.\n/products - view your active products.\n/cancel - discard a product photo draft.\n/enquiries - view shopper enquiries.\n/messages - view your buyer enquiries.\n/reply ID message - reply to a shopper enquiry.\n/respond ID message - reply as a shopper.\n/followup ID yes|no - allow or revoke seller follow-up.\n/help - show these commands.', shopKeyboard)
     return
   }
 
@@ -970,11 +970,11 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       take: 10,
     })
     if (!listings.length) {
-      await sendMessage(chatId, 'You have no active products yet. Open My Shop to add your first product. Photo-based product publishing in chat is being added.', shopKeyboard)
+      await sendMessage(chatId, 'You have no active products yet. Send a product photo here to start adding one.', shopKeyboard)
       return
     }
     const lines = listings.map((item) => '- ' + item.title + ' - ' + (item.price === null ? 'Ask seller' : item.currency + ' ' + item.price.toLocaleString('en-UG')) + ' (' + item.county + ')')
-    await sendMessage(chatId, 'Your latest active products:\n\n' + lines.join('\n') + '\n\nUse your Mudaala account to add another listing.', shopKeyboard)
+    await sendMessage(chatId, 'Your latest active products:\n\n' + lines.join('\n') + '\n\nSend another product photo here to add a listing.', shopKeyboard)
     return
   }
   const answer = await replyToTelegramMerchant({
