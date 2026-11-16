@@ -171,8 +171,9 @@ async function run() {
   const secondBuyerTelegramId = merchantTelegramId + 2
   const updateBase = 1_000_000 + Math.floor(Math.random() * 100_000)
   const merchantMappingKey = 'telegram:user:' + createHash('sha256').update(String(merchantTelegramId)).digest('hex')
+  const merchantChatKey = 'telegram:chat:' + createHash('sha256').update(String(merchantTelegramId)).digest('hex')
   const buyerChatKey = 'telegram:chat:' + createHash('sha256').update(String(buyerTelegramId)).digest('hex')
-  settingKeys.push(merchantMappingKey, buyerChatKey)
+  settingKeys.push(merchantMappingKey, merchantChatKey, buyerChatKey)
 
   const linkCodeResponse = await requestJson('/api/telegram/link-code', { method: 'POST', body: '{}' }, merchant.token)
   assertStatus(linkCodeResponse.status, 201, 'merchant Telegram link code')
@@ -192,6 +193,7 @@ async function run() {
   assert.equal((JSON.parse(linkedMerchantSettings.value) as { chatId: number }).chatId, merchantTelegramId, 'private chat destination is recorded')
   assert.equal((JSON.parse(linkedMerchantSettings.value) as { enabled: boolean }).enabled, true, 'linking preserves explicit enquiry opt-in')
   assert.equal(await db.appSetting.findUnique({ where: { key: linkCodeKey } }), null, 'link code is consumed exactly once')
+  assert.ok(await db.appSetting.findUnique({ where: { key: merchantChatKey } }), 'linked Telegram identity has a private chat route')
 
   const conflictingCodeResponse = await requestJson('/api/telegram/link-code', { method: 'POST', body: '{}' }, stranger.token)
   assertStatus(conflictingCodeResponse.status, 201, 'second account link code')
@@ -432,8 +434,9 @@ async function run() {
   // revokes the previous identity, and /unlink revokes the active identity.
   const replacementTelegramId = merchantTelegramId + 10
   const replacementMappingKey = 'telegram:user:' + createHash('sha256').update(String(replacementTelegramId)).digest('hex')
+  const replacementChatKey = 'telegram:chat:' + createHash('sha256').update(String(replacementTelegramId)).digest('hex')
   const merchantAccountKey = 'telegram:account:' + merchant.id
-  settingKeys.push(replacementMappingKey, merchantAccountKey)
+  settingKeys.push(replacementMappingKey, replacementChatKey, merchantAccountKey)
   const replacementCodeResponse = await requestJson('/api/telegram/link-code', { method: 'POST', body: '{}' }, merchant.token)
   assertStatus(replacementCodeResponse.status, 201, 'replacement merchant Telegram link code')
   const replacementCode = String(replacementCodeResponse.body.code)
@@ -448,6 +451,8 @@ async function run() {
   const replacementMapping = await db.appSetting.findUnique({ where: { key: replacementMappingKey } })
   assert.equal((JSON.parse(replacementMapping!.value) as { userId: string }).userId, merchant.id, 'replacement Telegram identity maps to the merchant')
   assert.equal((await db.appSetting.findUnique({ where: { key: merchantAccountKey } }))?.value, replacementMappingKey, 'reverse account mapping points only to the active Telegram identity')
+  assert.equal(await db.appSetting.findUnique({ where: { key: merchantChatKey } }), null, 'relink removes the revoked identity chat route')
+  assert.ok(await db.appSetting.findUnique({ where: { key: replacementChatKey } }), 'replacement identity chat route remains active')
 
   const revokedIdentityCommand = await postTelegramUpdate({
     update_id: updateBase + 81,
@@ -464,6 +469,7 @@ async function run() {
   assertStatus(unlinked.status, 200, 'Telegram /unlink command')
   assert.equal(await db.appSetting.findUnique({ where: { key: replacementMappingKey } }), null, 'unlink removes the active Telegram identity mapping')
   assert.equal(await db.appSetting.findUnique({ where: { key: merchantAccountKey } }), null, 'unlink removes the reverse account mapping')
+  assert.equal(await db.appSetting.findUnique({ where: { key: replacementChatKey } }), null, 'unlink removes the active Telegram chat route')
   const disconnectedMerchantSettings = await db.appSetting.findUnique({ where: { key: merchantSettingKey } })
   const disconnectedSettings = JSON.parse(disconnectedMerchantSettings!.value) as { enabled: boolean; chatId: number | null; activatedAt: string | null }
   assert.equal(disconnectedSettings.enabled, false, 'unlink disables merchant Telegram enquiries')
