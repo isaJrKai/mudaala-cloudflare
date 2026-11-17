@@ -71,7 +71,7 @@ export async function POST(request: Request) {
           merchantId: listing.userId,
           shopperId: shopper.id,
           status: 'OPEN',
-          contactChannel: 'IN_APP',
+          contactChannel: 'WEB',
         },
         select: { id: true },
       })
