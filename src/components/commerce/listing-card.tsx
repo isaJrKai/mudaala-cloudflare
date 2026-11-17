@@ -145,13 +145,13 @@ export function HeartButton({
 
 // The name + price lead. Tabular numbers keep the UGX digits aligned across
 // a feed of cards.
-function PriceLead({ listing, large }: { listing: Listing; large?: boolean }) {
+function PriceLead({ listing, large, compact }: { listing: Listing; large?: boolean; compact?: boolean }) {
   const discounted = isDiscounted(listing)
   const percentOff = discountPercent(listing)
   if (listing.type === 'OFFER') {
     return (
-      <div className="mt-1.5 inline-flex max-w-full flex-wrap items-baseline gap-x-2">
-        <p className={cn('font-extrabold leading-none text-foreground tabular-nums', large ? 'text-lg' : 'text-base')}>
+      <div className={cn('mt-1.5 inline-flex max-w-full items-baseline gap-x-1.5 overflow-hidden', compact ? 'flex-nowrap' : 'flex-wrap')}>
+        <p className={cn('max-w-full truncate font-extrabold leading-none text-foreground tabular-nums', compact ? 'whitespace-nowrap text-[12px] tracking-tight' : large ? 'text-lg' : 'text-base')}>
           {formatPrice(listing.price, listing.unit ? unitLabel(listing.unit) : null, listing.currency)}
           {listing.priceNegotiable && listing.price !== null ? (
             <span className="ml-1 text-xs font-normal text-muted-foreground">{copy.common.negotiableShort}</span>
@@ -171,7 +171,7 @@ function PriceLead({ listing, large }: { listing: Listing; large?: boolean }) {
     )
   }
   return (
-    <p className={cn('mt-1 font-semibold leading-none text-foreground tabular-nums', large ? 'text-base' : 'text-sm')}>
+    <p className={cn('mt-1 max-w-full truncate font-semibold leading-none text-foreground tabular-nums', compact ? 'whitespace-nowrap text-[12px] tracking-tight' : large ? 'text-base' : 'text-sm')}>
       {listing.price !== null
         ? `${copy.common.budget}: ${formatPrice(listing.price, listing.unit ? unitLabel(listing.unit) : null, listing.currency)}`
         : copy.common.askPrice}
@@ -193,7 +193,7 @@ function MetaLine({
   const place = [listing.area, listing.county].filter(Boolean).join(', ')
   const parts = [place, quantity, distanceLabel, timeAgo(listing.refreshedAt)].filter(Boolean)
   return (
-    <p className="mt-1.5 flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground tabular-nums">
+    <p className="mt-1 flex min-w-0 items-center gap-1 truncate text-[10px] text-muted-foreground tabular-nums">
       <FreshnessDot refreshedAt={listing.refreshedAt} />
       <span className="truncate">{parts.join(' · ')}</span>
     </p>
@@ -337,7 +337,7 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
             />
           ) : null}
           {listing.photos.length > 1 ? (
-            <span className="pointer-events-none absolute bottom-1 right-1 z-10 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white tabular-nums sm:bottom-1.5 sm:right-1.5">
+            <span className="pointer-events-none absolute bottom-1 left-1 z-10 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white tabular-nums sm:bottom-1.5 sm:left-1.5">
               {copy.card.photoCount(listing.photos.length - 1)}
             </span>
           ) : null}
@@ -345,9 +345,8 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
             <button
               type="button"
               onClick={() => flashAdded(onAdd(listing) !== false)}
-              // Same as the heart: row tiles stay clean; the desktop block
-              // and the ad page carry the add-to-basket button.
-              className="press absolute bottom-1 left-1 z-20 hidden items-center justify-center rounded-md bg-black/70 text-white hover:bg-black/85 sm:bottom-1.5 sm:left-1.5 sm:inline-flex sm:size-8"
+              // Keep the add action visible on mobile Explore tiles as well as desktop.
+              className="press absolute bottom-1.5 right-1.5 z-20 inline-flex size-8 items-center justify-center rounded-full border border-white/70 bg-black/75 text-white shadow-sm hover:bg-black/90 sm:bottom-2 sm:right-2 sm:size-9"
               aria-label={copy.card.addCartAria(listing.title)}
             >
               {added ? (
@@ -362,11 +361,11 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
         <button type="button" onClick={() => onOpen(listing.id)} className="block w-full min-w-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" aria-label={copy.card.openAria(listing.title)}>
           {/* pr-2.5 on the row so long titles stop at the card edge; on
               desktop the padding wraps all sides evenly. */}
-          <div className="min-w-0 p-2.5">
+          <div className="min-w-0 p-2 sm:p-2.5">
             {/* Exactly two lines of title keep every card in a row the same
                 height - a 1-line title leaves room, a 5-line one gets cut. */}
-            <h3 className="line-clamp-2 text-sm font-bold leading-snug">{listing.title}</h3>
-            <PriceLead listing={listing} />
+            <h3 className="line-clamp-2 text-[13px] font-semibold leading-snug sm:text-sm">{listing.title}</h3>
+            <PriceLead listing={listing} compact />
             <MetaLine listing={listing} quantity={quantity} distanceLabel={distanceLabel} />
           </div>
         </button>
@@ -376,27 +375,27 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
         // Buyer bar, stacked for the narrow card: who sells it on top, then
         // Call | WhatsApp sharing the row. mt-auto pins it to the card bottom
         // so unequal titles never leave a ragged edge in the grid.
-        <div className="mt-auto border-t px-2 py-2">
+        <div className="mt-auto border-t px-1.5 py-1.5 sm:px-2 sm:py-2">
           <button
             type="button"
             onClick={() => onOpenShop(shop.id)}
-            className="press flex w-full min-w-0 items-center gap-1.5 rounded-md px-0.5 py-0.5 text-left hover:bg-secondary/60"
+            className="press flex w-full min-w-0 items-center gap-1 rounded-md px-0.5 py-0.5 text-left hover:bg-secondary/60"
             aria-label={copy.card.visitShopAria(shopDisplayName)}
           >
             {shopPhoto ? (
-              <img src={shopPhoto} alt="" className="size-5 shrink-0 rounded-md border object-cover" />
+              <img src={shopPhoto} alt="" className="size-4 shrink-0 rounded border object-cover" />
             ) : (
-              <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-accent text-[9px] font-bold text-accent-foreground">
+              <span className="flex size-4 shrink-0 items-center justify-center rounded bg-accent text-[8px] font-bold text-accent-foreground">
                 {shopDisplayName.charAt(0).toUpperCase()}
               </span>
             )}
-            <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground/80">{shopDisplayName}</span>
+            <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-foreground/80">{shopDisplayName}</span>
             <Store className="size-3 shrink-0 text-muted-foreground" aria-hidden />
           </button>
-          <div className="mt-1.5 flex gap-1.5">
+          <div className="mt-1 flex gap-1">
             <a
               href={telLink(listing.contactPhone)}
-              className="press inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border bg-card text-xs font-semibold text-foreground hover:bg-secondary"
+              className="press inline-flex h-7 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border bg-card text-[10px] font-semibold text-foreground hover:bg-secondary"
               aria-label={copy.card.callAria(shopDisplayName, listing.title)}
             >
               <Phone className="size-3.5 text-primary" aria-hidden />
@@ -407,7 +406,7 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
                 href={whatsappLink(whatsappNumber, listing.title, listing.type)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="whatsapp-brand press inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-0 rounded-md border text-[9px] font-semibold"
+                className="whatsapp-brand press inline-flex h-7 min-w-0 flex-1 items-center justify-center gap-0 rounded-md border text-[9px] font-semibold"
                 aria-label={copy.card.whatsappAria(shopDisplayName, listing.title)}
               >
                 <WhatsAppIcon className="size-3 shrink-0" aria-hidden />
