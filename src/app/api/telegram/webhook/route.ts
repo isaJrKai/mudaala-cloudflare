@@ -256,13 +256,12 @@ async function cleanupTelegramRecords(): Promise<void> {
 }
 
 const shopKeyboard = {
-  keyboard: [
-    [{ text: 'Post a product' }, { text: 'My products' }],
-    [{ text: 'Customer enquiries' }, { text: 'My shop link' }],
-    [{ text: 'Help & questions' }, { text: 'Open full workspace', web_app: { url: 'https://mudaala.store/telegram' } }],
+  inline_keyboard: [
+    [{ text: 'Post a product', callback_data: 'menu:post' }, { text: 'My products', callback_data: 'menu:products' }],
+    [{ text: 'Customer enquiries', callback_data: 'menu:enquiries' }, { text: 'My shop link', callback_data: 'menu:shoplink' }],
+    [{ text: 'Open my shop', url: 'https://mudaala.store/telegram' }],
+    [{ text: 'Send feedback', callback_data: 'menu:feedback' }, { text: 'Help & instructions', callback_data: 'menu:help' }],
   ],
-  resize_keyboard: true,
-  is_persistent: true,
 }
 
 async function searchListings(chatId: number, rawQuery: string): Promise<void> {
@@ -328,13 +327,13 @@ async function searchListings(chatId: number, rawQuery: string): Promise<void> {
 }
 
 
-async function answerCallbackQuery(callbackQueryId: string, text: string): Promise<void> {
+async function answerCallbackQuery(callbackQueryId: string, text: string, showAlert = true): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN
   if (!token) throw new Error('Telegram bot is not configured')
   const response = await fetch(telegramApiUrl(token, 'answerCallbackQuery'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ callback_query_id: callbackQueryId, text, show_alert: true }),
+    body: JSON.stringify({ callback_query_id: callbackQueryId, text, show_alert: showAlert }),
     signal: AbortSignal.timeout(8000),
   })
   if (!response.ok) throw new Error('Telegram answerCallbackQuery failed')
@@ -493,11 +492,101 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
   await sendMessage(chatId, 'Your enquiry has been sent to the seller. Mudaala has kept your Telegram identity private.\n\nIf the seller replies, respond with /respond ' + result.enquiry.id + ' your message.')
 }
 
+async function sendMainMenu(chatId: number, intro = 'Welcome to Mudaala Merchant Assistant. What would you like to do?'): Promise<void> {
+  await sendMessage(chatId, intro + '\n\nChoose an action below. You can return to this menu at any time.', shopKeyboard)
+}
+
+async function handleMenuCallback(query: TelegramCallbackQuery): Promise<void> {
+  const callbackId = query.id
+  const chatId = query.message?.chat?.id
+  const telegramUserId = query.from?.id
+  const data = query.data || ''
+  if (!callbackId) return
+  if (!chatId || !telegramUserId || query.message?.chat?.type !== 'private' || chatId !== telegramUserId) {
+    await answerCallbackQuery(callbackId, 'Open Mudaala in your own private chat.', false)
+    return
+  }
+  if (!data.startsWith('menu:')) {
+    await answerCallbackQuery(callbackId, 'This menu action is not available.', false)
+    return
+  }
+  await answerCallbackQuery(callbackId, 'Opening…', false)
+  const action = data.slice(5)
+  const feedbackStateKey = 'telegram:feedback-state:' + createHash('sha256').update(String(telegramUserId)).digest('hex')
+  if (action === 'home') {
+    await db.appSetting.deleteMany({ where: { key: feedbackStateKey } })
+    await sendMainMenu(chatId)
+    return
+  }
+  if (action === 'feedback') {
+    await db.appSetting.upsert({
+      where: { key: feedbackStateKey },
+      create: { key: feedbackStateKey, value: JSON.stringify({ startedAt: new Date().toISOString() }) },
+      update: { value: JSON.stringify({ startedAt: new Date().toISOString() }) },
+    })
+    await sendMessage(chatId, 'We value your feedback. Type your suggestion, complaint or experience in one message. Please do not include passwords, OTPs or payment credentials.', {
+      inline_keyboard: [[{ text: 'Cancel', callback_data: 'menu:feedback-cancel' }, { text: 'Main menu', callback_data: 'menu:home' }]],
+    })
+    return
+  }
+  if (action === 'feedback-cancel') {
+    await db.appSetting.deleteMany({ where: { key: feedbackStateKey } })
+    await sendMainMenu(chatId)
+    return
+  }
+  const commands: Record<string, string> = {
+    post: '/post',
+    products: '/products',
+    enquiries: '/enquiries',
+    shoplink: '/publicshop',
+    help: '/help',
+    cancel: '/cancel',
+  }
+  const command = commands[action]
+  if (!command) {
+    await sendMainMenu(chatId, 'That option is not available. Please choose another action.')
+    return
+  }
+  await handleMessage({ text: command, chat: query.message?.chat, from: { id: telegramUserId } })
+}
+
 async function handleMessage(message: TelegramMessage): Promise<void> {
   const chatId = message.chat?.id
   const telegramUserId = message.from?.id
   const text = (message.text || message.caption || '').trim()
   if (!chatId || !telegramUserId || (!text && !message.photo?.length) || message.chat?.type !== 'private') return
+
+  const feedbackStateKey = 'telegram:feedback-state:' + createHash('sha256').update(String(telegramUserId)).digest('hex')
+  const feedbackState = await db.appSetting.findUnique({ where: { key: feedbackStateKey } })
+  if (feedbackState && text.startsWith('/')) {
+    if (text === '/cancel' || text === '/menu' || text === '/start') {
+      await db.appSetting.deleteMany({ where: { key: feedbackStateKey } })
+    }
+  } else if (feedbackState) {
+    const feedback = text.trim().slice(0, 2000)
+    if (!feedback) {
+      await sendMessage(chatId, 'Please type your feedback as a message, or choose Cancel.', {
+        inline_keyboard: [[{ text: 'Cancel', callback_data: 'menu:feedback-cancel' }, { text: 'Main menu', callback_data: 'menu:home' }]],
+      })
+      return
+    }
+    const feedbackId = randomBytes(12).toString('hex')
+    await db.appSetting.create({
+      data: {
+        key: 'telegram:feedback:' + Date.now() + ':' + feedbackId,
+        value: JSON.stringify({
+          feedbackId,
+          telegramUserHash: createHash('sha256').update(String(telegramUserId)).digest('hex'),
+          message: feedback,
+          receivedAt: new Date().toISOString(),
+          channel: 'telegram',
+        }),
+      },
+    })
+    await db.appSetting.deleteMany({ where: { key: feedbackStateKey } })
+    await sendMainMenu(chatId, 'Thank you. Your feedback has been received by Mudaala.')
+    return
+  }
 
   const normalizedText = text.toLocaleLowerCase().replace(/\s+/g, ' ').trim()
   const shortcuts: Record<string, string> = {
@@ -526,7 +615,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     if (!linked) {
       await sendMessage(chatId, 'To post a product, first connect your Mudaala account. Generate a link code in Mudaala Account, then send /link CODE.')
     } else {
-      await sendMessage(chatId, 'Great. Send one clear photo of the product here. I will ask you for its name and price next. You can cancel any time with /cancel.', shopKeyboard)
+      await sendMessage(chatId, 'Great. Send one clear photo of the product here. I will guide you through the details and publishing steps. You can cancel at any time.', { inline_keyboard: [[{ text: 'Cancel posting', callback_data: 'menu:cancel' }, { text: 'Main menu', callback_data: 'menu:home' }]] })
     }
     return
   }
@@ -551,7 +640,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     }
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set chat menu:', error instanceof Error ? error.message : 'unknown error'))
     await setBotCommands().catch((error) => console.warn('[telegram] could not register commands:', error instanceof Error ? error.message : 'unknown error'))
-    await sendMessage(chatId, 'Welcome to Mudaala.\n\nYou can use this chat to post products and manage customer enquiries. You do not need to learn commands. Choose an action below, or simply send a product photo.\n\nTo publish: send a product photo, then send its name and price, for example: Ladies handbag | 85000.\n\nFor account security, connect your Mudaala account with /link CODE. Never send your password or OTP here.\n\n/menu - show these options.\n/post - post a product.\n/products - view your active products.\n/enquiries - view customer enquiries.\n/publicshop - get your public shop link.\n/search - find active Mudaala listings.\n/cancel - discard a product photo draft.\n/unlink - disconnect this Telegram account.\n/help - show help.', shopKeyboard)
+    await sendMainMenu(chatId, 'Welcome to Mudaala Merchant Assistant. Your shop tools are ready.');
     return
   }
 
@@ -1319,8 +1408,10 @@ export async function POST(request: Request) {
         const verdict = await hit('telegram:chat:' + chatId, 30, 60 * 1000)
         if (!verdict.ok) return jsonOk({ ok: true })
       }
-      if (update.callback_query) await confirmListingEnquiry(update.callback_query)
-      else if (update.message) await handleMessage(update.message)
+      if (update.callback_query) {
+        if ((update.callback_query.data || '').startsWith('menu:')) await handleMenuCallback(update.callback_query)
+        else await confirmListingEnquiry(update.callback_query)
+      } else if (update.message) await handleMessage(update.message)
       return jsonOk({ ok: true })
     } catch (error) {
       await db.appSetting.deleteMany({ where: { key: updateKey } }).catch(() => undefined)
