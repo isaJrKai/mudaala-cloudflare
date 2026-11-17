@@ -705,8 +705,9 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       }
       if (previousDraft) {
         try {
-          const previous = JSON.parse(previousDraft.value) as { photoUrl?: unknown }
-          if (typeof previous.photoUrl === 'string' && previous.photoUrl !== photoUrl) {
+          const previous = JSON.parse(previousDraft.value) as { photoUrl?: unknown; status?: unknown }
+          // A published listing owns its photo; only reclaim an unconsumed draft image.
+          if (previous.status !== 'PUBLISHED' && typeof previous.photoUrl === 'string' && previous.photoUrl !== photoUrl) {
             await chooseStorage().remove(previous.photoUrl).catch(() => undefined)
           }
         } catch { /* the new draft is saved; an invalid old draft needs no cleanup */ }
