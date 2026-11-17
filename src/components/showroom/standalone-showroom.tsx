@@ -77,7 +77,7 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
     return () => { active = false }
   }, [slug])
 
-  const template = useMemo(() => payload ? getShowroomTemplate(payload.showroom.templateId) : undefined, [payload])
+  const template = useMemo(() => payload ? getShowroomTemplate(payload.showroom.templateId, payload.showroom.templateVersion) : undefined, [payload])
   if (loading) return <main className="min-h-screen animate-pulse bg-[#f5f0e7] p-6"><div className="mx-auto max-w-6xl"><div className="h-5 w-32 bg-black/10" /><div className="mt-16 h-[42vh] bg-black/10" /><div className="mt-10 h-5 w-1/3 bg-black/10" /></div></main>
   if (error || !payload || !template) return <main className="grid min-h-screen place-items-center bg-[#f5f0e7] px-6 text-center text-[#292820]"><div><p className="text-xs uppercase tracking-[.2em] opacity-60">Mudaala showroom</p><h1 className="mt-4 text-3xl font-semibold">This showroom is unavailable</h1><p className="mt-3 text-sm opacity-70">The shop may have unpublished this page or changed its address.</p><a href="/" className="mt-7 inline-block border-b border-current pb-1 text-sm">Explore Mudaala</a></div></main>
 
