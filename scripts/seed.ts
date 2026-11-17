@@ -17,10 +17,13 @@
  * Run: bun scripts/seed.ts   (with the sandbox Postgres DATABASE_URL)
  */
 import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 import { randomBytes, scryptSync } from 'node:crypto'
 import { LISTING_ACTIVE_DAYS } from '../src/lib/constants'
 
-const db = new PrismaClient()
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required to seed development fixtures')
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl, max: 5 }) })
 
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString('hex')
