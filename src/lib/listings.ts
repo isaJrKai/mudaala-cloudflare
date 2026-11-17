@@ -235,7 +235,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     const analytics = candidates.length
       ? await db.listingDailyAnalytics.findMany({
           where: { listingId: { in: candidates.map((item) => item.id) }, day: { gte: sinceDay } },
-          select: { listingId: true, callClicks: true, whatsappClicks: true, shareClicks: true },
+          select: { listingId: true, views: true, callClicks: true, whatsappClicks: true, shareClicks: true },
         })
       : []
     const engagementByListing = new Map<string, { views: number; calls: number; whatsapp: number; shares: number }>()
