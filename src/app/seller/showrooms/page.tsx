@@ -49,6 +49,9 @@ export default function SellerShowroomsPage() {
   const [introduction, setIntroduction] = useState('')
   const [story, setStory] = useState('')
   const [coverPhotoUrl, setCoverPhotoUrl] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
+  const [primaryColor, setPrimaryColor] = useState('#47734d')
+  const [accentColor, setAccentColor] = useState('#dfa02c')
   const [photos, setPhotos] = useState<string[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [listingIds, setListingIds] = useState<string[]>([])
@@ -88,6 +91,22 @@ export default function SellerShowroomsPage() {
       else setPhotos((current) => [...current, result.url].slice(0, 15))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Photo upload failed. Please try again.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function uploadLogo(file?: File) {
+    if (!file) return
+    setUploading(true)
+    setError('')
+    try {
+      const form = new FormData()
+      form.append('file', file, file.name)
+      const result = await apiFetch<Upload>('/api/upload/local', { method: 'POST', body: form })
+      setLogoUrl(result.url)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Logo upload failed. Please try again.')
     } finally {
       setUploading(false)
     }
@@ -152,7 +171,11 @@ export default function SellerShowroomsPage() {
           <div className="space-y-6">
             <div className="rounded-2xl border border-black/10 bg-white p-5 sm:p-7">
               <p className="text-[10px] uppercase tracking-[.18em] text-neutral-500">Step 3</p><h2 className="mt-1 text-2xl font-semibold">Choose your photos</h2><p className="mt-2 text-xs leading-5 text-neutral-500">Only photos you upload here are used in the showroom. Mudaala will not pick photos from your existing product listings.</p>
-              <label className="mt-5 flex cursor-pointer items-center justify-center gap-3 rounded-xl border border-dashed border-black/20 bg-[#faf9f6] px-4 py-6 text-sm hover:border-[#47734d]">{uploading ? 'Uploading photo…' : '＋ Add a showroom photo'}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={uploading} onChange={(event) => { void uploadPhoto(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>
+              <div className="mt-5 grid gap-4 sm:grid-cols-[1fr_1fr]">
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-black/20 bg-[#faf9f6] p-4 text-xs hover:border-[#47734d]">{logoUrl ? <span className="relative h-10 w-10 overflow-hidden rounded-full"><Image src={logoUrl} alt="Shop logo" fill unoptimized sizes="40px" className="object-cover" /></span> : <span className="grid h-10 w-10 place-items-center rounded-full bg-black/5 text-lg">＋</span>}<span>{uploading ? 'Uploading…' : 'Add your shop logo'}<span className="mt-1 block text-[10px] text-neutral-400">Optional</span></span><input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={uploading} onChange={(event) => { void uploadLogo(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>
+                <div className="rounded-xl border border-black/10 bg-[#faf9f6] p-4"><p className="text-xs font-medium">Your brand colours</p><div className="mt-3 flex gap-4"><label className="flex items-center gap-2 text-[10px] text-neutral-500">Main<input type="color" value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value)} className="h-8 w-8 cursor-pointer rounded border-0 bg-transparent" /></label><label className="flex items-center gap-2 text-[10px] text-neutral-500">Accent<input type="color" value={accentColor} onChange={(event) => setAccentColor(event.target.value)} className="h-8 w-8 cursor-pointer rounded border-0 bg-transparent" /></label></div></div>
+              </div>
+              <label className="mt-4 flex cursor-pointer items-center justify-center gap-3 rounded-xl border border-dashed border-black/20 bg-[#faf9f6] px-4 py-6 text-sm hover:border-[#47734d]">{uploading ? 'Uploading photo…' : '＋ Add a showroom photo'}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={uploading} onChange={(event) => { void uploadPhoto(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>
               {coverPhotoUrl && <div className="mt-4 grid grid-cols-3 gap-3"><div className="relative aspect-square overflow-hidden rounded-lg"><Image src={coverPhotoUrl} alt="Selected showroom cover" fill unoptimized sizes="120px" className="object-cover" /><span className="absolute bottom-1 left-1 rounded bg-black/65 px-2 py-1 text-[9px] text-white">Cover</span></div>{photos.map((photo, index) => <div key={photo} className="relative aspect-square overflow-hidden rounded-lg"><Image src={photo} alt={`Showroom photo ${index + 2}`} fill unoptimized sizes="120px" className="object-cover" /></div>)}</div>}
               <p className="mt-3 text-[10px] text-neutral-400">JPEG, PNG or WebP · up to 8 MB each</p>
             </div>
