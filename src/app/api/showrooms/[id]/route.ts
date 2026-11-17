@@ -1,6 +1,8 @@
 import { db } from '@/lib/db'
 import { ApiError, jsonOk, parseBody, requireSeller, route as apiRoute } from '@/lib/api'
 import { standaloneShowroomPatchSchema } from '@/lib/showroom/standalone-schema'
+import { findProhibitedItem } from '@/lib/constants'
+import { containsMarketplaceEmoji } from '@/lib/validation'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -32,6 +34,20 @@ export async function PATCH(request: Request, { params }: Params) {
     const current = await db.shopShowroom.findFirst({ where: { id, userId: user.id } })
     if (!current) throw new ApiError(404, 'Showroom not found')
     const data = await parseBody(request, standaloneShowroomPatchSchema)
+    const nextTitle = data.title ?? current.title
+    const nextSections = data.sections ?? (() => { try { return JSON.parse(current.content) as Array<{ heading?: string; body?: string }> } catch { return [] } })()
+    const nextCopy = [
+      data.headline === undefined ? current.headline : data.headline,
+      data.introduction === undefined ? current.introduction : data.introduction,
+      data.story === undefined ? current.story : data.story,
+      ...nextSections.map((section) => section.heading || ''),
+      ...nextSections.map((section) => section.body || ''),
+    ].filter(Boolean).join(' ')
+    if (containsMarketplaceEmoji(nextTitle) || containsMarketplaceEmoji(nextCopy)) {
+      throw new ApiError(400, 'Please use words in your showroom title and copy, not emojis.')
+    }
+    const prohibited = findProhibitedItem(nextTitle, nextCopy)
+    if (prohibited) throw new ApiError(400, prohibited.message, { title: `This showroom cannot be published - ${prohibited.label.toLowerCase()}` })
 
     const nextPhotos = data.photos ?? JSON.parse(current.photos) as string[]
     const nextCover = data.coverPhotoUrl === undefined ? current.coverPhotoUrl : data.coverPhotoUrl
