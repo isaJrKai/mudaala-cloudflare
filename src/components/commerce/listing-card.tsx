@@ -364,8 +364,8 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
           <div className="min-w-0 p-2 sm:p-2.5">
             {/* Exactly two lines of title keep every card in a row the same
                 height - a 1-line title leaves room, a 5-line one gets cut. */}
-            <h3 className="line-clamp-2 text-sm font-bold leading-snug">{listing.title}</h3>
-            <PriceLead listing={listing} />
+            <h3 className="line-clamp-2 text-[13px] font-semibold leading-snug sm:text-sm">{listing.title}</h3>
+            <PriceLead listing={listing} compact />
             <MetaLine listing={listing} quantity={quantity} distanceLabel={distanceLabel} />
           </div>
         </button>
