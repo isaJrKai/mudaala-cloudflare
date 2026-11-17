@@ -100,11 +100,51 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
     'campaign': 'grid gap-8 md:grid-cols-[1.2fr_.8fr] md:items-center',
     'manifesto': 'mx-auto grid max-w-4xl gap-8 text-center',
   }
-  const titleClass = template.id === 'street-uniform' || template.id === 'new-wave'
-    ? 'text-5xl font-black uppercase leading-[.88] tracking-[-.06em] sm:text-7xl'
-    : template.id === 'maison-noir' || template.id === 'small-treasures'
-      ? 'font-serif text-5xl font-normal leading-[.98] sm:text-7xl'
-      : 'text-4xl font-semibold leading-[.98] tracking-[-.045em] sm:text-6xl'
+  const titleStyles: Record<string, string> = {
+    'atelier-edit': 'font-serif text-5xl font-normal leading-[.9] tracking-[-.055em] sm:text-7xl',
+    'the-collection': 'font-serif text-5xl font-normal leading-[.98] sm:text-7xl',
+    'object-study': 'text-5xl font-medium leading-[.9] tracking-[-.06em] sm:text-8xl',
+    'daily-goods': 'text-4xl font-semibold leading-[1.02] tracking-[-.045em] sm:text-6xl',
+    'maison-noir': 'font-serif text-5xl font-normal leading-[.98] tracking-[-.04em] sm:text-7xl',
+    'new-wave': 'text-5xl font-black uppercase leading-[.82] tracking-[-.07em] sm:text-8xl',
+    'the-brand-story': 'font-serif text-5xl font-normal leading-[1.02] sm:text-7xl',
+    'market-day': 'text-5xl font-black uppercase leading-[.84] tracking-[-.065em] sm:text-8xl',
+    'skin-notes': 'font-serif text-5xl font-normal leading-[1.04] sm:text-7xl',
+    'street-uniform': 'text-5xl font-black uppercase leading-[.82] tracking-[-.07em] sm:text-8xl',
+    'tech-index': 'font-mono text-4xl font-semibold leading-[.98] tracking-[-.06em] sm:text-6xl',
+    'living-spaces': 'font-serif text-5xl font-normal leading-[.96] tracking-[-.04em] sm:text-7xl',
+    'small-treasures': 'font-serif text-5xl font-normal leading-[.98] sm:text-7xl',
+    'form-and-function': 'text-5xl font-semibold leading-[.88] tracking-[-.06em] sm:text-7xl',
+    'home-rituals': 'font-serif text-5xl font-normal leading-[1.02] sm:text-7xl',
+    'the-pantry': 'font-serif text-5xl font-semibold leading-[.94] sm:text-7xl',
+    'made-by-hand': 'font-serif text-5xl font-normal italic leading-[1.02] sm:text-7xl',
+    'the-footnote': 'font-serif text-5xl font-normal leading-[.9] tracking-[-.05em] sm:text-7xl',
+    'the-studio-shop': 'text-5xl font-semibold leading-[.92] tracking-[-.055em] sm:text-7xl',
+    'open-shelf': 'text-4xl font-semibold leading-[1.02] tracking-[-.04em] sm:text-6xl',
+  }
+  const titleClass = titleStyles[template.id] || 'text-4xl font-semibold leading-[.98] tracking-[-.045em] sm:text-6xl'
+  const heroImageStyles: Record<string, string> = {
+    'atelier-edit': 'aspect-[5/6] md:aspect-[4/5]',
+    'the-collection': 'aspect-[16/8]',
+    'object-study': 'aspect-[1/1] md:aspect-[5/6]',
+    'daily-goods': 'aspect-[5/4]',
+    'maison-noir': 'aspect-[4/5]',
+    'new-wave': 'aspect-[5/4]',
+    'the-brand-story': 'aspect-[16/9]',
+    'market-day': 'aspect-[5/4]',
+    'skin-notes': 'aspect-[4/5]',
+    'street-uniform': 'aspect-[16/9]',
+    'tech-index': 'aspect-square',
+    'living-spaces': 'aspect-[16/9]',
+    'small-treasures': 'aspect-square',
+    'form-and-function': 'aspect-[5/4]',
+    'home-rituals': 'aspect-[16/10]',
+    'the-pantry': 'aspect-[5/4]',
+    'made-by-hand': 'aspect-[16/9]',
+    'the-footnote': 'aspect-[4/5]',
+    'the-studio-shop': 'aspect-[5/4]',
+    'open-shelf': 'aspect-[5/4]',
+  }
   const gridClass = template.productLayout === 'spec-list' || template.productLayout === 'room-scenes' || template.productLayout === 'market-table'
     ? 'grid grid-cols-1 gap-x-8 sm:grid-cols-2'
     : template.productLayout === 'masonry'
@@ -138,14 +178,14 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
             <div className="md:justify-self-end md:max-w-md"><p className="text-sm leading-7 opacity-70">{showroom.introduction || shop.description}</p><p className="mt-5 text-xs opacity-50">{products.length} selected {products.length === 1 ? 'product' : 'products'}</p></div>
           </div>
         ) : (
-          <div className={heroLayoutClass[template.hero] || 'grid gap-8'}>
+          <div className={`${heroLayoutClass[template.hero] || 'grid gap-8'} ${template.id === 'manifesto' ? 'py-8 sm:py-12' : ''} ${template.id === 'tech-index' ? 'border-y border-current/20 py-8' : ''} ${template.id === 'market-day' ? 'items-stretch' : ''}`}>
             <div className={template.hero === 'full-bleed' ? 'order-2' : ''}>
               <p className="text-[10px] uppercase tracking-[.22em] opacity-55">{template.name} <span className="px-2">/</span> {shop.category || 'Shop'}</p>
               <h1 className={`mt-6 max-w-4xl ${titleClass}`}>{showroom.headline || showroom.title}</h1>
               {showroom.introduction && <p className="mt-6 max-w-xl text-sm leading-7 opacity-70 sm:text-base">{showroom.introduction}</p>}
               <a href="#collection" className="mt-8 inline-flex items-center gap-3 border-b pb-2 text-xs font-semibold" style={{ borderColor: accent }}>Explore the collection <span aria-hidden="true">↗</span></a>
             </div>
-            {heroPhoto && <div className={`relative overflow-hidden bg-black/5 ${template.hero === 'full-bleed' ? 'aspect-[16/8]' : template.hero === 'lookbook' || template.hero === 'manifesto' || template.hero === 'brand-film' ? 'aspect-[16/7]' : template.hero === 'product-stage' ? 'aspect-[4/5] md:aspect-[5/6]' : template.hero === 'cover-story' ? 'aspect-[5/6]' : template.hero === 'type-led' ? 'aspect-square' : 'aspect-[5/4]'}`}><Image src={heroPhoto} alt={showroom.title} fill priority unoptimized sizes="(max-width: 768px) 100vw, 60vw" className="object-cover" /></div>}
+            {heroPhoto && <div className={`relative overflow-hidden bg-black/5 ${heroImageStyles[template.id] || 'aspect-[5/4]'} ${template.id === 'street-uniform' || template.id === 'new-wave' ? 'ring-1 ring-current/20' : ''}`}><Image src={heroPhoto} alt={showroom.title} fill priority unoptimized sizes="(max-width: 768px) 100vw, 60vw" className="object-cover" /></div>}
           </div>
         )}
         {template.hero === 'full-bleed' && <p className="mt-4 text-[10px] uppercase tracking-[.18em] opacity-50">{shop.name} · {shop.area || shop.county || 'Uganda'}</p>}
