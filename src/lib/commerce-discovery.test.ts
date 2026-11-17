@@ -36,6 +36,7 @@ describe('product taxonomy', () => {
     expect(isValidTaxonomyPath('electronics', 'electronics-smartphones')).toBe(false)
     expect(findTaxonomyNode('electronics-smartphones')?.attributes?.map((item) => item.key)).toContain('storage')
     expect(taxonomyChildren('textiles-clothing').map((node) => node.id)).toContain('fashion-clothing')
+    expect(taxonomyChildren('fashion-clothing').map((node) => node.id)).toEqual(expect.arrayContaining(['fashion-hoodies', 'fashion-dresses', 'fashion-shirts']))
     expect(isValidTaxonomyAttributes('electronics-smartphones', { brand: 'Samsung', model: 'Galaxy S24', storage: '128GB' })).toBe(true)
     expect(isValidTaxonomyAttributes('electronics-smartphones', { storage: '2TB' })).toBe(false)
     expect(isValidTaxonomyAttributes('electronics-smartphones', { unknownField: 'value' })).toBe(false)
