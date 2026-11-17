@@ -21,14 +21,37 @@ const accent: Record<string, string> = {
   cobalt: '#345d9b', terracotta: '#b76d51', mono: '#77766f',
 }
 
+const previewLayouts: Record<string, string[]> = {
+  'atelier-edit': ['col-span-4 row-span-3', 'col-span-2 row-span-2', 'col-span-2 row-span-1', 'col-span-2 row-span-1'],
+  'the-collection': ['col-span-3 row-span-3', 'col-span-3 row-span-2', 'col-span-3 row-span-1', 'col-span-3 row-span-1'],
+  'object-study': ['col-span-6 row-span-3', 'col-span-2 row-span-1', 'col-span-2 row-span-1', 'col-span-2 row-span-1'],
+  'daily-goods': ['col-span-2 row-span-2', 'col-span-2 row-span-2', 'col-span-2 row-span-2', 'col-span-3 row-span-1'],
+  'maison-noir': ['col-span-3 row-span-3', 'col-span-3 row-span-3', 'col-span-2 row-span-1', 'col-span-2 row-span-1'],
+  'new-wave': ['col-span-4 row-span-2', 'col-span-2 row-span-3', 'col-span-2 row-span-1', 'col-span-2 row-span-1'],
+  'the-brand-story': ['col-span-2 row-span-3', 'col-span-4 row-span-2', 'col-span-2 row-span-1', 'col-span-2 row-span-1'],
+  'market-day': ['col-span-2 row-span-2', 'col-span-2 row-span-3', 'col-span-2 row-span-1', 'col-span-2 row-span-2'],
+  'skin-notes': ['col-span-3 row-span-3 rounded-t-full', 'col-span-3 row-span-2 rounded-t-full', 'col-span-2 row-span-1', 'col-span-2 row-span-1'],
+  'street-uniform': ['col-span-6 row-span-2', 'col-span-3 row-span-2', 'col-span-3 row-span-2', 'col-span-2 row-span-1'],
+  'tech-index': ['col-span-2 row-span-3', 'col-span-4 row-span-1', 'col-span-4 row-span-1', 'col-span-4 row-span-1'],
+  'living-spaces': ['col-span-6 row-span-2', 'col-span-3 row-span-2', 'col-span-3 row-span-2', 'col-span-2 row-span-1'],
+  'small-treasures': ['col-span-3 row-span-3 rounded-full', 'col-span-3 row-span-3 rounded-full', 'col-span-2 row-span-1', 'col-span-2 row-span-1'],
+  'form-and-function': ['col-span-4 row-span-2', 'col-span-2 row-span-3', 'col-span-2 row-span-2', 'col-span-2 row-span-1'],
+  'home-rituals': ['col-span-3 row-span-3', 'col-span-3 row-span-3', 'col-span-3 row-span-1', 'col-span-3 row-span-1'],
+  'the-pantry': ['col-span-3 row-span-2', 'col-span-3 row-span-2', 'col-span-2 row-span-2', 'col-span-2 row-span-2'],
+  'made-by-hand': ['col-span-2 row-span-3', 'col-span-4 row-span-2', 'col-span-2 row-span-1', 'col-span-2 row-span-1'],
+  'the-footnote': ['col-span-2 row-span-3', 'col-span-2 row-span-2', 'col-span-2 row-span-3', 'col-span-2 row-span-1'],
+  'the-studio-shop': ['col-span-3 row-span-2', 'col-span-3 row-span-1', 'col-span-2 row-span-2', 'col-span-2 row-span-2'],
+  'open-shelf': ['col-span-2 row-span-2', 'col-span-2 row-span-2', 'col-span-2 row-span-2', 'col-span-3 row-span-1'],
+}
+
 function TemplateCard({ template, selected, onSelect }: { template: ShowroomTemplate; selected: boolean; onSelect: () => void }) {
   return (
     <button type="button" onClick={onSelect} aria-pressed={selected} className={`group overflow-hidden rounded-2xl border text-left transition-all ${selected ? 'border-[#47734d] ring-2 ring-[#47734d]/20' : 'border-black/10 hover:border-black/30'}`}>
       <div className={`relative flex aspect-[1.35/1] flex-col justify-between overflow-hidden p-4 sm:p-5 ${surface[template.surface] || 'bg-stone-100'}`}>
         <div className="flex items-center justify-between gap-2"><span className="text-[8px] uppercase tracking-[.2em] opacity-60">{template.name}</span><span className="h-2 w-2 rounded-full" style={{ backgroundColor: accent[template.accent] }} /></div>
         <div className={`max-w-[90%] ${template.hero === 'type-led' || template.hero === 'manifesto' ? 'font-serif text-2xl leading-[.95]' : template.hero === 'campaign' ? 'text-2xl font-black uppercase leading-[.85]' : 'text-xl font-semibold leading-[.95]'}`}>{template.name}</div>
-        <div className="grid grid-cols-4 gap-1.5">
-          {Array.from({ length: 4 }).map((_, index) => <span key={index} className={`block aspect-[4/5] ${index === 0 ? 'col-span-2 row-span-2 aspect-auto' : ''} bg-current/10`} />)}
+        <div className="grid h-16 grid-cols-6 grid-rows-3 gap-1.5">
+          {(previewLayouts[template.id] || previewLayouts['open-shelf']).map((tile, index) => <span key={index} className={`block min-h-0 bg-current/10 ${tile}`} />)}
         </div>
         {selected && <span className="absolute right-3 top-3 rounded-full bg-[#47734d] px-2.5 py-1 text-[9px] font-semibold text-white">Selected</span>}
       </div>
