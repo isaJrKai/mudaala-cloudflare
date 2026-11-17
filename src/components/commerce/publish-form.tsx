@@ -341,10 +341,13 @@ export function PublishForm() {
                   id={`p-attr-${attribute.key}`}
                   type={attribute.type === 'number' ? 'number' : 'text'}
                   value={value === undefined ? '' : String(value)}
-                  onChange={(e) => set('attributes', {
-                    ...form.attributes,
-                    [attribute.key]: attribute.type === 'number' ? Number(e.target.value) : e.target.value,
-                  })}
+                  maxLength={attribute.type === 'text' ? 120 : undefined}
+                  onChange={(e) => {
+                    const nextAttributes = { ...form.attributes }
+                    if (e.target.value.trim() === '') delete nextAttributes[attribute.key]
+                    else nextAttributes[attribute.key] = attribute.type === 'number' ? Number(e.target.value) : e.target.value
+                    set('attributes', nextAttributes)
+                  }}
                 />
               </Field>
             )
