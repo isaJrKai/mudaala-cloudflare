@@ -74,7 +74,7 @@ export async function GET(request: Request, { params }: Params) {
       if (Array.isArray(parsed)) sections = parsed
     } catch { /* empty sections */ }
 
-    return jsonOk({
+    const response = jsonOk({
       showroom: {
         id: showroom.id, slug: showroom.slug, templateId: showroom.templateId,
         templateVersion: showroom.templateVersion, title: showroom.title,
@@ -100,5 +100,7 @@ export async function GET(request: Request, { params }: Params) {
       },
       products: orderedListings,
     })
+    if (preview) response.headers.set('Cache-Control', 'private, no-store')
+    return response
   })
 }
