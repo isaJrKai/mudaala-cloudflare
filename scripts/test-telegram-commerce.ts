@@ -371,12 +371,10 @@ async function run() {
   const inAppShopperMessages = await requestJson('/api/enquiries/' + encodeURIComponent(inAppEnquiryId) + '/messages', {}, shopper.token)
   assertStatus(inAppShopperMessages.status, 200, 'buyer can read the seller reply later')
   assert.equal(inAppShopperMessages.body.messages.length, 2, 'both participants see the complete in-app thread')
-  const shopperNotification = await db.notification.findFirst({
-    where: { userId: shopper.id, actionUrl: '/#/enquiries', title: 'New message about ' + inAppRecord.messages[0]!.body },
+  const shopperNotification = await db.notification.findUnique({
+    where: { userId_dedupeKey: { userId: shopper.id, dedupeKey: 'enquiry-message:' + inAppMerchantReply.body.message.id } },
   })
-  assert.ok(shopperNotification || await db.notification.findFirst({
-    where: { userId: shopper.id, actionUrl: '/#/enquiries', body: 'The shop replied to your enquiry.' },
-  }), 'buyer receives a persistent notification for the seller reply')
+  assert.ok(shopperNotification, 'buyer receives a persistent notification for the seller reply')
 
   const merchantReply = 'The seller can confirm the item at the shop today.'
   const sellerReplyUpdate = await postTelegramUpdate({
