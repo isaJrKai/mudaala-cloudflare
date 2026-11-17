@@ -184,7 +184,7 @@ export function EnquiriesView({ shopperOnly = false }: { shopperOnly?: boolean }
         <aside className="border-b md:border-b-0 md:border-r">
           <div className="border-b px-4 py-3"><p className="text-sm font-semibold">Inbox <span className="ml-1 text-muted-foreground">({visibleItems.length})</span></p></div>
           {loading && visibleItems.length === 0 ? <p className="p-4 text-sm text-muted-foreground">Loading enquiries…</p> : null}
-          {!loading && visibleItems.length === 0 ? <div className="p-5"><p className="text-sm font-medium">No enquiries yet</p><p className="mt-1 text-xs text-muted-foreground">When you contact a seller or a shopper contacts your shop, the conversation will appear here.</p></div> : null}
+          {!loading && visibleItems.length === 0 ? <div className="p-5"><p className="text-sm font-medium">No enquiries yet</p><p className="mt-1 text-xs text-muted-foreground">{shopperOnly ? 'When you message a shop, your conversations will appear here.' : 'When a shopper contacts your shop, the conversation will appear here.'}</p></div> : null}
           <div className="max-h-[520px] overflow-y-auto">
             {visibleItems.map((item) => (
               <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`block w-full border-b px-4 py-3 text-left transition-colors hover:bg-secondary/60 ${selectedId === item.id ? 'bg-secondary' : ''}`}>
