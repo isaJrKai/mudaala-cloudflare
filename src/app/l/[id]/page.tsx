@@ -19,6 +19,7 @@ import { cache } from 'react'
 import { MapPin, Navigation, Package, Store } from 'lucide-react'
 import { ShowNumber } from '@/components/commerce/show-number'
 import { TelegramEnquiryButton } from '@/components/commerce/telegram-enquiry-button'
+import { InAppEnquiryButton } from '@/components/commerce/in-app-enquiry-button'
 import { PublicPhotoGallery } from '@/components/commerce/public-photo-gallery'
 import { StatusBadge, TypeBadge } from '@/components/commerce/badges'
 import { ShareAdRow } from '@/components/commerce/share-row'
@@ -383,6 +384,13 @@ export default async function AdPage({ params }: Params) {
           <div className="mt-3">
             <SafetyCard />
           </div>
+          {listing.type === 'OFFER' ? <InAppEnquiryButton
+            listingId={listing.id}
+            shopName={shopDisplayName}
+            initialMessage={`Hello, I'm interested in ${listing.title}. Is it available?`}
+            label="Message seller in Mudaala"
+            className="press mt-3 h-11 w-full gap-1.5 text-[15px]"
+          /> : null}
           {listing.type === 'OFFER' ? <TelegramEnquiryButton listingId={listing.id} enabled={telegramContactEnabled} /> : null}
           <ShowNumber listingId={listing.id} listingTitle={listing.title} listingType={listing.type as ListingType} />
           <Button asChild variant="outline" className="press mt-2 h-11 w-full gap-1.5 text-[15px]">
