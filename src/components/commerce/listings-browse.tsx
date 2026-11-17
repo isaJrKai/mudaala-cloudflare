@@ -175,18 +175,6 @@ export function ListingsBrowse() {
 
   const shopLabels = useMemo(() => computeShopLabels(data?.items), [data])
 
-  // Special offers are a prominent discovery shelf, not a separate
-  // inventory silo. A discounted listing remains in its normal category too.
-  // A discount is valid only when the old price is strictly higher.
-  const specialOfferItems = useMemo(
-    () => (data?.items ?? []).filter(
-      (item) => item.type === 'OFFER'
-        && item.compareAtPrice !== null
-        && item.price !== null
-        && item.compareAtPrice > item.price,
-    ),
-    [data?.items],
-  )
   const discoveryFeedItems = data?.items ?? []
 
   // Turn the mixed discovery feed into real category shelves. Only categories
@@ -308,6 +296,20 @@ export function ListingsBrowse() {
       {group.items.length > 0 ? renderListingGrid(group.items, index === 0) : (
         <p className="text-xs text-muted-foreground">No products listed in this category yet.</p>
       )}
+      <SpecialOffersSection
+        title={`${group.label} offers`}
+        items={group.items.filter((item) =>
+          item.type === 'OFFER'
+          && item.compareAtPrice !== null
+          && item.price !== null
+          && item.compareAtPrice > item.price,
+        )}
+        shopLabels={shopLabels}
+        distanceLabels={distanceLabels}
+        onOpen={(id) => navigate({ name: 'listing', id })}
+        onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
+        onAdd={addToBasket}
+      />
       <ExploreShopsSection shops={group.shops} loading={discoveryQuery.isLoading}
         onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })} />
       <ExploreShowroomsSection
@@ -513,14 +515,6 @@ export function ListingsBrowse() {
             </div>
             {showDiscoverySections ? (
               <>
-                <SpecialOffersSection
-                  items={specialOfferItems}
-                  shopLabels={shopLabels}
-                  distanceLabels={distanceLabels}
-                  onOpen={(id) => navigate({ name: 'listing', id })}
-                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
-                  onAdd={addToBasket}
-                />
                 {marketplaceCategoryGroups.map((group, index) => renderCategoryShelf(group, index))}
               </>
             ) : (
@@ -667,6 +661,7 @@ function ExploreShowroomsSection({
 }
 
 function SpecialOffersSection({
+  title,
   items,
   shopLabels,
   distanceLabels,
@@ -674,6 +669,7 @@ function SpecialOffersSection({
   onOpenShop,
   onAdd,
 }: {
+  title: string
   items: ListingsPage['items']
   shopLabels: Map<string, string>
   distanceLabels: Map<string, string>
@@ -682,11 +678,23 @@ function SpecialOffersSection({
   onAdd: (listing: Listing & { user?: ListingShopOwnerT }) => boolean | void
 }) {
   if (items.length === 0) return null
+  const sortedItems = [...items].sort((a, b) => {
+    const discountA = a.compareAtPrice && a.price !== null
+      ? (a.compareAtPrice - a.price) / a.compareAtPrice
+      : 0
+    const discountB = b.compareAtPrice && b.price !== null
+      ? (b.compareAtPrice - b.price) / b.compareAtPrice
+      : 0
+    return discountB - discountA
+  })
   return (
-    <section className="min-w-0 space-y-3 py-1" aria-labelledby="special-offers-heading">
-      <h2 id="special-offers-heading" className="text-base font-semibold tracking-tight">Special offers</h2>
+    <section className="min-w-0 space-y-3 py-1" aria-label={title}>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
+        <span className="text-[11px] text-muted-foreground">Biggest discounts first</span>
+      </div>
       <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-        {items.slice(0, 6).map((listing) => (
+        {sortedItems.slice(0, 6).map((listing) => (
           <ListingBlock
             key={listing.id}
             listing={listing}
