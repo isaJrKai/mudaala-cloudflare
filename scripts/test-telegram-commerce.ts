@@ -122,12 +122,15 @@ async function run() {
   })
   const merchantListing = await createListing(merchant.id, merchant.phone, 0)
 
+  // Use a separate listing fixture so the Telegram token test can count its own enquiries independently.
+  const inAppListing = await createListing(merchant.id, merchant.phone, 98)
+
   // Native Mudaala messaging must create a durable WEB enquiry without any
   // Telegram opt-in, notify the seller inbox, and keep both sides private.
   const inAppEnquiryResponse = await requestJson('/api/enquiries', {
     method: 'POST',
     body: JSON.stringify({
-      listingId: merchantListing.id,
+      listingId: inAppListing.id,
       message: 'Hello, is this product available? I would like to know more.',
     }),
   }, shopper.token)
@@ -138,7 +141,7 @@ async function run() {
   assert.equal(inAppEnquiry?.contactChannel, 'WEB', 'native Mudaala conversation uses the existing WEB channel')
   assert.equal(inAppEnquiry?.shopperId, shopper.id, 'native enquiry is linked to the buyer account')
   const sellerAlert = await db.notification.findFirst({
-    where: { userId: merchant.id, type: 'NEW_ENQUIRY', listingId: merchantListing.id },
+    where: { userId: merchant.id, type: 'NEW_ENQUIRY', listingId: inAppListing.id },
   })
   assert.ok(sellerAlert, 'seller receives a persistent in-app notification while offline')
 
