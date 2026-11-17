@@ -116,6 +116,26 @@ export function EnquiriesView({ shopperOnly = false }: { shopperOnly?: boolean }
     return () => { cancelled = true }
   }, [selectedId, userId])
 
+  useEffect(() => {
+    if (!userId) return
+    const interval = window.setInterval(() => { void refresh() }, 30_000)
+    return () => window.clearInterval(interval)
+  }, [userId, refresh])
+
+  useEffect(() => {
+    if (!selectedId || !userId) return
+    const interval = window.setInterval(() => {
+      void apiFetch<{ messages: EnquiryMessage[] }>(`/api/enquiries/${encodeURIComponent(selectedId)}/messages`)
+        .then((result) => {
+          setMessages(result.messages)
+          setMessagesFor({ userId, enquiryId: selectedId })
+          setMessageError('')
+        })
+        .catch(() => undefined)
+    }, 12_000)
+    return () => window.clearInterval(interval)
+  }, [selectedId, userId])
+
   const selected = visibleItems.find((item) => item.id === selectedId) ?? null
   const messagesLoading = Boolean(selectedId && (messagesFor?.userId !== userId || messagesFor?.enquiryId !== selectedId))
   const visibleMessages = messagesLoading ? [] : messages
@@ -169,7 +189,7 @@ export function EnquiriesView({ shopperOnly = false }: { shopperOnly?: boolean }
             {visibleItems.map((item) => (
               <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`block w-full border-b px-4 py-3 text-left transition-colors hover:bg-secondary/60 ${selectedId === item.id ? 'bg-secondary' : ''}`}>
                 <span className="flex items-center justify-between gap-2"><span className="truncate text-sm font-medium">{item.listing.title}</span><span className="shrink-0 text-[10px] text-muted-foreground">{timeLabel(item.lastMessageAt)}</span></span>
-                <span className="mt-1 block truncate text-xs text-muted-foreground">{item.role === 'MERCHANT' ? 'Customer' : 'You contacted seller'} · {item.lastMessage?.body ?? 'New enquiry'}</span>
+                <span className="mt-1 block truncate text-xs text-muted-foreground">{item.role === 'MERCHANT' ? 'Customer' : item.shopName} · {item.lastMessage?.body ?? 'New enquiry'}</span>
                 {item.role === 'SHOPPER' ? <span className="mt-1 block text-[11px] text-muted-foreground">Seller follow-up: {item.followUpConsentAt ? 'Allowed' : 'Not allowed'}</span> : null}
               </button>
             ))}
@@ -180,7 +200,7 @@ export function EnquiriesView({ shopperOnly = false }: { shopperOnly?: boolean }
           {selected ? <>
             <header className="border-b px-4 py-3">
               <p className="text-sm font-semibold">{selected.listing.title}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{selected.role === 'MERCHANT' ? 'Customer enquiry' : 'Your enquiry'} · {selected.status.toLowerCase()}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{selected.role === 'MERCHANT' ? 'Customer enquiry' : 'Chat with ' + selected.shopName} · {selected.status.toLowerCase()}</p>
               {selected.role === 'SHOPPER' ? <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-xs text-muted-foreground">Allow seller to send a later follow-up?</span><Button size="sm" variant={selected.followUpConsentAt ? 'outline' : 'secondary'} onClick={async () => { try { const result = await apiFetch<{ followUpConsentAt: string | null }>(`/api/enquiries/${encodeURIComponent(selected.id)}/follow-up-consent`, { method: 'PATCH', body: JSON.stringify({ consent: !selected.followUpConsentAt }) }); setItems((current) => current.map((item) => item.id === selected.id ? { ...item, followUpConsentAt: result.followUpConsentAt } : item)) } catch (err) { setError(err instanceof Error ? err.message : 'Could not update consent.') } }}>{selected.followUpConsentAt ? 'Turn off follow-ups' : 'Allow follow-up'}</Button></div> : null}
             </header>
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
@@ -198,7 +218,7 @@ export function EnquiriesView({ shopperOnly = false }: { shopperOnly?: boolean }
               <div className="flex items-end gap-2"><Textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={2} maxLength={1200} placeholder="Write a reply…" className="min-h-11 resize-y" /><Button type="submit" disabled={!draft.trim() || sending}>{sending ? 'Sending…' : 'Send reply'}</Button></div>
               <p className="mt-1 text-[11px] text-muted-foreground">Messages are saved in Mudaala. Both sides can return to this conversation at any time.</p>
             </form>
-          </> : <div className="flex flex-1 items-center justify-center p-8 text-center"><div><p className="text-sm font-medium">Select an enquiry</p><p className="mt-1 text-xs text-muted-foreground">Choose a customer message to read and reply.</p></div></div>}
+          </> : <div className="flex flex-1 items-center justify-center p-8 text-center"><div><p className="text-sm font-medium">Select an enquiry</p><p className="mt-1 text-xs text-muted-foreground">{shopperOnly ? 'Choose a shop conversation to read and reply.' : 'Choose a customer message to read and reply.'}</p></div></div>}
         </div>
       </div>
     </section>
