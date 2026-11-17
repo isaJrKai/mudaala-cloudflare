@@ -7,6 +7,7 @@ import { prismaQueryLoggingEnabled } from '@/lib/env-flags'
 type RequestDatabaseScope = { client?: PrismaClient }
 const requestDatabaseScope = new AsyncLocalStorage<RequestDatabaseScope>()
 let cachedLocalPrisma: PrismaClient | undefined
+let cachedWorkerPrisma: PrismaClient | undefined
 
 function runtimeDatabaseUrl(): string {
   try {
@@ -56,7 +57,12 @@ export async function withRequestDb<T>(handler: () => Promise<T>): Promise<T> {
     try {
       return await handler()
     } finally {
-      const client = requestDatabaseScope.getStore()?.client
+      // In Workers, reuse the isolate-local Prisma client and its Hyperdrive-backed
+      // pool across requests. Disconnecting after every request tears down the
+      // pool and forces expensive Prisma/driver initialization on the next one.
+      const client = process.env.NODE_ENV === 'production'
+        ? undefined
+        : requestDatabaseScope.getStore()?.client
       if (client) {
         try {
           await client.$disconnect()
@@ -69,6 +75,14 @@ export async function withRequestDb<T>(handler: () => Promise<T>): Promise<T> {
 }
 
 function getPrisma(): PrismaClient {
+  // Cloudflare isolates may safely reuse a module-scoped client when the
+  // upstream connection is managed by Hyperdrive. The pool is isolate-local;
+  // Hyperdrive owns the shared database-side pooling across isolates.
+  if (process.env.NODE_ENV === 'production') {
+    if (!cachedWorkerPrisma) cachedWorkerPrisma = createPrisma()
+    return cachedWorkerPrisma
+  }
+
   const scope = requestDatabaseScope.getStore()
   if (scope) {
     if (!scope.client) scope.client = createPrisma()
