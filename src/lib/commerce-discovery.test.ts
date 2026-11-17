@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { rankDiscoveryCandidates } from './discovery-ranking'
-import { findTaxonomyNode, isValidTaxonomyPath, taxonomyAncestors, taxonomyChildren } from './product-taxonomy'
+import { findTaxonomyNode, isValidTaxonomyAttributes, isValidTaxonomyPath, taxonomyAncestors, taxonomyChildren } from './product-taxonomy'
 
 const now = new Date('2026-11-17T12:00:00.000Z')
 const candidate = (overrides: Record<string, unknown> = {}) => ({
@@ -34,6 +34,9 @@ describe('product taxonomy', () => {
     expect(isValidTaxonomyPath('electronics', 'electronics-smartphones')).toBe(false)
     expect(findTaxonomyNode('electronics-smartphones')?.attributes?.map((item) => item.key)).toContain('storage')
     expect(taxonomyChildren('textiles-clothing').map((node) => node.id)).toContain('fashion-clothing')
+    expect(isValidTaxonomyAttributes('electronics-smartphones', { brand: 'Samsung', model: 'Galaxy S24', storage: '128GB' })).toBe(true)
+    expect(isValidTaxonomyAttributes('electronics-smartphones', { storage: '2TB' })).toBe(false)
+    expect(isValidTaxonomyAttributes('electronics-smartphones', { unknownField: 'value' })).toBe(false)
   })
 })
 
@@ -71,6 +74,13 @@ describe('discovery ranking', () => {
     ], { now, query: 'Samsung smartphone', excludeListingIds: ['excluded'], limit: 1 })
     expect(result).toHaveLength(1)
     expect(result[0]?.candidate.id).toBe('match')
+  })
+
+  it('keeps paginated result sets intact beyond the first 100 candidates', () => {
+    const candidates = Array.from({ length: 125 }, (_, index) => candidate({ id: `listing-${index}` }))
+    const result = rankDiscoveryCandidates(candidates, { now, limit: candidates.length })
+    expect(result).toHaveLength(125)
+    expect(result.slice(100, 105)).toHaveLength(5)
   })
 
   it('interleaves sellers when scores are comparable', () => {
