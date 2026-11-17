@@ -164,7 +164,7 @@ const listingBaseSchema = z.object({
   taxonomyId: z.string().trim().min(1).max(80).nullable().optional(),
   brand: z.string().trim().max(80).nullable().optional(),
   model: z.string().trim().max(100).nullable().optional(),
-  attributes: z.record(z.string().max(60), z.union([z.string().max(120), z.number().finite(), z.boolean()])).nullable().optional(),
+  attributes: z.record(z.string().max(60), z.union([z.string().max(120), z.number().finite(), z.boolean()])).optional(),
   price: priceSchema.nullable(),
   // Optional "was" price for discounts. Only meaningful alongside a current
   // price - the create schema and the PATCH handler enforce that pairing.
