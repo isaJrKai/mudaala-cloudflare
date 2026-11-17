@@ -58,7 +58,7 @@ export function InAppEnquiryButton({
         title: 'Enquiry sent',
         description: shopName + ' can reply in your Mudaala messages.',
       })
-      navigate({ name: 'enquiries' })
+      navigate({ name: 'messages' })
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Your message could not be sent. Please try again.')
     } finally {
