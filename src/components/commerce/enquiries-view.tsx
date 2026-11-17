@@ -167,7 +167,7 @@ export function EnquiriesView() {
             {visibleItems.map((item) => (
               <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`block w-full border-b px-4 py-3 text-left transition-colors hover:bg-secondary/60 ${selectedId === item.id ? 'bg-secondary' : ''}`}>
                 <span className="flex items-center justify-between gap-2"><span className="truncate text-sm font-medium">{item.listing.title}</span><span className="shrink-0 text-[10px] text-muted-foreground">{timeLabel(item.lastMessageAt)}</span></span>
-                <span className="mt-1 block truncate text-xs text-muted-foreground">{item.role === 'MERCHANT' ? 'Customer' : 'You contacted seller'} · {item.lastMessage?.body ?? 'New enquiry'}</span>
+                <span className="mt-1 block truncate text-xs text-muted-foreground">{item.role === 'MERCHANT' ? 'Customer' : item.shopName} · {item.lastMessage?.body ?? 'New enquiry'}</span>
                 {item.role === 'SHOPPER' ? <span className="mt-1 block text-[11px] text-muted-foreground">Seller follow-up: {item.followUpConsentAt ? 'Allowed' : 'Not allowed'}</span> : null}
               </button>
             ))}
@@ -178,7 +178,7 @@ export function EnquiriesView() {
           {selected ? <>
             <header className="border-b px-4 py-3">
               <p className="text-sm font-semibold">{selected.listing.title}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{selected.role === 'MERCHANT' ? 'Customer enquiry' : 'Your enquiry'} · {selected.status.toLowerCase()}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{selected.role === 'MERCHANT' ? 'Customer enquiry' : 'Conversation with ' + selected.shopName} · {selected.status.toLowerCase()}</p>
               {selected.role === 'SHOPPER' ? <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-xs text-muted-foreground">Allow seller to send a later follow-up?</span><Button size="sm" variant={selected.followUpConsentAt ? 'outline' : 'secondary'} onClick={async () => { try { const result = await apiFetch<{ followUpConsentAt: string | null }>(`/api/enquiries/${encodeURIComponent(selected.id)}/follow-up-consent`, { method: 'PATCH', body: JSON.stringify({ consent: !selected.followUpConsentAt }) }); setItems((current) => current.map((item) => item.id === selected.id ? { ...item, followUpConsentAt: result.followUpConsentAt } : item)) } catch (err) { setError(err instanceof Error ? err.message : 'Could not update consent.') } }}>{selected.followUpConsentAt ? 'Turn off follow-ups' : 'Allow follow-up'}</Button></div> : null}
             </header>
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
