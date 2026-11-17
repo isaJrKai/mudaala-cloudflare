@@ -14,7 +14,7 @@ export const showroomSectionSchema = z.object({
   photoUrl: photo.nullable().optional(),
 }).strict()
 
-export const standaloneShowroomSchema = z.object({
+const standaloneShowroomBaseSchema = z.object({
   templateId: z.enum(SHOWROOM_TEMPLATE_IDS as [string, ...string[]]),
   title: z.string().trim().min(2).max(100),
   headline: copy(140).nullable().optional(),
@@ -28,17 +28,27 @@ export const standaloneShowroomSchema = z.object({
   sections: z.array(showroomSectionSchema).max(8).default([]),
   listingIds: z.array(z.string().trim().min(1).max(128)).max(60).default([]),
   status: z.enum(['DRAFT', 'PUBLISHED']).optional(),
-}).strict().refine((value) => new Set(value.photos).size === value.photos.length, {
-  message: 'Remove duplicate photos.',
-  path: ['photos'],
-}).refine((value) => new Set(value.listingIds).size === value.listingIds.length, {
-  message: 'A product can only be linked once.',
-  path: ['listingIds'],
-})
+}).strict()
 
-export const standaloneShowroomPatchSchema = standaloneShowroomSchema.partial().refine(
-  (value) => Object.keys(value).length > 0,
-  'Provide at least one field to update.',
-)
+export const standaloneShowroomSchema = standaloneShowroomBaseSchema
+  .refine((value) => new Set(value.photos).size === value.photos.length, {
+    message: 'Remove duplicate photos.',
+    path: ['photos'],
+  })
+  .refine((value) => new Set(value.listingIds).size === value.listingIds.length, {
+    message: 'A product can only be linked once.',
+    path: ['listingIds'],
+  })
+
+export const standaloneShowroomPatchSchema = standaloneShowroomBaseSchema.partial()
+  .refine((value) => Object.keys(value).length > 0, 'Provide at least one field to update.')
+  .refine((value) => !value.photos || new Set(value.photos).size === value.photos.length, {
+    message: 'Remove duplicate photos.',
+    path: ['photos'],
+  })
+  .refine((value) => !value.listingIds || new Set(value.listingIds).size === value.listingIds.length, {
+    message: 'A product can only be linked once.',
+    path: ['listingIds'],
+  })
 
 export type StandaloneShowroomInput = z.infer<typeof standaloneShowroomSchema>
