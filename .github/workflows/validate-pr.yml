@@ -48,6 +48,9 @@ jobs:
       - name: Test marketplace content policy
         run: npm run test:content-policy
 
+      - name: Test standalone showroom template catalogue
+        run: npm run test:showroom-templates
+
       - name: Test merchant Growth Coach recommendation rules
         run: npm run test:merchant-growth
 
@@ -186,6 +189,18 @@ jobs:
             exit 1
           fi
           echo "Showroom PostgreSQL migration passed: RLS, deny/runtime policies and least-privilege grants verified."
+          # Exercise the standalone seller showroom migration independently of db:push.
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."ShopShowroom" CASCADE;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261117150000_standalone_shop_showrooms/migration.sql
+          standalone_rls=$(psql "$DATABASE_URL" -Atc "SELECT c.relrowsecurity::int FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='ShopShowroom'")
+          standalone_policies=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='ShopShowroom' AND policyname IN ('deny_direct_api_clients','mudaala_runtime_access')")
+          standalone_grants=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name='ShopShowroom' AND grantee='mudaala_runtime' AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          standalone_slug_index=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='ShopShowroom' AND indexname='ShopShowroom_slug_key'")
+          if [ "$standalone_rls" != "1" ] || [ "$standalone_policies" != "2" ] || [ "$standalone_grants" != "4" ] || [ "$standalone_slug_index" != "1" ]; then
+            echo "Standalone showroom migration checks failed: RLS=$standalone_rls policies=$standalone_policies grants=$standalone_grants slug_index=$standalone_slug_index"
+            exit 1
+          fi
+          echo "Standalone showroom PostgreSQL migration passed: unique slugs, RLS, deny/runtime policies and least-privilege grants verified."
           # Exercise the Google identity and merchant-grandfather migrations on
           # disposable PostgreSQL, including the one-use OAuth state tables.
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."PhoneVerificationChallenge", public."GoogleOAuthState", public."GoogleIdentity" CASCADE;'
@@ -233,12 +248,12 @@ jobs:
           fi
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DELETE FROM public."User" WHERE id IN ($$google-migration-existing$$,$$google-migration-new$$);'
           echo "Google identity migrations passed: existing merchant grandfathering, new seller default, RLS and runtime grants verified."
-          policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(DISTINCT tablename) FROM pg_policies WHERE schemaname='public' AND tablename IN ('AppSetting','AuditLog','BusinessProfile','BusinessProduct','CategoryInterest','GoogleIdentity','GoogleOAuthState','PhoneVerificationChallenge','Listing','ListingDailyAnalytics','Notification','PasswordReset','PriceSnapshot','Report','Sale','SaleItem','SavedSearch','Session','ShopDailyAnalytics','ShopFollow','ShowroomItem','StockMovement','User') AND 'anon'=ANY(roles) AND 'authenticated'=ANY(roles) AND qual='false' AND with_check='false'")
-          if [ "$policy_count" != "23" ]; then
-            echo "Expected deny-all Data API policies on all 23 application tables, found $policy_count tables"
+          policy_count=$(psql "$DATABASE_URL" -Atc "SELECT count(DISTINCT tablename) FROM pg_policies WHERE schemaname='public' AND tablename IN ('AppSetting','AuditLog','BusinessProfile','BusinessProduct','CategoryInterest','GoogleIdentity','GoogleOAuthState','PhoneVerificationChallenge','Listing','ListingDailyAnalytics','Notification','PasswordReset','PriceSnapshot','Report','Sale','SaleItem','SavedSearch','Session','ShopDailyAnalytics','ShopFollow','ShowroomItem','ShopShowroom','StockMovement','User') AND 'anon'=ANY(roles) AND 'authenticated'=ANY(roles) AND qual='false' AND with_check='false'")
+          if [ "$policy_count" != "24" ]; then
+            echo "Expected deny-all Data API policies on all 24 application tables, found $policy_count tables"
             exit 1
           fi
-          grant_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('AppSetting','AuditLog','BusinessProfile','BusinessProduct','CategoryInterest','Listing','ListingDailyAnalytics','Notification','PasswordReset','PriceSnapshot','Report','Sale','SaleItem','SavedSearch','Session','ShopDailyAnalytics','ShopFollow','ShowroomItem','StockMovement','User') AND grantee IN ('anon','authenticated') AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          grant_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('AppSetting','AuditLog','BusinessProfile','BusinessProduct','CategoryInterest','Listing','ListingDailyAnalytics','Notification','PasswordReset','PriceSnapshot','Report','Sale','SaleItem','SavedSearch','Session','ShopDailyAnalytics','ShopFollow','ShowroomItem','ShopShowroom','StockMovement','User') AND grantee IN ('anon','authenticated') AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
           if [ "$grant_count" != "0" ]; then
             echo "Expected no direct Data API table grants, found $grant_count"
             exit 1

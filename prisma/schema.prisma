@@ -63,6 +63,7 @@ model User {
   businessProducts BusinessProduct[]
   productCollections ProductCollection[]
   showroomItems    ShowroomItem[]
+  showrooms        ShopShowroom[]
   sales           Sale[]
   stockMovements  StockMovement[]
   listingDailyAnalytics ListingDailyAnalytics[]
@@ -754,4 +755,35 @@ model EnquiryContactToken {
   @@index([listingId, expiresAt])
   @@index([shopperId, expiresAt])
   @@index([merchantId, expiresAt])
+}
+
+
+// A seller-authored, independently publishable shop website. Catalogue listings
+// are linked only when the seller explicitly selects them; supplied photos and
+// copy are stored separately and never auto-populated from listing photos.
+model ShopShowroom {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug            String   @unique
+  templateId      String
+  templateVersion Int      @default(1)
+  title           String
+  headline        String?
+  introduction    String?
+  story           String?
+  logoUrl         String?
+  primaryColor    String?
+  accentColor     String?
+  coverPhotoUrl   String?
+  photos          String   @default("[]") // ordered seller-selected photo URLs
+  content         String   @default("[]") // validated seller-authored sections/copy
+  listingIds      String   @default("[]") // explicitly linked existing Listing IDs
+  status          String   @default("DRAFT") // DRAFT | PUBLISHED
+  publishedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, status, updatedAt])
+  @@index([status, publishedAt])
 }
