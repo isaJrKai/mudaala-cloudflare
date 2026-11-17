@@ -54,7 +54,7 @@ export async function POST(request: Request, { params }: Params) {
     const body = await parseBody(request, z.object({ message: z.string().trim().min(1).max(1200) }))
     const enquiry = await db.enquiry.findFirst({
       where: { id, status: 'OPEN', OR: [{ merchantId: user.id }, { shopperId: user.id }] },
-      select: { id: true, merchantId: true, shopperId: true, buyerTelegramHash: true, listing: { select: { title: true } } },
+      select: { id: true, merchantId: true, shopperId: true, buyerTelegramHash: true, listingId: true, listing: { select: { title: true } } },
     })
     if (!enquiry) throw new ApiError(404, 'Open enquiry not found.')
     const senderType = enquiry.merchantId === user.id ? 'MERCHANT' : 'SHOPPER'
@@ -63,6 +63,22 @@ export async function POST(request: Request, { params }: Params) {
       select: { id: true, senderType: true, body: true, createdAt: true },
     })
     await db.enquiry.update({ where: { id }, data: { lastMessageAt: created.createdAt } })
+
+    const recipientId = senderType === 'MERCHANT' ? enquiry.shopperId : enquiry.merchantId
+    if (recipientId) {
+      await db.notification.create({
+        data: {
+          userId: recipientId,
+          type: 'NEW_ENQUIRY_MESSAGE',
+          category: 'SOCIAL',
+          priority: 'HIGH',
+          title: 'New message about ' + enquiry.listing.title,
+          body: senderType === 'MERCHANT' ? 'The shop replied to your enquiry.' : 'A customer sent a message about a product.',
+          listingId: enquiry.listingId,
+          dedupeKey: 'enquiry-message:' + created.id,
+        },
+      }).catch(() => undefined)
+    }
 
     let chatId: number | null = null
     if (senderType === 'MERCHANT') {
@@ -85,7 +101,11 @@ export async function POST(request: Request, { params }: Params) {
       }
     }
     const delivered = chatId !== null && await deliverTelegram(chatId, 'Mudaala enquiry · ' + enquiry.listing.title + '\n\n' + body.message)
-    await db.enquiryMessage.update({ where: { id: created.id }, data: { deliveryStatus: delivered ? 'SENT' : 'FAILED' } })
-    return jsonOk({ message: { ...created, deliveryStatus: delivered ? 'SENT' : 'FAILED' } }, 201)
+    // A message persisted in Mudaala is available in both participants' inboxes.
+    // Telegram is an optional relay, so an unlinked Telegram account is not a
+    // failure of the in-app conversation.
+    const deliveryStatus = chatId === null || delivered ? 'SENT' : 'FAILED'
+    await db.enquiryMessage.update({ where: { id: created.id }, data: { deliveryStatus } })
+    return jsonOk({ message: { ...created, deliveryStatus } }, 201)
   })
 }
