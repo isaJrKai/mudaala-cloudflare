@@ -549,7 +549,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     }
     const user = await db.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, name: true, country: true, profile: { select: { businessName: true, shopCode: true, category: true, county: true, area: true, description: true, phone: true, whatsapp: true } } },
+      select: { id: true, name: true, country: true, sellerGoogleExempt: true, profile: { select: { businessName: true, shopCode: true, category: true, county: true, area: true, description: true, phone: true, whatsapp: true } } },
     })
     if (!user) {
       await db.appSetting.deleteMany({ where: { key } })
@@ -719,13 +719,37 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   if (command === '/cancel') {
     const draftKey = 'telegram:product-draft:' + createHash('sha256').update(String(telegramUserId)).digest('hex')
     const existingDraft = await db.appSetting.findUnique({ where: { key: draftKey } })
-    if (existingDraft) {
-      try {
-        const draft = JSON.parse(existingDraft.value) as { photoUrl?: unknown }
-        if (typeof draft.photoUrl === 'string') await chooseStorage().remove(draft.photoUrl)
-      } catch { /* draft removal continues even if its photo is already gone */ }
+    if (!existingDraft) {
+      await sendMessage(chatId, 'You do not have a product photo draft to cancel.')
+      return
     }
-    await db.appSetting.deleteMany({ where: { key: draftKey } })
+    let draft: { photoUrl?: unknown; status?: unknown; draftId?: unknown; publishStartedAt?: unknown; listingId?: unknown } = {}
+    try { draft = JSON.parse(existingDraft.value) as typeof draft } catch { /* invalid draft can be removed by exact value */ }
+    if (draft.status === 'PUBLISHING') {
+      const startedAt = typeof draft.publishStartedAt === 'string' ? Date.parse(draft.publishStartedAt) : Date.now()
+      if (Date.now() - startedAt < 5 * 60 * 1000) {
+        await sendMessage(chatId, 'This product is already being published, so I cannot cancel it while that is in progress.')
+        return
+      }
+      if (typeof draft.draftId === 'string') {
+        const receiptKey = 'listing-publish:' + createHash('sha256').update('telegram-product-draft:' + draft.draftId).digest('hex')
+        const receipt = await db.appSetting.findUnique({ where: { key: receiptKey } })
+        try {
+          const parsed = JSON.parse(receipt?.value || '{}') as { status?: unknown; listingId?: unknown }
+          if (parsed.status === 'COMPLETE' && typeof parsed.listingId === 'string') {
+            await db.appSetting.deleteMany({ where: { key: draftKey, value: existingDraft.value } })
+            await sendMessage(chatId, 'That product has already been published. View it at https://mudaala.store/l/' + encodeURIComponent(parsed.listingId))
+            return
+          }
+        } catch { /* no completed publication receipt */ }
+      }
+    }
+    const deleted = await db.appSetting.deleteMany({ where: { key: draftKey, value: existingDraft.value } })
+    if (deleted.count !== 1) {
+      await sendMessage(chatId, 'Your product draft changed before I could cancel it. Please try /cancel again.')
+      return
+    }
+    if (typeof draft.photoUrl === 'string') await chooseStorage().remove(draft.photoUrl).catch(() => undefined)
     await sendMessage(chatId, 'The current product photo draft has been cancelled.')
     return
   }
@@ -813,14 +837,29 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   const draftKey = 'telegram:product-draft:' + createHash('sha256').update(String(telegramUserId)).digest('hex')
   const pendingDraft = await db.appSetting.findUnique({ where: { key: draftKey } })
   if (pendingDraft && !command.startsWith('/')) {
-    let draft: { userId?: unknown; photoUrl?: unknown; createdAt?: unknown } = {}
+    let draft: { userId?: unknown; photoUrl?: unknown; createdAt?: unknown; draftId?: unknown; status?: unknown; publishStartedAt?: unknown; listingId?: unknown } = {}
     try { draft = JSON.parse(pendingDraft.value) as typeof draft } catch { /* invalid drafts are discarded below */ }
     const createdAt = typeof draft.createdAt === 'string' ? Date.parse(draft.createdAt) : NaN
     if (draft.userId !== user.id || typeof draft.photoUrl !== 'string' || !Number.isFinite(createdAt) || Date.now() - createdAt > 60 * 60 * 1000) {
-      if (typeof draft.photoUrl === 'string') await chooseStorage().remove(draft.photoUrl).catch(() => undefined)
-      await db.appSetting.deleteMany({ where: { key: draftKey } })
+      if (draft.status === 'PUBLISHING') {
+        await sendMessage(chatId, 'Your product is still being published. Please wait and check /products before starting another listing.')
+        return
+      }
+      const deleted = await db.appSetting.deleteMany({ where: { key: draftKey, value: pendingDraft.value } })
+      if (deleted.count === 1 && typeof draft.photoUrl === 'string') await chooseStorage().remove(draft.photoUrl).catch(() => undefined)
       await sendMessage(chatId, 'That product photo draft expired. Send the photo again to start a new listing.')
       return
+    }
+    if (draft.status === 'PUBLISHED' && typeof draft.listingId === 'string') {
+      await sendMessage(chatId, 'Your product has already been published: https://mudaala.store/l/' + encodeURIComponent(draft.listingId))
+      return
+    }
+    if (draft.status === 'PUBLISHING') {
+      const startedAt = typeof draft.publishStartedAt === 'string' ? Date.parse(draft.publishStartedAt) : Date.now()
+      if (Date.now() - startedAt < 5 * 60 * 1000) {
+        await sendMessage(chatId, 'I am already publishing this product. Please wait a moment; you do not need to send the details again.')
+        return
+      }
     }
     const partsForListing = text.split('|').map((part) => part.trim())
     const rawPrice = (partsForListing[1] || '').replace(/,/g, '')
@@ -858,11 +897,56 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       await sendMessage(chatId, 'I still need a valid shop category, district and contact number. Open My Shop to update those details, then try again.')
       return
     }
+    if (process.env.SELLER_GOOGLE_REQUIRED?.trim().toLowerCase() === 'true' && !user.sellerGoogleExempt) {
+      const googleIdentity = await db.googleIdentity.findUnique({
+        where: { userId_provider: { userId: user.id, provider: 'google' } },
+        select: { id: true },
+      })
+      if (!googleIdentity) {
+        await sendMessage(chatId, 'Before publishing, link your Google account in Mudaala Settings. Your product photo draft is saved; return here and send the product name and price again after linking.')
+        return
+      }
+    }
+
+    const draftId = typeof draft.draftId === 'string'
+      ? draft.draftId
+      : createHash('sha256').update(draftKey + ':' + pendingDraft.updatedAt.toISOString() + ':' + String(draft.photoUrl)).digest('hex')
+    const claimedDraft = {
+      ...draft,
+      draftId,
+      status: 'PUBLISHING',
+      publishStartedAt: new Date().toISOString(),
+    }
+    const claimedValue = JSON.stringify(claimedDraft)
+    const claim = await db.appSetting.updateMany({
+      where: { key: draftKey, value: pendingDraft.value },
+      data: { value: claimedValue },
+    })
+    if (claim.count !== 1) {
+      await sendMessage(chatId, 'Your product photo draft changed while I was preparing it. Please send the details again.')
+      return
+    }
+
     try {
-      const listing = await publishListingForSeller({ seller: { id: user.id, country: user.country }, data: data.data, ipKey: 'telegram-' + chatId })
-      await db.appSetting.deleteMany({ where: { key: draftKey } })
+      const listing = await publishListingForSeller({
+        seller: { id: user.id, country: user.country },
+        data: data.data,
+        ipKey: 'telegram-' + chatId,
+        idempotencyKey: 'telegram-product-draft:' + draftId,
+      })
+      const consumed = await db.appSetting.deleteMany({ where: { key: draftKey, value: claimedValue } })
+      if (consumed.count !== 1) {
+        await db.appSetting.updateMany({
+          where: { key: draftKey, value: claimedValue },
+          data: { value: JSON.stringify({ ...claimedDraft, status: 'PUBLISHED', listingId: listing.id }) },
+        })
+      }
       await sendMessage(chatId, 'Your product is now published on Mudaala.\n' + title + ' · UGX ' + price.toLocaleString('en-UG') + '\n\nView product: https://mudaala.store/l/' + encodeURIComponent(listing.id), shopKeyboard)
     } catch (error) {
+      await db.appSetting.updateMany({
+        where: { key: draftKey, value: claimedValue },
+        data: { value: JSON.stringify({ ...draft, draftId, status: 'READY', publishStartedAt: null }) },
+      })
       await sendMessage(chatId, error instanceof ApiError ? error.message : 'I could not publish that product right now. Your photo draft is saved; please try again.')
     }
     return
