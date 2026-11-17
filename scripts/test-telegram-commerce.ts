@@ -351,7 +351,7 @@ async function run() {
   const inAppEnquiryId = String(inAppStart.body.enquiry.id)
   const inAppRecord = await db.enquiry.findUnique({ where: { id: inAppEnquiryId }, include: { messages: true } })
   assert.ok(inAppRecord, 'in-app enquiry is persisted')
-  assert.equal(inAppRecord.contactChannel, 'IN_APP', 'web enquiry is identified as an in-app conversation')
+  assert.equal(inAppRecord.contactChannel, 'WEB', 'web enquiry uses the existing web conversation channel')
   assert.equal(inAppRecord.messages.length, 1, 'first buyer message is stored in the conversation')
   assert.equal(inAppRecord.messages[0]!.deliveryStatus, 'SENT', 'first message is available in Mudaala without Telegram')
   const merchantNotification = await db.notification.findFirst({
