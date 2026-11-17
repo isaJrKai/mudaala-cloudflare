@@ -149,9 +149,9 @@ export function EnquiriesView() {
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <button type="button" onClick={() => navigate({ name: 'business' })} className="mb-2 text-sm text-muted-foreground hover:text-foreground">Business overview</button>
-          <h1 className="text-xl font-semibold tracking-tight">Your enquiries</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Private conversations about your products.</p>
+          <button type="button" onClick={() => navigate({ name: 'browse' })} className="mb-2 text-sm text-muted-foreground hover:text-foreground">Back to Explore</button>
+          <h1 className="text-xl font-semibold tracking-tight">Messages</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Private conversations with shops and customers.</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>Refresh</Button>
       </div>
@@ -162,7 +162,7 @@ export function EnquiriesView() {
         <aside className="border-b md:border-b-0 md:border-r">
           <div className="border-b px-4 py-3"><p className="text-sm font-semibold">Inbox <span className="ml-1 text-muted-foreground">({visibleItems.length})</span></p></div>
           {loading && visibleItems.length === 0 ? <p className="p-4 text-sm text-muted-foreground">Loading enquiries…</p> : null}
-          {!loading && visibleItems.length === 0 ? <div className="p-5"><p className="text-sm font-medium">No enquiries yet</p><p className="mt-1 text-xs text-muted-foreground">When you contact a seller or a shopper contacts your shop, the conversation will appear here.</p></div> : null}
+          {!loading && visibleItems.length === 0 ? <div className="p-5"><p className="text-sm font-medium">No enquiries yet</p><p className="mt-1 text-xs text-muted-foreground">When you message a shop or a customer messages your shop, the conversation will appear here.</p></div> : null}
           <div className="max-h-[520px] overflow-y-auto">
             {visibleItems.map((item) => (
               <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`block w-full border-b px-4 py-3 text-left transition-colors hover:bg-secondary/60 ${selectedId === item.id ? 'bg-secondary' : ''}`}>
