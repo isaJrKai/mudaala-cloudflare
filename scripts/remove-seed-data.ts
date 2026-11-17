@@ -22,8 +22,11 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 
-const db = new PrismaClient()
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required to inspect or remove seed data')
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl, max: 5 }) })
 const SEED_DIR = path.join(process.cwd(), 'public', 'uploads', 'seed')
 const SEED_PATH = '/uploads/seed/'
 const MARK = process.argv.includes('--mark')
