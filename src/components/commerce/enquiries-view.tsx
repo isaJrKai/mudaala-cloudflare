@@ -124,16 +124,21 @@ export function EnquiriesView({ shopperOnly = false }: { shopperOnly?: boolean }
 
   useEffect(() => {
     if (!selectedId || !userId) return
+    let cancelled = false
     const interval = window.setInterval(() => {
       void apiFetch<{ messages: EnquiryMessage[] }>(`/api/enquiries/${encodeURIComponent(selectedId)}/messages`)
         .then((result) => {
+          if (cancelled) return
           setMessages(result.messages)
           setMessagesFor({ userId, enquiryId: selectedId })
           setMessageError('')
         })
         .catch(() => undefined)
     }, 12_000)
-    return () => window.clearInterval(interval)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
   }, [selectedId, userId])
 
   const selected = visibleItems.find((item) => item.id === selectedId) ?? null
