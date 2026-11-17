@@ -147,6 +147,7 @@ async function setBotCommands(): Promise<void> {
         { command: 'enquiries', description: 'View customer enquiries' },
         { command: 'publicshop', description: 'Get your public shop link' },
         { command: 'search', description: 'Find products on Mudaala' },
+        { command: 'feedback', description: 'Send feedback to Mudaala' },
         { command: 'help', description: 'Get help with Mudaala' },
       ],
     }),
@@ -641,6 +642,19 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set chat menu:', error instanceof Error ? error.message : 'unknown error'))
     await setBotCommands().catch((error) => console.warn('[telegram] could not register commands:', error instanceof Error ? error.message : 'unknown error'))
     await sendMainMenu(chatId, 'Welcome to Mudaala Merchant Assistant. Your shop tools are ready.');
+    return
+  }
+
+  if (command === '/feedback') {
+    const stateKey = 'telegram:feedback-state:' + createHash('sha256').update(String(telegramUserId)).digest('hex')
+    await db.appSetting.upsert({
+      where: { key: stateKey },
+      create: { key: stateKey, value: JSON.stringify({ startedAt: new Date().toISOString() }) },
+      update: { value: JSON.stringify({ startedAt: new Date().toISOString() }) },
+    })
+    await sendMessage(chatId, 'We value your feedback. Type your suggestion, complaint or experience in one message. Please do not include passwords, OTPs or payment credentials.', {
+      inline_keyboard: [[{ text: 'Cancel', callback_data: 'menu:feedback-cancel' }, { text: 'Main menu', callback_data: 'menu:home' }]],
+    })
     return
   }
 
