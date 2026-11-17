@@ -50,6 +50,14 @@ describe('discovery ranking', () => {
     expect(result[0]?.reasons).toContain('Available near you')
   })
 
+  it('uses recent daily views instead of lifetime views when available', () => {
+    const result = rankDiscoveryCandidates([
+      candidate({ id: 'old-views', viewCount: 50000, views7d: 0, callClicks7d: 0, whatsappClicks7d: 0, shareClicks7d: 0 }),
+      candidate({ id: 'recent-views', viewCount: 10, views7d: 500, callClicks7d: 0, whatsappClicks7d: 0, shareClicks7d: 0 }),
+    ], { now })
+    expect(result[0]?.candidate.id).toBe('recent-views')
+  })
+
   it('weights real buyer contacts above passive views', () => {
     const result = rankDiscoveryCandidates([
       candidate({ id: 'views', viewCount: 10000, callClicks7d: 0, whatsappClicks7d: 0, shareClicks7d: 0 }),
