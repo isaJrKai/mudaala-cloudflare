@@ -1,0 +1,28 @@
+import { app, cmd, faq } from '../helpers';
+const D = 'docs/TELEGRAM_MINI_APP.md';
+export const registration = [
+  faq('registration.start-selling', 'registration', 'live',
+    ['How do I start selling on Mudaala?', 'I want to open a shop', 'Help me register', 'How do I create a shop on Mudaala?', 'I want to sell clothes', 'I am new, where do I begin?'],
+    'Send /shop and tap Open My Shop. Create your account there with your phone number and password, then set up your shop profile. Your MU-CODE is created automatically.',
+    { action: app(), src: D + ' (Entry and onboarding)', needs: 'Registration directly inside chat (not just the Mini App)' }),
+  faq('registration.have-account', 'registration', 'live',
+    ['I already have a Mudaala account', 'How do I connect my Telegram to my shop?', 'How do I link my account?', 'Where do I get the link code?'],
+    'Sign in to Mudaala and open Account, then generate a one-time code (valid 10 minutes). Send it here as /link CODE. Or sign in inside the Mini App with /shop.',
+    { action: cmd('/link'), src: 'docs/TELEGRAM_MERCHANT_ASSISTANT.md (Merchant flow)' }),
+  faq('registration.code-expired', 'registration', 'live',
+    ['My link code does not work', 'Link code expired', 'Invalid code when I send /link', 'The code is not accepted'],
+    'Link codes work once and expire after 10 minutes. Open Account in Mudaala, generate a fresh code, and send it as /link CODE.',
+    { action: cmd('/link'), src: 'docs/TELEGRAM_MERCHANT_ASSISTANT.md (Merchant flow)' }),
+  faq('registration.what-needed', 'registration', 'live',
+    ['What do I need to open a shop?', 'What details are required to register?', 'What information do I give for my shop profile?'],
+    'You will be asked for a shop name, category, district and area, phone and WhatsApp numbers, a short description (up to 500 characters), opening hours and a profile photo. The shop name needs at least 2 characters and no emojis.',
+    { action: app(), src: 'src/lib/validation.ts businessProfileSchema' }),
+  faq('registration.phone-verify', 'registration', 'live',
+    ['Does Telegram verify my phone number?', 'Is my business verified?', 'How do I get verified?'],
+    'Linking Telegram does not verify your phone number or your business. It only connects this chat to your Mudaala account.',
+    { src: D + ' (Authentication and account linking)' }),
+  faq('registration.resume', 'registration', 'unverified',
+    ['Continue my registration', 'I stopped halfway registering my shop', 'Resume shop setup'],
+    'You can continue setting up your shop from Open My Shop.',
+    { src: D, needs: 'Confirm Mini App saves an unfinished profile; resumable in-chat onboarding is not built' }),
+];
