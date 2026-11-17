@@ -113,16 +113,37 @@ async function setShopMenuButton(chatId: number): Promise<void> {
   const response = await fetch(telegramApiUrl(token, 'setChatMenuButton'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      // Keep the existing merchant Mini App available from Telegram's menu.
-      menu_button: { type: 'web_app', text: 'My Shop', web_app: { url: 'https://mudaala.store/telegram' } },
-    }),
+    body: JSON.stringify({ chat_id: chatId, menu_button: { type: 'commands' } }),
     signal: AbortSignal.timeout(8000),
   })
   if (!response.ok) throw new Error('Telegram setChatMenuButton failed with HTTP ' + response.status)
   const result = await response.json() as { ok?: boolean }
   if (!result.ok) throw new Error('Telegram rejected setChatMenuButton')
+}
+
+async function setBotCommands(): Promise<void> {
+  const token = process.env.TELEGRAM_BOT_TOKEN
+  if (!token) throw new Error('Telegram bot is not configured')
+  const response = await fetch(telegramApiUrl(token, 'setMyCommands'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      commands: [
+        { command: 'start', description: 'Start using Mudaala' },
+        { command: 'menu', description: 'Show merchant actions and help' },
+        { command: 'post', description: 'Post a product using a photo' },
+        { command: 'products', description: 'View your active products' },
+        { command: 'enquiries', description: 'View customer enquiries' },
+        { command: 'publicshop', description: 'Get your public shop link' },
+        { command: 'search', description: 'Find products on Mudaala' },
+        { command: 'help', description: 'Get help with Mudaala' },
+      ],
+    }),
+    signal: AbortSignal.timeout(8000),
+  })
+  if (!response.ok) throw new Error('Telegram setMyCommands failed with HTTP ' + response.status)
+  const result = await response.json() as { ok?: boolean }
+  if (!result.ok) throw new Error('Telegram rejected setMyCommands')
 }
 
 async function readBoundedBody(request: Request, maxBytes: number): Promise<string> {
@@ -200,9 +221,9 @@ async function cleanupTelegramRecords(): Promise<void> {
 
 const shopKeyboard = {
   keyboard: [
-    [{ text: 'Open My Shop', web_app: { url: 'https://mudaala.store/telegram' } }],
-    [{ text: '/products' }, { text: '/publicshop' }],
-    [{ text: '/enquiries' }, { text: '/help' }],
+    [{ text: 'Post a product' }, { text: 'My products' }],
+    [{ text: 'Customer enquiries' }, { text: 'My shop link' }],
+    [{ text: 'Help & questions' }, { text: 'Open full workspace', web_app: { url: 'https://mudaala.store/telegram' } }],
   ],
   resize_keyboard: true,
   is_persistent: true,
@@ -442,10 +463,39 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   const text = (message.text || message.caption || '').trim()
   if (!chatId || !telegramUserId || (!text && !message.photo?.length) || message.chat?.type !== 'private') return
 
-  const parts = text.split(/\s+/)
+  const normalizedText = text.toLocaleLowerCase().replace(/\s+/g, ' ').trim()
+  const shortcuts: Record<string, string> = {
+    'my products': '/products',
+    'customer enquiries': '/enquiries',
+    'my shop link': '/publicshop',
+    'help & questions': '/menu',
+  }
+  const routedText = shortcuts[normalizedText] || text
+  const parts = routedText.split(/\s+/)
   const command = (parts[0] || '').split('@')[0].toLowerCase()
   const identityHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
-  if (command === '/start' || command === '/help') {
+
+  // Everyday greetings are deterministic: don't spend an AI request on hello.
+  if (/^(hi|hello|hey|good morning|good afternoon|good evening|how are you|how are you doing)[!.?]*$/i.test(normalizedText)) {
+    const linked = await linkedMudaalaUserId(telegramUserId)
+    await sendMessage(chatId, linked
+      ? 'Hello! I am here to help with your Mudaala shop. Send a product photo to post it, or choose one of the actions below.'
+      : 'Hello! Welcome to Mudaala. You can search for products with /search. If you run a shop, connect your account with /link CODE. Type /menu to see the help options.',
+      linked ? shopKeyboard : undefined)
+    return
+  }
+
+  if (normalizedText === 'post a product' || command === '/post') {
+    const linked = await linkedMudaalaUserId(telegramUserId)
+    if (!linked) {
+      await sendMessage(chatId, 'To post a product, first connect your Mudaala account. Generate a link code in Mudaala Account, then send /link CODE.')
+    } else {
+      await sendMessage(chatId, 'Great. Send one clear photo of the product here. I will ask you for its name and price next. You can cancel any time with /cancel.', shopKeyboard)
+    }
+    return
+  }
+
+  if (command === '/start' || command === '/help' || command === '/menu') {
     if (command === '/start') {
       await recordTelegramActivation(telegramUserId, chatId).catch((error) => console.warn('[telegram] activation record failed:', error instanceof Error ? error.message : 'unknown error'))
       await db.appSetting.upsert({
@@ -463,8 +513,9 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
         return
       }
     }
-    await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
-    await sendMessage(chatId, 'Welcome to Mudaala.\n\nFind real products and shops with /search followed by what you need. Open a listing to view details and contact its seller.\n\nIf you run a shop, connect your Mudaala account with /link CODE. Send a product photo here, then its name and price (Product name | 85000) to publish. Manage products and enquiries right here in this chat.\n\n/search <product> - find active Mudaala listings.\n/link CODE - connect your Mudaala account.\n/unlink - disconnect this Telegram account.\n/shop - show merchant chat controls.\n/publicshop - get your public shop link.\n/products - view your active products.\n/cancel - discard a product photo draft.\n/enquiries - view shopper enquiries.\n/messages - view your buyer enquiries.\n/reply ID message - reply to a shopper enquiry.\n/respond ID message - reply as a shopper.\n/followup ID yes|no - allow or revoke seller follow-up.\n/help - show these commands.', shopKeyboard)
+    await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set chat menu:', error instanceof Error ? error.message : 'unknown error'))
+    await setBotCommands().catch((error) => console.warn('[telegram] could not register commands:', error instanceof Error ? error.message : 'unknown error'))
+    await sendMessage(chatId, 'Welcome to Mudaala.\n\nYou can use this chat to post products and manage customer enquiries. You do not need to learn commands. Choose an action below, or simply send a product photo.\n\nTo publish: send a product photo, then send its name and price, for example: Ladies handbag | 85000.\n\nFor account security, connect your Mudaala account with /link CODE. Never send your password or OTP here.\n\n/menu - show these options.\n/post - post a product.\n/products - view your active products.\n/enquiries - view customer enquiries.\n/publicshop - get your public shop link.\n/search - find active Mudaala listings.\n/cancel - discard a product photo draft.\n/unlink - disconnect this Telegram account.\n/help - show help.', shopKeyboard)
     return
   }
 
@@ -689,7 +740,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
 
   if (command === '/shop') {
     await setShopMenuButton(chatId).catch((error) => console.warn('[telegram] could not set shop menu button:', error instanceof Error ? error.message : 'unknown error'))
-    await sendMessage(chatId, 'Your shop is ready. Open My Shop for the full workspace. Use /products and /enquiries here in chat, or send a product photo followed by its name and price.', shopKeyboard)
+    await sendMessage(chatId, 'Your Mudaala shop is connected. You can post products, view your catalogue and respond to customer enquiries here. The full workspace is still available if you need it.', shopKeyboard)
     return
   }
 
