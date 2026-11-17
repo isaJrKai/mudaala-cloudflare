@@ -124,6 +124,21 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Apply and verify listing taxonomy migration in disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."Listing" DROP COLUMN IF EXISTS "taxonomyId", DROP COLUMN IF EXISTS "brand", DROP COLUMN IF EXISTS "model", DROP COLUMN IF EXISTS "attributes";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261117090000_listing_taxonomy_metadata/migration.sql
+          column_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='Listing' AND column_name IN ('taxonomyId','brand','model','attributes')")
+          index_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='Listing' AND indexname='Listing_taxonomyId_status_idx'")
+          if [ "$column_count" != "4" ] || [ "$index_count" != "1" ]; then
+            echo "Listing taxonomy migration failed: columns=$column_count index=$index_count"
+            exit 1
+          fi
+          echo "Listing taxonomy migration passed: four nullable metadata fields and the taxonomy/status index exist."
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
       - name: Apply and verify direct Data API deny policies in disposable PostgreSQL
         run: |
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE ROLE anon NOLOGIN;'
