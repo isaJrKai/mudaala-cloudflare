@@ -85,6 +85,7 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
   const accent = showroom.accentColor || accents[template.accent] || primary
   const surface = surfaces[template.surface] || surfaces.paper
   const heroPhoto = showroom.coverPhotoUrl || showroom.photos[0] || null
+  const galleryPhotos = showroom.coverPhotoUrl ? showroom.photos.slice(0, 3) : showroom.photos.slice(1, 4)
   const whatsapp = (shop.whatsapp || shop.phone || '').replace(/\D/g, '')
   const heroLayoutClass: Record<string, string> = {
     'cover-story': 'grid gap-8 md:grid-cols-[1.05fr_.95fr] md:items-end',
@@ -149,7 +150,7 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
         {template.hero === 'full-bleed' && <p className="mt-4 text-[10px] uppercase tracking-[.18em] opacity-50">{shop.name} · {shop.area || shop.county || 'Uganda'}</p>}
       </section>
 
-      {showroom.photos.length > 1 && <section className="mx-auto grid max-w-[1440px] grid-cols-2 gap-2 px-5 pb-16 sm:grid-cols-3 sm:gap-4 sm:px-10">{showroom.photos.slice(1, 4).map((photo, index) => <div key={photo} className={`relative overflow-hidden bg-black/5 ${index === 0 ? 'aspect-[4/5]' : 'aspect-[4/5]'}`}><Image src={photo} alt={`${shop.name} showroom photograph ${index + 2}`} fill unoptimized sizes="33vw" className="object-cover" /></div>)}</section>}
+      {galleryPhotos.length > 0 && <section className="mx-auto grid max-w-[1440px] grid-cols-2 gap-2 px-5 pb-16 sm:grid-cols-3 sm:gap-4 sm:px-10">{galleryPhotos.map((photo, index) => <div key={photo} className={`relative overflow-hidden bg-black/5 ${index === 0 ? 'aspect-[4/5]' : 'aspect-[4/5]'}`}><Image src={photo} alt={`${shop.name} showroom photograph ${index + 2}`} fill unoptimized sizes="33vw" className="object-cover" /></div>)}</section>}
 
       {showroom.sections.map((section, index) => <section key={index} className="mx-auto grid max-w-[1440px] gap-5 border-t border-current/15 px-5 py-12 sm:grid-cols-[.7fr_1.3fr] sm:px-10 sm:py-16">{section.photoUrl && <div className="relative aspect-[5/4] overflow-hidden"><Image src={section.photoUrl} alt={section.heading || shop.name} fill unoptimized sizes="50vw" className="object-cover" /></div>}<div className="self-center"><p className="text-[10px] uppercase tracking-[.2em] opacity-50">0{index + 1}</p>{section.heading && <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-4xl">{section.heading}</h2>}{section.body && <p className="mt-4 max-w-2xl whitespace-pre-line text-sm leading-7 opacity-70">{section.body}</p>}</div></section>)}
 
