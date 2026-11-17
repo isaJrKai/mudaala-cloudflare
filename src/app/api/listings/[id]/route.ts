@@ -6,6 +6,7 @@ import { expireOverdueListings, getOwnedListingOr404, sanitizePhotos, serializeL
 import { LISTING_ACTIVE_DAYS, countryDef, findProhibitedItem } from '@/lib/constants'
 import { getSessionUser } from '@/lib/auth'
 import { isAdminUser } from '@/lib/admin'
+import { findTaxonomyNode, taxonomyAncestors } from '@/lib/product-taxonomy'
 import { recordListingDailyEvent } from '@/lib/listing-analytics'
 import { hit } from '@/lib/rate-limit'
 type Params = { params: Promise<{ id: string }> }
@@ -197,6 +198,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       title: data.title ?? listing.title,
       description: data.description ?? listing.description,
       category: data.category ?? listing.category,
+      taxonomyId: data.taxonomyId !== undefined ? data.taxonomyId : listing.taxonomyId,
+      brand: data.brand !== undefined ? data.brand : listing.brand,
+      model: data.model !== undefined ? data.model : listing.model,
+      attributes: data.attributes ?? listing.attributes,
       price: 'price' in data && data.price !== undefined ? data.price : listing.price,
       compareAtPrice: 'compareAtPrice' in data ? (data.compareAtPrice ?? null) : listing.compareAtPrice,
       currency: data.currency ?? listing.currency,
@@ -211,6 +216,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       photos: 'photos' in data ? JSON.stringify(sanitizePhotos(data.photos)) : listing.photos,
     }
 
+    if (merged.taxonomyId && (findTaxonomyNode(merged.taxonomyId) === undefined || taxonomyAncestors(merged.taxonomyId)[0]?.id !== merged.category)) {
+      throw new ApiError(400, 'Choose a product type within the selected category', { taxonomyId: 'Choose a product type within the selected category' })
+    }
     if (merged.price === null && !merged.priceNegotiable) {
       throw new ApiError(400, 'Enter a price or mark it as negotiable', { price: 'Enter a price or mark it as negotiable' })
     }
