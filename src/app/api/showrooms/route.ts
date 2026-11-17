@@ -2,6 +2,8 @@ import { randomBytes } from 'node:crypto'
 import { db } from '@/lib/db'
 import { ApiError, jsonOk, parseBody, requireSeller, route as apiRoute } from '@/lib/api'
 import { standaloneShowroomSchema } from '@/lib/showroom/standalone-schema'
+import { findProhibitedItem } from '@/lib/constants'
+import { containsMarketplaceEmoji } from '@/lib/validation'
 
 function slugBase(value: string): string {
   return value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
@@ -40,6 +42,11 @@ export async function POST(request: Request) {
   return apiRoute(async () => {
     const user = await requireSeller('Sign in as the shop owner to create a showroom')
     const data = await parseBody(request, standaloneShowroomSchema)
+    if (containsMarketplaceEmoji(data.title)) throw new ApiError(400, 'Please use words in the showroom title, not emojis.')
+    const copy = [data.headline, data.introduction, data.story, ...data.sections.map((section) => section.heading || ''), ...data.sections.map((section) => section.body || '')].filter(Boolean).join(' ')
+    if (containsMarketplaceEmoji(copy)) throw new ApiError(400, 'Please use words in your showroom copy, not emojis.')
+    const prohibited = findProhibitedItem(data.title, copy)
+    if (prohibited) throw new ApiError(400, prohibited.message, { title: `This showroom cannot be published - ${prohibited.label.toLowerCase()}` })
     const profile = await db.businessProfile.findUnique({
       where: { userId: user.id },
       select: { businessName: true },
