@@ -11,6 +11,7 @@ import type { Listing, Prisma } from '@prisma/client'
 import type { ListingQuery } from '@/lib/validation'
 import { getSearchTermGroups, searchTextMatchesGroup, scoreListingSearch, parseSearchIntent } from '@/lib/search'
 import { activeListingExpiryFilter } from '@/lib/listing-visibility'
+import { rankDiscoveryCandidates } from '@/lib/discovery-ranking'
 
 function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000)
@@ -210,43 +211,58 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
   // to rank an ordinary feed page; that adds database work and can stall Worker
   // requests as the catalogue grows.
   if (effectiveSort === 'discovery' && !searchText) {
-    // Rotate shop order daily and interleave products so every shop gets a
-    // first-slot opportunity before any shop receives a second one.
+    // Rank a bounded field projection using measured buyer actions from the
+    // last seven Uganda calendar days, then fetch full rows only for this page.
     const [candidates, total] = await Promise.all([
-      db.listing.findMany({ where, select: { id: true, userId: true, refreshedAt: true } }),
+      db.listing.findMany({
+        where,
+        select: {
+          id: true, userId: true, title: true, description: true, category: true,
+          county: true, area: true, publishedAt: true, refreshedAt: true, viewCount: true,
+        },
+      }),
       db.listing.count({ where }),
     ])
-    const day = new Date().toISOString().slice(0, 10)
-    const stableHash = (value: string): number => {
-      let hash = 2166136261
-      for (let i = 0; i < value.length; i += 1) {
-        hash ^= value.charCodeAt(i)
-        hash = Math.imul(hash, 16777619)
+    const now = new Date()
+    const kampalaToday = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Kampala', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(now)
+    const since = new Date(`${kampalaToday}T00:00:00+03:00`)
+    since.setUTCDate(since.getUTCDate() - 6)
+    const sinceDay = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Kampala', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(since)
+    const analytics = candidates.length
+      ? await db.listingDailyAnalytics.findMany({
+          where: { listingId: { in: candidates.map((item) => item.id) }, day: { gte: sinceDay } },
+          select: { listingId: true, callClicks: true, whatsappClicks: true, shareClicks: true },
+        })
+      : []
+    const engagementByListing = new Map<string, { calls: number; whatsapp: number; shares: number }>()
+    for (const event of analytics) {
+      if (!event.listingId) continue
+      const current = engagementByListing.get(event.listingId) ?? { calls: 0, whatsapp: 0, shares: 0 }
+      current.calls += event.callClicks
+      current.whatsapp += event.whatsappClicks
+      current.shares += event.shareClicks
+      engagementByListing.set(event.listingId, current)
+    }
+    const ranked = rankDiscoveryCandidates(candidates.map((candidate) => {
+      const engagement = engagementByListing.get(candidate.id)
+      return {
+        ...candidate,
+        callClicks7d: engagement?.calls ?? 0,
+        whatsappClicks7d: engagement?.whatsapp ?? 0,
+        shareClicks7d: engagement?.shares ?? 0,
       }
-      return hash >>> 0
-    }
-    const shops = new Map<string, typeof candidates>()
-    for (const candidate of candidates) {
-      const group = shops.get(candidate.userId) ?? []
-      group.push(candidate)
-      shops.set(candidate.userId, group)
-    }
-    const orderedShops = [...shops.entries()].sort(
-      ([a], [b]) => stableHash(`${day}:${a}`) - stableHash(`${day}:${b}`) || a.localeCompare(b),
-    )
-    for (const [, products] of orderedShops) {
-      products.sort((a, b) => b.refreshedAt.getTime() - a.refreshedAt.getTime() || a.id.localeCompare(b.id))
-    }
+    }), {
+      now,
+      category: query.category,
+      limit: Math.min(100, Math.max(1, candidates.length)),
+      rotationBucket: Number(kampalaToday.replaceAll('-', '')),
+    })
     const pageStart = (page - 1) * pageSize
-    const pageIds: string[] = []
-    const maxProducts = orderedShops.reduce((max, [, products]) => Math.max(max, products.length), 0)
-    for (let round = 0; round < maxProducts && pageIds.length < pageStart + pageSize; round += 1) {
-      for (const [, products] of orderedShops) {
-        if (products[round]) pageIds.push(products[round].id)
-        if (pageIds.length >= pageStart + pageSize) break
-      }
-    }
-    const visibleIds = pageIds.slice(pageStart, pageStart + pageSize)
+    const visibleIds = ranked.slice(pageStart, pageStart + pageSize).map((entry) => entry.candidate.id)
     const fullRows = visibleIds.length
       ? await db.listing.findMany({ where: { id: { in: visibleIds } }, include: SHOP_OWNER_INCLUDE })
       : []
