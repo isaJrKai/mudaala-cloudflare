@@ -1,8 +1,8 @@
 'use client'
 
 import Image from 'next/image'
-import { useEffect, useMemo, useState } from 'react'
-import { SHOWROOM_TEMPLATES, getShowroomTemplate } from '@/lib/showroom/templates'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { getShowroomTemplate } from '@/lib/showroom/templates'
 
 type Product = {
   id: string; title: string; description: string; category: string; brand: string | null
@@ -100,7 +100,7 @@ export function StandaloneShowroom({ slug }: { slug: string }) {
         : 'grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4'
 
   return (
-    <main className={`min-h-screen ${surface}`} style={{ '--showroom-accent': accent } as React.CSSProperties}>
+    <main className={`min-h-screen ${surface}`} style={{ '--showroom-accent': accent } as CSSProperties}>
       <header className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-5 sm:px-10">
         <a href="#top" className="flex min-w-0 items-center gap-3">
           {showroom.logoUrl || shop.logoUrl ? <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full"><Image src={showroom.logoUrl || shop.logoUrl!} alt="" fill unoptimized sizes="40px" className="object-cover" /></span> : null}
