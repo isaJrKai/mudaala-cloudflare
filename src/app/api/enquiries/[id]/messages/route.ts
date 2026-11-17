@@ -54,15 +54,52 @@ export async function POST(request: Request, { params }: Params) {
     const body = await parseBody(request, z.object({ message: z.string().trim().min(1).max(1200) }))
     const enquiry = await db.enquiry.findFirst({
       where: { id, status: 'OPEN', OR: [{ merchantId: user.id }, { shopperId: user.id }] },
-      select: { id: true, merchantId: true, shopperId: true, buyerTelegramHash: true, listing: { select: { title: true } } },
+      select: {
+        id: true,
+        merchantId: true,
+        shopperId: true,
+        buyerTelegramHash: true,
+        contactChannel: true,
+        listing: { select: { title: true } },
+      },
     })
     if (!enquiry) throw new ApiError(404, 'Open enquiry not found.')
     const senderType = enquiry.merchantId === user.id ? 'MERCHANT' : 'SHOPPER'
+    const inApp = enquiry.contactChannel === 'IN_APP'
     const created = await db.enquiryMessage.create({
-      data: { enquiryId: id, senderType, senderUserId: user.id, body: body.message, deliveryStatus: 'PENDING' },
+      data: {
+        enquiryId: id,
+        senderType,
+        senderUserId: user.id,
+        body: body.message,
+        // IN_APP messages are delivered to the durable Mudaala conversation;
+        // Telegram transport status is relevant only to Telegram enquiries.
+        deliveryStatus: inApp ? 'SENT' : 'PENDING',
+      },
       select: { id: true, senderType: true, body: true, createdAt: true },
     })
     await db.enquiry.update({ where: { id }, data: { lastMessageAt: created.createdAt } })
+
+    const recipientId = senderType === 'MERCHANT' ? enquiry.shopperId : enquiry.merchantId
+    if (recipientId) {
+      await db.notification.create({
+        data: {
+          userId: recipientId,
+          type: 'NEW_ENQUIRY_MESSAGE',
+          category: 'SOCIAL',
+          priority: 'NORMAL',
+          title: senderType === 'MERCHANT' ? 'New seller reply' : 'New customer message',
+          body: (senderType === 'MERCHANT' ? 'The seller replied about ' : 'A customer sent a message about ') + enquiry.listing.title + '.',
+          actionUrl: '/#/enquiries',
+          actionLabel: 'Open messages',
+          dedupeKey: 'enquiry-message:' + created.id,
+        },
+      }).catch(() => undefined)
+    }
+
+    if (inApp) {
+      return jsonOk({ message: { ...created, deliveryStatus: 'SENT' } }, 201)
+    }
 
     let chatId: number | null = null
     if (senderType === 'MERCHANT') {
