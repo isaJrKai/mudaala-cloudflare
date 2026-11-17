@@ -71,7 +71,7 @@ export function StartEnquiryButton({
           <DialogHeader>
             <DialogTitle>Message {shopName}</DialogTitle>
             <DialogDescription>
-              Your message will arrive in the shop's Mudaala Enquiries inbox. The seller can reply here, even if they are offline now.
+              Your message is saved in the shop's Mudaala inbox. The seller can reply when they come back online.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={submit} className="space-y-3">
