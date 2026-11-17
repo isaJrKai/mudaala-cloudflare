@@ -138,7 +138,7 @@ export function ShopProductBrowser({ products }: Props) {
                 <input type="checkbox" checked={priceActive} onChange={(event) => setPriceActive(event.target.checked)} className="size-4 accent-primary" />
                 Filter by price
               </label>
-              <span className="text-xs text-muted-foreground">{money(minPrice, products.find((p) => p.price !== null)?.currency ?? 'UGX')} – {money(maxPrice, products.find((p) => p.price !== null)?.currency ?? 'UGX')}</span>
+              <span className="text-xs text-muted-foreground">{money(minPrice, products.find((p) => p.price !== null)?.currency ?? 'UGX')} - {money(maxPrice, products.find((p) => p.price !== null)?.currency ?? 'UGX')}</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <label className="space-y-1 text-xs text-muted-foreground">Minimum price
