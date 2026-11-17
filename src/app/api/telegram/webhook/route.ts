@@ -912,7 +912,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
 
   const user = await db.user.findUnique({
     where: { id: linked.userId },
-    select: { id: true, name: true, country: true, profile: { select: { businessName: true, shopCode: true, category: true, county: true, area: true, description: true, phone: true, whatsapp: true } } },
+    select: { id: true, name: true, country: true, sellerGoogleExempt: true, profile: { select: { businessName: true, shopCode: true, category: true, county: true, area: true, description: true, phone: true, whatsapp: true } } },
   })
   if (!user) {
     await db.appSetting.deleteMany({ where: { key: telegramKey(telegramUserId) } })
