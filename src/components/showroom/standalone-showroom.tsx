@@ -36,6 +36,63 @@ const accents: Record<string, string> = {
   cobalt: '#345d9b', terracotta: '#b76d51', mono: '#77766f',
 }
 
+const templateHeroClasses: Record<string, string> = {
+  'atelier-edit': 'grid gap-8 md:grid-cols-[.72fr_1.28fr] md:items-end md:gap-16',
+  'the-collection': 'grid gap-5 md:grid-cols-[1fr_1fr] md:items-start',
+  'object-study': 'grid gap-8 md:grid-cols-[.55fr_1.45fr] md:items-center',
+  'daily-goods': 'grid gap-6 border-y border-current/15 py-8 md:grid-cols-[1fr_.8fr] md:items-end',
+  'maison-noir': 'grid gap-10 md:grid-cols-[.8fr_1.2fr] md:items-center',
+  'new-wave': 'grid gap-5 md:grid-cols-[1.25fr_.75fr] md:items-end',
+  'the-brand-story': 'grid gap-8 md:grid-cols-[.9fr_1.1fr] md:items-center',
+  'market-day': 'grid gap-5 md:grid-cols-[1fr_1fr] md:items-stretch',
+  'skin-notes': 'grid gap-8 md:grid-cols-[.8fr_1.2fr] md:items-center',
+  'street-uniform': 'grid gap-4 md:grid-cols-[1.35fr_.65fr] md:items-end',
+  'tech-index': 'grid gap-6 border-y border-current/20 py-8 md:grid-cols-[1.1fr_.9fr] md:items-end',
+  'living-spaces': 'grid gap-6 md:grid-cols-1',
+  'small-treasures': 'grid gap-8 md:grid-cols-[.65fr_1.35fr] md:items-center',
+  'form-and-function': 'grid gap-7 md:grid-cols-[1fr_1fr] md:items-center',
+  'home-rituals': 'grid gap-8 md:grid-cols-[1.1fr_.9fr] md:items-end',
+  'the-pantry': 'grid gap-6 md:grid-cols-[.85fr_1.15fr] md:items-center',
+  'made-by-hand': 'mx-auto grid max-w-5xl gap-8 text-center md:grid-cols-[.8fr_1.2fr] md:items-center',
+  'the-footnote': 'grid gap-7 md:grid-cols-[.9fr_1.1fr] md:items-end',
+  'the-studio-shop': 'grid gap-6 md:grid-cols-[1fr_1fr] md:items-center',
+  'open-shelf': 'grid gap-6 border-y border-current/15 py-8 md:grid-cols-[1fr_1fr] md:items-end',
+}
+
+const templateGridClasses: Record<string, string> = {
+  'atelier-edit': 'grid grid-cols-2 gap-x-5 gap-y-12 sm:grid-cols-3 sm:gap-x-8 lg:grid-cols-4',
+  'the-collection': 'grid grid-cols-1 gap-8 sm:grid-cols-2 sm:gap-10',
+  'object-study': 'grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-8',
+  'daily-goods': 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4',
+  'maison-noir': 'grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-8',
+  'new-wave': 'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5',
+  'the-brand-story': 'grid grid-cols-1 gap-10 sm:grid-cols-2 sm:gap-12',
+  'market-day': 'columns-2 gap-3 space-y-4 sm:columns-3 sm:gap-5',
+  'skin-notes': 'grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-7',
+  'street-uniform': 'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5',
+  'tech-index': 'grid grid-cols-1 gap-0 sm:grid-cols-2 sm:gap-x-8',
+  'living-spaces': 'grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-10',
+  'small-treasures': 'grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-8',
+  'form-and-function': 'grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-7',
+  'home-rituals': 'grid grid-cols-1 gap-7 sm:grid-cols-2 sm:gap-10',
+  'the-pantry': 'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5',
+  'made-by-hand': 'grid grid-cols-1 gap-8 sm:grid-cols-2 sm:gap-12',
+  'the-footnote': 'grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 sm:gap-8',
+  'the-studio-shop': 'grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6',
+  'open-shelf': 'grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4',
+}
+
+const templateHeaderClasses: Record<string, string> = {
+  'atelier-edit': 'border-b border-current/15 py-7',
+  'maison-noir': 'border-b border-current/20 py-8',
+  'new-wave': 'border-b-2 border-current py-4',
+  'street-uniform': 'border-b-2 border-current py-4 uppercase',
+  'tech-index': 'border-b border-current/25 font-mono',
+  'the-pantry': 'border-b border-current/20 py-6',
+  'made-by-hand': 'border-b border-dashed border-current/30 py-7',
+  'the-footnote': 'border-b border-current/15 py-8',
+}
+
 function money(value: number | null, currency: string, negotiable: boolean) {
   if (value === null) return negotiable ? 'Price on enquiry' : 'Ask for price'
   return new Intl.NumberFormat('en-UG', { maximumFractionDigits: 0 }).format(value) + (currency === 'UGX' ? ' UGX' : ` ${currency}`)
@@ -156,21 +213,21 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
     'the-studio-shop': 'aspect-[5/4]',
     'open-shelf': 'aspect-[5/4]',
   }
-  const gridClass = template.productLayout === 'spec-list' || template.productLayout === 'room-scenes' || template.productLayout === 'market-table'
-    ? 'grid grid-cols-1 gap-x-8 sm:grid-cols-2'
-    : template.productLayout === 'masonry'
-      ? 'columns-2 gap-4 space-y-5 sm:columns-3 lg:columns-4'
-      : template.productLayout === 'collection-rail'
-        ? 'flex snap-x gap-4 overflow-x-auto pb-5'
-        : template.productLayout === 'story-cards' || template.productLayout === 'lookbook'
-          ? 'grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 sm:gap-x-10'
-          : template.productLayout === 'feature-and-grid'
-            ? 'grid grid-cols-2 gap-4 sm:gap-6'
-            : 'grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4'
+  const gridClass = templateGridClasses[template.id] || (template.productLayout === 'spec-list' || template.productLayout === 'room-scenes' || template.productLayout === 'market-table'
+      ? 'grid grid-cols-1 gap-x-8 sm:grid-cols-2'
+      : template.productLayout === 'masonry'
+        ? 'columns-2 gap-4 space-y-5 sm:columns-3 lg:columns-4'
+        : template.productLayout === 'collection-rail'
+          ? 'flex snap-x gap-4 overflow-x-auto pb-5'
+          : template.productLayout === 'story-cards' || template.productLayout === 'lookbook'
+            ? 'grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 sm:gap-x-10'
+            : template.productLayout === 'feature-and-grid'
+              ? 'grid grid-cols-2 gap-4 sm:gap-6'
+              : 'grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4')
 
   return (
     <main className={`min-h-screen ${surface}`} style={{ '--showroom-accent': accent } as CSSProperties}>
-      <header className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-5 sm:px-10">
+      <header className={`mx-auto flex max-w-[1440px] items-center justify-between px-5 py-5 sm:px-10 ${templateHeaderClasses[template.id] || ''}`}>
         <a href="#top" className="flex min-w-0 items-center gap-3">
           {showroom.logoUrl || shop.logoUrl ? <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full"><Image src={showroom.logoUrl || shop.logoUrl!} alt="" fill unoptimized sizes="40px" className="object-cover" /></span> : null}
           <span className="min-w-0"><span className="block truncate text-sm font-semibold tracking-tight">{shop.name}</span><span className="mt-0.5 block text-[9px] uppercase tracking-[.18em] opacity-55">{shop.area || shop.county || shop.category || 'Independent shop'}</span></span>
@@ -189,7 +246,7 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
             <div className="md:justify-self-end md:max-w-md"><p className="text-sm leading-7 opacity-70">{showroom.introduction || shop.description}</p><p className="mt-5 text-xs opacity-50">{products.length} selected {products.length === 1 ? 'product' : 'products'}</p></div>
           </div>
         ) : (
-          <div className={`${heroLayoutClass[template.hero] || 'grid gap-8'} ${template.id === 'manifesto' ? 'py-8 sm:py-12' : ''} ${template.id === 'tech-index' ? 'border-y border-current/20 py-8' : ''} ${template.id === 'market-day' ? 'items-stretch' : ''}`}>
+          <div className={`${templateHeroClasses[template.id] || heroLayoutClass[template.hero] || 'grid gap-8'} ${template.id === 'manifesto' ? 'py-8 sm:py-12' : ''} ${template.id === 'tech-index' ? 'border-y border-current/20 py-8' : ''} ${template.id === 'market-day' ? 'items-stretch' : ''}`}>
             <div className={template.hero === 'full-bleed' ? 'order-2' : ''}>
               <p className="text-[10px] uppercase tracking-[.22em] opacity-55">{template.name} <span className="px-2">/</span> {shop.category || 'Shop'}</p>
               <h1 className={`mt-6 max-w-4xl ${titleClass}`}>{showroom.headline || showroom.title}</h1>
