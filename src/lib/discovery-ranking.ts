@@ -105,24 +105,36 @@ export function rankDiscoveryCandidates(
     .filter((item) => !context.query || item.scoreBreakdown.relevance >= 8)
     .sort((a, b) => b.score - a.score || a.candidate.id.localeCompare(b.candidate.id))
 
-  // Rotation is deterministic for a page bucket and prevents one merchant
-  // from occupying the entire first screen when relevance is close.
-  const output: RankedDiscoveryCandidate[] = []
-  const remaining = [...scored]
+  // Group score-sorted candidates by seller, then take one product per shop
+  // per round. This preserves a meaningful relevance order while avoiding a
+  // repeated full-array sort for every result as the catalogue grows.
+  const bySeller = new Map<string, RankedDiscoveryCandidate[]>()
+  for (const item of scored) {
+    const group = bySeller.get(item.candidate.userId) ?? []
+    group.push(item)
+    bySeller.set(item.candidate.userId, group)
+  }
+  const sellers = [...bySeller.entries()].sort(
+    ([sellerA, productsA], [sellerB, productsB]) =>
+      (productsB[0]?.score ?? 0) - (productsA[0]?.score ?? 0) || sellerA.localeCompare(sellerB),
+  )
   const bucket = Math.max(0, Math.trunc(context.rotationBucket ?? 0))
-  const limit = clamp(Math.trunc(context.limit ?? 24), 1, 100)
-  const sellerCounts = new Map<string, number>()
-  while (remaining.length && output.length < limit) {
-    remaining.sort((a, b) => {
-      const aPenalty = (sellerCounts.get(a.candidate.userId) ?? 0) * 7
-      const bPenalty = (sellerCounts.get(b.candidate.userId) ?? 0) * 7
-      return (b.score - bPenalty) - (a.score - aPenalty) || a.candidate.id.localeCompare(b.candidate.id)
-    })
-    const rotation = remaining.length > 1 ? bucket % Math.min(remaining.length, 5) : 0
-    const [chosen] = remaining.splice(rotation, 1)
-    if (!chosen) break
-    output.push(chosen)
-    sellerCounts.set(chosen.candidate.userId, (sellerCounts.get(chosen.candidate.userId) ?? 0) + 1)
+  if (sellers.length > 1) {
+    const rotation = bucket % Math.min(sellers.length, 5)
+    sellers.push(...sellers.splice(0, rotation))
+  }
+  const output: RankedDiscoveryCandidate[] = []
+  const limit = Math.max(1, Math.min(Math.trunc(context.limit ?? 24), scored.length || 1))
+  for (let round = 0; output.length < limit; round += 1) {
+    let added = false
+    for (const [, products] of sellers) {
+      const item = products[round]
+      if (!item) continue
+      output.push(item)
+      added = true
+      if (output.length >= limit) break
+    }
+    if (!added) break
   }
   return output
 }
