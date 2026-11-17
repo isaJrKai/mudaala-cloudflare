@@ -201,7 +201,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       taxonomyId: data.taxonomyId !== undefined ? data.taxonomyId : listing.taxonomyId,
       brand: data.brand !== undefined ? data.brand : listing.brand,
       model: data.model !== undefined ? data.model : listing.model,
-      attributes: data.attributes ?? listing.attributes,
       price: 'price' in data && data.price !== undefined ? data.price : listing.price,
       compareAtPrice: 'compareAtPrice' in data ? (data.compareAtPrice ?? null) : listing.compareAtPrice,
       currency: data.currency ?? listing.currency,
@@ -219,7 +218,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (merged.taxonomyId && (findTaxonomyNode(merged.taxonomyId) === undefined || taxonomyAncestors(merged.taxonomyId)[0]?.id !== merged.category)) {
       throw new ApiError(400, 'Choose a product type within the selected category', { taxonomyId: 'Choose a product type within the selected category' })
     }
-    if (merged.taxonomyId && !isValidTaxonomyAttributes(merged.taxonomyId, merged.attributes)) {
+    const mergedAttributes = data.attributes ?? listing.attributes
+    if (merged.taxonomyId && !isValidTaxonomyAttributes(merged.taxonomyId, mergedAttributes)) {
       throw new ApiError(400, 'Remove attributes that do not belong to this product type', { attributes: 'Remove attributes that do not belong to this product type' })
     }
     if (merged.price === null && !merged.priceNegotiable) {
@@ -259,7 +259,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const changed = await db.listing.updateMany({
       where: { id, userId: user.id, status: 'ACTIVE', updatedAt: listing.updatedAt },
-      data: { ...merged },
+      data: { ...merged, ...(data.attributes !== undefined ? { attributes: data.attributes } : {}) },
     })
     if (changed.count === 0) {
       const current = await getOwnedListingOr404(id, user.id)
