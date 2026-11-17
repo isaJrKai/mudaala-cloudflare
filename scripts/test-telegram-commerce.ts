@@ -13,6 +13,8 @@ import { readFile } from 'node:fs/promises'
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
 import { PrismaClient } from '@prisma/client'
+import { listingCreateSchema } from '../src/lib/validation'
+import { publishListingForSeller } from '../src/lib/listing-publisher'
 
 const db = new PrismaClient()
 const BASE = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '')
@@ -119,6 +121,41 @@ async function run() {
     data: { userId: merchant.id, businessName: 'Telegram boundary test shop ' + suffix, phone: merchant.phone },
   })
   const merchantListing = await createListing(merchant.id, merchant.phone, 0)
+
+  // A retry of the same server-side Telegram draft must return its original
+  // listing, not create a second public listing.
+  const idempotentListingData = listingCreateSchema.parse({
+    type: 'OFFER',
+    title: 'Telegram idempotency product ' + suffix,
+    description: 'A test product used to verify safe retry behaviour for Telegram publishing.',
+    category: 'electronics',
+    price: 125000,
+    priceNegotiable: false,
+    unit: 'piece',
+    quantity: null,
+    county: 'Kampala',
+    country: 'UG',
+    area: null,
+    contactPhone: merchant.phone,
+    contactWhatsapp: null,
+    photos: [],
+  })
+  const publicationKey = 'telegram-draft-test:' + suffix
+  const firstPublication = await publishListingForSeller({
+    seller: { id: merchant.id, country: 'UG' },
+    data: idempotentListingData,
+    ipKey: 'telegram-test-' + suffix,
+    idempotencyKey: publicationKey,
+  })
+  const retryPublication = await publishListingForSeller({
+    seller: { id: merchant.id, country: 'UG' },
+    data: idempotentListingData,
+    ipKey: 'telegram-test-' + suffix,
+    idempotencyKey: publicationKey,
+  })
+  listingIds.push(firstPublication.id)
+  assert.equal(retryPublication.id, firstPublication.id, 'repeating a Telegram draft publication returns the original listing')
+  assert.equal(await db.listing.count({ where: { id: firstPublication.id, userId: merchant.id } }), 1, 'idempotent publication creates only one listing')
 
   const merchantSettingKey = 'telegram:merchant:' + merchant.id
   settingKeys.push(merchantSettingKey)
