@@ -43,7 +43,7 @@ function money(value: number | null, currency: string, negotiable: boolean) {
 
 function ProductCard({ product, layout, accent }: { product: Product; layout: string; accent: string }) {
   const image = product.photos[0]
-  const wide = layout === 'spec-list' || layout === 'room-scenes'
+  const wide = layout === 'spec-list' || layout === 'room-scenes' || layout === 'market-table'
   return (
     <a href={`/l/${encodeURIComponent(product.id)}`} className={`group block min-w-0 ${wide ? 'grid grid-cols-[minmax(104px,34%)_1fr] gap-4 border-b border-current/15 py-4' : ''}`}>
       <div className={`relative overflow-hidden bg-black/5 ${wide ? 'aspect-square' : layout === 'masonry' ? 'aspect-[4/5]' : 'aspect-[4/5]'}`}>
@@ -86,19 +86,34 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
   const surface = surfaces[template.surface] || surfaces.paper
   const heroPhoto = showroom.coverPhotoUrl || showroom.photos[0] || null
   const whatsapp = (shop.whatsapp || shop.phone || '').replace(/\D/g, '')
-  const heroSplit = ['split-editorial', 'product-stage', 'type-led', 'catalogue'].includes(template.hero)
+  const heroLayoutClass: Record<string, string> = {
+    'cover-story': 'grid gap-8 md:grid-cols-[1.05fr_.95fr] md:items-end',
+    'full-bleed': 'grid gap-6',
+    'split-editorial': 'grid gap-8 md:grid-cols-[.85fr_1.15fr] md:items-center md:gap-14',
+    'product-stage': 'grid gap-8 md:grid-cols-[.7fr_1.3fr] md:items-center md:gap-16',
+    'type-led': 'grid gap-8 md:grid-cols-[1fr_.7fr] md:items-end',
+    'lookbook': 'grid gap-5',
+    'catalogue': 'grid gap-8 md:grid-cols-[1fr_1.1fr] md:items-end',
+    'brand-film': 'grid gap-5',
+    'campaign': 'grid gap-8 md:grid-cols-[1.2fr_.8fr] md:items-center',
+    'manifesto': 'mx-auto grid max-w-4xl gap-8 text-center',
+  }
   const titleClass = template.id === 'street-uniform' || template.id === 'new-wave'
     ? 'text-5xl font-black uppercase leading-[.88] tracking-[-.06em] sm:text-7xl'
     : template.id === 'maison-noir' || template.id === 'small-treasures'
       ? 'font-serif text-5xl font-normal leading-[.98] sm:text-7xl'
       : 'text-4xl font-semibold leading-[.98] tracking-[-.045em] sm:text-6xl'
-  const gridClass = template.productLayout === 'spec-list' || template.productLayout === 'room-scenes'
+  const gridClass = template.productLayout === 'spec-list' || template.productLayout === 'room-scenes' || template.productLayout === 'market-table'
     ? 'grid grid-cols-1 gap-x-8 sm:grid-cols-2'
     : template.productLayout === 'masonry'
       ? 'columns-2 gap-4 space-y-5 sm:columns-3 lg:columns-4'
       : template.productLayout === 'collection-rail'
         ? 'flex snap-x gap-4 overflow-x-auto pb-5'
-        : 'grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4'
+        : template.productLayout === 'story-cards' || template.productLayout === 'lookbook'
+          ? 'grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 sm:gap-x-10'
+          : template.productLayout === 'feature-and-grid'
+            ? 'grid grid-cols-2 gap-4 sm:gap-6'
+            : 'grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4'
 
   return (
     <main className={`min-h-screen ${surface}`} style={{ '--showroom-accent': accent } as CSSProperties}>
@@ -121,14 +136,14 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
             <div className="md:justify-self-end md:max-w-md"><p className="text-sm leading-7 opacity-70">{showroom.introduction || shop.description}</p><p className="mt-5 text-xs opacity-50">{products.length} selected {products.length === 1 ? 'product' : 'products'}</p></div>
           </div>
         ) : (
-          <div className={heroSplit ? 'grid gap-8 md:grid-cols-[.85fr_1.15fr] md:items-center md:gap-14' : 'grid gap-8'}>
+          <div className={heroLayoutClass[template.hero] || 'grid gap-8'}>
             <div className={template.hero === 'full-bleed' ? 'order-2' : ''}>
               <p className="text-[10px] uppercase tracking-[.22em] opacity-55">{template.name} <span className="px-2">/</span> {shop.category || 'Shop'}</p>
               <h1 className={`mt-6 max-w-4xl ${titleClass}`}>{showroom.headline || showroom.title}</h1>
               {showroom.introduction && <p className="mt-6 max-w-xl text-sm leading-7 opacity-70 sm:text-base">{showroom.introduction}</p>}
               <a href="#collection" className="mt-8 inline-flex items-center gap-3 border-b pb-2 text-xs font-semibold" style={{ borderColor: accent }}>Explore the collection <span aria-hidden="true">↗</span></a>
             </div>
-            {heroPhoto && <div className={`relative overflow-hidden bg-black/5 ${template.hero === 'full-bleed' ? 'aspect-[16/8]' : template.hero === 'product-stage' ? 'aspect-[4/5] md:aspect-[5/6]' : 'aspect-[5/4]'}`}><Image src={heroPhoto} alt={showroom.title} fill priority unoptimized sizes="(max-width: 768px) 100vw, 60vw" className="object-cover" /></div>}
+            {heroPhoto && <div className={`relative overflow-hidden bg-black/5 ${template.hero === 'full-bleed' ? 'aspect-[16/8]' : template.hero === 'lookbook' || template.hero === 'manifesto' || template.hero === 'brand-film' ? 'aspect-[16/7]' : template.hero === 'product-stage' ? 'aspect-[4/5] md:aspect-[5/6]' : template.hero === 'cover-story' ? 'aspect-[5/6]' : template.hero === 'type-led' ? 'aspect-square' : 'aspect-[5/4]'}`}><Image src={heroPhoto} alt={showroom.title} fill priority unoptimized sizes="(max-width: 768px) 100vw, 60vw" className="object-cover" /></div>}
           </div>
         )}
         {template.hero === 'full-bleed' && <p className="mt-4 text-[10px] uppercase tracking-[.18em] opacity-50">{shop.name} · {shop.area || shop.county || 'Uganda'}</p>}
@@ -143,7 +158,7 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
           <div><p className="text-[10px] uppercase tracking-[.2em] opacity-50">Selected for you</p><h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-5xl">{showroom.title}</h2></div>
           <p className="text-right text-[10px] uppercase tracking-[.14em] opacity-50">{products.length} items</p>
         </div>
-        {products.length ? <div className={gridClass}>{products.map((product) => <div key={product.id} className={template.productLayout === 'masonry' ? 'mb-5 break-inside-avoid' : template.productLayout === 'collection-rail' ? 'w-[72vw] shrink-0 snap-start sm:w-[32vw]' : ''}><ProductCard product={product} layout={template.productLayout} accent={accent} /></div>)}</div> : <p className="py-16 text-center text-sm opacity-60">The shop is preparing its collection. Contact the seller to ask what is available.</p>}
+        {products.length ? <div className={gridClass}>{products.map((product, index) => <div key={product.id} className={template.productLayout === 'masonry' ? 'mb-5 break-inside-avoid' : template.productLayout === 'collection-rail' ? 'w-[72vw] shrink-0 snap-start sm:w-[32vw]' : template.productLayout === 'feature-and-grid' && index === 0 ? 'col-span-2' : ''}><ProductCard product={product} layout={template.productLayout} accent={accent} /></div>)}</div> : <p className="py-16 text-center text-sm opacity-60">The shop is preparing its collection. Contact the seller to ask what is available.</p>}
       </section>
 
       {(showroom.story || shop.description) && <section id="about" className="border-y border-current/15 px-5 py-16 sm:px-10 sm:py-24"><div className="mx-auto max-w-3xl"><p className="text-[10px] uppercase tracking-[.2em] opacity-50">A little about us</p><h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-5xl">{shop.name}</h2><p className="mt-6 whitespace-pre-line text-sm leading-8 opacity-75 sm:text-base">{showroom.story || shop.description}</p></div></section>}
