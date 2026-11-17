@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Settings, LogOut, User, BadgeCheck, Bookmark, Store, Bell, Package } from 'lucide-react'
+import { Settings, LogOut, User, BadgeCheck, Bookmark, Store, Bell, Package, MessageSquare } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { useSession, useSignOut } from '@/hooks/use-session'
 import { Button } from '@/components/ui/button'
@@ -183,6 +183,7 @@ export function AppHeader() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate({ name: "business" })}><Store className="size-4" aria-hidden /> My Business</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ name: "my-listings" })}><Package className="size-4" aria-hidden /> My products</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate({ name: "enquiries" })}><MessageSquare className="size-4" aria-hidden /> Messages</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ name: "notifications" })}><Bell className="size-4" aria-hidden /> Alerts</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ name: "home" })}><User className="size-4" aria-hidden /> My activity</DropdownMenuItem>
                 <DropdownMenuSeparator />
