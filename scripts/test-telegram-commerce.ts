@@ -141,6 +141,7 @@ async function run() {
     photos: [],
   })
   const publicationKey = 'telegram-draft-test:' + suffix
+  settingKeys.push('listing-publish:' + createHash('sha256').update(publicationKey).digest('hex'))
   const firstPublication = await publishListingForSeller({
     seller: { id: merchant.id, country: 'UG' },
     data: idempotentListingData,
