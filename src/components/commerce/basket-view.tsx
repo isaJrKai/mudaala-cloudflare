@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button'
 import { ToastAction } from '@/components/ui/toast'
 import { PaySheet } from '@/components/commerce/pay-sheet'
 import { WhatsAppIcon } from '@/components/commerce/brand-icons'
-import { apiGet } from '@/lib/client'
+import { apiFetch, apiGet } from '@/lib/client'
 import type { ListingDetail, ShopPage } from '@/lib/client'
 import { formatPrice, telLink } from '@/lib/format'
 import { useAppStore } from '@/lib/store'
@@ -42,6 +42,7 @@ import { useToast } from '@/hooks/use-toast'
 import { EmptyState } from './empty-state'
 import { cn } from '@/lib/utils'
 import { copy } from '@/lib/copy'
+import { StartEnquiryButton } from './start-enquiry-button'
 
 // Shared add handler for every surface that sells (blocks, detail page):
 // one honest toast either way - never a silent no-op, never a fake success.
@@ -281,6 +282,11 @@ function BasketShopSection({
   const stale = entries.filter(([id]) => statuses.data && statuses.data[id] !== 'ACTIVE')
   const sendable = statuses.isLoading ? entries : fresh
   const sendableLines = sendable.map(([, line]) => line)
+  const enquiryMessage = [
+    'Hi ' + shop.name + ', I would like to ask about these items from my Mudaala basket:',
+    ...sendableLines.map((line) => '- ' + line.title + ' × ' + line.qty + ' — ' + (line.price === null ? 'price to confirm' : formatPrice(line.price, null, line.currency))),
+    'Please confirm availability and the final total.',
+  ].join('\n').slice(0, 1200)
   const subtotal = basketSubtotal(sendableLines)
 
   // The subtotal flash - Mudaala's answer to the ticker-tape cue: when the
@@ -469,6 +475,15 @@ function BasketShopSection({
               </a>
             </Button>
           </div>
+        ) : null}
+        {sendable.length > 0 ? (
+          <StartEnquiryButton
+            listingId={sendable[0][0]}
+            shopName={shop.name}
+            initialMessage={enquiryMessage}
+            label="Message seller in Mudaala"
+            className="press h-10 w-full text-[13px]"
+          />
         ) : null}
         {sendable.length > 0 && !shop.whatsapp ? (
           <p className="text-center text-xs text-muted-foreground">{copy.basket.noWhatsappNote}</p>
