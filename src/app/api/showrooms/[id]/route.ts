@@ -3,6 +3,7 @@ import { ApiError, jsonOk, parseBody, requireSeller, route as apiRoute } from '@
 import { standaloneShowroomPatchSchema } from '@/lib/showroom/standalone-schema'
 import { findProhibitedItem } from '@/lib/constants'
 import { containsMarketplaceEmoji } from '@/lib/validation'
+import { assertUploadedShowroomPhotos } from '@/lib/showroom/photo-urls'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -49,8 +50,12 @@ export async function PATCH(request: Request, { params }: Params) {
     const prohibited = findProhibitedItem(nextTitle, nextCopy)
     if (prohibited) throw new ApiError(400, prohibited.message, { title: `This showroom cannot be published - ${prohibited.label.toLowerCase()}` })
 
-    const nextPhotos = data.photos ?? JSON.parse(current.photos) as string[]
+    let savedPhotos: string[] = []
+    try { savedPhotos = JSON.parse(current.photos) as string[] } catch { /* malformed legacy photo data is ignored */ }
+    const nextPhotos = data.photos ?? savedPhotos
     const nextCover = data.coverPhotoUrl === undefined ? current.coverPhotoUrl : data.coverPhotoUrl
+    const nextLogo = data.logoUrl === undefined ? current.logoUrl : data.logoUrl
+    assertUploadedShowroomPhotos([nextLogo, nextCover, ...nextPhotos, ...nextSections.map((section) => section.photoUrl)])
     if (data.status === 'PUBLISHED' && !nextCover && nextPhotos.length === 0) {
       throw new ApiError(409, 'Add at least one of your own showroom photos before publishing.')
     }
