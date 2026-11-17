@@ -238,10 +238,11 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
           select: { listingId: true, callClicks: true, whatsappClicks: true, shareClicks: true },
         })
       : []
-    const engagementByListing = new Map<string, { calls: number; whatsapp: number; shares: number }>()
+    const engagementByListing = new Map<string, { views: number; calls: number; whatsapp: number; shares: number }>()
     for (const event of analytics) {
       if (!event.listingId) continue
-      const current = engagementByListing.get(event.listingId) ?? { calls: 0, whatsapp: 0, shares: 0 }
+      const current = engagementByListing.get(event.listingId) ?? { views: 0, calls: 0, whatsapp: 0, shares: 0 }
+      current.views += event.views
       current.calls += event.callClicks
       current.whatsapp += event.whatsappClicks
       current.shares += event.shareClicks
@@ -251,6 +252,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
       const engagement = engagementByListing.get(candidate.id)
       return {
         ...candidate,
+        views7d: engagement?.views,
         callClicks7d: engagement?.calls ?? 0,
         whatsappClicks7d: engagement?.whatsapp ?? 0,
         shareClicks7d: engagement?.shares ?? 0,
