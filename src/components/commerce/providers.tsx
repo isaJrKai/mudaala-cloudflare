@@ -79,6 +79,8 @@ function CurrentViewContent() {
       return <SettingsView />
     case 'enquiries':
       return <EnquiriesView />
+    case 'messages':
+      return <EnquiriesView shopperOnly />
     case 'following':
       return <FollowingView />
     case 'browse':
