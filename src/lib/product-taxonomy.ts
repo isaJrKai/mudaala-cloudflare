@@ -27,8 +27,10 @@ export interface TaxonomyNode {
 export const PRODUCT_TAXONOMY: readonly TaxonomyNode[] = [
   { id: 'textiles-clothing', label: 'Clothes & Apparel', parentId: null },
   { id: 'fashion-clothing', label: 'Clothing', parentId: 'textiles-clothing' },
+  { id: 'fashion-hoodies', label: 'Hoodies', parentId: 'fashion-clothing', attributes: [{ key: 'size', label: 'Size', type: 'text' }, { key: 'material', label: 'Material', type: 'text' }, { key: 'colour', label: 'Colour', type: 'text' }, { key: 'fit', label: 'Fit', type: 'text' }] },
   { id: 'fashion-dresses', label: 'Dresses', parentId: 'fashion-clothing', attributes: [{ key: 'size', label: 'Size', type: 'text' }, { key: 'material', label: 'Material', type: 'text' }, { key: 'colour', label: 'Colour', type: 'text' }, { key: 'fit', label: 'Fit', type: 'text' }] },
-  { id: 'fashion-tops', label: 'Tops & Shirts', parentId: 'fashion-clothing', attributes: [{ key: 'size', label: 'Size', type: 'text' }, { key: 'material', label: 'Material', type: 'text' }, { key: 'colour', label: 'Colour', type: 'text' }] },
+  { id: 'fashion-shirts', label: 'Shirts', parentId: 'fashion-clothing', attributes: [{ key: 'size', label: 'Size', type: 'text' }, { key: 'material', label: 'Material', type: 'text' }, { key: 'colour', label: 'Colour', type: 'text' }] },
+  { id: 'fashion-tops', label: 'Other Tops', parentId: 'fashion-clothing', attributes: [{ key: 'size', label: 'Size', type: 'text' }, { key: 'material', label: 'Material', type: 'text' }, { key: 'colour', label: 'Colour', type: 'text' }] },
   { id: 'fashion-trousers', label: 'Trousers & Jeans', parentId: 'fashion-clothing', attributes: [{ key: 'size', label: 'Size', type: 'text' }, { key: 'waist', label: 'Waist', type: 'text' }, { key: 'material', label: 'Material', type: 'text' }] },
   { id: 'fashion-skirts', label: 'Skirts', parentId: 'fashion-clothing' },
   { id: 'fashion-shoes', label: 'Shoes', parentId: 'textiles-clothing', attributes: [{ key: 'shoeSize', label: 'Shoe size', type: 'text' }, { key: 'brand', label: 'Brand', type: 'text' }, { key: 'condition', label: 'Condition', type: 'enum', options: ['NEW', 'LIKE_NEW', 'USED'] }] },
