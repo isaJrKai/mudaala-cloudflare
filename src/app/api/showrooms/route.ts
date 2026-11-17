@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     }
 
     const base = slugBase(data.title)
-    let created = null
+    let created: Awaited<ReturnType<typeof db.shopShowroom.create>> | null = null
     for (let attempt = 0; attempt < 5; attempt++) {
       const slug = `${base}-${randomBytes(3).toString('hex')}`
       try {
