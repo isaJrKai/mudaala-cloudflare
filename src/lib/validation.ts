@@ -4,7 +4,7 @@
 // Never duplicate these rules elsewhere.
 
 import { z } from 'zod'
-import { findTaxonomyNode, taxonomyAncestors } from './product-taxonomy'
+import { findTaxonomyNode, isValidTaxonomyAttributes, taxonomyAncestors } from './product-taxonomy'
 import { CATEGORY_KEYS, LISTING_TYPES, UNIT_KEYS, COUNTRY_KEYS, CURRENCY_KEYS, ALLOWED_STATUS_TRANSITIONS, REPORT_REASONS, type ListingStatus } from './constants'
 
 // Uganda phone normalization. Accepted inputs: 07XX XXX XXX, 7XXXXXXXX,
@@ -189,6 +189,10 @@ export const listingCreateSchema = listingBaseSchema
   .refine((v) => !v.taxonomyId || (findTaxonomyNode(v.taxonomyId) !== undefined && taxonomyAncestors(v.taxonomyId)[0]?.id === v.category), {
     message: 'Choose a product type within the selected category',
     path: ['taxonomyId'],
+  })
+  .refine((v) => !v.taxonomyId || isValidTaxonomyAttributes(v.taxonomyId, v.attributes), {
+    message: 'Remove attributes that do not belong to this product type',
+    path: ['attributes'],
   })
   .refine((v) => v.price !== null || v.priceNegotiable || v.type === 'REQUEST', {
     message: 'Enter a price or mark it as negotiable',
