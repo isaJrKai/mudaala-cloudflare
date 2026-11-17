@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { ApiError, jsonOk, route } from '@/lib/api'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
@@ -199,12 +199,15 @@ async function cleanupTelegramRecords(): Promise<void> {
   if (staleProductDrafts.length) {
     const storage = chooseStorage()
     for (const item of staleProductDrafts) {
+      // Delete only the exact stale value we inspected. A newer photo draft
+      // may have replaced this key while storage cleanup was running.
+      const deleted = await db.appSetting.deleteMany({ where: { key: item.key, value: item.value } })
+      if (deleted.count !== 1) continue
       try {
-        const draft = JSON.parse(item.value) as { photoUrl?: unknown }
-        if (typeof draft.photoUrl === 'string') await storage.remove(draft.photoUrl)
+        const draft = JSON.parse(item.value) as { photoUrl?: unknown; status?: unknown }
+        if (draft.status !== 'PUBLISHING' && typeof draft.photoUrl === 'string') await storage.remove(draft.photoUrl)
       } catch { /* stale draft cleanup must not affect other Telegram updates */ }
     }
-    await db.appSetting.deleteMany({ where: { key: { in: staleProductDrafts.map((item) => item.key) } } })
   }
   const staleConversations = await db.appSetting.findMany({
     where: { key: { startsWith: 'telegram:conversation:' }, updatedAt: { lt: new Date(now - 24 * 60 * 60 * 1000) } },
@@ -659,13 +662,53 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       return
     }
     try {
-      const photoUrl = await importTelegramProductPhoto(photo.file_id, linkedUserId)
       const draftKey = 'telegram:product-draft:' + createHash('sha256').update(String(telegramUserId)).digest('hex')
-      await db.appSetting.upsert({
-        where: { key: draftKey },
-        create: { key: draftKey, value: JSON.stringify({ userId: linkedUserId, photoUrl, createdAt: new Date().toISOString() }) },
-        update: { value: JSON.stringify({ userId: linkedUserId, photoUrl, createdAt: new Date().toISOString() }) },
+      const previousDraft = await db.appSetting.findUnique({ where: { key: draftKey } })
+      if (previousDraft) {
+        try {
+          const parsed = JSON.parse(previousDraft.value) as { status?: unknown }
+          if (parsed.status === 'PUBLISHING') {
+            await sendMessage(chatId, 'Your previous product is still being published. Please wait before sending another photo.')
+            return
+          }
+        } catch { /* malformed draft is replaced below */ }
+      }
+      const photoUrl = await importTelegramProductPhoto(photo.file_id, linkedUserId)
+      const nextDraft = JSON.stringify({
+        userId: linkedUserId,
+        draftId: randomBytes(16).toString('hex'),
+        photoUrl,
+        status: 'READY',
+        createdAt: new Date().toISOString(),
       })
+      let saved = false
+      if (previousDraft) {
+        const replaced = await db.appSetting.updateMany({
+          where: { key: draftKey, value: previousDraft.value },
+          data: { value: nextDraft },
+        })
+        saved = replaced.count === 1
+      } else {
+        try {
+          await db.appSetting.create({ data: { key: draftKey, value: nextDraft } })
+          saved = true
+        } catch (error) {
+          if ((error as { code?: string })?.code !== 'P2002') throw error
+        }
+      }
+      if (!saved) {
+        await chooseStorage().remove(photoUrl).catch(() => undefined)
+        await sendMessage(chatId, 'Your product draft changed while I was receiving that photo. Please send the photo again.')
+        return
+      }
+      if (previousDraft) {
+        try {
+          const previous = JSON.parse(previousDraft.value) as { photoUrl?: unknown }
+          if (typeof previous.photoUrl === 'string' && previous.photoUrl !== photoUrl) {
+            await chooseStorage().remove(previous.photoUrl).catch(() => undefined)
+          }
+        } catch { /* the new draft is saved; an invalid old draft needs no cleanup */ }
+      }
       await sendMessage(chatId, 'Photo received and passed Mudaala photo safety checks. Now send the product name and price in this format:\n\nProduct name | 85000\n\nSend /cancel to discard this photo.')
     } catch (error) {
       await sendMessage(chatId, error instanceof ApiError ? error.message : 'I could not process that photo right now. Please try again later.')
