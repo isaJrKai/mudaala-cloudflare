@@ -1,3 +1,5 @@
+// Bun executes this test file in CI; Bun's ambient test types are not part of the Next.js TypeScript build.
+// @ts-nocheck
 import { describe, expect, it } from 'bun:test'
 import { rankDiscoveryCandidates } from './discovery-ranking'
 import { findTaxonomyNode, isValidTaxonomyAttributes, isValidTaxonomyPath, taxonomyAncestors, taxonomyChildren } from './product-taxonomy'
