@@ -518,7 +518,7 @@ export function ListingsBrowse() {
                   shopLabels={shopLabels}
                   distanceLabels={distanceLabels}
                   onOpen={(id) => navigate({ name: 'listing', id })}
-                  onOpenShop={(shopId) => navigate({ name: 'shop', id })}
+                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
                   onAdd={addToBasket}
                 />
                 {marketplaceCategoryGroups.map((group, index) => renderCategoryShelf(group, index))}
