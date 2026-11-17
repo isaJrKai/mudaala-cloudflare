@@ -81,7 +81,7 @@ export async function POST(request: Request) {
             listingId: listing.id,
             merchantId: listing.userId,
             shopperId: shopper.id,
-            contactChannel: 'IN_APP',
+            contactChannel: 'WEB',
           },
           select: { id: true },
         })
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
           senderType: 'SHOPPER',
           senderUserId: shopper.id,
           body: body.message,
-          // For IN_APP, SENT means durably accepted into the Mudaala thread;
+          // For WEB, SENT means durably accepted into the Mudaala thread;
           // it does not claim that the merchant has read the message.
           deliveryStatus: 'SENT',
         },
