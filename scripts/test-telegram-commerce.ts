@@ -421,6 +421,40 @@ async function run() {
   const enquiriesForListing = await db.enquiry.count({ where: { listingId: merchantListing.id } })
   assert.equal(enquiriesForListing, 1, 'forwarded callback does not create a second enquiry')
 
+  // A guest buyer who has not linked a Mudaala account can still read and
+  // continue the enquiry they explicitly confirmed in Telegram.
+  const validGuestConfirmation = await postTelegramUpdate({
+    update_id: updateBase + 23,
+    callback_query: {
+      id: 'valid-guest-' + suffix,
+      from: { id: secondBuyerTelegramId },
+      message: { chat: { id: secondBuyerTelegramId, type: 'private' } },
+      data: secondMarkup.inline_keyboard?.[0]?.[0]?.callback_data,
+    },
+  })
+  assertStatus(validGuestConfirmation.status, 200, 'guest buyer enquiry confirmation')
+  const secondBuyerHash = createHmac('sha256', process.env.SETTINGS_ENCRYPTION_KEY || process.env.SETTINGS_ENC_KEY || '')
+    .update('mudaala:telegram-buyer:v1:').update(String(secondBuyerTelegramId)).digest('hex')
+  const guestEnquiry = await db.enquiry.findFirst({
+    where: { listingId: merchantListing.id, buyerTelegramHash: secondBuyerHash },
+  })
+  assert.ok(guestEnquiry, 'guest buyer enquiry is persisted without requiring account linking')
+
+  const guestMessages = await postTelegramUpdate({
+    update_id: updateBase + 24,
+    message: { text: '/messages', chat: { id: secondBuyerTelegramId, type: 'private' }, from: { id: secondBuyerTelegramId } },
+  })
+  assertStatus(guestMessages.status, 200, 'unlinked guest buyer messages command')
+  assert.ok(telegramRequests.some((item) => item.method === 'sendMessage' && item.body.chat_id === secondBuyerTelegramId && String(item.body.text).includes(guestEnquiry!.id)), 'unlinked buyer can retrieve their own enquiry')
+
+  const guestReplyText = 'Is the item still available?'
+  const guestReply = await postTelegramUpdate({
+    update_id: updateBase + 25,
+    message: { text: '/respond ' + guestEnquiry!.id + ' ' + guestReplyText, chat: { id: secondBuyerTelegramId, type: 'private' }, from: { id: secondBuyerTelegramId } },
+  })
+  assertStatus(guestReply.status, 200, 'unlinked guest buyer enquiry reply')
+  assert.ok(telegramRequests.some((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId && String(item.body.text).includes(guestReplyText)), 'unlinked buyer reply is relayed to the selected seller')
+
   const selfEnquiry = await requestJson('/api/telegram/contact-token', {
     method: 'POST',
     body: JSON.stringify({ listingId: merchantListing.id }),
