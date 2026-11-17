@@ -853,10 +853,12 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     await sendMessage(chatId, 'Your latest active products:\n\n' + lines.join('\n') + '\n\nOpen your merchant workspace to add or manage products.', shopKeyboard)
     return
   }
-  const knownAnswer = merchantKnowledgeAnswer(text)
-  if (knownAnswer !== null) {
-    await sendMessage(chatId, knownAnswer, user.profile ? shopKeyboard : undefined)
-    return
+  if (user.profile) {
+    const knownAnswer = merchantKnowledgeAnswer(text)
+    if (knownAnswer !== null) {
+      await sendMessage(chatId, knownAnswer, shopKeyboard)
+      return
+    }
   }
   const answer = await replyToTelegramMerchant({
     telegramUserId,
