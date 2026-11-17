@@ -3,6 +3,7 @@ import { ApiError, jsonOk, route } from '@/lib/api'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { replyToTelegramMerchant } from '@/lib/telegram-assistant'
+import { merchantKnowledgeAnswer } from '@/lib/telegram-merchant-kb'
 import { recordTelegramActivation } from '@/lib/telegram-merchant'
 import { telegramApiUrl } from '@/lib/telegram-api'
 
@@ -85,6 +86,7 @@ async function linkedMudaalaUserId(telegramUserId: number): Promise<string | nul
     return null
   }
 }
+
 
 async function sendMessage(chatId: number, text: string, replyMarkup?: Record<string, unknown>): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN
@@ -682,6 +684,11 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       await sendMessage(chatId, delivered ? 'Your reply was sent to the seller.' : 'Your reply was saved, but Telegram could not deliver it.')
       return
     }
+    const knownAnswer = merchantKnowledgeAnswer(text)
+    if (knownAnswer !== null) {
+      await sendMessage(chatId, knownAnswer, shopKeyboard)
+      return
+    }
     const answer = await replyToTelegramMerchant({ telegramUserId, text })
     await sendMessage(chatId, answer, shopKeyboard)
     return
@@ -849,6 +856,11 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     }
     const lines = listings.map((item) => '- ' + item.title + ' - ' + (item.price === null ? 'Ask seller' : item.currency + ' ' + item.price.toLocaleString('en-UG')) + ' (' + item.county + ')')
     await sendMessage(chatId, 'Your latest active products:\n\n' + lines.join('\n') + '\n\nOpen your merchant workspace to add or manage products.', shopKeyboard)
+    return
+  }
+  const knownAnswer = merchantKnowledgeAnswer(text)
+  if (knownAnswer !== null) {
+    await sendMessage(chatId, knownAnswer, user.profile ? shopKeyboard : undefined)
     return
   }
   const answer = await replyToTelegramMerchant({
