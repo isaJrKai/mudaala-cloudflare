@@ -81,3 +81,27 @@ export function taxonomyAncestors(id: string): TaxonomyNode[] {
   }
   return result
 }
+
+
+/** Validate only attributes defined by the selected leaf taxonomy node. */
+export function isValidTaxonomyAttributes(id: string, value: unknown): boolean {
+  const node = findTaxonomyNode(id)
+  if (!node) return false
+  if (value === null || value === undefined) {
+    return !(node.attributes ?? []).some((attribute) => attribute.required)
+  }
+  if (typeof value !== 'object' || Array.isArray(value)) return false
+  const entries = Object.entries(value as Record<string, unknown>)
+  const definitions = new Map((node.attributes ?? []).map((attribute) => [attribute.key, attribute]))
+  for (const [key, item] of entries) {
+    const definition = definitions.get(key)
+    if (!definition) return false
+    if (definition.type === 'text' && typeof item !== 'string') return false
+    if (definition.type === 'number' && (typeof item !== 'number' || !Number.isFinite(item))) return false
+    if (definition.type === 'boolean' && typeof item !== 'boolean') return false
+    if (definition.type === 'enum' && (typeof item !== 'string' || !definition.options?.includes(item))) return false
+  }
+  return (node.attributes ?? []).every((attribute) =>
+    !attribute.required || (value as Record<string, unknown>)[attribute.key] !== undefined,
+  )
+}
