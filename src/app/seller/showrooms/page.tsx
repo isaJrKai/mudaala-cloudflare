@@ -59,6 +59,7 @@ export default function SellerShowroomsPage() {
   const [listingIds, setListingIds] = useState<string[]>([])
   const [showrooms, setShowrooms] = useState<Existing[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingStatus, setEditingStatus] = useState('DRAFT')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -80,6 +81,7 @@ export default function SellerShowroomsPage() {
       const existing = showroomData.showrooms.find((item) => item.id === editId)
       if (existing) {
         setEditingId(existing.id)
+        setEditingStatus(existing.status)
         setSelected(existing.templateId)
         setTitle(existing.title)
         setHeadline(existing.headline || '')
@@ -137,6 +139,7 @@ export default function SellerShowroomsPage() {
     setBusy(true)
     setError('')
     try {
+      const nextStatus = editingId && editingStatus === 'PUBLISHED' ? 'PUBLISHED' : status
       const payload = {
         templateId: selected,
         title: title.trim() || chosen.name,
@@ -150,7 +153,7 @@ export default function SellerShowroomsPage() {
         accentColor,
         photos,
         listingIds,
-        status,
+        status: nextStatus,
       }
       const result = editingId
         ? await apiFetch<{ showroom: Existing }>('/api/showrooms/' + encodeURIComponent(editingId), { method: 'PATCH', body: JSON.stringify(payload) })
