@@ -175,10 +175,9 @@ export function ListingsBrowse() {
 
   const shopLabels = useMemo(() => computeShopLabels(data?.items), [data])
 
-  // Keep the discovery feed editorially distinct: genuinely discounted
-  // listings are reserved for Special offers and never repeated in the
-  // ordinary local feed. A discount is valid only when the old price is
-  // strictly higher than the current price.
+  // Special offers are a prominent discovery shelf, not a separate
+  // inventory silo. A discounted listing remains in its normal category too.
+  // A discount is valid only when the old price is strictly higher.
   const specialOfferItems = useMemo(
     () => (data?.items ?? []).filter(
       (item) => item.type === 'OFFER'
@@ -188,11 +187,7 @@ export function ListingsBrowse() {
     ),
     [data?.items],
   )
-  const specialOfferIds = useMemo(() => new Set(specialOfferItems.map((item) => item.id)), [specialOfferItems])
-  const discoveryFeedItems = useMemo(
-    () => (data?.items ?? []).filter((item) => !specialOfferIds.has(item.id)),
-    [data?.items, specialOfferIds],
-  )
+  const discoveryFeedItems = data?.items ?? []
 
   // Turn the mixed discovery feed into real category shelves. Only categories
   // represented by actual listings are rendered; no placeholder inventory.
@@ -518,15 +513,15 @@ export function ListingsBrowse() {
             </div>
             {showDiscoverySections ? (
               <>
-                {marketplaceCategoryGroups.map((group, index) => renderCategoryShelf(group, index))}
                 <SpecialOffersSection
                   items={specialOfferItems}
                   shopLabels={shopLabels}
                   distanceLabels={distanceLabels}
                   onOpen={(id) => navigate({ name: 'listing', id })}
-                  onOpenShop={(shopId) => navigate({ name: 'shop', id: shopId })}
+                  onOpenShop={(shopId) => navigate({ name: 'shop', id })}
                   onAdd={addToBasket}
                 />
+                {marketplaceCategoryGroups.map((group, index) => renderCategoryShelf(group, index))}
               </>
             ) : (
               renderListingGrid(data.items, true)
