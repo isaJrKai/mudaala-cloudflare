@@ -136,7 +136,9 @@ export default function SellerShowroomsPage() {
       const next = [...current]
       const target = index + direction
       if (target < 0 || target >= next.length) return current
-      ;[next[index], next[target]] = [next[target], next[index]]
+      const selectedPhoto = next[index]
+      next[index] = next[target]
+      next[target] = selectedPhoto
       return next
     })
   }
