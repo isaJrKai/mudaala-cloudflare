@@ -112,7 +112,7 @@ export default function SellerShowroomsPage() {
         }),
       })
       if (status === 'PUBLISHED') router.push(`/showroom/${result.showroom.slug}`)
-      else setShowrooms((current) => [result.showroom, ...current])
+      else router.push(`/seller/showrooms/${result.showroom.slug}/preview`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Your showroom could not be saved.')
     } finally {
