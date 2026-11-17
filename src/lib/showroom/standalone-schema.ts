@@ -24,13 +24,18 @@ const standaloneShowroomBaseSchema = z.object({
   primaryColor: color,
   accentColor: color,
   coverPhotoUrl: photo.nullable().optional(),
-  photos: z.array(photo).max(16).default([]),
-  sections: z.array(showroomSectionSchema).max(8).default([]),
-  listingIds: z.array(z.string().trim().min(1).max(128)).max(60).default([]),
+  photos: z.array(photo).max(16),
+  sections: z.array(showroomSectionSchema).max(8),
+  listingIds: z.array(z.string().trim().min(1).max(128)).max(60),
   status: z.enum(['DRAFT', 'PUBLISHED']).optional(),
 }).strict()
 
 export const standaloneShowroomSchema = standaloneShowroomBaseSchema
+  .extend({
+    photos: z.array(photo).max(16).default([]),
+    sections: z.array(showroomSectionSchema).max(8).default([]),
+    listingIds: z.array(z.string().trim().min(1).max(128)).max(60).default([]),
+  })
   .refine((value) => new Set(value.photos).size === value.photos.length, {
     message: 'Remove duplicate photos.',
     path: ['photos'],
