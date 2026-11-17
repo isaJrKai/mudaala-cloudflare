@@ -236,8 +236,8 @@ export default function SellerShowroomsPage() {
           <div className="mt-5 rounded-2xl border border-[#47734d]/20 bg-[#e9eee6] p-5 sm:p-6"><p className="text-[9px] font-semibold uppercase tracking-[.18em] text-[#47734d]">Selected direction · {chosen.vertical}</p><div className="mt-2 flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-xl font-semibold">{chosen.name}</h3><p className="mt-1 max-w-2xl text-xs leading-5 text-neutral-600">{chosen.artDirection}</p></div><span className="rounded-full bg-white px-3 py-1.5 text-[10px] font-semibold text-[#47734d]">{chosen.hero.replaceAll('-', ' ')}</span></div></div>
         </section>
 
-        <section className={`mt-12 grid gap-8 lg:grid-cols-[.9fr_1.1fr] ${step === 1 ? 'hidden' : ''}`}>
-          <div className={`rounded-2xl border border-black/10 bg-white p-5 sm:p-7 ${step === 2 ? '' : 'hidden'}`}>
+        <section className={`mx-auto mt-12 grid w-full max-w-3xl grid-cols-1 gap-6 ${step === 1 ? 'hidden' : ''}`}>
+          <div className={`w-full rounded-2xl border border-black/10 bg-white p-5 sm:p-7 ${step === 2 ? '' : 'hidden'}`}>
             <p className="text-[10px] uppercase tracking-[.18em] text-neutral-500">Step 2 of 4</p><h2 className="mt-1 text-2xl font-semibold">Your shop story</h2><p className="mt-2 text-xs leading-5 text-neutral-500">Your shop name and shop code come from your Mudaala profile. Add only the words you want customers to see.</p>
             <label className="mt-6 block text-xs font-medium">Showroom title</label><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. The new season collection" maxLength={100} className="mt-2 w-full rounded-xl border border-black/10 bg-[#faf9f6] px-4 py-3 text-sm outline-none focus:border-[#47734d]" />
             <label className="mt-4 block text-xs font-medium">Main heading <span className="font-normal text-neutral-400">(optional)</span></label><input value={headline} onChange={(event) => setHeadline(event.target.value)} placeholder="A line customers should remember" maxLength={140} className="mt-2 w-full rounded-xl border border-black/10 bg-[#faf9f6] px-4 py-3 text-sm outline-none focus:border-[#47734d]" />
@@ -246,7 +246,7 @@ export default function SellerShowroomsPage() {
             <div className="mt-6 border-t border-black/10 pt-5"><p className="text-xs font-semibold">Add a featured section <span className="font-normal text-neutral-400">(optional)</span></p><label className="mt-3 block text-xs font-medium">Section heading</label><input value={sectionHeading} onChange={(event) => setSectionHeading(event.target.value)} placeholder="e.g. Made for everyday living" maxLength={100} className="mt-2 w-full rounded-xl border border-black/10 bg-[#faf9f6] px-4 py-3 text-sm outline-none focus:border-[#47734d]" /><label className="mt-3 block text-xs font-medium">Section text</label><textarea value={sectionBody} onChange={(event) => setSectionBody(event.target.value)} placeholder="A little more about this collection, product or offer" maxLength={1200} rows={3} className="mt-2 w-full resize-y rounded-xl border border-black/10 bg-[#faf9f6] px-4 py-3 text-sm outline-none focus:border-[#47734d]" /></div>
           </div>
 
-          <div className="space-y-6">
+          <div className="w-full space-y-6">
             <div className={`rounded-2xl border border-black/10 bg-white p-5 sm:p-7 ${step === 3 ? '' : 'hidden'}`}>
               <p className="text-[10px] uppercase tracking-[.18em] text-neutral-500">Step 3 of 4</p><h2 className="mt-1 text-2xl font-semibold">Choose your photos</h2><p className="mt-2 text-xs leading-5 text-neutral-500">Only photos you upload here are used in the showroom. Mudaala will not pick photos from your existing product listings.</p>
               <div className="mt-5 grid gap-4 sm:grid-cols-[1fr_1fr]">
