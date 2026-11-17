@@ -169,6 +169,7 @@ async function setBotCommands(): Promise<void> {
         { command: 'menu', description: 'Show merchant actions and help' },
         { command: 'post', description: 'Post a product using a photo' },
         { command: 'products', description: 'View your active products' },
+        { command: 'collections', description: 'View your shop collections' },
         { command: 'enquiries', description: 'View customer enquiries' },
         { command: 'publicshop', description: 'Get your public shop link' },
         { command: 'search', description: 'Find products on Mudaala' },
@@ -768,7 +769,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
           }
         } catch { /* the new draft is saved; an invalid old draft needs no cleanup */ }
       }
-      await sendMessage(chatId, 'Photo received and passed Mudaala photo safety checks. Now send the product name and price in this format:\n\nProduct name | 85000\n\nSend /cancel to discard this photo.')
+      await sendMessage(chatId, 'Photo received and passed Mudaala photo safety checks. Send the product name and price first, then optional details separated by |:\n\nProduct name | 85000 | Phones & Electronics > Phones > Smartphones | Apple | iPhone 13 | condition=USED;storage=128GB | Used iPhones\n\nOptional fields are product type path, brand, model, attributes and collection. If the collection name is new, I will create it in your shop. Send /cancel to discard this photo.')
     } catch (error) {
       await sendMessage(chatId, error instanceof ApiError ? error.message : 'I could not process that photo right now. Please try again later.')
     }
@@ -1246,6 +1247,22 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     await sendMessage(chatId, 'Your public Mudaala shop link: https://mudaala.store/#/shop/' + encodeURIComponent(user.id))
     return
   }
+  if (command === '/collections') {
+    const collections = await db.productCollection.findMany({
+      where: { userId: user.id },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      select: { title: true, _count: { select: { items: true } } },
+      take: 30,
+    })
+    if (!collections.length) {
+      await sendMessage(chatId, 'You have no collections yet. When posting a product, add a collection name as the last field and I will create it for your shop.', shopKeyboard)
+      return
+    }
+    const lines = collections.map((item) => '- ' + item.title + ' (' + item._count.items + ' products)')
+    await sendMessage(chatId, 'Your shop collections:\\n\\n' + lines.join('\\n') + '\\n\\nTo assign a new product, add the collection title as the last field when sending its details. You can reuse a collection or create a new one.', shopKeyboard)
+    return
+  }
+
   if (command === '/products') {
     const listings = await db.listing.findMany({
       where: { userId: user.id, status: 'ACTIVE', isSeed: false, expiresAt: { gt: new Date() } },
