@@ -1,7 +1,10 @@
 import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 
 const base = (process.env.APP_URL || 'http://localhost:3001').replace(/\/$/, '')
-const db = new PrismaClient()
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required for the public listing route test')
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl, max: 5 }) })
 
 async function listingPage(id) {
   const path = `/l/${encodeURIComponent(id)}`

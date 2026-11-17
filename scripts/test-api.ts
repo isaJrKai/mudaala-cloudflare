@@ -18,6 +18,7 @@
  * (pure units, no db).
  */
 import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 import sharp from 'sharp'
 import path from 'node:path'
 import * as fs from 'node:fs'
@@ -38,7 +39,9 @@ import { businessProfileSchema, MOMO_NETWORKS } from '../src/lib/validation'
 import { hashResetCode, resetCodeMatches } from '../src/lib/sms'
 
 const BASE = 'http://localhost:3000'
-const db = new PrismaClient()
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required for API tests')
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl, max: 5 }) })
 
 // The dev server loads .env; tsx does not. Parse it (without overriding
 // anything already exported) so secrets like CRON_SECRET and the rate-limit

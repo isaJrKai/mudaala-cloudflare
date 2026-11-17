@@ -1,13 +1,12 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ImagePlus, MessageCircle, PackageCheck, Trash2 } from 'lucide-react'
 import { apiFetch } from '@/lib/client'
-import { PhotoPicker } from './photo-picker'
 import { whatsappLink } from '@/lib/format'
 import type { ShopShowroomItemT } from '@/lib/client'
-import { CATEGORY_KEYS, categoryLabel } from '@/lib/constants'
+import { categoryLabel } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 
@@ -37,49 +36,9 @@ export function ShopShowroom({
 }) {
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [category, setCategory] = useState<string>(CATEGORY_KEYS[0] ?? '')
-  const [price, setPrice] = useState('')
-  const [availability, setAvailability] = useState<Availability>('AVAILABLE_ON_ORDER')
-  const [photoUrl, setPhotoUrl] = useState('')
-  const [saving, setSaving] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
 
   const refreshShop = () => queryClient.invalidateQueries({ queryKey: ['shop', shopId] })
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setSaving(true)
-    try {
-      await apiFetch(`/api/shops/${encodeURIComponent(shopId)}/showroom`, {
-        method: 'POST',
-        body: JSON.stringify({
-          title: title.trim(),
-          description: description.trim(),
-          category,
-          price: price.trim() === '' ? null : Number(price),
-          availability,
-          photoUrl: photoUrl.trim() || null,
-        }),
-      })
-      setTitle('')
-      setDescription('')
-      setPrice('')
-      setPhotoUrl('')
-      setAvailability('AVAILABLE_ON_ORDER')
-      await refreshShop()
-      toast({ title: 'Showroom item added', description: 'It now appears in your shop showroom.' })
-    } catch (error) {
-      toast({
-        title: 'Could not add showroom item',
-        description: error instanceof Error ? error.message : 'Please try again.',
-        variant: 'destructive',
-      })
-    } finally {
-      setSaving(false)
-    }
-  }
 
   async function remove(itemId: string) {
     setRemovingId(itemId)
@@ -109,7 +68,7 @@ export function ShopShowroom({
           <ImagePlus className="size-5" aria-hidden />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-3"><h2 className="text-base font-semibold">Showroom</h2>{isOwner ? <a href="/seller/showrooms" className="text-xs font-semibold text-primary underline-offset-4 hover:underline">Design your shop website ↗</a> : null}</div>
+          <div className="flex flex-wrap items-center gap-3"><h2 className="text-base font-semibold">Showroom</h2>{isOwner ? <a href="/seller/showrooms" className="inline-flex min-h-9 items-center rounded-full border border-primary/25 bg-accent px-4 text-xs font-semibold text-primary transition hover:border-primary/50">Design your showroom <span className="ml-2" aria-hidden="true">↗</span></a> : null}</div>
           <p className="mt-0.5 max-w-prose text-sm leading-relaxed text-muted-foreground">
             Explore more of what this shop offers, including products it can source on request. Confirm price and availability with the shop.
           </p>
@@ -161,48 +120,6 @@ export function ShopShowroom({
         </p>
       )}
 
-      {isOwner ? (
-        <details className="rounded-lg border bg-secondary/30 p-3">
-          <summary className="cursor-pointer font-medium text-primary">Add a showroom item</summary>
-          <form className="mt-3 space-y-3" onSubmit={submit}>
-            <div className="space-y-1">
-              <label htmlFor="showroom-title" className="text-sm font-medium">Product or design name</label>
-              <input id="showroom-title" value={title} onChange={(event) => setTitle(event.target.value)} minLength={4} maxLength={120} required className="h-10 w-full rounded-md border bg-background px-3 text-sm" placeholder="e.g. Three-seater sofa" />
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="showroom-description" className="text-sm font-medium">Description</label>
-              <textarea id="showroom-description" value={description} onChange={(event) => setDescription(event.target.value)} minLength={20} maxLength={1000} required rows={3} className="w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="Describe the product and what customers should know." />
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <label htmlFor="showroom-category" className="text-sm font-medium">Category</label>
-                <select id="showroom-category" value={category} onChange={(event) => setCategory(event.target.value)} required className="h-10 w-full rounded-md border bg-background px-3 text-sm">
-                  {CATEGORY_KEYS.map((key) => <option key={key} value={key}>{categoryLabel(key)}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="showroom-availability" className="text-sm font-medium">Availability</label>
-                <select id="showroom-availability" value={availability} onChange={(event) => setAvailability(event.target.value as Availability)} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
-                  <option value="IN_STOCK">In stock</option>
-                  <option value="AVAILABLE_ON_ORDER">Available on order</option>
-                  <option value="SAMPLE_ONLY">Sample or design</option>
-                </select>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="showroom-price" className="text-sm font-medium">Price in UGX (optional)</label>
-              <input id="showroom-price" type="number" min="0" max="100000000" step="1" value={price} onChange={(event) => setPrice(event.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm" placeholder="Leave blank if price varies" />
-            </div>
-            <div className="space-y-1">
-              <span className="text-sm font-medium">Product photo (optional)</span>
-              <PhotoPicker value={photoUrl ? [photoUrl] : []} onChange={(photos) => setPhotoUrl(photos[0] ?? '')} single label="Showroom product photo" />
-              <label htmlFor="showroom-photo-url" className="text-xs text-muted-foreground">Or paste a photo URL</label>
-              <input id="showroom-photo-url" type="url" value={photoUrl.startsWith('/uploads/') ? '' : photoUrl} onChange={(event) => setPhotoUrl(event.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm" placeholder="https://…" />
-            </div>
-            <Button type="submit" disabled={saving} className="w-full sm:w-auto">{saving ? 'Adding…' : 'Add to showroom'}</Button>
-          </form>
-        </details>
-      ) : null}
     </section>
   )
 }

@@ -63,6 +63,14 @@ export function AppSidebar() {
             </button>
           )
         })}
+        <a
+          href="/seller/showrooms"
+          className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <span className="[&_svg]:size-[18px]"><Store aria-hidden /></span>
+          <span>Design showroom</span>
+          <ExternalLink className="ml-auto size-3.5 opacity-60" aria-hidden />
+        </a>
       </nav>
 
       <div className="space-y-2 border-t border-border/70 p-3">
