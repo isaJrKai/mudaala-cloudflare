@@ -511,7 +511,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
   const identityHash = createHash('sha256').update(String(telegramUserId)).digest('hex')
 
   // Everyday greetings are deterministic: don't spend an AI request on hello.
-  if (/^(?:(?:hi|hello|hey)(?:(?:,\\s*|\\s+)(?:how are you(?: doing)?))?|good morning|good afternoon|good evening|how are you(?: doing)?)[!.?]*$/i.test(normalizedText)) {
+  if (/^(?:(?:hi|hello|hey)(?:(?:,\s*|\s+)(?:how are you(?: doing)?))?|good morning|good afternoon|good evening|how are you(?: doing)?)[!.?]*$/i.test(normalizedText)) {
     const linked = await linkedMudaalaUserId(telegramUserId)
     await sendMessage(chatId, linked
       ? 'Hello! I am here to help with your Mudaala shop. Send a product photo to post it, or choose one of the actions below.'
