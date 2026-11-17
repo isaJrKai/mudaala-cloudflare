@@ -4,6 +4,7 @@
 // Never duplicate these rules elsewhere.
 
 import { z } from 'zod'
+import { findTaxonomyNode, taxonomyAncestors } from './product-taxonomy'
 import { CATEGORY_KEYS, LISTING_TYPES, UNIT_KEYS, COUNTRY_KEYS, CURRENCY_KEYS, ALLOWED_STATUS_TRANSITIONS, REPORT_REASONS, type ListingStatus } from './constants'
 
 // Uganda phone normalization. Accepted inputs: 07XX XXX XXX, 7XXXXXXXX,
@@ -160,6 +161,10 @@ const listingBaseSchema = z.object({
   title: z.string().trim().min(4, 'Title must be at least 4 characters').max(120, 'Title must be 120 characters or fewer').refine((value) => !containsMarketplaceEmoji(value), 'Remove emojis from the product title so buyers can find it easily.'),
   description: z.string().trim().min(20, 'Describe what you offer or need (at least 20 characters)').max(2000, 'Description must be 2000 characters or fewer').refine((value) => !containsMarketplaceEmoji(value), 'Please remove emojis from the description and keep the product details in words.'),
   category: z.enum(CATEGORY_KEYS as [string, ...string[]], { message: 'Choose a category' }),
+  taxonomyId: z.string().trim().min(1).max(80).nullable().optional(),
+  brand: z.string().trim().max(80).nullable().optional(),
+  model: z.string().trim().max(100).nullable().optional(),
+  attributes: z.record(z.string().max(60), z.union([z.string().max(120), z.number().finite(), z.boolean()])).nullable().optional(),
   price: priceSchema.nullable(),
   // Optional "was" price for discounts. Only meaningful alongside a current
   // price - the create schema and the PATCH handler enforce that pairing.
@@ -181,6 +186,10 @@ export function listingNeedsUnit(category: string, price: number | null | undefi
 }
 
 export const listingCreateSchema = listingBaseSchema
+  .refine((v) => !v.taxonomyId || (findTaxonomyNode(v.taxonomyId) !== undefined && taxonomyAncestors(v.taxonomyId)[0]?.id === v.category), {
+    message: 'Choose a product type within the selected category',
+    path: ['taxonomyId'],
+  })
   .refine((v) => v.price !== null || v.priceNegotiable || v.type === 'REQUEST', {
     message: 'Enter a price or mark it as negotiable',
     path: ['price'],
