@@ -92,7 +92,7 @@ export async function GET(request: Request) {
     }
   }
 
-  // Shops occupy [1 + listingCount, totalEntries).
+  // Shops occupy [1 + listingCount, 1 + listingCount + shopCount).
   const sFrom = Math.max(start, 1 + listingCount)
   const sTo = Math.min(end, totalEntries)
   if (sTo > sFrom) {
