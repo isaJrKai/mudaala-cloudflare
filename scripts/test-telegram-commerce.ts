@@ -347,8 +347,26 @@ async function run() {
     message: { text: '/start', chat: { id: merchantTelegramId, type: 'private' }, from: { id: merchantTelegramId } },
   })
   assertStatus(merchantStart.status, 200, 'linked merchant start command')
-  assert.ok(telegramRequests.some((item) => item.method === 'setChatMenuButton'), 'linked merchant start configures the official Telegram Mini App menu button')
+  assert.ok(telegramRequests.some((item) => item.method === 'setChatMenuButton' && (item.body.menu_button as { type?: string })?.type === 'commands'), 'linked merchant start configures Telegram menu to show bot commands')
+  assert.ok(telegramRequests.some((item) => item.method === 'setMyCommands'), 'linked merchant start registers the human-readable command menu')
   assert.ok(await db.appSetting.findUnique({ where: { key: merchantChatKey } }), 'merchant /start creates a private chat route')
+
+  const greeting = await postTelegramUpdate({
+    update_id: updateBase + 21,
+    message: { text: 'Hello, how are you?', chat: { id: merchantTelegramId, type: 'private' }, from: { id: merchantTelegramId } },
+  })
+  assertStatus(greeting.status, 200, 'ordinary greeting')
+  const greetingMessage = telegramRequests.filter((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId).at(-1)
+  assert.ok(greetingMessage && String(greetingMessage.body.text).includes('Hello! I am here to help'), 'ordinary greetings receive a deterministic response')
+
+  const postPrompt = await postTelegramUpdate({
+    update_id: updateBase + 22,
+    message: { text: 'Post a product', chat: { id: merchantTelegramId, type: 'private' }, from: { id: merchantTelegramId } },
+  })
+  assertStatus(postPrompt.status, 200, 'merchant post-a-product menu action')
+  const postPromptMessage = telegramRequests.filter((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId).at(-1)
+  assert.ok(postPromptMessage && String(postPromptMessage.body.text).includes('Send one clear photo'), 'post-a-product menu action starts the photo workflow')
+
   const assistantFallback = await postTelegramUpdate({
     update_id: updateBase + 13,
     message: { text: 'Can you tell me what products are available?', chat: { id: buyerTelegramId, type: 'private' }, from: { id: buyerTelegramId } },
