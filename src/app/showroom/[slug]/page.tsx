@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = showroom.introduction?.trim() || `Explore the ${showroom.title} showroom from ${shopName}. Browse selected products and contact the shop directly.`
   const image = showroom.coverPhotoUrl || gallery[0]
   const url = `https://mudaala.store/showroom/${slug}`
-  const images = image ? [{ url: image, alt: `${shopName} — ${showroom.title}` }] : []
+  const images = image ? [{ url: image, alt: `${shopName} - ${showroom.title}` }] : []
 
   return {
     title: `${title} | ${shopName}`,
