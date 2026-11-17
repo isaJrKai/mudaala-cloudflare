@@ -1110,7 +1110,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
           data: { value: JSON.stringify({ ...claimedDraft, status: 'PUBLISHED', listingId: listing.id }) },
         })
       }
-      await sendMessage(chatId, 'Your product is now published on Mudaala.\n' + title + ' · UGX ' + price.toLocaleString('en-UG') + '\n\nView product: https://mudaala.store/l/' + encodeURIComponent(listing.id), shopKeyboard)
+      await sendMessage(chatId, 'Your product is now published on Mudaala.' + (taxonomyNode ? '\nType: ' + taxonomyAncestors(taxonomyNode.id).map((node) => node.label).join(' > ') : '') + (brand ? '\nBrand: ' + brand : '') + (collectionTitle ? '\nCollection: ' + collectionTitle : '') + '\n' + title + ' · UGX ' + price.toLocaleString('en-UG') + '\n\nView product: https://mudaala.store/l/' + encodeURIComponent(listing.id), shopKeyboard)
     } catch (error) {
       await db.appSetting.updateMany({
         where: { key: draftKey, value: claimedValue },
@@ -1266,7 +1266,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       return
     }
     const lines = collections.map((item) => '- ' + item.title + ' (' + item._count.items + ' products)')
-    await sendMessage(chatId, 'Your shop collections:\\n\\n' + lines.join('\\n') + '\\n\\nTo assign a new product, add the collection title as the last field when sending its details. You can reuse a collection or create a new one.', shopKeyboard)
+    await sendMessage(chatId, 'Your shop collections:\n\n' + lines.join('\n') + '\n\nTo assign a new product, add the collection title as the last field when sending its details. You can reuse a collection or create a new one.', shopKeyboard)
     return
   }
 
