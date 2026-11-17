@@ -59,13 +59,13 @@ function ProductCard({ product, layout, accent }: { product: Product; layout: st
   )
 }
 
-export function StandaloneShowroom({ slug }: { slug: string }) {
+export function StandaloneShowroom({ slug, preview = false }: { slug: string; preview?: boolean }) {
   const [payload, setPayload] = useState<Payload | null>(null)
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     let active = true
-    fetch(`/api/showrooms/public/${encodeURIComponent(slug)}`, { cache: 'no-store' })
+    fetch(`/api/showrooms/public/${encodeURIComponent(slug)}${preview ? '?preview=1' : ''}`, { cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error('not found')
         return response.json() as Promise<Payload>
