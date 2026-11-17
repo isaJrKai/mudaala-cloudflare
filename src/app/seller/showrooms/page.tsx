@@ -221,7 +221,7 @@ export default function SellerShowroomsPage() {
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-10">
         <div className="flex items-center justify-between gap-4">
           <a href="/" className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#47734d]">Mudaala <span className="px-1 text-neutral-400">/</span> Your shop</a>
-          <button type="button" onClick={() => router.push('/seller')} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-xs font-semibold text-[#34362f] transition hover:border-[#47734d] hover:text-[#47734d]" aria-label="Back to seller dashboard"><span aria-hidden="true">←</span> Back to dashboard</button>
+          <a href="/#/business" className="inline-flex min-h-10 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-xs font-semibold text-[#34362f] transition hover:border-[#47734d] hover:text-[#47734d]" aria-label="Back to seller dashboard"><span aria-hidden="true">←</span> Back to dashboard</a>
         </div>
         <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
           <div><p className="text-[10px] uppercase tracking-[.2em] text-neutral-500">Your shop, presented your way</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-5xl">{editingId ? 'Edit your showroom' : 'Create your showroom'}</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600">Choose a design, add the photos and words you want customers to see, then publish a shop website you can share anywhere.</p></div>
