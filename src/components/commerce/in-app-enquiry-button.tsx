@@ -29,7 +29,7 @@ export function InAppEnquiryButton({
   const { navigate, setAuthOpen } = useAppStore()
   const { toast } = useToast()
   const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState(initialMessage)
+  const [draft, setDraft] = useState(initialMessage.slice(0, 1200))
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
@@ -39,7 +39,7 @@ export function InAppEnquiryButton({
       setAuthOpen(true)
       return
     }
-    setDraft(initialMessage)
+    setDraft(initialMessage.slice(0, 1200))
     setError('')
     setOpen(true)
   }
