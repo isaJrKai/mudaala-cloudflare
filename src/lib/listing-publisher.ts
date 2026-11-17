@@ -16,6 +16,8 @@ export async function publishListingForSeller(input: {
   seller: ListingPublisher
   data: ListingPublishInput
   ipKey: string
+  /** Stable identity for a retryable server-side publication (for example a Telegram photo draft). */
+  idempotencyKey?: string
 }) {
   const { seller, data } = input
 
