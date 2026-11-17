@@ -173,7 +173,7 @@ export default function SellerShowroomsPage() {
       <div className="mx-auto max-w-7xl px-4 py-7 sm:px-8 sm:py-12">
         <a href="/" className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#47734d]">Mudaala <span className="px-1 text-neutral-400">/</span> Your shop</a>
         <div className="mt-7 flex flex-wrap items-end justify-between gap-4">
-          <div><p className="text-[10px] uppercase tracking-[.2em] text-neutral-500">Your shop, presented your way</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-5xl">Create your showroom</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600">Choose a design, add the photos and words you want customers to see, then publish a shop website you can share anywhere.</p></div>
+          <div><p className="text-[10px] uppercase tracking-[.2em] text-neutral-500">Your shop, presented your way</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-5xl">{editingId ? 'Edit your showroom' : 'Create your showroom'}</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600">Choose a design, add the photos and words you want customers to see, then publish a shop website you can share anywhere.</p></div>
           <p className="rounded-full border border-black/10 bg-white px-4 py-2 text-[10px] uppercase tracking-[.16em] text-neutral-500">20 designs · No builder required</p>
         </div>
 
@@ -216,7 +216,7 @@ export default function SellerShowroomsPage() {
 
         <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-black/10 bg-white p-5 sm:p-7">
           <div className="min-w-0"><p className="text-[10px] uppercase tracking-[.18em] text-neutral-500">Selected design</p><p className="mt-1 text-sm font-semibold">{chosen.name}</p><p className="mt-1 text-xs text-neutral-500">{chosen.promise}</p></div>
-          <div className="flex flex-wrap gap-3"><button type="button" disabled={busy || loading} onClick={() => void create('DRAFT')} className="rounded-full border border-black/15 px-5 py-3 text-xs font-semibold disabled:opacity-40">{busy ? 'Saving…' : 'Save draft'}</button><button type="button" disabled={busy || uploading || loading || (!coverPhotoUrl && photos.length === 0)} onClick={() => void create('PUBLISHED')} className="rounded-full bg-[#47734d] px-6 py-3 text-xs font-semibold text-white disabled:opacity-40">{busy ? 'Publishing…' : 'Publish showroom'}</button></div>
+          <div className="flex flex-wrap gap-3"><button type="button" disabled={busy || loading} onClick={() => void create('DRAFT')} className="rounded-full border border-black/15 px-5 py-3 text-xs font-semibold disabled:opacity-40">{busy ? 'Saving…' : editingId ? 'Save changes' : 'Save draft'}</button><button type="button" disabled={busy || uploading || loading || (!coverPhotoUrl && photos.length === 0)} onClick={() => void create('PUBLISHED')} className="rounded-full bg-[#47734d] px-6 py-3 text-xs font-semibold text-white disabled:opacity-40">{busy ? 'Publishing…' : editingId ? 'Save and publish' : 'Publish showroom'}</button></div>
         </div>
         {error && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
         {loading && <p className="mt-4 text-xs text-neutral-500">Loading your shop and active products…</p>}
