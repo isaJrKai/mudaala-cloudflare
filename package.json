@@ -17,7 +17,8 @@
     "test:public-listing-expiry": "bun test scripts/test-public-listing-expiry.test.mjs",
     "test:merchant-growth": "bun test src/lib/merchant-growth.test.mjs",
     "test:web-push": "bun test src/lib/web-push.test.mjs",
-    "test:listing-visibility": "bun test scripts/test-listing-visibility.test.mjs"
+    "test:listing-visibility": "bun test scripts/test-listing-visibility.test.mjs",
+    "test:merchant-kb": "bun test src/lib/merchant-kb/merchant-kb.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1149.0",
