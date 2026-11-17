@@ -32,7 +32,7 @@ function timeLabel(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
-export function EnquiriesView() {
+export function EnquiriesView({ shopperOnly = false }: { shopperOnly?: boolean }) {
   const { user, isLoading } = useSession()
   const userId = user?.id
   const { navigate, setAuthOpen } = useAppStore()
@@ -55,10 +55,11 @@ export function EnquiriesView() {
     apiFetch<{ enquiries: Enquiry[] }>('/api/enquiries')
       .then((result) => {
         if (cancelled) return
-        setItems(result.enquiries)
-        setSelectedId((current) => current && result.enquiries.some((item) => item.id === current)
+        const accountItems = shopperOnly ? result.enquiries.filter((item) => item.role === 'SHOPPER') : result.enquiries
+        setItems(accountItems)
+        setSelectedId((current) => current && accountItems.some((item) => item.id === current)
           ? current
-          : result.enquiries[0]?.id ?? null)
+          : accountItems[0]?.id ?? null)
         setError('')
         setLoadedForUserId(userId)
       })
@@ -70,7 +71,7 @@ export function EnquiriesView() {
         setLoadedForUserId(userId)
       })
     return () => { cancelled = true }
-  }, [userId])
+  }, [userId, shopperOnly])
 
   const refresh = useCallback(async () => {
     if (!userId) return
@@ -78,17 +79,18 @@ export function EnquiriesView() {
     setError('')
     try {
       const result = await apiFetch<{ enquiries: Enquiry[] }>('/api/enquiries')
-      setItems(result.enquiries)
-      setSelectedId((current) => current && result.enquiries.some((item) => item.id === current)
+      const accountItems = shopperOnly ? result.enquiries.filter((item) => item.role === 'SHOPPER') : result.enquiries
+      setItems(accountItems)
+      setSelectedId((current) => current && accountItems.some((item) => item.id === current)
         ? current
-        : result.enquiries[0]?.id ?? null)
+        : accountItems[0]?.id ?? null)
       setLoadedForUserId(userId)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load enquiries.')
     } finally {
       setRefreshing(false)
     }
-  }, [userId])
+  }, [userId, shopperOnly])
 
   // The previous account's inbox stays hidden until this account's response
   // arrives. This avoids briefly showing another account's private messages.
@@ -112,6 +114,31 @@ export function EnquiriesView() {
         setMessageError(err instanceof Error ? err.message : 'Could not load this conversation.')
       })
     return () => { cancelled = true }
+  }, [selectedId, userId])
+
+  useEffect(() => {
+    if (!userId) return
+    const interval = window.setInterval(() => { void refresh() }, 30_000)
+    return () => window.clearInterval(interval)
+  }, [userId, refresh])
+
+  useEffect(() => {
+    if (!selectedId || !userId) return
+    let cancelled = false
+    const interval = window.setInterval(() => {
+      void apiFetch<{ messages: EnquiryMessage[] }>(`/api/enquiries/${encodeURIComponent(selectedId)}/messages`)
+        .then((result) => {
+          if (cancelled) return
+          setMessages(result.messages)
+          setMessagesFor({ userId, enquiryId: selectedId })
+          setMessageError('')
+        })
+        .catch(() => undefined)
+    }, 12_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
   }, [selectedId, userId])
 
   const selected = visibleItems.find((item) => item.id === selectedId) ?? null
@@ -149,9 +176,9 @@ export function EnquiriesView() {
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <button type="button" onClick={() => navigate({ name: 'business' })} className="mb-2 text-sm text-muted-foreground hover:text-foreground">Business overview</button>
-          <h1 className="text-xl font-semibold tracking-tight">Your enquiries</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Private conversations about your products.</p>
+          <button type="button" onClick={() => navigate({ name: shopperOnly ? 'browse' : 'business' })} className="mb-2 text-sm text-muted-foreground hover:text-foreground">{shopperOnly ? 'Back to Explore' : 'Business overview'}</button>
+          <h1 className="text-xl font-semibold tracking-tight">{shopperOnly ? 'Messages' : 'Your enquiries'}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{shopperOnly ? 'Private conversations with shops on Mudaala.' : 'Private conversations with your customers and shops you contact.'}</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>Refresh</Button>
       </div>
@@ -162,12 +189,12 @@ export function EnquiriesView() {
         <aside className="border-b md:border-b-0 md:border-r">
           <div className="border-b px-4 py-3"><p className="text-sm font-semibold">Inbox <span className="ml-1 text-muted-foreground">({visibleItems.length})</span></p></div>
           {loading && visibleItems.length === 0 ? <p className="p-4 text-sm text-muted-foreground">Loading enquiries…</p> : null}
-          {!loading && visibleItems.length === 0 ? <div className="p-5"><p className="text-sm font-medium">No enquiries yet</p><p className="mt-1 text-xs text-muted-foreground">When you contact a seller or a shopper contacts your shop, the conversation will appear here.</p></div> : null}
+          {!loading && visibleItems.length === 0 ? <div className="p-5"><p className="text-sm font-medium">No enquiries yet</p><p className="mt-1 text-xs text-muted-foreground">{shopperOnly ? 'When you message a shop, your conversations will appear here.' : 'When a shopper contacts your shop, the conversation will appear here.'}</p></div> : null}
           <div className="max-h-[520px] overflow-y-auto">
             {visibleItems.map((item) => (
               <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`block w-full border-b px-4 py-3 text-left transition-colors hover:bg-secondary/60 ${selectedId === item.id ? 'bg-secondary' : ''}`}>
                 <span className="flex items-center justify-between gap-2"><span className="truncate text-sm font-medium">{item.listing.title}</span><span className="shrink-0 text-[10px] text-muted-foreground">{timeLabel(item.lastMessageAt)}</span></span>
-                <span className="mt-1 block truncate text-xs text-muted-foreground">{item.role === 'MERCHANT' ? 'Customer' : 'You contacted seller'} · {item.lastMessage?.body ?? 'New enquiry'}</span>
+                <span className="mt-1 block truncate text-xs text-muted-foreground">{item.role === 'MERCHANT' ? 'Customer' : item.shopName} · {item.lastMessage?.body ?? 'New enquiry'}</span>
                 {item.role === 'SHOPPER' ? <span className="mt-1 block text-[11px] text-muted-foreground">Seller follow-up: {item.followUpConsentAt ? 'Allowed' : 'Not allowed'}</span> : null}
               </button>
             ))}
@@ -178,7 +205,7 @@ export function EnquiriesView() {
           {selected ? <>
             <header className="border-b px-4 py-3">
               <p className="text-sm font-semibold">{selected.listing.title}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{selected.role === 'MERCHANT' ? 'Customer enquiry' : 'Your enquiry'} · {selected.status.toLowerCase()}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{selected.role === 'MERCHANT' ? 'Customer enquiry' : 'Chat with ' + selected.shopName} · {selected.status.toLowerCase()}</p>
               {selected.role === 'SHOPPER' ? <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-xs text-muted-foreground">Allow seller to send a later follow-up?</span><Button size="sm" variant={selected.followUpConsentAt ? 'outline' : 'secondary'} onClick={async () => { try { const result = await apiFetch<{ followUpConsentAt: string | null }>(`/api/enquiries/${encodeURIComponent(selected.id)}/follow-up-consent`, { method: 'PATCH', body: JSON.stringify({ consent: !selected.followUpConsentAt }) }); setItems((current) => current.map((item) => item.id === selected.id ? { ...item, followUpConsentAt: result.followUpConsentAt } : item)) } catch (err) { setError(err instanceof Error ? err.message : 'Could not update consent.') } }}>{selected.followUpConsentAt ? 'Turn off follow-ups' : 'Allow follow-up'}</Button></div> : null}
             </header>
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
@@ -194,9 +221,9 @@ export function EnquiriesView() {
             </div>
             <form onSubmit={sendMessage} className="border-t p-3">
               <div className="flex items-end gap-2"><Textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={2} maxLength={1200} placeholder="Write a reply…" className="min-h-11 resize-y" /><Button type="submit" disabled={!draft.trim() || sending}>{sending ? 'Sending…' : 'Send reply'}</Button></div>
-              <p className="mt-1 text-[11px] text-muted-foreground">Replies are saved in Mudaala and forwarded to the shopper through Telegram when delivery is available.</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">Messages are saved in Mudaala. Both sides can return to this conversation at any time.</p>
             </form>
-          </> : <div className="flex flex-1 items-center justify-center p-8 text-center"><div><p className="text-sm font-medium">Select an enquiry</p><p className="mt-1 text-xs text-muted-foreground">Choose a customer message to read and reply.</p></div></div>}
+          </> : <div className="flex flex-1 items-center justify-center p-8 text-center"><div><p className="text-sm font-medium">Select an enquiry</p><p className="mt-1 text-xs text-muted-foreground">{shopperOnly ? 'Choose a shop conversation to read and reply.' : 'Choose a customer message to read and reply.'}</p></div></div>}
         </div>
       </div>
     </section>

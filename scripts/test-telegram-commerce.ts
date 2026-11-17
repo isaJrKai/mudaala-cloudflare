@@ -122,6 +122,48 @@ async function run() {
   })
   const merchantListing = await createListing(merchant.id, merchant.phone, 0)
 
+  // Use a separate listing fixture so the Telegram token test can count its own enquiries independently.
+  const inAppListing = await createListing(merchant.id, merchant.phone, 98)
+
+  // Native Mudaala messaging must create a durable WEB enquiry without any
+  // Telegram opt-in, notify the seller inbox, and keep both sides private.
+  const inAppEnquiryResponse = await requestJson('/api/enquiries', {
+    method: 'POST',
+    body: JSON.stringify({
+      listingId: inAppListing.id,
+      message: 'Hello, is this product available? I would like to know more.',
+    }),
+  }, shopper.token)
+  assertStatus(inAppEnquiryResponse.status, 201, 'buyer in-app enquiry')
+  const inAppEnquiryId = inAppEnquiryResponse.body.enquiry?.id
+  assert.ok(inAppEnquiryId, 'in-app enquiry returns its conversation id')
+  const inAppEnquiry = await db.enquiry.findUnique({ where: { id: inAppEnquiryId } })
+  assert.equal(inAppEnquiry?.contactChannel, 'WEB', 'native Mudaala conversation uses the existing WEB channel')
+  assert.equal(inAppEnquiry?.shopperId, shopper.id, 'native enquiry is linked to the buyer account')
+  const sellerAlert = await db.notification.findFirst({
+    where: { userId: merchant.id, type: 'NEW_ENQUIRY', listingId: inAppListing.id },
+  })
+  assert.ok(sellerAlert, 'seller receives a persistent in-app notification while offline')
+
+  const sellerInbox = await requestJson('/api/enquiries', {}, merchant.token)
+  assertStatus(sellerInbox.status, 200, 'seller enquiry inbox')
+  assert.ok(sellerInbox.body.enquiries.some((item: { id: string }) => item.id === inAppEnquiryId), 'seller inbox contains the buyer enquiry')
+  const buyerInbox = await requestJson('/api/enquiries', {}, shopper.token)
+  assertStatus(buyerInbox.status, 200, 'buyer messages inbox')
+  assert.ok(buyerInbox.body.enquiries.some((item: { id: string }) => item.id === inAppEnquiryId), 'buyer can retrieve the same conversation')
+  const privateMessages = await requestJson('/api/enquiries/' + encodeURIComponent(inAppEnquiryId) + '/messages', {}, stranger.token)
+  assertStatus(privateMessages.status, 404, 'unrelated account cannot read native conversation')
+
+  const inAppReply = await requestJson('/api/enquiries/' + encodeURIComponent(inAppEnquiryId) + '/messages', {
+    method: 'POST',
+    body: JSON.stringify({ message: 'Yes, it is available. You can ask me anything here.' }),
+  }, merchant.token)
+  assertStatus(inAppReply.status, 201, 'seller replies inside Mudaala')
+  assert.equal(inAppReply.body.message?.deliveryStatus, 'SENT', 'in-app reply is saved without requiring Telegram delivery')
+  const buyerThread = await requestJson('/api/enquiries/' + encodeURIComponent(inAppEnquiryId) + '/messages', {}, shopper.token)
+  assertStatus(buyerThread.status, 200, 'buyer can read seller reply')
+  assert.equal(buyerThread.body.messages.length, 2, 'buyer sees both messages in the shared conversation')
+
   // A retry of the same server-side Telegram draft must return its original
   // listing, not create a second public listing.
   const idempotentListingData = listingCreateSchema.parse({

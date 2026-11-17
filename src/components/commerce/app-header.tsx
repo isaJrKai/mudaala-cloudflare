@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Settings, LogOut, User, BadgeCheck, Bookmark, Store, Bell, Package } from 'lucide-react'
+import { Settings, LogOut, User, BadgeCheck, Bookmark, Store, Bell, Package, MessageSquare } from 'lucide-react'
 import { useAppStore } from '@/lib/store'
 import { useSession, useSignOut } from '@/hooks/use-session'
 import { Button } from '@/components/ui/button'
@@ -114,6 +114,7 @@ export function AppHeader() {
             <>
               <button type="button" onClick={() => navigate({ name: "browse" })} aria-current={view.name === "browse" || view.name === "listing" || view.name === "shop" ? "page" : undefined} className={cn("rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary", view.name === "browse" || view.name === "listing" || view.name === "shop" ? "text-primary" : "text-muted-foreground hover:text-foreground")}>Explore</button>
               <button type="button" onClick={() => navigate({ name: "saved" })} aria-current={view.name === "saved" ? "page" : undefined} className={cn("rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary", view.name === "saved" ? "text-primary" : "text-muted-foreground hover:text-foreground")}>Saved</button>
+              {user ? <button type="button" onClick={() => navigate({ name: "messages" })} aria-current={view.name === "messages" ? "page" : undefined} className={cn("rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary", view.name === "messages" ? "text-primary" : "text-muted-foreground hover:text-foreground")}>Messages</button> : null}
               <button type="button" onClick={() => navigate({ name: "business" })} aria-current={view.name === "business" ? "page" : undefined} className={cn("rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary", view.name === "business" ? "text-primary" : "text-muted-foreground hover:text-foreground")}>My Business</button>
               <Button size="sm" className="mudaala-money-cta ml-2 h-10 px-4" onClick={() => navigate({ name: "publish" })}>Post an ad</Button>
             </>
@@ -183,6 +184,7 @@ export function AppHeader() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate({ name: "business" })}><Store className="size-4" aria-hidden /> My Business</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ name: "my-listings" })}><Package className="size-4" aria-hidden /> My products</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate({ name: "messages" })}><MessageSquare className="size-4" aria-hidden /> Messages</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ name: "notifications" })}><Bell className="size-4" aria-hidden /> Alerts</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ name: "home" })}><User className="size-4" aria-hidden /> My activity</DropdownMenuItem>
                 <DropdownMenuSeparator />

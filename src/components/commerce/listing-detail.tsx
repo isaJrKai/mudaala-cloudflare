@@ -28,6 +28,7 @@ import { ShareAdRow } from './share-row'
 import { RelatedListings } from './related-listings'
 import { SafetyCard } from './safety-card'
 import { TelegramEnquiryButton } from './telegram-enquiry-button'
+import { InAppEnquiryButton } from './in-app-enquiry-button'
 import { ReportButton } from './report-button'
 import { PlaceholderTile } from './placeholder-tile'
 import { HeartButton } from './listing-card'
@@ -377,6 +378,13 @@ export function ListingDetail({ id }: { id: string }) {
               </Button>
             ) : null}
           </div>
+          {listing.type === 'OFFER' ? <InAppEnquiryButton
+            listingId={listing.id}
+            shopName={shopDisplayName}
+            initialMessage={`Hello, I'm interested in ${listing.title}. Is it available?`}
+            label="Message seller in Mudaala"
+            className="press mt-2 h-11 w-full gap-1.5 text-[15px]"
+          /> : null}
           {listing.type === 'OFFER' ? <TelegramEnquiryButton listingId={listing.id} enabled={Boolean(listing.telegramContactEnabled)} /> : null}
           <Button asChild variant="outline" className="press mt-2 h-11 w-full gap-1.5 text-[15px]">
             <a
