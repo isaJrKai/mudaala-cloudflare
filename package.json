@@ -16,7 +16,7 @@
     "db:seed": "node scripts/guard-local-db.mjs && bun scripts/seed.ts",
     "test:public-listing-expiry": "bun test scripts/test-public-listing-expiry.test.mjs",
     "test:merchant-growth": "bun test src/lib/merchant-growth.test.mjs",
-    "test:commerce-discovery": "bun test src/lib/commerce-discovery.test.ts",
+    "test:commerce-discovery": "bun test src/lib/commerce-discovery.test.ts src/lib/telegram-product-details.test.ts",
     "test:web-push": "bun test src/lib/web-push.test.mjs",
     "test:listing-visibility": "bun test scripts/test-listing-visibility.test.mjs"
   },
