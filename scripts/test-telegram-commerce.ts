@@ -13,10 +13,13 @@ import { readFile } from 'node:fs/promises'
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
 import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 import { listingCreateSchema } from '../src/lib/validation'
 import { publishListingForSeller } from '../src/lib/listing-publisher'
 
-const db = new PrismaClient()
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) throw new Error('DATABASE_URL is required for Telegram commerce tests')
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl, max: 5 }) })
 const BASE = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '')
 const suffix = randomUUID().replaceAll('-', '').slice(0, 12)
 const userIds: string[] = []
