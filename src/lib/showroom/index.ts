@@ -1,0 +1,10 @@
+// Showroom Engine public surface (client-safe exports only: no db, no next/*).
+export * from './types'
+export { COMPOSITIONS, COMPOSITION_KEYS, findComposition } from './compositions'
+export { selectComposition, computeSignals, variantFor } from './select'
+export { orderProducts, planSections } from './plan'
+export { buildShowroomView, type ShowroomViewModel } from './view'
+export { toShowroomProduct, productFacts, availabilityLabel, wasPrice, excerpt, isPubliclyListable, type ListingLike } from './products'
+export { suggestShowroomCopy } from './copy'
+export { slugify } from './slug'
+export { MAX_HIGHLIGHTS, MAX_SHOWROOM_PRODUCTS, MAX_SHOWROOMS_PER_SHOP } from './constants'

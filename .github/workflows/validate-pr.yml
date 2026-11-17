@@ -45,6 +45,9 @@ jobs:
       - name: Test Telegram merchant knowledge base
         run: npm run test:merchant-kb
 
+      - name: Test Showroom Engine
+        run: npm run test:showroom
+
       - name: Test marketplace content policy
         run: npm run test:content-policy
 

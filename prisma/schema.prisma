@@ -62,6 +62,7 @@ model User {
   categoryInterests CategoryInterest[]
   businessProducts BusinessProduct[]
   productCollections ProductCollection[]
+  showroomPresentations ShowroomPresentation[]
   showroomItems    ShowroomItem[]
   sales           Sale[]
   stockMovements  StockMovement[]
@@ -224,6 +225,7 @@ model ProductCollection {
   updatedAt     DateTime @updatedAt
 
   items ProductCollectionItem[]
+  showroom ShowroomPresentation?
 
   @@index([userId, isActive, sortOrder])
   @@index([userId, updatedAt])
@@ -243,6 +245,33 @@ model ProductCollectionItem {
   @@unique([collectionId, listingId])
   @@index([listingId])
   @@index([collectionId, sortOrder])
+}
+
+// Showroom Engine - presentation metadata for a ProductCollection.
+// A showroom IS a collection of existing listings (ProductCollection +
+// ProductCollectionItem); this table only adds the public slug, merchant
+// copy, purpose, optional style override, highlights and publish state.
+// No product data is duplicated here. Drafts keep the collection inactive so
+// nothing leaks through /collections/{id} before the merchant publishes.
+model ShowroomPresentation {
+  id           String            @id @default(cuid())
+  collectionId String            @unique
+  collection   ProductCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug         String            @unique // public URL: /showroom/{slug}
+  introduction String?           // merchant-owned copy (may start from an accepted suggestion)
+  introSource  String            @default("MERCHANT") // MERCHANT | SUGGESTED
+  purpose      String            @default("COLLECTION") // COLLECTION | FEATURED | NEW_ARRIVALS | BRAND | CATEGORY
+  styleKey     String?           // merchant override; null = deterministic recommendation
+  highlights   String            @default("[]") // JSON array of listing ids the seller wants first
+  status       String            @default("DRAFT") // DRAFT | PUBLISHED
+  publishedAt  DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([userId, status])
+  @@index([status, publishedAt])
 }
 
 model ListingDailyAnalytics {
