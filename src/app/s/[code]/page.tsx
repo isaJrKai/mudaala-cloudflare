@@ -22,6 +22,7 @@ import { photosOf, absolutePhoto, placeOf, priceLabelOf } from '@/lib/ad-page'
 import { categoryLabel } from '@/lib/constants'
 import { findTaxonomyNode } from '@/lib/product-taxonomy'
 import { publicCollectionVisibilityWhere } from '@/lib/collection-visibility'
+import { ShopProductBrowser, type ShopBrowserProduct } from '@/components/commerce/shop-product-browser'
 
 export const dynamic = 'force-dynamic'
 
@@ -224,62 +225,30 @@ export default async function ShopPage({ params }: Params) {
           </section>
         ) : null}
 
-                {/* Shop-owned catalogue groups keep product types separate. */}
+                {/* Search, filter and browse this shop's catalogue without leaving its page. */}
         <section aria-label="Shop products" className="space-y-4">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="text-sm font-semibold">Products ({listings.length})</h2>
-            <span className="text-xs text-muted-foreground">{groupedListings.length} categories</span>
+            <span className="text-xs text-muted-foreground">{groupedListings.length} product types</span>
           </div>
-          {listings.length > 0 ? (
-            <>
-              <nav aria-label="Shop product categories" className="flex gap-2 overflow-x-auto pb-1">
-                {groupedListings.map(([key, group]) => (
-                  <a key={key} href={"#shop-category-" + encodeURIComponent(key)} className="shrink-0 rounded-full border bg-card px-3 py-1.5 text-xs font-medium hover:bg-accent">
-                    {group.label} <span className="text-muted-foreground">({group.items.length})</span>
-                  </a>
-                ))}
-              </nav>
-              {groupedListings.map(([key, group]) => (
-                <section key={key} id={"shop-category-" + encodeURIComponent(key)} aria-label={group.label} className="scroll-mt-4 space-y-2">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <h3 className="font-semibold">{group.label}</h3>
-                    <span className="text-xs text-muted-foreground">{group.items.length} {group.items.length === 1 ? "product" : "products"}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {group.items.map((ad) => {
-                      const photo = photosOf(ad.photos).find((p) => !p.includes('/uploads/seed/'))
-                      return (
-                        <Link key={ad.id} href={"/l/" + ad.id} className="group overflow-hidden rounded-lg border bg-card transition-colors hover:bg-accent/40">
-                          {photo ? (
-                            <img src={photo} alt="" className="h-28 w-full object-cover" loading="lazy" />
-                          ) : (
-                            <div role="img" aria-label="Photo coming from the seller" className="flex h-28 flex-col items-center justify-center gap-1 bg-muted">
-                              <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="size-6 text-muted-foreground/70">
-                                <path d="M14.5 4h-5L7.5 6.5H5a2 2 0 0 0-2 2V18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a2 2 0 0 0-2-2h-2.5L14.5 4z" />
-                                <circle cx="12" cy="13" r="3.5" />
-                              </svg>
-                              <span className="px-2 text-[11px] text-muted-foreground">{group.label}</span>
-                            </div>
-                          )}
-                          <div className="space-y-1 p-2.5">
-                            <p className="line-clamp-2 text-sm font-medium leading-snug">{ad.title}</p>
-                            <p className="text-sm font-semibold text-primary">{priceLabelOf(ad) ?? 'Ask seller'}</p>
-                            <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <MapPin className="size-3" aria-hidden /> {placeOf(ad)}
-                            </p>
-                          </div>
-                        </Link>
-                      )
-                    })}
-                  </div>
-                </section>
-              ))}
-            </>
-          ) : (
-            <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-              No live products right now. Check back soon, or browse the market.
-            </p>
-          )}
+          <ShopProductBrowser products={listings.map((ad): ShopBrowserProduct => {
+            const node = ad.taxonomyId ? findTaxonomyNode(ad.taxonomyId) : undefined
+            const photo = photosOf(ad.photos).find((p) => !p.includes('/uploads/seed/'))
+            return {
+              id: ad.id,
+              title: ad.title,
+              href: '/l/' + ad.id,
+              photo,
+              place: placeOf(ad),
+              priceLabel: priceLabelOf(ad) ?? 'Ask seller',
+              price: ad.price,
+              currency: ad.currency,
+              group: node?.label ?? categoryLabel(ad.category),
+              brand: ad.brand ?? (typeof ad.attributes === 'object' && ad.attributes && typeof ad.attributes.brand === 'string' ? ad.attributes.brand : null),
+              model: ad.model ?? (typeof ad.attributes === 'object' && ad.attributes && typeof ad.attributes.model === 'string' ? ad.attributes.model : null),
+              attributes: ad.attributes && typeof ad.attributes === 'object' ? ad.attributes as Record<string, string | number | boolean> : {},
+            }
+          })} />
         </section>
         <section className="rounded-lg border bg-card p-4 sm:p-5" aria-label="Share this shop">
           <ShareAdRow title={name} url={shareUrl} priceLabel={null} noun="shop" label="Share this shop" />
