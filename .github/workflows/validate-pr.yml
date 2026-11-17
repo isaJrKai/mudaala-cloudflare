@@ -48,6 +48,9 @@ jobs:
       - name: Test marketplace content policy
         run: npm run test:content-policy
 
+      - name: Test standalone showroom template catalogue
+        run: npm run test:showroom-templates
+
       - name: Test merchant Growth Coach recommendation rules
         run: npm run test:merchant-growth
 
