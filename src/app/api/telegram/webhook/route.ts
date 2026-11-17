@@ -199,14 +199,16 @@ async function cleanupTelegramRecords(): Promise<void> {
   if (staleProductDrafts.length) {
     const storage = chooseStorage()
     for (const item of staleProductDrafts) {
+      let draft: { photoUrl?: unknown; status?: unknown } = {}
+      try { draft = JSON.parse(item.value) as typeof draft } catch { /* malformed stale draft has no safe photo reference */ }
+      if (draft.status === 'PUBLISHING') continue
       // Delete only the exact stale value we inspected. A newer photo draft
       // may have replaced this key while storage cleanup was running.
       const deleted = await db.appSetting.deleteMany({ where: { key: item.key, value: item.value } })
       if (deleted.count !== 1) continue
-      try {
-        const draft = JSON.parse(item.value) as { photoUrl?: unknown; status?: unknown }
-        if (draft.status !== 'PUBLISHING' && typeof draft.photoUrl === 'string') await storage.remove(draft.photoUrl)
-      } catch { /* stale draft cleanup must not affect other Telegram updates */ }
+      if (draft.status !== 'PUBLISHED' && typeof draft.photoUrl === 'string') {
+        await storage.remove(draft.photoUrl).catch(() => undefined)
+      }
     }
   }
   const staleConversations = await db.appSetting.findMany({
@@ -725,6 +727,11 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     }
     let draft: { photoUrl?: unknown; status?: unknown; draftId?: unknown; publishStartedAt?: unknown; listingId?: unknown } = {}
     try { draft = JSON.parse(existingDraft.value) as typeof draft } catch { /* invalid draft can be removed by exact value */ }
+    if (draft.status === 'PUBLISHED' && typeof draft.listingId === 'string') {
+      await db.appSetting.deleteMany({ where: { key: draftKey, value: existingDraft.value } })
+      await sendMessage(chatId, 'That product has already been published. View it at https://mudaala.store/l/' + encodeURIComponent(draft.listingId))
+      return
+    }
     if (draft.status === 'PUBLISHING') {
       const startedAt = typeof draft.publishStartedAt === 'string' ? Date.parse(draft.publishStartedAt) : Date.now()
       if (Date.now() - startedAt < 5 * 60 * 1000) {
@@ -904,7 +911,9 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
         return
       }
       const deleted = await db.appSetting.deleteMany({ where: { key: draftKey, value: pendingDraft.value } })
-      if (deleted.count === 1 && typeof draft.photoUrl === 'string') await chooseStorage().remove(draft.photoUrl).catch(() => undefined)
+      if (deleted.count === 1 && draft.status !== 'PUBLISHED' && typeof draft.photoUrl === 'string') {
+        await chooseStorage().remove(draft.photoUrl).catch(() => undefined)
+      }
       await sendMessage(chatId, 'That product photo draft expired. Send the photo again to start a new listing.')
       return
     }
