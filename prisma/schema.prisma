@@ -777,7 +777,7 @@ model ShopShowroom {
   accentColor     String?
   coverPhotoUrl   String?
   photos          String   @default("[]") // ordered seller-selected photo URLs
-  content         String   @default("{}") // validated seller-authored sections/copy
+  content         String   @default("[]") // validated seller-authored sections/copy
   listingIds      String   @default("[]") // explicitly linked existing Listing IDs
   status          String   @default("DRAFT") // DRAFT | PUBLISHED
   publishedAt     DateTime?
