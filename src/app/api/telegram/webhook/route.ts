@@ -684,11 +684,6 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       await sendMessage(chatId, delivered ? 'Your reply was sent to the seller.' : 'Your reply was saved, but Telegram could not deliver it.')
       return
     }
-    const knownAnswer = merchantKnowledgeAnswer(text)
-    if (knownAnswer !== null) {
-      await sendMessage(chatId, knownAnswer, shopKeyboard)
-      return
-    }
     const answer = await replyToTelegramMerchant({ telegramUserId, text })
     await sendMessage(chatId, answer, shopKeyboard)
     return
