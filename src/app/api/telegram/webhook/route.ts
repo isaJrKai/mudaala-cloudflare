@@ -199,9 +199,29 @@ async function cleanupTelegramRecords(): Promise<void> {
   if (staleProductDrafts.length) {
     const storage = chooseStorage()
     for (const item of staleProductDrafts) {
-      let draft: { photoUrl?: unknown; status?: unknown } = {}
+      let draft: { photoUrl?: unknown; status?: unknown; draftId?: unknown; publishStartedAt?: unknown; listingId?: unknown } = {}
       try { draft = JSON.parse(item.value) as typeof draft } catch { /* malformed stale draft has no safe photo reference */ }
-      if (draft.status === 'PUBLISHING') continue
+      if (draft.status === 'PUBLISHING') {
+        if (typeof draft.draftId === 'string') {
+          const receiptKey = 'listing-publish:' + createHash('sha256').update('telegram-product-draft:' + draft.draftId).digest('hex')
+          const receipt = await db.appSetting.findUnique({ where: { key: receiptKey } })
+          try {
+            const parsed = JSON.parse(receipt?.value || '{}') as { status?: unknown; listingId?: unknown }
+            if (parsed.status === 'COMPLETE' && typeof parsed.listingId === 'string') {
+              await db.appSetting.deleteMany({ where: { key: item.key, value: item.value } })
+              continue // the listing now owns the photo
+            }
+          } catch { /* no completed publication receipt */ }
+        }
+        const startedAt = typeof draft.publishStartedAt === 'string' ? Date.parse(draft.publishStartedAt) : 0
+        if (now - startedAt >= 5 * 60 * 1000) {
+          await db.appSetting.updateMany({
+            where: { key: item.key, value: item.value },
+            data: { value: JSON.stringify({ ...draft, status: 'READY', publishStartedAt: null }) },
+          })
+        }
+        continue
+      }
       // Delete only the exact stale value we inspected. A newer photo draft
       // may have replaced this key while storage cleanup was running.
       const deleted = await db.appSetting.deleteMany({ where: { key: item.key, value: item.value } })
@@ -906,7 +926,7 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     let draft: { userId?: unknown; photoUrl?: unknown; createdAt?: unknown; draftId?: unknown; status?: unknown; publishStartedAt?: unknown; listingId?: unknown } = {}
     try { draft = JSON.parse(pendingDraft.value) as typeof draft } catch { /* invalid drafts are discarded below */ }
     const createdAt = typeof draft.createdAt === 'string' ? Date.parse(draft.createdAt) : NaN
-    if (draft.userId !== user.id || typeof draft.photoUrl !== 'string' || !Number.isFinite(createdAt) || Date.now() - createdAt > 60 * 60 * 1000) {
+    if (draft.userId !== user.id || typeof draft.photoUrl !== 'string' || !Number.isFinite(createdAt) || (draft.status !== 'PUBLISHING' && Date.now() - createdAt > 60 * 60 * 1000)) {
       if (draft.status === 'PUBLISHING') {
         await sendMessage(chatId, 'Your product is still being published. Please wait and check /products before starting another listing.')
         return
