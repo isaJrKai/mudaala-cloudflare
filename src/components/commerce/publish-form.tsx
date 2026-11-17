@@ -84,7 +84,7 @@ export function PublishForm() {
   const selectedTaxonomyType = selectedTaxonomyPath[2]?.id ?? 'none'
   const taxonomyGroupOptions = form.category !== 'none' ? taxonomyChildren(form.category) : []
   const taxonomyTypeOptions = selectedTaxonomyGroup !== 'none' ? taxonomyChildren(selectedTaxonomyGroup) : []
-  const selectedTaxonomyAttributes = form.taxonomyId !== 'none' ? (findTaxonomyNode(form.taxonomyId)?.attributes ?? []) : []
+  const selectedTaxonomyAttributes = (() => { const definitions = form.taxonomyId !== 'none' ? [...(findTaxonomyNode(form.taxonomyId)?.attributes ?? [])] : []; return definitions.some((attribute) => attribute.key === 'brand') ? definitions : [{ key: 'brand', label: 'Brand', type: 'text' as const }, ...definitions] })()
 
   useEffect(() => {
     if (!user) return
@@ -575,7 +575,7 @@ export function EditListingForm({ id }: { id: string }) {
   const selectedTaxonomyType = selectedTaxonomyPath[2]?.id ?? 'none'
   const taxonomyGroupOptions = form.category !== 'none' ? taxonomyChildren(form.category) : []
   const taxonomyTypeOptions = selectedTaxonomyGroup !== 'none' ? taxonomyChildren(selectedTaxonomyGroup) : []
-  const selectedTaxonomyAttributes = form.taxonomyId !== 'none' ? (findTaxonomyNode(form.taxonomyId)?.attributes ?? []) : []
+  const selectedTaxonomyAttributes = (() => { const definitions = form.taxonomyId !== 'none' ? [...(findTaxonomyNode(form.taxonomyId)?.attributes ?? [])] : []; return definitions.some((attribute) => attribute.key === 'brand') ? definitions : [{ key: 'brand', label: 'Brand', type: 'text' as const }, ...definitions] })()
 
   useEffect(() => {
     apiGet<{ listing: Listing }>(`/api/listings/${id}`)
