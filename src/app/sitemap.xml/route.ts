@@ -1,5 +1,4 @@
-// The sitemap: the catalog search engines crawl. Every ACTIVE ad (/l/{id})
-// plus every live shop (/s/{code} - a shop with at least one ACTIVE ad).
+// The sitemap: active listings, live shops and published standalone showrooms.
 // Expired, fulfilled and archived listings are deliberately excluded.
 //
 // Paged: entries beyond PAGE_SIZE roll onto /sitemap.xml?page=N. While
@@ -43,15 +42,16 @@ export async function GET(request: Request) {
   // PLACEHOLDER RULE - seed listings are development fixtures, never real
   // content: search engines never crawl them from the sitemap.
   const activeListing = { status: 'ACTIVE', expiresAt: { gt: new Date() }, isSeed: false }
-  const [listingCount, shopCount] = await Promise.all([
+  const [listingCount, shopCount, showroomCount] = await Promise.all([
     db.listing.count({ where: activeListing }),
     db.businessProfile.count({
       where: { shopCode: { not: null }, user: { listings: { some: activeListing } } },
     }),
+    db.shopShowroom.count({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } }),
   ])
 
   // Entry slot 0 is the home page; then every listing; then every live shop.
-  const totalEntries = 1 + listingCount + shopCount
+  const totalEntries = 1 + listingCount + shopCount + showroomCount
   const totalPages = Math.max(1, Math.ceil(totalEntries / PAGE_SIZE))
 
   if (raw === null && totalPages > 1) {
@@ -105,6 +105,22 @@ export async function GET(request: Request) {
     })
     for (const shop of shops) {
       if (shop.shopCode) urls.push(urlEntry(`${siteUrl}/s/${shop.shopCode}`, shop.updatedAt, '0.6'))
+    }
+  }
+
+  // Published standalone showrooms follow shops in the same paged sitemap.
+  const rFrom = Math.max(start, 1 + listingCount + shopCount)
+  const rTo = Math.min(end, totalEntries)
+  if (rTo > rFrom) {
+    const showrooms = await db.shopShowroom.findMany({
+      where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } },
+      select: { slug: true, updatedAt: true },
+      orderBy: { updatedAt: 'desc' },
+      skip: rFrom - 1 - listingCount - shopCount,
+      take: rTo - rFrom,
+    })
+    for (const showroom of showrooms) {
+      urls.push(urlEntry(`${siteUrl}/showroom/${showroom.slug}`, showroom.updatedAt, '0.7'))
     }
   }
 
