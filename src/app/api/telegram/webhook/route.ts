@@ -432,7 +432,7 @@ async function confirmListingEnquiry(query: TelegramCallbackQuery): Promise<void
     if (sellerSetting) {
       try {
         const settings = JSON.parse(sellerSetting.value) as { enabled?: unknown; activatedAt?: unknown; chatId?: unknown }
-        if (settings.enabled === true && typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)) {
+        if (typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)) {
           merchantChatId = settings.chatId as number
         }
       } catch { /* malformed settings cannot receive enquiries */ }
