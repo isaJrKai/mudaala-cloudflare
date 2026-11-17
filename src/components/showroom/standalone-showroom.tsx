@@ -52,6 +52,7 @@ function ProductCard({ product, layout, accent }: { product: Product; layout: st
       <div className={wide ? 'self-center py-2' : 'pt-3'}>
         <p className="text-[10px] uppercase tracking-[.18em] opacity-55">{product.brand || product.category}</p>
         <h3 className="mt-1 text-sm font-medium leading-snug">{product.title}</h3>
+        {product.description && <p className="mt-2 line-clamp-3 text-xs leading-5 opacity-65">{product.description}</p>}
         <p className="mt-2 text-xs font-semibold" style={{ color: accent }}>{money(product.price, product.currency, product.priceNegotiable)}</p>
         {product.availabilityStatus === 'OUT_OF_STOCK' && <p className="mt-1 text-[10px] uppercase tracking-wider opacity-55">Currently unavailable</p>}
       </div>
