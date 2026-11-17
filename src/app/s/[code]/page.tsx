@@ -21,6 +21,7 @@ import { SiteFooter } from '@/components/commerce/site-footer'
 import { photosOf, absolutePhoto, placeOf, priceLabelOf } from '@/lib/ad-page'
 import { categoryLabel } from '@/lib/constants'
 import { findTaxonomyNode } from '@/lib/product-taxonomy'
+import { publicCollectionVisibilityWhere } from '@/lib/collection-visibility'
 
 export const dynamic = 'force-dynamic'
 
@@ -126,6 +127,24 @@ export default async function ShopPage({ params }: Params) {
     listingGroups.set(key, group)
   }
   const groupedListings = [...listingGroups.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label))
+  // Seller-created collections are the flexible layer below standard product
+  // types: e.g. Used iPhones, Zara Bags, Italian Cuisine or New Arrivals.
+  const shopCollections = await db.productCollection.findMany({
+    where: { userId: shop.user.id, ...publicCollectionVisibilityWhere(new Date()) },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      coverPhotoUrl: true,
+      items: {
+        where: { listing: { is: { userId: shop.user.id, status: 'ACTIVE', type: 'OFFER', isSeed: false, expiresAt: { gt: new Date() } } } },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        select: { id: true, listing: { select: { photos: true } } },
+      },
+    },
+  })
+  const visibleShopCollections = shopCollections.filter((collection) => collection.items.length > 0)
   const shareUrl = `${siteUrl}/s/${shop.shopCode}`
 
   return (
@@ -178,7 +197,34 @@ export default async function ShopPage({ params }: Params) {
           ) : null}
         </section>
 
-        {/* Shop-owned catalogue groups keep product types separate. */}
+        {visibleShopCollections.length > 0 ? (
+          <section aria-label="Shop collections" className="space-y-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="text-sm font-semibold">Shop collections</h2>
+              <span className="text-xs text-muted-foreground">{visibleShopCollections.length} curated {visibleShopCollections.length === 1 ? 'group' : 'groups'}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {visibleShopCollections.map((collection) => {
+                const firstPhoto = collection.coverPhotoUrl || collection.items.flatMap((item) => photosOf(item.listing.photos).filter((photo) => !photo.includes('/uploads/seed/')))[0]
+                return (
+                  <Link key={collection.id} href={"/collections/" + collection.id} className="overflow-hidden rounded-lg border bg-card transition-colors hover:bg-accent/40">
+                    {firstPhoto ? (
+                      <img src={absolutePhoto(firstPhoto)} alt="" className="aspect-[5/3] w-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="flex aspect-[5/3] items-center justify-center bg-muted text-xs text-muted-foreground">Shop collection</div>
+                    )}
+                    <div className="space-y-1 p-2.5">
+                      <p className="line-clamp-2 text-sm font-semibold">{collection.title}</p>
+                      <p className="line-clamp-2 text-xs text-muted-foreground">{collection.description || (collection.items.length + (collection.items.length === 1 ? ' product' : ' products'))}</p>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </section>
+        ) : null}
+
+                {/* Shop-owned catalogue groups keep product types separate. */}
         <section aria-label="Shop products" className="space-y-4">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="text-sm font-semibold">Products ({listings.length})</h2>
