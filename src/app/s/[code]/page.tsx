@@ -244,8 +244,8 @@ export default async function ShopPage({ params }: Params) {
               price: ad.price,
               currency: ad.currency,
               group: node?.label ?? categoryLabel(ad.category),
-              brand: ad.brand ?? (typeof ad.attributes === 'object' && ad.attributes && typeof ad.attributes.brand === 'string' ? ad.attributes.brand : null),
-              model: ad.model ?? (typeof ad.attributes === 'object' && ad.attributes && typeof ad.attributes.model === 'string' ? ad.attributes.model : null),
+              brand: ad.brand ?? null,
+              model: ad.model ?? null,
               attributes: ad.attributes && typeof ad.attributes === 'object' ? ad.attributes as Record<string, string | number | boolean> : {},
             }
           })} />
