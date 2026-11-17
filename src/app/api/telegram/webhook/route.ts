@@ -10,6 +10,7 @@ import { listingCreateSchema } from '@/lib/validation'
 import { publishListingForSeller } from '@/lib/listing-publisher'
 import { importTelegramProductPhoto } from '@/lib/telegram-product-photo'
 import { chooseStorage } from '@/lib/storage'
+import { PRODUCT_TAXONOMY, taxonomyAncestors } from '@/lib/product-taxonomy'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -59,6 +60,41 @@ function telegramChatKey(telegramUserId: number): string {
 
 function telegramBuyerChatKey(telegramUserId: number): string {
   return 'telegram:buyer-chat:' + buyerIdentityHash(telegramUserId)
+}
+
+function resolveTelegramTaxonomyPath(value: string) {
+  const normalized = value.split('>').map((part) => part.trim().toLocaleLowerCase()).join(' > ')
+  return PRODUCT_TAXONOMY.find((node) =>
+    taxonomyAncestors(node.id).map((ancestor) => ancestor.label.toLocaleLowerCase()).join(' > ') === normalized,
+  )
+}
+
+function parseTelegramAttributes(value: string, taxonomyId: string | undefined): Record<string, string | number | boolean> | undefined {
+  if (!value.trim() || !taxonomyId) return undefined
+  const node = PRODUCT_TAXONOMY.find((item) => item.id === taxonomyId)
+  const definitions = new Map((node?.attributes ?? []).map((item) => [item.key, item]))
+  const output: Record<string, string | number | boolean> = {}
+  for (const entry of value.split(';')) {
+    const separator = entry.indexOf('=')
+    if (separator < 1) continue
+    const key = entry.slice(0, separator).trim()
+    const raw = entry.slice(separator + 1).trim()
+    const definition = definitions.get(key)
+    if (!definition || !raw) continue
+    if (definition.type === 'number') {
+      const number = Number(raw)
+      if (Number.isFinite(number)) output[key] = number
+    } else if (definition.type === 'boolean') {
+      if (/^(true|yes)$/i.test(raw)) output[key] = true
+      else if (/^(false|no)$/i.test(raw)) output[key] = false
+    } else {
+      const option = definition.type === 'enum'
+        ? definition.options?.find((item) => item.toLowerCase() === raw.toLowerCase())
+        : raw
+      if (option) output[key] = option
+    }
+  }
+  return Object.keys(output).length ? output : undefined
 }
 
 async function linkedMudaalaUserId(telegramUserId: number): Promise<string | null> {
@@ -951,17 +987,32 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     }
     const partsForListing = text.split('|').map((part) => part.trim())
     const rawPrice = (partsForListing[1] || '').replace(/,/g, '')
-    const price = /^\d+(?:\.\d{1,2})?$/.test(rawPrice) ? Number(rawPrice) : NaN
+    const price = /^\\d+(?:\\.\\d{1,2})?$/.test(rawPrice) ? Number(rawPrice) : NaN
     const title = partsForListing[0] || ''
-    if (partsForListing.length !== 2 || title.length < 4 || title.length > 120 || !Number.isFinite(price) || price < 0 || price > 100_000_000) {
-      await sendMessage(chatId, 'Please send the product name and price like this:\n\nNike sneakers | 85000')
+    if (partsForListing.length < 2 || partsForListing.length > 7 || title.length < 4 || title.length > 120 || !Number.isFinite(price) || price < 0 || price > 100_000_000) {
+      await sendMessage(chatId, 'Please send the product name and price first, then optional details separated by |. Example: Nike sneakers | 85000')
       return
     }
-    const category = user.profile?.category
+    const taxonomyPath = partsForListing[2] || ''
+    const taxonomyNode = taxonomyPath ? resolveTelegramTaxonomyPath(taxonomyPath) : undefined
+    if (taxonomyPath && !taxonomyNode) {
+      await sendMessage(chatId, 'I could not match that product type. Use the full category path, for example: Phones & Electronics > Phones > Smartphones. You can also leave it out for now.')
+      return
+    }
+    const taxonomyId = taxonomyNode?.id
+    const category = taxonomyNode ? taxonomyAncestors(taxonomyNode.id)[0]?.id : user.profile?.category
+    const brand = partsForListing[3] || null
+    const model = partsForListing[4] || null
+    const attributes = parseTelegramAttributes(partsForListing[5] || '', taxonomyId)
+    const collectionTitle = partsForListing[6]?.trim() || ''
+    if (brand && brand.length > 80 || model && model.length > 100 || collectionTitle.length > 80) {
+      await sendMessage(chatId, 'Brand, model or collection name is too long. Please shorten it and send the details again.')
+      return
+    }
     const county = user.profile?.county
     const phone = user.profile?.phone
     if (!category || !CATEGORY_KEYS.includes(category) || !county || !phone) {
-      await sendMessage(chatId, 'Before publishing, complete your shop category, district and contact phone in My Shop. Then send the product name and price here again.')
+      await sendMessage(chatId, 'Before publishing, complete your shop category, district and contact phone in My Shop. Then send the product details here again.')
       return
     }
     const businessName = user.profile?.businessName || user.name
@@ -970,6 +1021,10 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       title,
       description: title + ' offered by ' + businessName + '. Contact the shop for availability and product details.',
       category,
+      taxonomyId: taxonomyId ?? null,
+      brand,
+      model,
+      attributes,
       price,
       priceNegotiable: false,
       unit: category === 'services' ? null : 'piece',
@@ -982,7 +1037,8 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       photos: [draft.photoUrl],
     })
     if (!data.success) {
-      await sendMessage(chatId, 'I still need a valid shop category, district and contact number. Open My Shop to update those details, then try again.')
+      const issue = data.error.issues[0]
+      await sendMessage(chatId, issue?.message || 'I still need valid product details. Open My Shop to check your shop category, district and contact number.')
       return
     }
     if (process.env.SELLER_GOOGLE_REQUIRED?.trim().toLowerCase() === 'true' && !user.sellerGoogleExempt) {
@@ -1022,6 +1078,23 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
         ipKey: 'telegram-' + chatId,
         idempotencyKey: 'telegram-product-draft:' + draftId,
       })
+      if (collectionTitle) {
+        const collection = await db.productCollection.findFirst({
+          where: { userId: user.id, title: { equals: collectionTitle, mode: 'insensitive' } },
+          select: { id: true },
+        }) || await db.productCollection.create({
+          data: {
+            userId: user.id,
+            title: collectionTitle,
+            sortOrder: await db.productCollection.count({ where: { userId: user.id } }),
+          },
+          select: { id: true },
+        })
+        await db.productCollectionItem.createMany({
+          data: [{ collectionId: collection.id, listingId: listing.id, sortOrder: await db.productCollectionItem.count({ where: { collectionId: collection.id } }) }],
+          skipDuplicates: true,
+        })
+      }
       const consumed = await db.appSetting.deleteMany({ where: { key: draftKey, value: claimedValue } })
       if (consumed.count !== 1) {
         await db.appSetting.updateMany({
