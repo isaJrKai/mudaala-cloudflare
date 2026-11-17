@@ -94,7 +94,7 @@ export async function GET(request: Request) {
 
   // Shops occupy [1 + listingCount, 1 + listingCount + shopCount).
   const sFrom = Math.max(start, 1 + listingCount)
-  const sTo = Math.min(end, totalEntries)
+  const sTo = Math.min(end, 1 + listingCount + shopCount)
   if (sTo > sFrom) {
     const shops = await db.businessProfile.findMany({
       where: { shopCode: { not: null }, user: { listings: { some: activeListing } } },
