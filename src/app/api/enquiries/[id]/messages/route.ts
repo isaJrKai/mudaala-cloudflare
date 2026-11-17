@@ -75,6 +75,8 @@ export async function POST(request: Request, { params }: Params) {
           title: 'New message about ' + enquiry.listing.title,
           body: senderType === 'MERCHANT' ? 'The shop replied to your enquiry.' : 'A customer sent a message about a product.',
           listingId: enquiry.listingId,
+          actionUrl: '/#/enquiries',
+          actionLabel: 'Open messages',
           dedupeKey: 'enquiry-message:' + created.id,
         },
       }).catch(() => undefined)
