@@ -15,6 +15,7 @@ import type { Listing, SessionUser } from '@/lib/client'
 import { listingCreateSchema, fieldErrors } from '@/lib/validation'
 import { listingFormCategoryFields } from '@/lib/listing-form-fields'
 import { CATEGORIES, UNITS, CURRENCIES, countryDef, currencyDef } from '@/lib/constants'
+import { findTaxonomyNode, taxonomyAncestors, taxonomyChildren } from '@/lib/product-taxonomy'
 import { useAppStore } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { ErrorState } from './listings-browse'
@@ -28,6 +29,10 @@ interface FormState {
   title: string
   description: string
   category: string
+  taxonomyId: string
+  brand: string
+  model: string
+  attributes: Record<string, string | number | boolean>
   price: string
   compareAtPrice: string
   currency: string
@@ -46,6 +51,10 @@ const EMPTY_FORM: FormState = {
   title: '',
   description: '',
   category: 'none',
+  taxonomyId: 'none',
+  brand: '',
+  model: '',
+  attributes: {},
   price: '',
   compareAtPrice: '',
   currency: 'UGX',
@@ -70,6 +79,12 @@ export function PublishForm() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  const selectedTaxonomyPath = form.taxonomyId !== 'none' ? taxonomyAncestors(form.taxonomyId) : []
+  const selectedTaxonomyGroup = selectedTaxonomyPath[1]?.id ?? 'none'
+  const selectedTaxonomyType = selectedTaxonomyPath[2]?.id ?? 'none'
+  const taxonomyGroupOptions = form.category !== 'none' ? taxonomyChildren(form.category) : []
+  const taxonomyTypeOptions = selectedTaxonomyGroup !== 'none' ? taxonomyChildren(selectedTaxonomyGroup) : []
+  const selectedTaxonomyAttributes = form.taxonomyId !== 'none' ? (findTaxonomyNode(form.taxonomyId)?.attributes ?? []) : []
 
   useEffect(() => {
     if (!user) return
@@ -123,6 +138,10 @@ export function PublishForm() {
       title: form.title,
       description: form.description,
       category: form.category === 'none' ? undefined : form.category,
+      taxonomyId: form.taxonomyId === 'none' ? null : form.taxonomyId,
+      brand: form.brand.trim() || null,
+      model: form.model.trim() || null,
+      attributes: Object.keys(form.attributes).length > 0 ? form.attributes : undefined,
       price: priceRaw === '' ? null : Number(priceRaw),
       ...stockFields,
       currency: form.currency,
@@ -230,7 +249,13 @@ export function PublishForm() {
       </Field>
 
       <Field label="Category" htmlFor="p-category" error={errors.category}>
-        <Select value={form.category} onValueChange={(v) => set('category', v)}>
+        <Select value={form.category} onValueChange={(v) => {
+          set('category', v)
+          set('taxonomyId', 'none')
+          set('attributes', {})
+          set('brand', '')
+          set('model', '')
+        }}>
           <SelectTrigger id="p-category" aria-invalid={Boolean(errors.category)}>
             <SelectValue placeholder="Choose a category" />
           </SelectTrigger>
@@ -244,6 +269,91 @@ export function PublishForm() {
           </SelectContent>
         </Select>
       </Field>
+
+      {taxonomyGroupOptions.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Product group" htmlFor="p-taxonomy-group">
+            <Select value={selectedTaxonomyGroup} onValueChange={(v) => {
+              set('taxonomyId', v)
+              set('attributes', {})
+              set('brand', '')
+              set('model', '')
+            }}>
+              <SelectTrigger id="p-taxonomy-group"><SelectValue placeholder="Choose a product group" /></SelectTrigger>
+              <SelectContent>
+                {taxonomyGroupOptions.map((node) => <SelectItem key={node.id} value={node.id}>{node.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          {taxonomyTypeOptions.length > 0 ? (
+            <Field label="Product type" htmlFor="p-taxonomy-type">
+              <Select value={selectedTaxonomyType} onValueChange={(v) => {
+                set('taxonomyId', v)
+                set('attributes', {})
+                set('brand', '')
+                set('model', '')
+              }}>
+                <SelectTrigger id="p-taxonomy-type"><SelectValue placeholder="Choose a product type" /></SelectTrigger>
+                <SelectContent>
+                  {taxonomyTypeOptions.map((node) => <SelectItem key={node.id} value={node.id}>{node.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+          ) : null}
+        </div>
+      ) : null}
+
+      {selectedTaxonomyAttributes.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {selectedTaxonomyAttributes.map((attribute) => {
+            if (attribute.key === 'brand' || attribute.key === 'model') {
+              const value = form[attribute.key]
+              return (
+                <Field key={attribute.key} label={attribute.label} htmlFor={`p-${attribute.key}`}>
+                  <Input id={`p-${attribute.key}`} value={value} onChange={(e) => set(attribute.key as 'brand' | 'model', e.target.value)} maxLength={attribute.key === 'brand' ? 80 : 100} />
+                </Field>
+              )
+            }
+            const value = form.attributes[attribute.key]
+            if (attribute.type === 'enum' && attribute.options) {
+              return (
+                <Field key={attribute.key} label={attribute.label} htmlFor={`p-attr-${attribute.key}`}>
+                  <Select value={typeof value === 'string' ? value : 'none'} onValueChange={(v) => set('attributes', { ...form.attributes, [attribute.key]: v })}>
+                    <SelectTrigger id={`p-attr-${attribute.key}`}><SelectValue placeholder={`Choose ${attribute.label.toLowerCase()}`} /></SelectTrigger>
+                    <SelectContent>
+                      {attribute.options.map((option) => <SelectItem key={option} value={option}>{option.replaceAll('_', ' ')}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )
+            }
+            if (attribute.type === 'boolean') {
+              return (
+                <label key={attribute.key} className="flex items-center gap-2 self-end rounded-md border px-3 py-2.5 text-sm">
+                  <Checkbox checked={value === true} onCheckedChange={(checked) => set('attributes', { ...form.attributes, [attribute.key]: checked === true })} />
+                  {attribute.label}
+                </label>
+              )
+            }
+            return (
+              <Field key={attribute.key} label={attribute.label} htmlFor={`p-attr-${attribute.key}`}>
+                <Input
+                  id={`p-attr-${attribute.key}`}
+                  type={attribute.type === 'number' ? 'number' : 'text'}
+                  value={value === undefined ? '' : String(value)}
+                  maxLength={attribute.type === 'text' ? 120 : undefined}
+                  onChange={(e) => {
+                    const nextAttributes = { ...form.attributes }
+                    if (e.target.value.trim() === '') delete nextAttributes[attribute.key]
+                    else nextAttributes[attribute.key] = attribute.type === 'number' ? Number(e.target.value) : e.target.value
+                    set('attributes', nextAttributes)
+                  }}
+                />
+              </Field>
+            )
+          })}
+        </div>
+      ) : null}
 
       {form.category === 'services' ? (
         <p className="rounded-md border border-primary/20 bg-accent/40 px-3 py-2.5 text-sm text-muted-foreground">Describe the service, the area you cover and what customers should expect. Leave the price empty if customers need to request a quote.</p>
@@ -460,6 +570,12 @@ export function EditListingForm({ id }: { id: string }) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  const selectedTaxonomyPath = form.taxonomyId !== 'none' ? taxonomyAncestors(form.taxonomyId) : []
+  const selectedTaxonomyGroup = selectedTaxonomyPath[1]?.id ?? 'none'
+  const selectedTaxonomyType = selectedTaxonomyPath[2]?.id ?? 'none'
+  const taxonomyGroupOptions = form.category !== 'none' ? taxonomyChildren(form.category) : []
+  const taxonomyTypeOptions = selectedTaxonomyGroup !== 'none' ? taxonomyChildren(selectedTaxonomyGroup) : []
+  const selectedTaxonomyAttributes = form.taxonomyId !== 'none' ? (findTaxonomyNode(form.taxonomyId)?.attributes ?? []) : []
 
   useEffect(() => {
     apiGet<{ listing: Listing }>(`/api/listings/${id}`)
@@ -470,6 +586,10 @@ export function EditListingForm({ id }: { id: string }) {
           title: listing.title,
           description: listing.description,
           category: listing.category,
+          taxonomyId: listing.taxonomyId ?? 'none',
+          brand: listing.brand ?? '',
+          model: listing.model ?? '',
+          attributes: listing.attributes ?? {},
           price: listing.price === null ? '' : String(listing.price),
           compareAtPrice: listing.type === 'OFFER' && listing.compareAtPrice !== null && listing.compareAtPrice !== undefined ? String(listing.compareAtPrice) : '',
           currency: listing.currency ?? 'UGX',
@@ -530,6 +650,10 @@ export function EditListingForm({ id }: { id: string }) {
       title: form.title,
       description: form.description,
       category: form.category === 'none' ? undefined : form.category,
+      taxonomyId: form.taxonomyId === 'none' ? null : form.taxonomyId,
+      brand: form.brand.trim() || null,
+      model: form.model.trim() || null,
+      attributes: form.attributes,
       price: priceRaw === '' ? null : Number(priceRaw),
       ...stockFields,
       currency: form.currency,
@@ -575,7 +699,13 @@ export function EditListingForm({ id }: { id: string }) {
       </Field>
 
       <Field label="Category" htmlFor="e-category" error={errors.category}>
-        <Select value={form.category} onValueChange={(v) => set('category', v)}>
+        <Select value={form.category} onValueChange={(v) => {
+          set('category', v)
+          set('taxonomyId', 'none')
+          set('attributes', {})
+          set('brand', '')
+          set('model', '')
+        }}>
           <SelectTrigger id="e-category">
             <SelectValue />
           </SelectTrigger>
@@ -588,6 +718,90 @@ export function EditListingForm({ id }: { id: string }) {
           </SelectContent>
         </Select>
       </Field>
+
+      {taxonomyGroupOptions.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Product group" htmlFor="e-taxonomy-group">
+            <Select value={selectedTaxonomyGroup} onValueChange={(v) => {
+              set('taxonomyId', v)
+              set('attributes', {})
+              set('brand', '')
+              set('model', '')
+            }}>
+              <SelectTrigger id="e-taxonomy-group"><SelectValue placeholder="Choose a product group" /></SelectTrigger>
+              <SelectContent>
+                {taxonomyGroupOptions.map((node) => <SelectItem key={node.id} value={node.id}>{node.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          {taxonomyTypeOptions.length > 0 ? (
+            <Field label="Product type" htmlFor="e-taxonomy-type">
+              <Select value={selectedTaxonomyType} onValueChange={(v) => {
+                set('taxonomyId', v)
+                set('attributes', {})
+                set('brand', '')
+                set('model', '')
+              }}>
+                <SelectTrigger id="e-taxonomy-type"><SelectValue placeholder="Choose a product type" /></SelectTrigger>
+                <SelectContent>
+                  {taxonomyTypeOptions.map((node) => <SelectItem key={node.id} value={node.id}>{node.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+          ) : null}
+        </div>
+      ) : null}
+
+      {selectedTaxonomyAttributes.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {selectedTaxonomyAttributes.map((attribute) => {
+            if (attribute.key === 'brand' || attribute.key === 'model') {
+              return (
+                <Field key={attribute.key} label={attribute.label} htmlFor={`e-${attribute.key}`}>
+                  <Input id={`e-${attribute.key}`} value={form[attribute.key]} onChange={(event) => set(attribute.key as 'brand' | 'model', event.target.value)} maxLength={attribute.key === 'brand' ? 80 : 100} />
+                </Field>
+              )
+            }
+            const value = form.attributes[attribute.key]
+            if (attribute.type === 'enum' && attribute.options) {
+              return (
+                <Field key={attribute.key} label={attribute.label} htmlFor={`e-attr-${attribute.key}`}>
+                  <Select value={typeof value === 'string' ? value : 'none'} onValueChange={(v) => set('attributes', { ...form.attributes, [attribute.key]: v })}>
+                    <SelectTrigger id={`e-attr-${attribute.key}`}><SelectValue placeholder={`Choose ${attribute.label.toLowerCase()}`} /></SelectTrigger>
+                    <SelectContent>
+                      {attribute.options.map((option) => <SelectItem key={option} value={option}>{option.replaceAll('_', ' ')}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )
+            }
+            if (attribute.type === 'boolean') {
+              return (
+                <label key={attribute.key} className="flex items-center gap-2 self-end rounded-md border px-3 py-2.5 text-sm">
+                  <Checkbox checked={value === true} onCheckedChange={(checked) => set('attributes', { ...form.attributes, [attribute.key]: checked === true })} />
+                  {attribute.label}
+                </label>
+              )
+            }
+            return (
+              <Field key={attribute.key} label={attribute.label} htmlFor={`e-attr-${attribute.key}`}>
+                <Input
+                  id={`e-attr-${attribute.key}`}
+                  type={attribute.type === 'number' ? 'number' : 'text'}
+                  value={value === undefined ? '' : String(value)}
+                  maxLength={attribute.type === 'text' ? 120 : undefined}
+                  onChange={(event) => {
+                    const nextAttributes = { ...form.attributes }
+                    if (event.target.value.trim() === '') delete nextAttributes[attribute.key]
+                    else nextAttributes[attribute.key] = attribute.type === 'number' ? Number(event.target.value) : event.target.value
+                    set('attributes', nextAttributes)
+                  }}
+                />
+              </Field>
+            )
+          })}
+        </div>
+      ) : null}
 
       {form.category === 'services' ? (
         <p className="rounded-md border border-primary/20 bg-accent/40 px-3 py-2.5 text-sm text-muted-foreground">Describe the service, the area you cover and what customers should expect. Leave the price empty if customers need to request a quote.</p>

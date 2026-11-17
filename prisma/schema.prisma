@@ -161,6 +161,10 @@ model Listing {
   title            String
   description      String
   category         String
+  taxonomyId       String? // leaf taxonomy node; null preserves legacy listings
+  brand            String?
+  model            String?
+  attributes       Json? // category-specific, validated scalar attributes
   price            Float? // in the listing's currency, null = "ask seller" / not disclosed
   compareAtPrice   Float? // optional "was" price - shown struck-through as a discount when higher than price
   currency         String    @default("UGX") // UGX
@@ -191,6 +195,7 @@ model Listing {
   @@index([status, refreshedAt])
   @@index([type, status])
   @@index([category, status])
+  @@index([taxonomyId, status])
   @@index([county, status])
   @@index([userId, status])
   @@index([expiresAt])
