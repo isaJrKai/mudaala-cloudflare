@@ -58,14 +58,15 @@ export function ShopProductBrowser({ products }: Props) {
   const [attributes, setAttributes] = useState<Record<string, string>>({})
 
   const brands = useMemo(() => [...new Set(products.map((p) => p.brand?.trim()).filter((v): v is string => Boolean(v)))].sort((a, b) => a.localeCompare(b)), [products])
+  const attributeSource = products.filter((product) => (!group || product.group === group) && (!brand || product.brand === brand))
   const filterableAttributes = useMemo(() => {
-    const keys = [...new Set(products.flatMap((p) => Object.keys(p.attributes ?? {})))]
+    const keys = [...new Set(attributeSource.flatMap((p) => Object.keys(p.attributes ?? {})))]
     return keys.filter((key) => key !== 'brand' && key !== 'model').map((key) => ({
       key,
       label: ATTRIBUTE_LABELS[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase()),
-      options: [...new Set(products.map((p) => p.attributes?.[key]).filter((v) => v !== undefined && v !== null && String(v).trim() !== '').map(String))].sort((a, b) => a.localeCompare(b)),
+      options: [...new Set(attributeSource.map((p) => p.attributes?.[key]).filter((v) => v !== undefined && v !== null && String(v).trim() !== '').map(String))].sort((a, b) => a.localeCompare(b)),
     })).filter((item) => item.options.length > 1)
-  }, [products])
+  }, [attributeSource])
   const groups = useMemo(() => [...new Set(products.map((p) => p.group))].sort((a, b) => a.localeCompare(b)), [products])
 
   const filtered = products.filter((product) => {
@@ -104,14 +105,14 @@ export function ShopProductBrowser({ products }: Props) {
         <div className="grid grid-cols-2 gap-2">
           <label className="space-y-1 text-xs text-muted-foreground">
             Product type
-            <select value={group} onChange={(event) => setGroup(event.target.value)} className="w-full rounded-md border bg-background px-2.5 py-2 text-sm text-foreground">
+            <select value={group} onChange={(event) => { setGroup(event.target.value); setAttributes({}) }} className="w-full rounded-md border bg-background px-2.5 py-2 text-sm text-foreground">
               <option value="">All types</option>
               {groups.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           </label>
           <label className="space-y-1 text-xs text-muted-foreground">
             Brand
-            <select value={brand} onChange={(event) => setBrand(event.target.value)} className="w-full rounded-md border bg-background px-2.5 py-2 text-sm text-foreground">
+            <select value={brand} onChange={(event) => { setBrand(event.target.value); setAttributes({}) }} className="w-full rounded-md border bg-background px-2.5 py-2 text-sm text-foreground">
               <option value="">All brands</option>
               {brands.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
