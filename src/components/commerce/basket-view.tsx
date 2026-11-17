@@ -452,7 +452,7 @@ function BasketShopSection({
               `Hello ${shop.name}, I'd like to ask about these items:`,
               ...sendable.map(([, line]) => `- ${line.title} · Qty: ${line.qty}${line.unit ? ' ' + line.unit : ''}${line.price !== null ? ' · ' + formatPrice(line.price, line.unit, line.currency) + ' each' : ''}`),
               'Please confirm availability and the final amount.',
-            ].join('\\n')}
+            ].join('\n')}
             label="Send enquiry in Mudaala"
             className="press h-10 w-full text-[13px]"
           />
