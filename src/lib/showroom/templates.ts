@@ -51,6 +51,6 @@ export const SHOWROOM_TEMPLATES: readonly ShowroomTemplate[] = [
 export const SHOWROOM_TEMPLATE_VERSION = 1
 export const SHOWROOM_TEMPLATE_IDS = SHOWROOM_TEMPLATES.map((template) => template.id)
 
-export function getShowroomTemplate(id: string): ShowroomTemplate | undefined {
-  return SHOWROOM_TEMPLATES.find((template) => template.id === id)
+export function getShowroomTemplate(id: string, version = SHOWROOM_TEMPLATE_VERSION): ShowroomTemplate | undefined {
+  return SHOWROOM_TEMPLATES.find((template) => template.id === id && template.version === version)
 }
