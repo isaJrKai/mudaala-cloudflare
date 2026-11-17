@@ -25,7 +25,7 @@ export function InAppEnquiryButton({
   label = 'Message seller',
   className,
 }: Props) {
-  const { user } = useSession()
+  const { user, isLoading } = useSession()
   const { navigate, setAuthOpen } = useAppStore()
   const { toast } = useToast()
   const [open, setOpen] = useState(false)
@@ -34,6 +34,7 @@ export function InAppEnquiryButton({
   const [error, setError] = useState('')
 
   function startEnquiry() {
+    if (isLoading) return
     if (!user) {
       setAuthOpen(true)
       return
@@ -68,7 +69,7 @@ export function InAppEnquiryButton({
 
   return (
     <>
-      <Button type="button" variant="outline" className={className} onClick={startEnquiry}>
+      <Button type="button" variant="outline" className={className} onClick={startEnquiry} disabled={isLoading}>
         <MessageCircle className="size-4" aria-hidden />
         {label}
       </Button>
