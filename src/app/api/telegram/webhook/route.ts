@@ -149,7 +149,14 @@ async function setShopMenuButton(chatId: number): Promise<void> {
   const response = await fetch(telegramApiUrl(token, 'setChatMenuButton'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, menu_button: { type: 'commands' } }),
+    body: JSON.stringify({
+      chat_id: chatId,
+      menu_button: {
+        type: 'web_app',
+        text: 'My Shop',
+        web_app: { url: 'https://mudaala.store/telegram' },
+      },
+    }),
     signal: AbortSignal.timeout(8000),
   })
   if (!response.ok) throw new Error('Telegram setChatMenuButton failed with HTTP ' + response.status)
