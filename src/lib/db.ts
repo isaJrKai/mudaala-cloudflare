@@ -31,9 +31,8 @@ function runtimeDatabaseUrl(): string {
 
 function createPrisma(): PrismaClient {
   const connectionString = runtimeDatabaseUrl()
-  // Hyperdrive owns the shared, cross-isolate database pool. This client-side
-  // pool exists only for one request, so keep it small and fail fast if a
-  // connection cannot be acquired rather than letting the Worker hang.
+  // Hyperdrive owns the shared, cross-isolate database pool. Keep the
+  // isolate-local driver pool deliberately small and fail fast on acquisition.
   const adapter = new PrismaPg({
     connectionString,
     max: 5,
@@ -46,11 +45,8 @@ function createPrisma(): PrismaClient {
 }
 
 /**
- * Run one request with one Prisma client. Cloudflare Workers do not preserve
- * driver pools safely across invocations; Hyperdrive keeps the upstream pool
- * warm, so create the client in the request context and close it before the
- * invocation ends. AsyncLocalStorage lets every db.* call in that request
- * reuse the same client without sharing it with concurrent requests.
+ * Establish a request scope for local/test execution. In production, the
+ * isolate-local Prisma client is reused and Hyperdrive manages upstream pooling.
  */
 export async function withRequestDb<T>(handler: () => Promise<T>): Promise<T> {
   return requestDatabaseScope.run({}, async () => {
@@ -90,10 +86,7 @@ function getPrisma(): PrismaClient {
   }
 
   // Direct database access outside an HTTP request is used by local tooling
-  // and seed/test scripts only. Never keep a production Worker pool globally.
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('Database access must run inside withRequestDb() in production')
-  }
+  // and seed/test scripts only.
   if (!cachedLocalPrisma) cachedLocalPrisma = createPrisma()
   return cachedLocalPrisma
 }
