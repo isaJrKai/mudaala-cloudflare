@@ -811,6 +811,64 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     return
   }
 
+  // Buyer inbox and replies are keyed to the protected Telegram buyer hash;
+  // they must remain usable for guest enquiries without merchant account linking.
+  if (command === '/messages') {
+    const buyerHash = buyerIdentityHash(telegramUserId)
+    const enquiries = await db.enquiry.findMany({
+      where: { buyerTelegramHash: buyerHash, status: 'OPEN' },
+      include: { listing: { select: { title: true } }, messages: { orderBy: { createdAt: 'desc' }, take: 1 } },
+      orderBy: { lastMessageAt: 'desc' },
+      take: 10,
+    })
+    if (!enquiries.length) {
+      await sendMessage(chatId, 'You have no open Mudaala enquiries yet.')
+      return
+    }
+    const lines = enquiries.map((item) => item.listing.title + '\\nLatest: ' + (item.messages[0]?.body || 'Enquiry created') + '\\n/respond ' + item.id + ' your message')
+    await sendMessage(chatId, 'Your recent Mudaala enquiries:\\n\\n' + lines.join('\\n\\n'))
+    return
+  }
+
+  if (command === '/respond') {
+    const enquiryId = parts[1] || ''
+    const replyText = parts.slice(2).join(' ').trim().slice(0, 1200)
+    if (!enquiryId || !replyText) {
+      await sendMessage(chatId, 'Use /respond ENQUIRY_ID your message')
+      return
+    }
+    const enquiry = await db.enquiry.findFirst({
+      where: { id: enquiryId, status: 'OPEN', buyerTelegramHash: buyerIdentityHash(telegramUserId) },
+      select: { id: true, merchantId: true, listing: { select: { title: true } } },
+    })
+    if (!enquiry) {
+      await sendMessage(chatId, 'That open enquiry was not found for your Telegram account. Check the enquiry reference and try again.')
+      return
+    }
+    const created = await db.enquiryMessage.create({
+      data: { enquiryId: enquiry.id, senderType: 'SHOPPER', senderUserId: null, body: replyText, deliveryStatus: 'PENDING' },
+    })
+    await db.enquiry.update({ where: { id: enquiry.id }, data: { lastMessageAt: created.createdAt } })
+    const merchantSetting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + enquiry.merchantId } })
+    let destination: number | null = null
+    if (merchantSetting) {
+      try {
+        const settings = JSON.parse(merchantSetting.value) as { activatedAt?: unknown; chatId?: unknown }
+        if (typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)) destination = settings.chatId as number
+      } catch { /* no active merchant Telegram destination */ }
+    }
+    let delivered = false
+    if (destination !== null) {
+      try {
+        await sendMessage(destination, 'Mudaala enquiry · ' + enquiry.listing.title + '\\nReference: ' + enquiry.id + '\\n\\n' + replyText)
+        delivered = true
+      } catch { delivered = false }
+    }
+    await db.enquiryMessage.update({ where: { id: created.id }, data: { deliveryStatus: delivered ? 'SENT' : 'FAILED' } })
+    await sendMessage(chatId, delivered ? 'Your reply was sent.' : 'Your reply was saved, but Telegram could not deliver it. Please retry later.')
+    return
+  }
+
   const mapping = await db.appSetting.findUnique({ where: { key: telegramKey(telegramUserId) } })
   if (!mapping || await linkedMudaalaUserId(telegramUserId) === null) {
     await sendMessage(chatId, 'Connect your Mudaala account first with /link CODE. You can generate a code in Mudaala Account.')
