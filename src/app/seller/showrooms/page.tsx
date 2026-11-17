@@ -102,6 +102,26 @@ export default function SellerShowroomsPage() {
     return () => { active = false }
   }, [])
 
+  function chooseCover(photo: string) {
+    if (photo === coverPhotoUrl) return
+    setPhotos((current) => [coverPhotoUrl, ...current.filter((item) => item !== photo)].filter(Boolean).slice(0, 15))
+    setCoverPhotoUrl(photo)
+  }
+
+  function movePhoto(index: number, direction: -1 | 1) {
+    setPhotos((current) => {
+      const next = [...current]
+      const target = index + direction
+      if (target < 0 || target >= next.length) return current
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    })
+  }
+
+  function removePhoto(photo: string) {
+    setPhotos((current) => current.filter((item) => item !== photo))
+  }
+
   async function uploadPhoto(file?: File) {
     if (!file) return
     setUploading(true)
@@ -205,7 +225,10 @@ export default function SellerShowroomsPage() {
                 <div className="rounded-xl border border-black/10 bg-[#faf9f6] p-4"><p className="text-xs font-medium">Your brand colours</p><div className="mt-3 flex gap-4"><label className="flex items-center gap-2 text-[10px] text-neutral-500">Main<input type="color" value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value)} className="h-8 w-8 cursor-pointer rounded border-0 bg-transparent" /></label><label className="flex items-center gap-2 text-[10px] text-neutral-500">Accent<input type="color" value={accentColor} onChange={(event) => setAccentColor(event.target.value)} className="h-8 w-8 cursor-pointer rounded border-0 bg-transparent" /></label></div></div>
               </div>
               <label className="mt-4 flex cursor-pointer items-center justify-center gap-3 rounded-xl border border-dashed border-black/20 bg-[#faf9f6] px-4 py-6 text-sm hover:border-[#47734d]">{uploading ? 'Uploading photo…' : '＋ Add a showroom photo'}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={uploading} onChange={(event) => { void uploadPhoto(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>
-              {coverPhotoUrl && <div className="mt-4 grid grid-cols-3 gap-3"><div className="relative aspect-square overflow-hidden rounded-lg"><Image src={coverPhotoUrl} alt="Selected showroom cover" fill unoptimized sizes="120px" className="object-cover" /><span className="absolute bottom-1 left-1 rounded bg-black/65 px-2 py-1 text-[9px] text-white">Cover</span></div>{photos.map((photo, index) => <div key={photo} className="relative aspect-square overflow-hidden rounded-lg"><Image src={photo} alt={`Showroom photo ${index + 2}`} fill unoptimized sizes="120px" className="object-cover" /></div>)}</div>}
+              {(coverPhotoUrl || photos.length > 0) && <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {coverPhotoUrl && <div className="min-w-0"><div className="relative aspect-square overflow-hidden rounded-lg"><Image src={coverPhotoUrl} alt="Selected showroom cover" fill unoptimized sizes="120px" className="object-cover" /><span className="absolute bottom-1 left-1 rounded bg-black/65 px-2 py-1 text-[9px] text-white">Cover image</span></div><button type="button" onClick={() => { const next = photos[0] || ''; setPhotos((current) => current.slice(1)); setCoverPhotoUrl(next) }} className="mt-2 text-[10px] font-medium text-red-700">Remove cover</button></div>}
+                {photos.map((photo, index) => <div key={photo} className="min-w-0"><div className="relative aspect-square overflow-hidden rounded-lg"><Image src={photo} alt={`Showroom photo ${index + 2}`} fill unoptimized sizes="120px" className="object-cover" /></div><div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]"><button type="button" onClick={() => chooseCover(photo)} className="font-semibold text-[#47734d]">Use as cover</button><button type="button" disabled={index === 0} onClick={() => movePhoto(index, -1)} className="disabled:opacity-30">Move left</button><button type="button" disabled={index === photos.length - 1} onClick={() => movePhoto(index, 1)} className="disabled:opacity-30">Move right</button><button type="button" onClick={() => removePhoto(photo)} className="text-red-700">Remove</button></div></div>)}
+              </div>}
               <p className="mt-3 text-[10px] text-neutral-400">JPEG, PNG or WebP · up to 8 MB each</p>
             </div>
 
