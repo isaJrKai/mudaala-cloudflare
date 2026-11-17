@@ -310,7 +310,7 @@ export function PublishForm() {
               const value = form[attribute.key]
               return (
                 <Field key={attribute.key} label={attribute.label} htmlFor={`p-${attribute.key}`}>
-                  <Input id={`p-${attribute.key}`} value={value} onChange={(e) => set(attribute.key, e.target.value)} maxLength={attribute.key === 'brand' ? 80 : 100} />
+                  <Input id={`p-${attribute.key}`} value={value} onChange={(e) => set(attribute.key as 'brand' | 'model', e.target.value)} maxLength={attribute.key === 'brand' ? 80 : 100} />
                 </Field>
               )
             }
@@ -758,7 +758,7 @@ export function EditListingForm({ id }: { id: string }) {
             if (attribute.key === 'brand' || attribute.key === 'model') {
               return (
                 <Field key={attribute.key} label={attribute.label} htmlFor={`e-${attribute.key}`}>
-                  <Input id={`e-${attribute.key}`} value={form[attribute.key]} onChange={(event) => set(attribute.key, event.target.value)} maxLength={attribute.key === 'brand' ? 80 : 100} />
+                  <Input id={`e-${attribute.key}`} value={form[attribute.key]} onChange={(event) => set(attribute.key as 'brand' | 'model', event.target.value)} maxLength={attribute.key === 'brand' ? 80 : 100} />
                 </Field>
               )
             }
