@@ -79,6 +79,10 @@ export interface Listing {
   title: string
   description: string
   category: string
+  taxonomyId?: string | null
+  brand?: string | null
+  model?: string | null
+  attributes?: Record<string, string | number | boolean> | null
   price: number | null
   compareAtPrice: number | null
   currency: string
