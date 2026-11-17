@@ -72,8 +72,11 @@ export function rankDiscoveryCandidates(
   const scored = candidates
     .filter((candidate) => candidate.id && candidate.userId && !excluded.has(candidate.id))
     .map((candidate) => {
-      const candidateTokens = tokens(candidate.title + ' ' + (candidate.description ?? ''))
-      const overlap = [...queryTokens].filter((token) => candidateTokens.has(token)).length
+      // Plain Browse has no text query, so tokenizing every title and description
+      // only burns Worker CPU without affecting its relevance score.
+      const overlap = queryTokens.size === 0
+        ? 0
+        : [...queryTokens].filter((token) => tokens(candidate.title + ' ' + (candidate.description ?? '')).has(token)).length
       const relevance = context.query
         ? clamp(overlap / Math.max(1, queryTokens.size), 0, 1) * 40 + (context.category === candidate.category ? 8 : 0)
         : (context.category === candidate.category ? 32 : 0)
