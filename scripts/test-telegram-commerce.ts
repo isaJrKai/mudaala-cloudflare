@@ -13,6 +13,8 @@ import { readFile } from 'node:fs/promises'
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
 import { PrismaClient } from '@prisma/client'
+import { listingCreateSchema } from '../src/lib/validation'
+import { publishListingForSeller } from '../src/lib/listing-publisher'
 
 const db = new PrismaClient()
 const BASE = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '')
@@ -119,6 +121,42 @@ async function run() {
     data: { userId: merchant.id, businessName: 'Telegram boundary test shop ' + suffix, phone: merchant.phone },
   })
   const merchantListing = await createListing(merchant.id, merchant.phone, 0)
+
+  // A retry of the same server-side Telegram draft must return its original
+  // listing, not create a second public listing.
+  const idempotentListingData = listingCreateSchema.parse({
+    type: 'OFFER',
+    title: 'Telegram idempotency product ' + suffix,
+    description: 'A test product used to verify safe retry behaviour for Telegram publishing.',
+    category: 'electronics',
+    price: 125000,
+    priceNegotiable: false,
+    unit: 'piece',
+    quantity: null,
+    county: 'Kampala',
+    country: 'UG',
+    area: null,
+    contactPhone: merchant.phone,
+    contactWhatsapp: null,
+    photos: [],
+  })
+  const publicationKey = 'telegram-draft-test:' + suffix
+  settingKeys.push('listing-publish:' + createHash('sha256').update(publicationKey).digest('hex'))
+  const firstPublication = await publishListingForSeller({
+    seller: { id: merchant.id, country: 'UG' },
+    data: idempotentListingData,
+    ipKey: 'telegram-test-' + suffix,
+    idempotencyKey: publicationKey,
+  })
+  const retryPublication = await publishListingForSeller({
+    seller: { id: merchant.id, country: 'UG' },
+    data: idempotentListingData,
+    ipKey: 'telegram-test-' + suffix,
+    idempotencyKey: publicationKey,
+  })
+  listingIds.push(firstPublication.id)
+  assert.equal(retryPublication.id, firstPublication.id, 'repeating a Telegram draft publication returns the original listing')
+  assert.equal(await db.listing.count({ where: { id: firstPublication.id, userId: merchant.id } }), 1, 'idempotent publication creates only one listing')
 
   const merchantSettingKey = 'telegram:merchant:' + merchant.id
   settingKeys.push(merchantSettingKey)
@@ -347,8 +385,26 @@ async function run() {
     message: { text: '/start', chat: { id: merchantTelegramId, type: 'private' }, from: { id: merchantTelegramId } },
   })
   assertStatus(merchantStart.status, 200, 'linked merchant start command')
-  assert.ok(telegramRequests.some((item) => item.method === 'setChatMenuButton'), 'linked merchant start configures the official Telegram Mini App menu button')
+  assert.ok(telegramRequests.some((item) => item.method === 'setChatMenuButton' && (item.body.menu_button as { type?: string })?.type === 'commands'), 'linked merchant start configures Telegram menu to show bot commands')
+  assert.ok(telegramRequests.some((item) => item.method === 'setMyCommands'), 'linked merchant start registers the human-readable command menu')
   assert.ok(await db.appSetting.findUnique({ where: { key: merchantChatKey } }), 'merchant /start creates a private chat route')
+
+  const greeting = await postTelegramUpdate({
+    update_id: updateBase + 21,
+    message: { text: 'Hello, how are you?', chat: { id: merchantTelegramId, type: 'private' }, from: { id: merchantTelegramId } },
+  })
+  assertStatus(greeting.status, 200, 'ordinary greeting')
+  const greetingMessage = telegramRequests.filter((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId).at(-1)
+  assert.ok(greetingMessage && String(greetingMessage.body.text).includes('Hello! I am here to help'), 'ordinary greetings receive a deterministic response')
+
+  const postPrompt = await postTelegramUpdate({
+    update_id: updateBase + 22,
+    message: { text: 'Post a product', chat: { id: merchantTelegramId, type: 'private' }, from: { id: merchantTelegramId } },
+  })
+  assertStatus(postPrompt.status, 200, 'merchant post-a-product menu action')
+  const postPromptMessage = telegramRequests.filter((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId).at(-1)
+  assert.ok(postPromptMessage && String(postPromptMessage.body.text).includes('Send one clear photo'), 'post-a-product menu action starts the photo workflow')
+
   const assistantFallback = await postTelegramUpdate({
     update_id: updateBase + 13,
     message: { text: 'Can you tell me what products are available?', chat: { id: buyerTelegramId, type: 'private' }, from: { id: buyerTelegramId } },
@@ -402,6 +458,40 @@ async function run() {
   assert.equal(unusedGuestToken?.usedAt, null, 'another Telegram user cannot consume a buyer confirmation')
   const enquiriesForListing = await db.enquiry.count({ where: { listingId: merchantListing.id } })
   assert.equal(enquiriesForListing, 1, 'forwarded callback does not create a second enquiry')
+
+  // A guest buyer who has not linked a Mudaala account can still read and
+  // continue the enquiry they explicitly confirmed in Telegram.
+  const validGuestConfirmation = await postTelegramUpdate({
+    update_id: updateBase + 23,
+    callback_query: {
+      id: 'valid-guest-' + suffix,
+      from: { id: secondBuyerTelegramId },
+      message: { chat: { id: secondBuyerTelegramId, type: 'private' } },
+      data: secondMarkup.inline_keyboard?.[0]?.[0]?.callback_data,
+    },
+  })
+  assertStatus(validGuestConfirmation.status, 200, 'guest buyer enquiry confirmation')
+  const secondBuyerHash = createHmac('sha256', process.env.SETTINGS_ENCRYPTION_KEY || process.env.SETTINGS_ENC_KEY || '')
+    .update('mudaala:telegram-buyer:v1:').update(String(secondBuyerTelegramId)).digest('hex')
+  const guestEnquiry = await db.enquiry.findFirst({
+    where: { listingId: merchantListing.id, buyerTelegramHash: secondBuyerHash },
+  })
+  assert.ok(guestEnquiry, 'guest buyer enquiry is persisted without requiring account linking')
+
+  const guestMessages = await postTelegramUpdate({
+    update_id: updateBase + 24,
+    message: { text: '/messages', chat: { id: secondBuyerTelegramId, type: 'private' }, from: { id: secondBuyerTelegramId } },
+  })
+  assertStatus(guestMessages.status, 200, 'unlinked guest buyer messages command')
+  assert.ok(telegramRequests.some((item) => item.method === 'sendMessage' && item.body.chat_id === secondBuyerTelegramId && String(item.body.text).includes(guestEnquiry!.id)), 'unlinked buyer can retrieve their own enquiry')
+
+  const guestReplyText = 'Is the item still available?'
+  const guestReply = await postTelegramUpdate({
+    update_id: updateBase + 25,
+    message: { text: '/respond ' + guestEnquiry!.id + ' ' + guestReplyText, chat: { id: secondBuyerTelegramId, type: 'private' }, from: { id: secondBuyerTelegramId } },
+  })
+  assertStatus(guestReply.status, 200, 'unlinked guest buyer enquiry reply')
+  assert.ok(telegramRequests.some((item) => item.method === 'sendMessage' && item.body.chat_id === merchantTelegramId && String(item.body.text).includes(guestReplyText)), 'unlinked buyer reply is relayed to the selected seller')
 
   const selfEnquiry = await requestJson('/api/telegram/contact-token', {
     method: 'POST',
