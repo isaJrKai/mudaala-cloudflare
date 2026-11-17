@@ -15,6 +15,7 @@ export interface DiscoveryCandidate {
   publishedAt: Date
   refreshedAt?: Date
   viewCount?: number
+  views7d?: number
   callClicks7d?: number
   whatsappClicks7d?: number
   shareClicks7d?: number
@@ -78,7 +79,7 @@ export function rankDiscoveryCandidates(
         : (context.category === candidate.category ? 32 : 0)
       const age = ageHours(candidate.refreshedAt ?? candidate.publishedAt, now)
       const freshness = 18 * Math.exp(-age / (24 * 7))
-      const views = Math.max(0, candidate.viewCount ?? 0)
+      const views = Math.max(0, candidate.views7d ?? candidate.viewCount ?? 0)
       const contacts = Math.max(0, candidate.callClicks7d ?? 0) + Math.max(0, candidate.whatsappClicks7d ?? 0)
       const shares = Math.max(0, candidate.shareClicks7d ?? 0)
       // Contacts matter more than passive views. Log-scaled values limit gaming.
