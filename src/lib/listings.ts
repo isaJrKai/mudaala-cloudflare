@@ -260,7 +260,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     }), {
       now,
       category: query.category,
-      limit: Math.min(100, Math.max(1, candidates.length)),
+      limit: Math.max(1, candidates.length),
       rotationBucket: Number(kampalaToday.replaceAll('-', '')),
     })
     const pageStart = (page - 1) * pageSize
