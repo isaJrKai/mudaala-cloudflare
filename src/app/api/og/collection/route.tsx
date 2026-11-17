@@ -1,7 +1,5 @@
 import { ImageResponse } from 'next/og'
 
-export const runtime = 'edge'
-
 const WIDTH = 1200
 const HEIGHT = 630
 const CREAM = '#f9f7f4'
@@ -11,8 +9,8 @@ const MUTED = '#6b675e'
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams
-  const title = (params.get('title') || 'A collection of products').replace(/\s+/g, ' ').trim().slice(0, 100)
-  const shop = (params.get('shop') || 'Local businesses').replace(/\s+/g, ' ').trim().slice(0, 80)
+  const title = (params.get('title') || 'A collection of products').replace(/\\s+/g, ' ').trim().slice(0, 100)
+  const shop = (params.get('shop') || 'Local businesses').replace(/\\s+/g, ' ').trim().slice(0, 80)
 
   const image = new ImageResponse(
     (
