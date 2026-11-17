@@ -7,7 +7,7 @@ import { apiFetch } from '@/lib/client'
 import { SHOWROOM_TEMPLATES, type ShowroomTemplate } from '@/lib/showroom/templates'
 
 type Product = { id: string; title: string; category: string; price: number | null; currency: string; photos: string[] }
-type Existing = { id: string; slug: string; title: string; templateId: string; status: string; updatedAt: string }
+type Existing = { id: string; slug: string; title: string; templateId: string; status: string; updatedAt: string; headline?: string | null; introduction?: string | null; story?: string | null; logoUrl?: string | null; primaryColor?: string | null; accentColor?: string | null; coverPhotoUrl?: string | null; photos?: string[]; sections?: Array<{ heading?: string; body?: string }>; listingIds?: string[] }
 type Upload = { url: string }
 type ApiResponse = { showrooms: Existing[] }
 type ProductResponse = { products: Product[] }
@@ -58,6 +58,7 @@ export default function SellerShowroomsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [listingIds, setListingIds] = useState<string[]>([])
   const [showrooms, setShowrooms] = useState<Existing[]>([])
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -75,6 +76,24 @@ export default function SellerShowroomsPage() {
       if (!active) return
       setShowrooms(showroomData.showrooms)
       setProducts(productData.products)
+      const editId = new URLSearchParams(window.location.search).get('edit')
+      const existing = showroomData.showrooms.find((item) => item.id === editId)
+      if (existing) {
+        setEditingId(existing.id)
+        setSelected(existing.templateId)
+        setTitle(existing.title)
+        setHeadline(existing.headline || '')
+        setIntroduction(existing.introduction || '')
+        setStory(existing.story || '')
+        setLogoUrl(existing.logoUrl || '')
+        setPrimaryColor(existing.primaryColor || '#47734d')
+        setAccentColor(existing.accentColor || '#dfa02c')
+        setCoverPhotoUrl(existing.coverPhotoUrl || '')
+        setPhotos(existing.photos || [])
+        setListingIds(existing.listingIds || [])
+        setSectionHeading(existing.sections?.[0]?.heading || '')
+        setSectionBody(existing.sections?.[0]?.body || '')
+      }
     }).catch((err) => {
       if (active) setError(err instanceof Error ? err.message : 'Could not load your shop data. Sign in and try again.')
     }).finally(() => { if (active) setLoading(false) })
