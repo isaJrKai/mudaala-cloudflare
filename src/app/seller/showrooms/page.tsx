@@ -158,7 +158,7 @@ export default function SellerShowroomsPage() {
       const result = editingId
         ? await apiFetch<{ showroom: Existing }>('/api/showrooms/' + encodeURIComponent(editingId), { method: 'PATCH', body: JSON.stringify(payload) })
         : await apiFetch<{ showroom: Existing }>('/api/showrooms', { method: 'POST', body: JSON.stringify(payload) })
-      if (status === 'PUBLISHED') router.push(`/showroom/${result.showroom.slug}`)
+      if (nextStatus === 'PUBLISHED') router.push(`/showroom/${result.showroom.slug}`)
       else router.push(`/seller/showrooms/${result.showroom.slug}/preview`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Your showroom could not be saved.')
