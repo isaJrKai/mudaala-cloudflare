@@ -342,6 +342,42 @@ async function run() {
   const strangerMessages = await requestJson('/api/enquiries/' + encodeURIComponent(enquiry.id) + '/messages', {}, stranger.token)
   assertStatus(strangerMessages.status, 404, 'unrelated account cannot read enquiry messages')
 
+  const inAppListing = await createListing(merchant.id, merchant.phone, 101)
+  const inAppStart = await requestJson('/api/enquiries', {
+    method: 'POST',
+    body: JSON.stringify({ listingId: inAppListing.id, message: 'Hello, is this product available?' }),
+  }, shopper.token)
+  assertStatus(inAppStart.status, 201, 'buyer starts an in-app enquiry')
+  const inAppEnquiryId = String(inAppStart.body.enquiry.id)
+  const inAppRecord = await db.enquiry.findUnique({ where: { id: inAppEnquiryId }, include: { messages: true } })
+  assert.ok(inAppRecord, 'in-app enquiry is persisted')
+  assert.equal(inAppRecord.contactChannel, 'IN_APP', 'web enquiry is identified as an in-app conversation')
+  assert.equal(inAppRecord.messages.length, 1, 'first buyer message is stored in the conversation')
+  assert.equal(inAppRecord.messages[0]!.deliveryStatus, 'SENT', 'first message is available in Mudaala without Telegram')
+  const merchantNotification = await db.notification.findFirst({
+    where: { userId: merchant.id, dedupeKey: 'enquiry-message:' + inAppRecord.messages[0]!.id },
+  })
+  assert.ok(merchantNotification, 'seller receives a persistent Mudaala notification while offline')
+  assert.equal(merchantNotification.actionUrl, '/#/enquiries', 'seller notification opens the shared message inbox')
+
+  const inAppMerchantInbox = await requestJson('/api/enquiries', {}, merchant.token)
+  assert.ok(inAppMerchantInbox.body.enquiries.some((item: { id: string }) => item.id === inAppEnquiryId), 'seller sees the new in-app enquiry in Enquiries')
+  const inAppMerchantReply = await requestJson('/api/enquiries/' + encodeURIComponent(inAppEnquiryId) + '/messages', {
+    method: 'POST',
+    body: JSON.stringify({ message: 'Yes, it is available. You can ask me here.' }),
+  }, merchant.token)
+  assertStatus(inAppMerchantReply.status, 201, 'seller replies inside Mudaala')
+  assert.equal(inAppMerchantReply.body.message.deliveryStatus, 'SENT', 'in-app reply succeeds without a Telegram connection')
+  const inAppShopperMessages = await requestJson('/api/enquiries/' + encodeURIComponent(inAppEnquiryId) + '/messages', {}, shopper.token)
+  assertStatus(inAppShopperMessages.status, 200, 'buyer can read the seller reply later')
+  assert.equal(inAppShopperMessages.body.messages.length, 2, 'both participants see the complete in-app thread')
+  const shopperNotification = await db.notification.findFirst({
+    where: { userId: shopper.id, actionUrl: '/#/enquiries', title: 'New message about ' + inAppRecord.messages[0]!.body },
+  })
+  assert.ok(shopperNotification || await db.notification.findFirst({
+    where: { userId: shopper.id, actionUrl: '/#/enquiries', body: 'The shop replied to your enquiry.' },
+  }), 'buyer receives a persistent notification for the seller reply')
+
   const merchantReply = 'The seller can confirm the item at the shop today.'
   const sellerReplyUpdate = await postTelegramUpdate({
     update_id: updateBase + 5,
