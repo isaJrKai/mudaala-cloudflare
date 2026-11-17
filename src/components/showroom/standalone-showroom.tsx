@@ -81,7 +81,7 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
   if (error || !payload || !template) return <main className="grid min-h-screen place-items-center bg-[#f5f0e7] px-6 text-center text-[#292820]"><div><p className="text-xs uppercase tracking-[.2em] opacity-60">Mudaala showroom</p><h1 className="mt-4 text-3xl font-semibold">This showroom is unavailable</h1><p className="mt-3 text-sm opacity-70">The shop may have unpublished this page or changed its address.</p><a href="/" className="mt-7 inline-block border-b border-current pb-1 text-sm">Explore Mudaala</a></div></main>
 
   const { showroom, shop, products } = payload
-  const accent = showroom.accentColor || accents[template.accent] || '#47734d'
+  const primary = showroom.primaryColor || accents[template.accent] || '#47734d'\n  const accent = showroom.accentColor || accents[template.accent] || primary
   const surface = surfaces[template.surface] || surfaces.paper
   const heroPhoto = showroom.coverPhotoUrl || showroom.photos[0] || null
   const whatsapp = (shop.whatsapp || shop.phone || '').replace(/\D/g, '')
@@ -150,7 +150,7 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
       <footer className="mx-auto max-w-[1440px] px-5 py-12 sm:px-10 sm:py-16">
         <div className="grid gap-10 sm:grid-cols-2 sm:items-end">
           <div><p className="text-[10px] uppercase tracking-[.2em] opacity-50">Visit or get in touch</p><h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{shop.name}</h2><p className="mt-3 text-sm opacity-65">{[shop.area, shop.county].filter(Boolean).join(', ')}</p>{shop.hours && <p className="mt-2 text-xs opacity-55">{shop.hours}</p>}{shop.shopCode && <p className="mt-4 text-[10px] uppercase tracking-[.18em] opacity-50">Mudaala shop code · {shop.shopCode}</p>}</div>
-          <div className="flex flex-wrap gap-3 sm:justify-end">{whatsapp && <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer" className="px-5 py-3 text-xs font-semibold" style={{ backgroundColor: accent, color: '#fff' }}>WhatsApp the shop ↗</a>}{shop.phone && <a href={`tel:${shop.phone}`} className="border border-current/25 px-5 py-3 text-xs font-semibold">Call the shop</a>}{shop.websiteUrl && <a href={shop.websiteUrl} target="_blank" rel="noreferrer" className="border border-current/25 px-5 py-3 text-xs font-semibold">Website ↗</a>}</div>
+          <div className="flex flex-wrap gap-3 sm:justify-end">{whatsapp && <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer" className="px-5 py-3 text-xs font-semibold" style={{ backgroundColor: primary, color: '#fff' }}>WhatsApp the shop ↗</a>}{shop.phone && <a href={`tel:${shop.phone}`} className="border border-current/25 px-5 py-3 text-xs font-semibold">Call the shop</a>}{shop.websiteUrl && <a href={shop.websiteUrl} target="_blank" rel="noreferrer" className="border border-current/25 px-5 py-3 text-xs font-semibold">Website ↗</a>}</div>
         </div>
         <div className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-current/15 pt-5 text-[10px] opacity-45"><span>{shop.name} · {template.name}</span><span>Independent shop on Mudaala</span></div>
       </footer>
