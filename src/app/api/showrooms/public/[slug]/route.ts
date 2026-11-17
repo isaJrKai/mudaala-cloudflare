@@ -1,4 +1,4 @@
-import { ApiError, jsonOk, route as apiRoute } from '@/lib/api'
+import { ApiError, jsonOk, requireSeller, route as apiRoute } from '@/lib/api'
 import { db } from '@/lib/db'
 
 type Params = { params: Promise<{ slug: string }> }
@@ -10,7 +10,7 @@ function readArray(value: string): string[] {
   } catch { return [] }
 }
 
-export async function GET(_request: Request, { params }: Params) {
+export async function GET(request: Request, { params }: Params) {
   return apiRoute(async () => {
     const { slug } = await params
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 80) {
