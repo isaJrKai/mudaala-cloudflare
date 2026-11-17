@@ -18,6 +18,7 @@ import { Check, CheckCircle2, Minus, Phone, Plus, Smartphone, Store, Trash2, Tri
 import { Button } from '@/components/ui/button'
 import { ToastAction } from '@/components/ui/toast'
 import { PaySheet } from '@/components/commerce/pay-sheet'
+import { InAppEnquiryButton } from './in-app-enquiry-button'
 import { WhatsAppIcon } from '@/components/commerce/brand-icons'
 import { apiGet } from '@/lib/client'
 import type { ListingDetail, ShopPage } from '@/lib/client'
@@ -442,6 +443,20 @@ function BasketShopSection({
             <Smartphone className="size-4" aria-hidden /> {copy.basket.nothingReadyToPay}
           </Button>
         )}
+
+        {sendable.length > 0 ? (
+          <InAppEnquiryButton
+            listingId={sendable[0][0]}
+            shopName={shop.name}
+            initialMessage={[
+              `Hello ${shop.name}, I'd like to ask about these items:`,
+              ...sendable.map(([, line]) => `- ${line.title} · Qty: ${line.qty}${line.unit ? ' ' + line.unit : ''}${line.price !== null ? ' · ' + formatPrice(line.price, line.unit, line.currency) + ' each' : ''}`),
+              'Please confirm availability and the final amount.',
+            ].join('\\n')}
+            label="Send enquiry in Mudaala"
+            className="press h-10 w-full text-[13px]"
+          />
+        ) : null}
 
         {sendable.length > 0 && shop.whatsapp ? (
           <div className="flex flex-col gap-2 sm:flex-row">
