@@ -137,24 +137,24 @@ export default function SellerShowroomsPage() {
     setBusy(true)
     setError('')
     try {
-      const result = await apiFetch<{ showroom: Existing }>('/api/showrooms', {
-        method: 'POST',
-        body: JSON.stringify({
-          templateId: selected,
-          title: title.trim() || chosen.name,
-          headline: headline.trim() || null,
-          introduction: introduction.trim() || null,
-          story: story.trim() || null,
-          sections: sectionHeading.trim() || sectionBody.trim() ? [{ heading: sectionHeading.trim() || undefined, body: sectionBody.trim() || undefined }] : [],
-          coverPhotoUrl: coverPhotoUrl || null,
-          logoUrl: logoUrl || null,
-          primaryColor,
-          accentColor,
-          photos,
-          listingIds,
-          status,
-        }),
-      })
+      const payload = {
+        templateId: selected,
+        title: title.trim() || chosen.name,
+        headline: headline.trim() || null,
+        introduction: introduction.trim() || null,
+        story: story.trim() || null,
+        sections: sectionHeading.trim() || sectionBody.trim() ? [{ heading: sectionHeading.trim() || undefined, body: sectionBody.trim() || undefined }] : [],
+        coverPhotoUrl: coverPhotoUrl || null,
+        logoUrl: logoUrl || null,
+        primaryColor,
+        accentColor,
+        photos,
+        listingIds,
+        status,
+      }
+      const result = editingId
+        ? await apiFetch<{ showroom: Existing }>('/api/showrooms/' + encodeURIComponent(editingId), { method: 'PATCH', body: JSON.stringify(payload) })
+        : await apiFetch<{ showroom: Existing }>('/api/showrooms', { method: 'POST', body: JSON.stringify(payload) })
       if (status === 'PUBLISHED') router.push(`/showroom/${result.showroom.slug}`)
       else router.push(`/seller/showrooms/${result.showroom.slug}/preview`)
     } catch (err) {
