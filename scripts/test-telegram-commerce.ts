@@ -385,7 +385,7 @@ async function run() {
     message: { text: '/start', chat: { id: merchantTelegramId, type: 'private' }, from: { id: merchantTelegramId } },
   })
   assertStatus(merchantStart.status, 200, 'linked merchant start command')
-  assert.ok(telegramRequests.some((item) => item.method === 'setChatMenuButton' && (item.body.menu_button as { type?: string })?.type === 'commands'), 'linked merchant start configures Telegram menu to show bot commands')
+  assert.ok(telegramRequests.some((item) => item.method === 'setChatMenuButton' && (item.body.menu_button as { type?: string; text?: string })?.type === 'web_app' && (item.body.menu_button as { type?: string; text?: string })?.text === 'My Shop'), 'linked merchant start configures Telegram menu to show bot commands')
   assert.ok(telegramRequests.some((item) => item.method === 'setMyCommands'), 'linked merchant start registers the human-readable command menu')
   assert.ok(await db.appSetting.findUnique({ where: { key: merchantChatKey } }), 'merchant /start creates a private chat route')
 
