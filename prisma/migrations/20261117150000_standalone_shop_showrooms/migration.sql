@@ -15,7 +15,7 @@ CREATE TABLE "ShopShowroom" (
   "accentColor" TEXT,
   "coverPhotoUrl" TEXT,
   "photos" TEXT NOT NULL DEFAULT '[]',
-  "content" TEXT NOT NULL DEFAULT '{}',
+  "content" TEXT NOT NULL DEFAULT '[]',
   "listingIds" TEXT NOT NULL DEFAULT '[]',
   "status" TEXT NOT NULL DEFAULT 'DRAFT',
   "publishedAt" TIMESTAMP(3),
