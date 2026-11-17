@@ -337,7 +337,7 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
             />
           ) : null}
           {listing.photos.length > 1 ? (
-            <span className="pointer-events-none absolute bottom-1 right-1 z-10 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white tabular-nums sm:bottom-1.5 sm:right-1.5">
+            <span className="pointer-events-none absolute bottom-1 left-1 z-10 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white tabular-nums sm:bottom-1.5 sm:left-1.5">
               {copy.card.photoCount(listing.photos.length - 1)}
             </span>
           ) : null}
