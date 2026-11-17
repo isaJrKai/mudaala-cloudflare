@@ -213,13 +213,9 @@ async function cleanupTelegramRecords(): Promise<void> {
             }
           } catch { /* no completed publication receipt */ }
         }
-        const startedAt = typeof draft.publishStartedAt === 'string' ? Date.parse(draft.publishStartedAt) : 0
-        if (now - startedAt >= 5 * 60 * 1000) {
-          await db.appSetting.updateMany({
-            where: { key: item.key, value: item.value },
-            data: { value: JSON.stringify({ ...draft, status: 'READY', publishStartedAt: null }) },
-          })
-        }
+        // A claimed draft owns its photo until the publication receipt proves
+        // completion. Do not expire or reset an in-flight claim: a slow request
+        // could otherwise publish after cleanup has deleted or replaced its image.
         continue
       }
       // Delete only the exact stale value we inspected. A newer photo draft
@@ -754,23 +750,25 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
       return
     }
     if (draft.status === 'PUBLISHING') {
-      const startedAt = typeof draft.publishStartedAt === 'string' ? Date.parse(draft.publishStartedAt) : Date.now()
-      if (Date.now() - startedAt < 5 * 60 * 1000) {
-        await sendMessage(chatId, 'This product is already being published, so I cannot cancel it while that is in progress.')
-        return
-      }
       if (typeof draft.draftId === 'string') {
         const receiptKey = 'listing-publish:' + createHash('sha256').update('telegram-product-draft:' + draft.draftId).digest('hex')
         const receipt = await db.appSetting.findUnique({ where: { key: receiptKey } })
         try {
           const parsed = JSON.parse(receipt?.value || '{}') as { status?: unknown; listingId?: unknown }
           if (parsed.status === 'COMPLETE' && typeof parsed.listingId === 'string') {
-            await db.appSetting.deleteMany({ where: { key: draftKey, value: existingDraft.value } })
+            await db.appSetting.updateMany({
+              where: { key: draftKey, value: existingDraft.value },
+              data: { value: JSON.stringify({ ...draft, status: 'PUBLISHED', listingId: parsed.listingId }) },
+            })
             await sendMessage(chatId, 'That product has already been published. View it at https://mudaala.store/l/' + encodeURIComponent(parsed.listingId))
             return
           }
-        } catch { /* no completed publication receipt */ }
+        } catch { /* no completed publication receipt yet */ }
       }
+      // Never release a publishing claim based only on elapsed wall time.
+      // The publisher may still be running and using the photo.
+      await sendMessage(chatId, 'This product is still being published. I cannot cancel it while publication is in progress. Check /products shortly; your photo will be kept safe.')
+      return
     }
     const deleted = await db.appSetting.deleteMany({ where: { key: draftKey, value: existingDraft.value } })
     if (deleted.count !== 1) {
