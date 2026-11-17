@@ -509,7 +509,7 @@ async function run() {
   })
   assertStatus(optedOut.status, 409, 'seller opt-out blocks new Telegram enquiries')
   const existingThreadReply = await postTelegramUpdate({
-    update_id: updateBase + 21,
+    update_id: updateBase + 27,
     message: { text: '/respond ' + enquiry.id + ' I have one more question about the same item.', chat: { id: buyerTelegramId, type: 'private' }, from: { id: buyerTelegramId } },
   })
   assertStatus(existingThreadReply.status, 200, 'buyer can continue an existing Telegram thread after new-enquiry opt-out')
