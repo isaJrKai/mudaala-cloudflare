@@ -114,10 +114,6 @@ export function ShopShowroom({
             </article>
           ))}
         </div>
-      ) : (
-        <p className="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">
-          Your showroom is ready. Add products you can source or designs you want customers to discover.
-        </p>
       )}
 
     </section>
