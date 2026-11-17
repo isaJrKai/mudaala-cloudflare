@@ -36,7 +36,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!current) throw new ApiError(404, 'Showroom not found')
     const data = await parseBody(request, standaloneShowroomPatchSchema)
     const nextTitle = data.title ?? current.title
-    const nextSections = data.sections ?? (() => { try { return JSON.parse(current.content) as Array<{ heading?: string; body?: string }> } catch { return [] } })()
+    const nextSections = data.sections ?? (() => { try { return JSON.parse(current.content) as Array<{ heading?: string; body?: string; photoUrl?: string | null }> } catch { return [] } })()
     const nextCopy = [
       data.headline === undefined ? current.headline : data.headline,
       data.introduction === undefined ? current.introduction : data.introduction,
