@@ -65,14 +65,14 @@ export async function POST(request: Request, { params }: Params) {
     })
     if (!enquiry) throw new ApiError(404, 'Open enquiry not found.')
     const senderType = enquiry.merchantId === user.id ? 'MERCHANT' : 'SHOPPER'
-    const inApp = enquiry.contactChannel === 'IN_APP'
+    const inApp = enquiry.contactChannel === 'WEB'
     const created = await db.enquiryMessage.create({
       data: {
         enquiryId: id,
         senderType,
         senderUserId: user.id,
         body: body.message,
-        // IN_APP messages are delivered to the durable Mudaala conversation;
+        // WEB messages are delivered to the durable Mudaala conversation;
         // Telegram transport status is relevant only to Telegram enquiries.
         deliveryStatus: inApp ? 'SENT' : 'PENDING',
       },
