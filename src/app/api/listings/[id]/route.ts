@@ -6,7 +6,7 @@ import { expireOverdueListings, getOwnedListingOr404, sanitizePhotos, serializeL
 import { LISTING_ACTIVE_DAYS, countryDef, findProhibitedItem } from '@/lib/constants'
 import { getSessionUser } from '@/lib/auth'
 import { isAdminUser } from '@/lib/admin'
-import { findTaxonomyNode, taxonomyAncestors } from '@/lib/product-taxonomy'
+import { findTaxonomyNode, isValidTaxonomyAttributes, taxonomyAncestors } from '@/lib/product-taxonomy'
 import { recordListingDailyEvent } from '@/lib/listing-analytics'
 import { hit } from '@/lib/rate-limit'
 type Params = { params: Promise<{ id: string }> }
@@ -218,6 +218,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     if (merged.taxonomyId && (findTaxonomyNode(merged.taxonomyId) === undefined || taxonomyAncestors(merged.taxonomyId)[0]?.id !== merged.category)) {
       throw new ApiError(400, 'Choose a product type within the selected category', { taxonomyId: 'Choose a product type within the selected category' })
+    }
+    if (merged.taxonomyId && !isValidTaxonomyAttributes(merged.taxonomyId, merged.attributes)) {
+      throw new ApiError(400, 'Remove attributes that do not belong to this product type', { attributes: 'Remove attributes that do not belong to this product type' })
     }
     if (merged.price === null && !merged.priceNegotiable) {
       throw new ApiError(400, 'Enter a price or mark it as negotiable', { price: 'Enter a price or mark it as negotiable' })
