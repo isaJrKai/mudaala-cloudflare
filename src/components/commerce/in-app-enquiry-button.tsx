@@ -78,7 +78,7 @@ export function InAppEnquiryButton({
           <DialogHeader>
             <DialogTitle>Message {shopName}</DialogTitle>
             <DialogDescription>
-              Your message goes straight to the shop's Mudaala Enquiries inbox. The seller can reply when they are back online.
+              Your message goes straight to the shop&apos;s Mudaala Enquiries inbox. The seller can reply when they are back online.
             </DialogDescription>
           </DialogHeader>
           <Textarea
