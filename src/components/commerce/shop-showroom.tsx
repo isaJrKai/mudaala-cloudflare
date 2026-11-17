@@ -8,6 +8,7 @@ import { whatsappLink } from '@/lib/format'
 import type { ShopShowroomItemT } from '@/lib/client'
 import { categoryLabel } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/hooks/use-toast'
 
 type Availability = ShopShowroomItemT['availability']
 
@@ -34,6 +35,7 @@ export function ShopShowroom({
   contactPhone: string
 }) {
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const [removingId, setRemovingId] = useState<string | null>(null)
 
   const refreshShop = () => queryClient.invalidateQueries({ queryKey: ['shop', shopId] })
