@@ -218,9 +218,12 @@ export default function SellerShowroomsPage() {
 
   return (
     <main className="min-h-screen bg-[#f5f3ed] text-[#24251f]">
-      <div className="mx-auto max-w-7xl px-4 py-7 sm:px-8 sm:py-12">
-        <a href="/" className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#47734d]">Mudaala <span className="px-1 text-neutral-400">/</span> Your shop</a>
-        <div className="mt-7 flex flex-wrap items-end justify-between gap-4">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-10">
+        <div className="flex items-center justify-between gap-4">
+          <a href="/" className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#47734d]">Mudaala <span className="px-1 text-neutral-400">/</span> Your shop</a>
+          <button type="button" onClick={() => router.push('/seller')} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-black/15 bg-white px-4 text-xs font-semibold text-[#34362f] transition hover:border-[#47734d] hover:text-[#47734d]" aria-label="Back to seller dashboard"><span aria-hidden="true">←</span> Back to dashboard</button>
+        </div>
+        <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
           <div><p className="text-[10px] uppercase tracking-[.2em] text-neutral-500">Your shop, presented your way</p><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-5xl">{editingId ? 'Edit your showroom' : 'Create your showroom'}</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-600">Choose a design, add the photos and words you want customers to see, then publish a shop website you can share anywhere.</p></div>
           <p className="rounded-full border border-black/10 bg-white px-4 py-2 text-[10px] uppercase tracking-[.16em] text-neutral-500">20 designs · No builder required</p>
         </div>
@@ -233,13 +236,18 @@ export default function SellerShowroomsPage() {
         </section>
 
         <section className="mt-12 grid gap-8 lg:grid-cols-[.9fr_1.1fr]">
-          <div className="rounded-2xl border border-black/10 bg-white p-5 sm:p-7">
+          <div className="min-w-0 rounded-2xl border border-black/10 bg-white p-5 sm:p-7">
             <p className="text-[10px] uppercase tracking-[.18em] text-neutral-500">Step 2</p><h2 className="mt-1 text-2xl font-semibold">Your shop story</h2><p className="mt-2 text-xs leading-5 text-neutral-500">Your shop name and shop code come from your Mudaala profile. Add only the words you want customers to see.</p>
             <label className="mt-6 block text-xs font-medium">Showroom title</label><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. The new season collection" maxLength={100} className="mt-2 w-full rounded-xl border border-black/10 bg-[#faf9f6] px-4 py-3 text-sm outline-none focus:border-[#47734d]" />
-            <label className="mt-4 block text-xs font-medium">Main heading <span className="font-normal text-neutral-400">(optional)</span></label><input value={headline} onChange={(event) => setHeadline(event.target.value)} placeholder="A line customers should remember" maxLength={140} className="mt-2 w-full rounded-xl border border-black/10 bg-[#faf9f6] px-4 py-3 text-sm outline-none focus:border-[#47734d]" />
-            <label className="mt-4 block text-xs font-medium">Welcome message <span className="font-normal text-neutral-400">(optional)</span></label><textarea value={introduction} onChange={(event) => setIntroduction(event.target.value)} placeholder="What should people know when they arrive?" maxLength={1000} rows={3} className="mt-2 w-full resize-y rounded-xl border border-black/10 bg-[#faf9f6] px-4 py-3 text-sm outline-none focus:border-[#47734d]" />
-            <label className="mt-4 block text-xs font-medium">About your shop <span className="font-normal text-neutral-400">(optional)</span></label><textarea value={story} onChange={(event) => setStory(event.target.value)} placeholder="Your story, what you make or what makes your shop different" maxLength={5000} rows={4} className="mt-2 w-full resize-y rounded-xl border border-black/10 bg-[#faf9f6] px-4 py-3 text-sm outline-none focus:border-[#47734d]" />
-            <div className="mt-6 border-t border-black/10 pt-5"><p className="text-xs font-semibold">Add a featured section <span className="font-normal text-neutral-400">(optional)</span></p><label className="mt-3 block text-xs font-medium">Section heading</label><input value={sectionHeading} onChange={(event) => setSectionHeading(event.target.value)} placeholder="e.g. Made for everyday living" maxLength={100} className="mt-2 w-full rounded-xl border border-black/10 bg-[#faf9f6] px-4 py-3 text-sm outline-none focus:border-[#47734d]" /><label className="mt-3 block text-xs font-medium">Section text</label><textarea value={sectionBody} onChange={(event) => setSectionBody(event.target.value)} placeholder="A little more about this collection, product or offer" maxLength={1200} rows={3} className="mt-2 w-full resize-y rounded-xl border border-black/10 bg-[#faf9f6] px-4 py-3 text-sm outline-none focus:border-[#47734d]" /></div>
+            <details className="mt-5 rounded-xl border border-black/10 bg-[#faf9f6]">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs font-semibold">Add more shop details <span className="text-[10px] font-normal text-neutral-400">Optional</span></summary>
+              <div className="border-t border-black/10 p-4">
+                <label className="block text-xs font-medium">Main heading <span className="font-normal text-neutral-400">(optional)</span></label><input value={headline} onChange={(event) => setHeadline(event.target.value)} placeholder="A line customers should remember" maxLength={140} className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[#47734d]" />
+                <label className="mt-4 block text-xs font-medium">Welcome message <span className="font-normal text-neutral-400">(optional)</span></label><textarea value={introduction} onChange={(event) => setIntroduction(event.target.value)} placeholder="What should people know when they arrive?" maxLength={1000} rows={3} className="mt-2 w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[#47734d]" />
+                <label className="mt-4 block text-xs font-medium">About your shop <span className="font-normal text-neutral-400">(optional)</span></label><textarea value={story} onChange={(event) => setStory(event.target.value)} placeholder="Your story, what you make or what makes your shop different" maxLength={5000} rows={4} className="mt-2 w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[#47734d]" />
+                <div className="mt-5 border-t border-black/10 pt-4"><p className="text-xs font-semibold">Featured section <span className="font-normal text-neutral-400">(optional)</span></p><label className="mt-3 block text-xs font-medium">Section heading</label><input value={sectionHeading} onChange={(event) => setSectionHeading(event.target.value)} placeholder="e.g. Made for everyday living" maxLength={100} className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[#47734d]" /><label className="mt-3 block text-xs font-medium">Section text</label><textarea value={sectionBody} onChange={(event) => setSectionBody(event.target.value)} placeholder="A little more about this collection, product or offer" maxLength={1200} rows={3} className="mt-2 w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[#47734d]" /></div>
+              </div>
+            </details>
           </div>
 
           <div className="space-y-6">
