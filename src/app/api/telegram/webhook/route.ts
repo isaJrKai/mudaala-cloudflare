@@ -3,6 +3,7 @@ import { ApiError, jsonOk, route } from '@/lib/api'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { replyToTelegramMerchant } from '@/lib/telegram-assistant'
+import { merchantKnowledgeAnswer } from '@/lib/telegram-merchant-kb'
 import { recordTelegramActivation } from '@/lib/telegram-merchant'
 import { telegramApiUrl } from '@/lib/telegram-api'
 import { CATEGORY_KEYS } from '@/lib/constants'
@@ -1250,6 +1251,13 @@ async function handleMessage(message: TelegramMessage): Promise<void> {
     const lines = listings.map((item) => '- ' + item.title + ' - ' + (item.price === null ? 'Ask seller' : item.currency + ' ' + item.price.toLocaleString('en-UG')) + ' (' + item.county + ')')
     await sendMessage(chatId, 'Your latest active products:\n\n' + lines.join('\n') + '\n\nSend another product photo here to add a listing.', shopKeyboard)
     return
+  }
+  if (user.profile) {
+    const knownAnswer = merchantKnowledgeAnswer(text)
+    if (knownAnswer !== null) {
+      await sendMessage(chatId, knownAnswer, shopKeyboard)
+      return
+    }
   }
   const answer = await replyToTelegramMerchant({
     telegramUserId,
