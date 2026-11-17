@@ -90,7 +90,7 @@ export async function POST(request: Request, { params }: Params) {
           priority: 'NORMAL',
           title: senderType === 'MERCHANT' ? 'New seller reply' : 'New customer message',
           body: (senderType === 'MERCHANT' ? 'The seller replied about ' : 'A customer sent a message about ') + enquiry.listing.title + '.',
-          actionUrl: '/#/enquiries',
+          actionUrl: senderType === 'MERCHANT' ? '/#/messages' : '/#/enquiries',
           actionLabel: 'Open messages',
           dedupeKey: 'enquiry-message:' + created.id,
         },
