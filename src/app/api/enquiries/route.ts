@@ -102,6 +102,8 @@ export async function POST(request: Request) {
           title: 'New customer enquiry',
           body: (user.name || 'A customer') + ' sent a message about ' + listing.title + '.',
           listingId: listing.id,
+          actionUrl: '/#/enquiries',
+          actionLabel: 'Open messages',
           dedupeKey: 'enquiry-message:' + message.id,
         },
       })
