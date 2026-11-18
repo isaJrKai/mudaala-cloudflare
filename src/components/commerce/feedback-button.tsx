@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { MessageSquareWarning, X, Loader2, CheckCircle2 } from 'lucide-react'
+import { AppealCasePortal } from './appeal-case-portal'
 
 const CATEGORIES = [
   { value: 'BUG', label: 'Something is broken' },
@@ -24,6 +25,7 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
   const [appealAccessToken, setAppealAccessToken] = useState('')
+  const [appealCaseId, setAppealCaseId] = useState('')
 
   function close() {
     if (busy) return
@@ -55,6 +57,7 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
       if (!response.ok) throw new Error(payload?.error ?? 'Your feedback could not be sent. Please try again.')
       setSent(true)
       setAppealAccessToken(payload?.appealCase?.accessToken ?? '')
+      setAppealCaseId(payload?.appealCase?.id ?? '')
       setTitle('')
       setDescription('')
       setContact('')
@@ -91,6 +94,7 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
                 <h3 className="mt-2 font-medium">{category === 'APPEAL' ? 'Appeal case created' : 'Feedback sent'}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{category === 'APPEAL' ? 'Your appeal has its own case record. Keep the private access code below; you will need it to follow up while your account is restricted.' : 'Thank you. Your message is now in the private Mudaala admin inbox. We also included the page you were on to help us investigate.'}</p>
                 {category === 'APPEAL' && appealAccessToken ? <div className="mt-3 rounded-md border bg-background p-3"><p className="text-xs font-semibold">Private appeal access code</p><code className="mt-1 block break-all text-xs">{appealAccessToken}</code><p className="mt-1 text-xs text-muted-foreground">Save this code somewhere private. Mudaala stores only its hash and cannot show it again.</p></div> : null}
+                {category === 'APPEAL' && appealCaseId && appealAccessToken ? <AppealCasePortal caseId={appealCaseId} accessToken={appealAccessToken} /> : null}
                 <button type="button" onClick={close} className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">Done</button>
               </div>
             ) : (
