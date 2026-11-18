@@ -8,7 +8,6 @@ import { getSessionUser } from '@/lib/auth'
 import { isAdminUser } from '@/lib/admin'
 import { findTaxonomyNode, isValidTaxonomyAttributes, taxonomyAncestors } from '@/lib/product-taxonomy'
 import { recordListingDailyEvent } from '@/lib/listing-analytics'
-import { publicShopOwnerWhere } from '@/lib/shop-visibility'
 import { hit } from '@/lib/rate-limit'
 type Params = { params: Promise<{ id: string }> }
 
