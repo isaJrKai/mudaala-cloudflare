@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { route, jsonOk, jsonError, parseBody, requireUser } from '@/lib/api'
 import { normalizeAccountEmail, emailCodeMatches, EMAIL_CODE_MAX_ATTEMPTS } from '@/lib/email-auth'
 
-const schema = z.object({ email: z.string().trim().email().max(254), code: z.string().trim().regex(/^\\d{6}$/) })
+const schema = z.object({ email: z.string().trim().email().max(254), code: z.string().trim().regex(/^\d{6}$/) })
 
 export async function POST(request: Request) {
   return route(async () => {
