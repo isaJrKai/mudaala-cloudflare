@@ -131,7 +131,7 @@ function FeedbackCard({ item, onSaved }: { item: FeedbackItem; onSaved: () => vo
 
 export function FeedbackDashboard() {
   const [status, setStatus] = useState<FeedbackStatus>('OPEN')
-  const [category, setCategory] = useState<'ALL' | 'APPEAL' | 'FEEDBACK'>('ALL')
+  const [category, setCategory] = useState<'ALL' | 'FEEDBACK'>('ALL')
   const [items, setItems] = useState<FeedbackItem[] | null>(null)
   const [error, setError] = useState('')
 
@@ -158,7 +158,7 @@ export function FeedbackDashboard() {
       <div className="flex flex-wrap items-center gap-2">
         <label className="text-xs font-medium">Queue
           <select value={category} onChange={(event) => setCategory(event.target.value as typeof category)} className="ml-2 h-9 rounded-md border bg-background px-2 text-sm">
-            <option value="ALL">All items</option><option value="APPEAL">Appeals only</option><option value="FEEDBACK">Other feedback</option>
+            <option value="ALL">All feedback</option><option value="FEEDBACK">General feedback</option>
           </select>
         </label>
         {(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'ALL'] as const).map((value) => (
