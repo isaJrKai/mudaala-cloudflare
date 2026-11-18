@@ -61,7 +61,10 @@ export function AppealsDashboard() {
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not load this case.') }
   }, [])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load() }, 0)
+    return () => window.clearTimeout(timer)
+  }, [load])
 
   async function updateCase(changes: Record<string, unknown>) {
     if (!selected) return
