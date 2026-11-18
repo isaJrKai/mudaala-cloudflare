@@ -12,7 +12,7 @@ import type { ListingQuery } from '@/lib/validation'
 import { getSearchTermGroups, searchTextMatchesGroup, scoreListingSearch, parseSearchIntent } from '@/lib/search'
 import { activeListingExpiryFilter } from '@/lib/listing-visibility'
 import { rankDiscoveryCandidates } from '@/lib/discovery-ranking'
-import { publicShopOwnerWhere } from '@/lib/shop-visibility'
+import { publicListingOwnerWhere } from '@/lib/shop-visibility'
 
 function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000)
@@ -173,7 +173,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     ? intent.sort
     : (searchText && query.sort === 'discovery' ? 'newest' : query.sort) ?? (searchText ? 'newest' : 'discovery')
 
-  const where: Prisma.ListingWhereInput = { status: { in: includeStatuses }, user: { is: publicShopOwnerWhere } }
+  const where: Prisma.ListingWhereInput = { status: { in: includeStatuses }, user: { is: publicListingOwnerWhere } }
   // ACTIVE is a persisted state updated by the scheduled sweep; expiry itself
   // is enforced here so a delayed sweep cannot surface stale public inventory.
   if (includeStatuses.length === 1 && includeStatuses[0] === 'ACTIVE') {
