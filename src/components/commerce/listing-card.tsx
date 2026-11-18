@@ -6,12 +6,10 @@
 // small photo on the side; in desktop grids it stacks into a compact block.
 // Photos: object-fit cover, 8px max radius, 1px border, no shadows. A
 // missing photo shows the neutral grey tile (category name + camera icon),
-// never a stock or generated image. Contact stays on the card: Call and
-// WhatsApp are reachable without opening the ad.
+// never a stock or generated image. Buyers open the product to start a Mudaala enquiry.
 
-import { Check, Heart, Phone, Plus, Store } from 'lucide-react'
-import { WhatsAppIcon } from '@/components/commerce/brand-icons'
-import { formatPrice, formatQuantity, timeAgo, telLink, whatsappLink } from '@/lib/format'
+import { Check, Heart, Plus, Store } from 'lucide-react'
+import { formatPrice, formatQuantity, timeAgo } from '@/lib/format'
 import { unitLabel } from '@/lib/constants'
 import { copy } from '@/lib/copy'
 import { PlaceholderTile } from './placeholder-tile'
@@ -31,8 +29,7 @@ interface ListingCardProps {
   /** Owner actions strip (My Listings). Replaces the buyer shop bar. */
   actions?: React.ReactNode
   showStatus?: boolean
-  /** When provided (and the listing knows its owner), the buyer bar renders:
-   *  shop chip (→ shop page) + Call + WhatsApp. */
+  /** When provided (and the listing knows its owner), the buyer bar links to the shop. */
   onOpenShop?: (shopId: string) => void
   /** Overrides the shop display name - the browse feed uses it to tell
    *  same-name shops apart ("Nakato Fresh Produce · Jinja"). */
@@ -206,7 +203,6 @@ export function ListingCard({ listing, onOpen, actions, showStatus, onOpenShop, 
   const baseShopName = shop?.profile?.businessName?.trim() || shop?.name
   const shopDisplayName = shopLabel ?? baseShopName
   const shopPhoto = shop?.profile?.photoUrl ?? null
-  const whatsappNumber = listing.contactWhatsapp ?? (listing.type === 'OFFER' ? listing.contactPhone : null)
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card transition-[border-color,background-color,box-shadow] duration-200 hover:border-primary/55 hover:bg-primary/[0.03] hover:shadow-md">
@@ -239,7 +235,7 @@ export function ListingCard({ listing, onOpen, actions, showStatus, onOpenShop, 
       {actions ? (
         <div className="border-t px-3 py-2.5">{actions}</div>
       ) : onOpenShop && shop && shopDisplayName ? (
-        // Buyer bar: who sells it (tap → shop), then direct call / WhatsApp.
+        // Buyer bar: identify the seller and let the product page handle enquiries.
         <div className="flex items-center gap-2 border-t px-2.5 py-2">
           <button
             type="button"
@@ -257,24 +253,6 @@ export function ListingCard({ listing, onOpen, actions, showStatus, onOpenShop, 
             <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground/80">{shopDisplayName}</span>
             <Store className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
           </button>
-          <a
-            href={telLink(listing.contactPhone)}
-            className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md border bg-card px-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-secondary"
-            aria-label={copy.card.callAria(shopDisplayName, listing.title)}
-          >
-            <Phone className="size-3.5 text-primary" aria-hidden /> {copy.common.call}
-          </a>
-          {whatsappNumber ? (
-            <a
-              href={whatsappLink(whatsappNumber, listing.title, listing.type)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="whatsapp-brand inline-flex h-9 shrink-0 items-center gap-0 rounded-md border px-2 text-[10px] font-semibold transition-colors"
-              aria-label={copy.card.whatsappAria(shopDisplayName, listing.title)}
-            >
-              <WhatsAppIcon className="size-3" aria-hidden /> {copy.common.whatsapp}
-            </a>
-          ) : null}
         </div>
       ) : null}
     </div>
@@ -284,9 +262,7 @@ export function ListingCard({ listing, onOpen, actions, showStatus, onOpenShop, 
 interface ListingBlockProps {
   listing: Listing & { user?: ListingShopOwner }
   onOpen: (id: string) => void
-  /** When provided (and the listing knows its owner), the buyer bar renders:
-   *  shop chip (→ shop page) above Call + WhatsApp. Shop catalogues omit it -
-   *  the buyer is already inside that shop. */
+  /** When provided (and the listing knows its owner), the buyer bar links to the shop. */
   onOpenShop?: (shopId: string) => void
   /** When provided (and the listing knows its owner), OFFER blocks get an
    *  add-to-basket button on the photo. Returns whether the add really
@@ -309,7 +285,6 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
   const shop = listing.user
   const shopDisplayName = shopLabel ?? (shop?.profile?.businessName?.trim() || shop?.name)
   const shopPhoto = shop?.profile?.photoUrl ?? null
-  const whatsappNumber = listing.contactWhatsapp ?? (listing.type === 'OFFER' ? listing.contactPhone : null)
   const [added, flashAdded] = useAddedFlash()
 
   return (
@@ -372,9 +347,7 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
       </div>
 
       {onOpenShop && shop && shopDisplayName ? (
-        // Buyer bar, stacked for the narrow card: who sells it on top, then
-        // Call | WhatsApp sharing the row. mt-auto pins it to the card bottom
-        // so unequal titles never leave a ragged edge in the grid.
+        // Buyer bar identifies the seller without exposing an off-platform contact shortcut.
         <div className="mt-auto border-t px-1.5 py-1.5 sm:px-2 sm:py-2">
           <button
             type="button"
@@ -392,28 +365,6 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
             <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-foreground/80">{shopDisplayName}</span>
             <Store className="size-3 shrink-0 text-muted-foreground" aria-hidden />
           </button>
-          <div className="mt-1 flex gap-1">
-            <a
-              href={telLink(listing.contactPhone)}
-              className="press inline-flex h-7 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border bg-card text-[10px] font-semibold text-foreground hover:bg-secondary"
-              aria-label={copy.card.callAria(shopDisplayName, listing.title)}
-            >
-              <Phone className="size-3.5 text-primary" aria-hidden />
-              <span className="hidden min-[360px]:inline">{copy.common.call}</span>
-            </a>
-            {whatsappNumber ? (
-              <a
-                href={whatsappLink(whatsappNumber, listing.title, listing.type)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="whatsapp-brand press inline-flex h-7 min-w-0 flex-1 items-center justify-center gap-0 rounded-md border text-[9px] font-semibold"
-                aria-label={copy.card.whatsappAria(shopDisplayName, listing.title)}
-              >
-                <WhatsAppIcon className="size-3 shrink-0" aria-hidden />
-                <span className="hidden min-[400px]:inline">{copy.common.whatsapp}</span>
-              </a>
-            ) : null}
-          </div>
         </div>
       ) : null}
     </div>
