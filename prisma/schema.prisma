@@ -599,6 +599,7 @@ model AppealCase {
   targetType         String   // USER | SHOP | LISTING
   targetId           String
   targetReference    String?  // shop code or listing reference supplied by owner
+  accessTokenHash    String?  @unique // one-time appeal access for suspended owners without an active session
   title              String
   statement          String   @db.Text
   status             String   @default("OPEN") // OPEN | IN_REVIEW | WAITING_ON_OWNER | DECIDED | CLOSED
