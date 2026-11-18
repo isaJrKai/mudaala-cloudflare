@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { apiGet, apiPost, apiPut, apiDeleteJson, clearSessionToken } from '@/lib/client'
+import { apiGet, apiPut, apiDeleteJson, clearSessionToken } from '@/lib/client'
 import type { BusinessProfileT, SessionUser } from '@/lib/client'
 import { businessProfileSchema, fieldErrors, MOMO_NETWORKS } from '@/lib/validation'
 import { CATEGORIES, countryDef } from '@/lib/constants'
@@ -216,8 +216,6 @@ export function AccountView() {
       <Separator />
 
       <BusinessProfileSection user={user} />
-      <Separator />
-      <TelegramLinkSection />
 
       {/* Legal - the same three doors the footer carries, reachable inside
           the app where the footer sits below the fold. */}
@@ -1024,77 +1022,3 @@ function ShopChecklist({ form }: { form: ProfileFormState }) {
   )
 }
 
-
-function TelegramLinkSection() {
-  const [code, setCode] = useState<string | null>(null)
-  const [expiresAt, setExpiresAt] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const { toast } = useToast()
-
-  async function generateCode() {
-    setBusy(true)
-    setCode(null)
-    setExpiresAt(null)
-    try {
-      const result = await apiPost<{ code: string; expiresAt: string }>('/api/telegram/link-code')
-      setCode(result.code)
-      setExpiresAt(result.expiresAt)
-    } catch (error) {
-      toast({
-        title: 'Could not create a Telegram link code',
-        description: error instanceof Error ? error.message : 'Please try again.',
-        variant: 'destructive',
-      })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function copyCode() {
-    if (!code) return
-    try {
-      await navigator.clipboard.writeText('/link ' + code)
-      toast({ title: 'Telegram link command copied' })
-    } catch {
-      toast({ title: 'Copy unavailable', description: 'Select and copy the code manually.' })
-    }
-  }
-
-  return (
-    <section className="space-y-3 rounded-xl border p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="font-semibold">Telegram Merchant Assistant</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Connect your shop to Telegram to view your shop link and active products. Mudaala remains your main shop and inventory.
-          </p>
-        </div>
-        <a
-          href="https://t.me/MudaalaMerchantbot"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 text-sm font-medium text-primary underline-offset-4 hover:underline"
-        >
-          Open bot
-        </a>
-      </div>
-      <Button type="button" onClick={generateCode} disabled={busy}>
-        {busy ? 'Generating…' : 'Generate link code'}
-      </Button>
-      {code ? (
-        <div className="rounded-lg bg-muted p-3">
-          <p className="text-xs text-muted-foreground">Send this command to @MudaalaMerchantbot</p>
-          <p className="my-2 break-all font-mono text-lg font-semibold tracking-wider">/link {code}</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" size="sm" variant="outline" onClick={copyCode}>Copy command</Button>
-            <span className="text-xs text-muted-foreground">
-              Expires {expiresAt ? new Date(expiresAt).toLocaleTimeString() : 'in 10 minutes'}
-            </span>
-          </div>
-        </div>
-      ) : (
-        <p className="text-xs text-muted-foreground">Link codes are single-use and expire after 10 minutes. Never share them with anyone except your own Telegram bot chat.</p>
-      )}
-    </section>
-  )
-}
