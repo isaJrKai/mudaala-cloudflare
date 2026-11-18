@@ -1877,13 +1877,13 @@ async function main() {
     ok('non-admin action → 403', actionDenied.status === 403)
 
     // ---- Admin actions: restore, hide, dismiss (each logged) ----
-    const restore = queueRow ? await call('POST', `/api/admin/reports/${queueRow.id}/action`, { action: 'RESTORE' }, admin) : { status: 0 }
+    const restore = queueRow ? await call('POST', `/api/admin/reports/${queueRow.id}/action`, { action: 'RESTORE', reason: 'CI test: restore listing after review' }, admin) : { status: 0 }
     const restored = await call('GET', `/api/listings/${targetId}`)
     ok('admin RESTORE → the ad is ACTIVE again', restore.status === 200 && restored.status === 200 && restored.json?.listing?.status === 'ACTIVE')
     const restoreLog = await db.auditLog.findFirst({ where: { targetType: 'LISTING', targetId, action: 'RESTORE_LISTING' }, orderBy: { createdAt: 'desc' } })
     ok('restore logged with the admin as actor', Boolean(restoreLog && restoreLog.actorId === admin.user?.id))
 
-    const hide = queueRow ? await call('POST', `/api/admin/reports/${queueRow.id}/action`, { action: 'HIDE' }, admin) : { status: 0 }
+    const hide = queueRow ? await call('POST', `/api/admin/reports/${queueRow.id}/action`, { action: 'HIDE', reason: 'CI test: hide listing while reviewing report' }, admin) : { status: 0 }
     const reHidden = await call('GET', `/api/listings/${targetId}`)
     ok('admin HIDE → the ad is HIDDEN again', hide.status === 200 && reHidden.status === 404)
     const hideLog = await db.auditLog.findFirst({ where: { targetType: 'LISTING', targetId, action: 'HIDE_LISTING' }, orderBy: { createdAt: 'desc' } })
@@ -1894,15 +1894,65 @@ async function main() {
     const openAfter = await call('GET', '/api/admin/reports?status=OPEN', undefined, admin)
     ok('dismissed report left the OPEN queue', queueRow && !(openAfter.json?.reports ?? []).some((r: any) => r.id === queueRow.id))
 
-    // ---- Shop reports: dismissible, not hideable ----
+    // ---- Shop reports: reasoned hide/restore and direct directory controls ----
     const aliceShop = await db.businessProfile.findUnique({ where: { userId: alice.user?.id ?? '' } })
+    const aliceShopListing = await call('POST', '/api/listings', { ...validListing, title: 'Alice shop moderation test listing', contactPhone: alicePhone }, alice)
+    ok('shop owner can publish a listing before shop moderation', aliceShopListing.status === 201)
+    const aliceShopListingId: string = aliceShopListing.json?.listing?.id ?? ''
     const shopReport = await call('POST', '/api/reports', { targetType: 'SHOP', targetId: aliceShop?.id ?? 'missing', reason: 'WRONG_INFO' }, repA)
     ok('shop report → 201', shopReport.status === 201 && Boolean(shopReport.json?.report?.id))
     const shopReportId: string = shopReport.json?.report?.id ?? ''
-    const shopHide = shopReportId ? await call('POST', `/api/admin/reports/${shopReportId}/action`, { action: 'HIDE' }, admin) : { status: 0 }
-    ok('hiding a shop is not a thing → 409', shopHide.status === 409)
-    const shopDismiss = shopReportId ? await call('POST', `/api/admin/reports/${shopReportId}/action`, { action: 'DISMISS' }, admin) : { status: 0 }
-    ok('shop report dismisses', shopDismiss.status === 200)
+    const shopHideReason = 'CI test: shop report reviewed and hidden'
+    const shopHide = shopReportId ? await call('POST', `/api/admin/reports/${shopReportId}/action`, { action: 'HIDE', reason: shopHideReason }, admin) : { status: 0 }
+    const hiddenShop = aliceShop ? await db.businessProfile.findUnique({ where: { id: aliceShop.id }, select: { moderationStatus: true, moderationReason: true } }) : null
+    ok('admin can hide a reported shop with a reason', shopHide.status === 200 && hiddenShop?.moderationStatus === 'HIDDEN' && hiddenShop.moderationReason === shopHideReason)
+    const hiddenShopPage = alice.user?.id ? await call('GET', `/api/shops/${alice.user.id}`) : { status: 0 }
+    ok('hidden shop public page returns 404', hiddenShopPage.status === 404)
+    const hiddenShopSearch = await call('GET', '/api/shops/search?q=Alice')
+    ok('hidden shop is absent from public shop search', !(hiddenShopSearch.json?.shops ?? []).some((shop: any) => shop.id === alice.user?.id))
+    const hiddenShopDiscover = await call('GET', `/api/shops/discover?ids=${encodeURIComponent(alice.user?.id ?? '')}`)
+    ok('hidden shop is absent from public shop discovery', !(hiddenShopDiscover.json?.shops ?? []).some((shop: any) => shop.id === alice.user?.id))
+    const hiddenListingSearch = await call('GET', '/api/listings?q=Alice%20shop%20moderation%20test%20listing')
+    ok('hidden shop listing is absent from Browse search', !(hiddenListingSearch.json?.items ?? []).some((item: any) => item.id === aliceShopListingId))
+    const hiddenShopListing = aliceShopListingId ? await call('GET', `/api/listings/${aliceShopListingId}`) : { status: 0 }
+    ok('hidden shop listings disappear from direct public detail', hiddenShopListing.status === 404)
+    const shopRestoreReason = 'CI test: shop report reviewed and restored'
+    const shopRestore = shopReportId ? await call('POST', `/api/admin/reports/${shopReportId}/action`, { action: 'RESTORE', reason: shopRestoreReason }, admin) : { status: 0 }
+    const restoredShop = aliceShop ? await db.businessProfile.findUnique({ where: { id: aliceShop.id }, select: { moderationStatus: true, moderationReason: true } }) : null
+    ok('admin can restore a reported shop with a reason', shopRestore.status === 200 && restoredShop?.moderationStatus === 'ACTIVE' && restoredShop.moderationReason === null)
+    const restoredShopPage = alice.user?.id ? await call('GET', `/api/shops/${alice.user.id}`) : { status: 0 }
+    ok('restored shop public page is available again', restoredShopPage.status === 200)
+    const restoredShopSearch = await call('GET', '/api/shops/search?q=Alice')
+    ok('restored shop returns to public shop search', (restoredShopSearch.json?.shops ?? []).some((shop: any) => shop.id === alice.user?.id))
+    const restoredListingSearch = await call('GET', '/api/listings?q=Alice%20shop%20moderation%20test%20listing')
+    ok('restored shop listings return to Browse search', (restoredListingSearch.json?.items ?? []).some((item: any) => item.id === aliceShopListingId))
+    const restoredShopListing = aliceShopListingId ? await call('GET', `/api/listings/${aliceShopListingId}`) : { status: 0 }
+    ok('restoring a shop makes its listings public again', restoredShopListing.status === 200)
+
+    const directHideReason = 'CI test: direct shop directory restriction'
+    const directHide = aliceShop ? await call('POST', `/api/admin/shops/${aliceShop.id}/restriction`, { action: 'HIDE', reason: directHideReason }, admin) : { status: 0 }
+    const directHiddenShop = aliceShop ? await db.businessProfile.findUnique({ where: { id: aliceShop.id }, select: { moderationStatus: true, moderationReason: true } }) : null
+    ok('shops directory can hide a shop with an audited reason', directHide.status === 200 && directHiddenShop?.moderationStatus === 'HIDDEN' && directHiddenShop.moderationReason === directHideReason)
+    const directRestoreReason = 'CI test: direct shop directory reinstatement'
+    const directRestore = aliceShop ? await call('POST', `/api/admin/shops/${aliceShop.id}/restriction`, { action: 'RESTORE', reason: directRestoreReason }, admin) : { status: 0 }
+    const directRestoredShop = aliceShop ? await db.businessProfile.findUnique({ where: { id: aliceShop.id }, select: { moderationStatus: true } }) : null
+    ok('shops directory can restore a shop with an audited reason', directRestore.status === 200 && directRestoredShop?.moderationStatus === 'ACTIVE')
+    const shopHideAudit = aliceShop ? await db.auditLog.findFirst({ where: { targetType: 'SHOP', targetId: aliceShop.id, action: 'HIDE_SHOP' }, orderBy: { createdAt: 'desc' } }) : null
+    const shopRestoreAudit = aliceShop ? await db.auditLog.findFirst({ where: { targetType: 'SHOP', targetId: aliceShop.id, action: 'RESTORE_SHOP' }, orderBy: { createdAt: 'desc' } }) : null
+    ok('shop hide and restore reasons are retained in audit history', shopHideAudit?.reason === directHideReason && shopRestoreAudit?.reason === directRestoreReason)
+
+    const confirmedShopReport = await call('POST', '/api/reports', { targetType: 'SHOP', targetId: aliceShop?.id ?? 'missing', reason: 'PROHIBITED_ITEM' }, repB)
+    const confirmedShopReportId: string = confirmedShopReport.json?.report?.id ?? ''
+    const confirmShopViolation = confirmedShopReportId ? await call('POST', `/api/admin/reports/${confirmedShopReportId}/action`, { action: 'CONFIRM_VIOLATION', policyCategory: 'PROHIBITED_ITEM' }, admin) : { status: 0 }
+    const violationHiddenShop = aliceShop ? await db.businessProfile.findUnique({ where: { id: aliceShop.id }, select: { moderationStatus: true } }) : null
+    ok('confirmed shop violation automatically hides the shop', confirmShopViolation.status === 200 && violationHiddenShop?.moderationStatus === 'HIDDEN')
+    const blockedShopRestore = confirmedShopReportId ? await call('POST', `/api/admin/reports/${confirmedShopReportId}/action`, { action: 'RESTORE', reason: 'CI test: attempted restore before overturn' }, admin) : { status: 0 }
+    ok('confirmed shop violation blocks restoration until overturned', blockedShopRestore.status === 409)
+    const reverseShopViolation = confirmedShopReportId ? await call('POST', `/api/admin/reports/${confirmedShopReportId}/action`, { action: 'REVERSE_VIOLATION' }, admin) : { status: 0 }
+    ok('admin can overturn a confirmed shop violation', reverseShopViolation.status === 200)
+    const restoreAfterOverturn = confirmedShopReportId ? await call('POST', `/api/admin/reports/${confirmedShopReportId}/action`, { action: 'RESTORE', reason: 'CI test: restore shop after violation overturned' }, admin) : { status: 0 }
+    const restoredAfterOverturn = aliceShop ? await db.businessProfile.findUnique({ where: { id: aliceShop.id }, select: { moderationStatus: true } }) : null
+    ok('shop can be restored after confirmed violation is overturned', restoreAfterOverturn.status === 200 && restoredAfterOverturn?.moderationStatus === 'ACTIVE')
 
     // ---- Daily cap: 10 accepted, the 11th refused ----
     let capAccepted = 0

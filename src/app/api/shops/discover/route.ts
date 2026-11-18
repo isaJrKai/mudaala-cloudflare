@@ -3,6 +3,7 @@ import { route, jsonOk, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
+import { publicShopOwnerWhere } from '@/lib/shop-visibility'
 
 // Lightweight public discovery payload for the Browse feed. The client sends
 // only shop IDs already present in the public listings response; this route
@@ -29,8 +30,9 @@ export async function GET(request: NextRequest) {
     if (directory) {
       const directoryRows = await db.user.findMany({
         where: {
+          ...publicShopOwnerWhere,
           isSeed: false,
-          profile: { is: { isSeed: false } },
+          profile: { is: { isSeed: false, moderationStatus: 'ACTIVE' } },
           OR: [
             { listings: { some: { status: 'ACTIVE', isSeed: false } } },
             { showroomItems: { some: {} } },
@@ -68,7 +70,7 @@ export async function GET(request: NextRequest) {
         },
       })
       const publishedShowrooms = await db.shopShowroom.findMany({
-        where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, user: { isSeed: false, profile: { is: { isSeed: false } } } },
+        where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, user: { is: { ...publicShopOwnerWhere, isSeed: false, profile: { is: { isSeed: false, moderationStatus: 'ACTIVE' } } } } },
         orderBy: { publishedAt: 'desc' },
         take: 16,
         select: {
@@ -111,7 +113,7 @@ export async function GET(request: NextRequest) {
     }
 
     const rows = await db.user.findMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, ...publicShopOwnerWhere },
       select: {
         id: true,
         name: true,

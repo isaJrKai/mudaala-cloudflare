@@ -12,6 +12,7 @@ import type { ListingWithShop } from '@/lib/listings'
 import { countryDef, categoryLabel } from '@/lib/constants'
 import { normalizeShopCode } from '@/lib/format'
 import { isAdminUser } from '@/lib/admin'
+import { publicShopOwnerWhere } from '@/lib/shop-visibility'
 
 export interface ShopChecklist {
   photo: boolean
@@ -125,7 +126,7 @@ export async function lookupShopByCode(raw: string): Promise<ShopLookupResult | 
   const code = normalizeShopCode(raw)
   if (!code) return null
   const row = await db.businessProfile.findUnique({
-    where: { shopCode: code },
+    where: { shopCode: code, user: { is: publicShopOwnerWhere } },
     select: {
       businessName: true,
       photoUrl: true,
@@ -156,12 +157,13 @@ export async function getShopPage(userId: string): Promise<ShopPageData | null> 
       id: true,
       name: true,
       phone: true,
+      suspendedAt: true,
       country: true,
       createdAt: true,
       profile: true,
     },
   })
-  if (!user) return null
+  if (!user || user.suspendedAt || (user.profile && user.profile.moderationStatus !== 'ACTIVE')) return null
 
   const now = new Date()
   const [listings, showroomItems, standaloneShowrooms] = await Promise.all([

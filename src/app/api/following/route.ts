@@ -1,11 +1,12 @@
 import { route, jsonOk, requireUser } from '@/lib/api'
 import { db } from '@/lib/db'
+import { publicShopOwnerWhere } from '@/lib/shop-visibility'
 
 export async function GET() {
   return route(async () => {
     const user = await requireUser()
     const follows = await db.shopFollow.findMany({
-      where: { followerId: user.id },
+      where: { followerId: user.id, shopOwner: { is: publicShopOwnerWhere } },
       orderBy: { createdAt: 'desc' },
       include: {
         shopOwner: {
@@ -15,6 +16,7 @@ export async function GET() {
             profile: {
               select: {
                 businessName: true,
+              moderationStatus: true,
                 photoUrl: true,
                 area: true,
                 county: true,

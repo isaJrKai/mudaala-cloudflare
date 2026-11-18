@@ -148,6 +148,22 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Apply and verify admin shop moderation migration in disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."BusinessProfile" DROP COLUMN IF EXISTS "moderationStatus", DROP COLUMN IF EXISTS "moderatedAt", DROP COLUMN IF EXISTS "moderationReason", DROP COLUMN IF EXISTS "moderatedBy";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP INDEX IF EXISTS public."BusinessProfile_moderationStatus_idx";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261118170000_admin_shop_moderation/migration.sql
+          shop_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessProfile' AND column_name IN ('moderationStatus','moderatedAt','moderationReason','moderatedBy')")
+          index_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='BusinessProfile' AND indexname='BusinessProfile_moderationStatus_idx'")
+          if [ "$shop_columns" != "4" ] || [ "$index_count" != "1" ]; then
+            echo "Admin shop moderation migration failed: shop_columns=$shop_columns index_count=$index_count"
+            exit 1
+          fi
+          echo "Admin shop moderation migration passed."
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
       - name: Apply and verify listing taxonomy migration in disposable PostgreSQL
         run: |
           set -euo pipefail

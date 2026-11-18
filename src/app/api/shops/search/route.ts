@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { hit } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
 import { normalizeSearchText } from '@/lib/search'
+import { publicShopOwnerWhere } from '@/lib/shop-visibility'
 
 // Public, sign-in-free shop-name search. Returns only fields needed to choose
 // a shop; phone numbers and account details are never included.
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
     // styling that PostgreSQL's raw text contains() cannot see.
     const matchedCandidates = await db.user.findMany({
       where: {
+        ...publicShopOwnerWhere,
         OR: tokens.flatMap((token) => [
           { name: { contains: token, mode: 'insensitive' as const } },
           { profile: { is: { businessName: { contains: token, mode: 'insensitive' as const } } } },
@@ -72,6 +74,7 @@ export async function GET(request: NextRequest) {
     // fail to produce a normalized match.
     if (candidates.length === 0) {
       const recentCandidates = await db.user.findMany({
+        where: publicShopOwnerWhere,
         select,
         orderBy: { updatedAt: 'desc' },
         take: 100,

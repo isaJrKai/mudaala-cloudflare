@@ -351,9 +351,13 @@ export const reportCreateSchema = z.object({
 export const reportActionSchema = z.object({
   action: z.enum(['HIDE', 'RESTORE', 'DISMISS', 'CONFIRM_VIOLATION', 'REVERSE_VIOLATION'], { message: 'Choose an action' }),
   policyCategory: z.enum(REPORT_REASONS).optional(),
+  reason: z.string().trim().min(10).max(500).optional(),
 }).refine((value) => value.action !== 'CONFIRM_VIOLATION' || value.policyCategory !== undefined, {
   message: 'Choose the policy category confirmed by moderation',
   path: ['policyCategory'],
+}).refine((value) => !['HIDE', 'RESTORE'].includes(value.action) || Boolean(value.reason && value.reason.length >= 10), {
+  message: 'Provide a moderation reason of at least 10 characters',
+  path: ['reason'],
 })
 
 export const feedbackCreateSchema = z.object({
@@ -397,5 +401,11 @@ export function fieldErrors(error: z.ZodError): Record<string, string> {
 // Admin account lifecycle actions always require a documented reason.
 export const adminAccountRestrictionSchema = z.object({
   action: z.enum(['SUSPEND', 'REINSTATE']),
+  reason: z.string().trim().min(10, 'Provide a reason of at least 10 characters').max(500, 'Keep the reason under 500 characters'),
+})
+
+
+export const adminShopModerationSchema = z.object({
+  action: z.enum(['HIDE', 'RESTORE']),
   reason: z.string().trim().min(10, 'Provide a reason of at least 10 characters').max(500, 'Keep the reason under 500 characters'),
 })

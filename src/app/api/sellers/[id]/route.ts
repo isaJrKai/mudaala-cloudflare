@@ -14,9 +14,9 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const { id } = await params
     const seller = await db.user.findUnique({
       where: { id },
-      select: { id: true, name: true, createdAt: true, country: true },
+      select: { id: true, name: true, createdAt: true, country: true, suspendedAt: true },
     })
-    if (!seller) throw new ApiError(404, 'This shop does not exist')
+    if (!seller || seller.suspendedAt) throw new ApiError(404, 'This shop does not exist')
 
     // This legacy public endpoint must not spread the full profile row. Keep its
     // public storefront fields, but never serialize internal ownership,
@@ -26,6 +26,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
         where: { userId: id },
         select: {
           businessName: true,
+          moderationStatus: true,
           photoUrl: true,
           coverPhotoUrl: true,
           category: true,
@@ -48,6 +49,8 @@ export async function GET(_request: NextRequest, { params }: Params) {
         take: 50,
       }),
     ])
+
+    if (!profile || profile.moderationStatus !== 'ACTIVE') throw new ApiError(404, 'This shop does not exist')
 
     return jsonOk({
       seller,

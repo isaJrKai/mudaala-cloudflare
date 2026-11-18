@@ -6,12 +6,14 @@ import { requireAdmin } from '@/lib/admin'
 import { reportActionSchema } from '@/lib/validation'
 import { db } from '@/lib/db'
 import { shouldSendFormalPolicyWarning } from '@/lib/policy-violations'
+import { applyShopModeration } from '@/lib/admin-shop-moderation'
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return route(async () => {
     const admin = await requireAdmin('Only the Mudaala admin can act on reports')
     const { id } = await params
-    const { action, policyCategory } = await parseBody(request, reportActionSchema)
+    const parsed = await parseBody(request, reportActionSchema)
+    const { action, policyCategory } = parsed
     const report = await db.report.findUnique({ where: { id }, select: { id: true, targetType: true, targetId: true, reason: true, status: true } })
     if (!report) throw new ApiError(404, 'This report no longer exists')
 
@@ -26,7 +28,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
       const target = report.targetType === 'LISTING'
         ? await db.listing.findUnique({ where: { id: report.targetId }, select: { id: true, userId: true, title: true, status: true } })
-        : await db.businessProfile.findUnique({ where: { id: report.targetId }, select: { id: true, userId: true, businessName: true } })
+        : await db.businessProfile.findUnique({ where: { id: report.targetId }, select: { id: true, userId: true, businessName: true, moderationStatus: true } })
       if (!target) throw new ApiError(404, 'The reported listing or shop no longer exists')
       const targetLabel = 'title' in target ? target.title : target.businessName
 
@@ -59,9 +61,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           },
         })
 
-        // A confirmed listing violation also hides an active listing. Shop
-        // profile-level hiding is not supported yet; the owner's violation is
-        // still recorded and the limitation remains documented.
         if (report.targetType === 'LISTING' && 'status' in target && target.status === 'ACTIVE') {
           await tx.listing.update({ where: { id: target.id }, data: { status: 'HIDDEN' } })
           await tx.notification.create({
@@ -74,8 +73,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             },
           })
           await tx.auditLog.create({
-            data: { actorId: admin.id, action: 'HIDE_LISTING', targetType: 'LISTING', targetId: target.id },
+            data: { actorId: admin.id, action: 'HIDE_LISTING', targetType: 'LISTING', targetId: target.id, reason: `Confirmed policy violation: ${policyCategory ?? report.reason}` },
           })
+        } else if (report.targetType === 'SHOP') {
+          const moderation = await applyShopModeration(tx, {
+            profileId: target.id,
+            actorId: admin.id,
+            action: 'HIDE',
+            reason: `Confirmed policy violation: ${policyCategory ?? report.reason}`,
+          })
+          if (!moderation.ok) throw new Error(moderation.error)
         }
 
         await tx.report.update({ where: { id: report.id }, data: { status: 'ACTIONED' } })
@@ -140,9 +147,31 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return jsonOk({ ok: true, action })
     }
 
-    if (report.targetType !== 'LISTING') {
-      throw new ApiError(409, 'Only listing reports can hide or restore a listing. Shop profile-level moderation is not available yet.')
+    const reason = parsed.reason!
+    if (report.targetType === 'SHOP') {
+      const result = await db.$transaction(async (tx) => {
+        const moderation = await applyShopModeration(tx, {
+          profileId: report.targetId,
+          actorId: admin.id,
+          action,
+          reason,
+        })
+        if (!moderation.ok) throw new ApiError(409, moderation.error)
+        await tx.report.update({ where: { id: report.id }, data: { status: 'ACTIONED' } })
+        await tx.auditLog.create({
+          data: {
+            actorId: admin.id,
+            action: action === 'HIDE' ? 'HIDE_SHOP_FROM_REPORT' : 'RESTORE_SHOP_FROM_REPORT',
+            targetType: 'REPORT',
+            targetId: report.id,
+            reason,
+          },
+        })
+        return moderation
+      })
+      return jsonOk({ ok: true, action, status: result.status })
     }
+
     const listing = await db.listing.findUnique({ where: { id: report.targetId }, select: { id: true, userId: true, title: true, status: true } })
     if (!listing) throw new ApiError(404, 'This listing no longer exists')
     if (action === 'HIDE') {
@@ -154,7 +183,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           })
         }
         await tx.report.update({ where: { id: report.id }, data: { status: 'ACTIONED' } })
-        await tx.auditLog.create({ data: { actorId: admin.id, action: 'HIDE_LISTING', targetType: 'LISTING', targetId: listing.id } })
+        await tx.auditLog.create({ data: { actorId: admin.id, action: 'HIDE_LISTING', targetType: 'LISTING', targetId: listing.id, reason } })
       })
     } else if (action === 'RESTORE') {
       const activeViolation = await db.policyViolation.findFirst({
@@ -165,7 +194,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await db.$transaction(async (tx) => {
         if (listing.status === 'HIDDEN') await tx.listing.update({ where: { id: listing.id }, data: { status: 'ACTIVE' } })
         await tx.report.update({ where: { id: report.id }, data: { status: 'ACTIONED' } })
-        await tx.auditLog.create({ data: { actorId: admin.id, action: 'RESTORE_LISTING', targetType: 'LISTING', targetId: listing.id } })
+        await tx.auditLog.create({ data: { actorId: admin.id, action: 'RESTORE_LISTING', targetType: 'LISTING', targetId: listing.id, reason } })
       })
     }
     return jsonOk({ ok: true, action })

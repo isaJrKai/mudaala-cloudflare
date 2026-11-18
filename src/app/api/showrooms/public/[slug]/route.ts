@@ -1,5 +1,6 @@
 import { ApiError, jsonOk, requireSeller, route as apiRoute } from '@/lib/api'
 import { db } from '@/lib/db'
+import { publicShopOwnerWhere } from '@/lib/shop-visibility'
 
 type Params = { params: Promise<{ slug: string }> }
 
@@ -20,14 +21,14 @@ export async function GET(request: Request, { params }: Params) {
     const preview = new URL(request.url).searchParams.get('preview') === '1'
     const previewUser = preview ? await requireSeller('Sign in as the shop owner to preview this showroom') : null
     const showroom = await db.shopShowroom.findFirst({
-      where: preview ? { slug, userId: previewUser!.id } : { slug, status: 'PUBLISHED', publishedAt: { lte: now } },
+      where: preview ? { slug, userId: previewUser!.id } : { slug, status: 'PUBLISHED', publishedAt: { lte: now }, user: { is: publicShopOwnerWhere } },
       include: {
         user: {
           select: {
             id: true,
             profile: {
               select: {
-                businessName: true, photoUrl: true, coverPhotoUrl: true, category: true,
+                businessName: true, moderationStatus: true, photoUrl: true, coverPhotoUrl: true, category: true,
                 description: true, county: true, area: true,
                 hours: true, shopCode: true, websiteUrl: true,
               },
@@ -36,7 +37,7 @@ export async function GET(request: Request, { params }: Params) {
         },
       },
     })
-    if (!showroom || !showroom.user.profile) throw new ApiError(404, 'Showroom not found')
+    if (!showroom || !showroom.user.profile || (!preview && showroom.user.profile.moderationStatus !== 'ACTIVE')) throw new ApiError(404, 'Showroom not found')
 
     const listingIds = readArray(showroom.listingIds).slice(0, 60)
     const listings = listingIds.length ? await db.listing.findMany({

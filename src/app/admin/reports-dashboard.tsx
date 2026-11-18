@@ -20,7 +20,7 @@ interface AdminReport {
   violation: { id: string; reportId: string; createdAt: string; reversedAt: string | null; warningSentAt: string | null } | null
   reporter: string
   listing: { id: string; title: string; status: string; type: string; price: number | null; ownerName: string } | null
-  shop: { id: string; businessName: string; shopCode: string | null; county: string } | null
+  shop: { id: string; businessName: string; shopCode: string | null; county: string; moderationStatus: string } | null
 }
 
 export function ReportsDashboard() {
@@ -29,6 +29,7 @@ export function ReportsDashboard() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [status, setStatus] = useState<'OPEN' | 'ACTIONED' | 'DISMISSED' | 'ALL'>('OPEN')
   const [violationCategories, setViolationCategories] = useState<Record<string, ReportReason>>({})
+  const [moderationReasons, setModerationReasons] = useState<Record<string, string>>({})
 
   const load = useCallback(async (which: typeof status) => {
     setError(null)
@@ -51,14 +52,14 @@ export function ReportsDashboard() {
     return () => window.clearTimeout(initialLoad)
   }, [load, status])
 
-  async function act(reportId: string, action: 'HIDE' | 'RESTORE' | 'DISMISS' | 'CONFIRM_VIOLATION' | 'REVERSE_VIOLATION', policyCategory?: ReportReason) {
+  async function act(reportId: string, action: 'HIDE' | 'RESTORE' | 'DISMISS' | 'CONFIRM_VIOLATION' | 'REVERSE_VIOLATION', policyCategory?: ReportReason, reason?: string) {
     setBusyId(reportId)
     setError(null)
     try {
       const res = await fetch(`/api/admin/reports/${reportId}/action`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action, ...(policyCategory ? { policyCategory } : {}) }),
+        body: JSON.stringify({ action, ...(policyCategory ? { policyCategory } : {}), ...(reason ? { reason } : {}) }),
       })
       if (!res.ok) {
         const json = await res.json().catch(() => null)
@@ -133,7 +134,7 @@ export function ReportsDashboard() {
               ) : r.shop ? (
                 <p className="mt-2 text-[15px] font-medium">
                   {r.shop.businessName}
-                  {r.shop.shopCode ? <span className="text-[12.5px] font-normal text-muted-foreground"> · {r.shop.shopCode} · {r.shop.county}</span> : null}
+                  {r.shop.shopCode ? <span className="text-[12.5px] font-normal text-muted-foreground"> · {r.shop.shopCode} · {r.shop.county}</span> : null}<span className="ml-2 text-[11px] font-medium text-muted-foreground">{r.shop.moderationStatus === 'HIDDEN' ? 'Hidden from buyers' : 'Public'}</span>
                 </p>
               ) : (
                 <p className="mt-2 text-[13px] text-muted-foreground">(the reported target no longer exists)</p>
@@ -145,6 +146,12 @@ export function ReportsDashboard() {
                   {r.violation.reversedAt ? 'Confirmed violation overturned; it no longer counts as a strike.' : 'Moderator-confirmed violation recorded.'}
                   {r.violation.warningSentAt ? ' A formal warning notification was sent.' : ''}
                 </p>
+              ) : null}
+
+              {r.status === 'OPEN' && ((r.targetType === 'LISTING' && r.listing) || (r.targetType === 'SHOP' && r.shop)) ? (
+                <label className="mt-3 block text-xs font-medium">Reason required for hide / restore
+                  <textarea value={moderationReasons[r.id] ?? ''} onChange={(event) => setModerationReasons((previous) => ({ ...previous, [r.id]: event.target.value.slice(0, 500) }))} rows={2} maxLength={500} className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="Document the reviewed reason (at least 10 characters)." />
+                </label>
               ) : null}
 
               {r.status === 'OPEN' ? (
@@ -161,7 +168,7 @@ export function ReportsDashboard() {
                     <button
                       type="button"
                       onClick={() => {
-                        if (window.confirm('Confirm that this report shows a real policy violation? Only a confirmed violation counts as a strike. For listings, this will also hide an active listing.')) void act(r.id, 'CONFIRM_VIOLATION', violationCategories[r.id] ?? r.reason)
+                        if (window.confirm('Confirm that this report shows a real policy violation? Only a confirmed violation counts as a strike. This will hide the reported listing or shop from buyers.')) void act(r.id, 'CONFIRM_VIOLATION', violationCategories[r.id] ?? r.reason)
                       }}
                       disabled={busyId === r.id}
                       className="press inline-flex h-9 items-center gap-1.5 rounded-md border border-amber-500/50 bg-amber-50 px-3 text-[13px] font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-60"
@@ -170,22 +177,22 @@ export function ReportsDashboard() {
                       Confirm violation
                     </button>
                   ) : null}
-                  {r.targetType === 'LISTING' && r.listing?.status !== 'HIDDEN' ? (
+                  {((r.targetType === 'LISTING' && r.listing?.status !== 'HIDDEN') || (r.targetType === 'SHOP' && r.shop?.moderationStatus !== 'HIDDEN')) ? (
                     <button
                       type="button"
-                      onClick={() => act(r.id, 'HIDE')}
-                      disabled={busyId === r.id}
+                      onClick={() => act(r.id, 'HIDE', undefined, moderationReasons[r.id])}
+                      disabled={busyId === r.id || (moderationReasons[r.id] ?? '').trim().length < 10}
                       className="press inline-flex h-9 items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 text-[13px] font-medium text-destructive hover:bg-destructive/20 disabled:opacity-60"
                     >
                       {busyId === r.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <EyeOff className="size-3.5" aria-hidden />}
                       Hide
                     </button>
                   ) : null}
-                  {r.targetType === 'LISTING' && r.listing?.status === 'HIDDEN' ? (
+                  {((r.targetType === 'LISTING' && r.listing?.status === 'HIDDEN') || (r.targetType === 'SHOP' && r.shop?.moderationStatus === 'HIDDEN')) ? (
                     <button
                       type="button"
-                      onClick={() => act(r.id, 'RESTORE')}
-                      disabled={busyId === r.id}
+                      onClick={() => act(r.id, 'RESTORE', undefined, moderationReasons[r.id])}
+                      disabled={busyId === r.id || (moderationReasons[r.id] ?? '').trim().length < 10}
                       className="press inline-flex h-9 items-center gap-1.5 rounded-md border border-emerald-600/50 bg-emerald-50 px-3 text-[13px] font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-60"
                     >
                       {busyId === r.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <RotateCcw className="size-3.5" aria-hidden />}
@@ -203,18 +210,21 @@ export function ReportsDashboard() {
                   </button>
                 </div>
               ) : null}
-              {r.status !== 'OPEN' && r.targetType === 'LISTING' && r.listing?.status === 'HIDDEN' && (!r.violation || Boolean(r.violation.reversedAt)) ? (
-                <div className="mt-3">
+              {r.status !== 'OPEN' && ((r.targetType === 'LISTING' && r.listing?.status === 'HIDDEN') || (r.targetType === 'SHOP' && r.shop?.moderationStatus === 'HIDDEN')) && (!r.violation || Boolean(r.violation.reversedAt)) ? (
+                <div className="mt-3 space-y-2">
+                  <label className="block text-xs font-medium">Reason for reinstatement
+                    <textarea value={moderationReasons[r.id] ?? ''} onChange={(event) => setModerationReasons((previous) => ({ ...previous, [r.id]: event.target.value.slice(0, 500) }))} rows={2} maxLength={500} className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="Document why this item or shop is being restored." />
+                  </label>
                   <button
                     type="button"
                     onClick={() => {
-                      if (window.confirm('Restore this hidden listing? Only do this after reviewing the case and any appeal.')) void act(r.id, 'RESTORE')
+                      if (window.confirm('Restore this hidden listing or shop? Only do this after reviewing the case and any appeal.')) void act(r.id, 'RESTORE', undefined, moderationReasons[r.id])
                     }}
-                    disabled={busyId === r.id}
+                    disabled={busyId === r.id || (moderationReasons[r.id] ?? '').trim().length < 10}
                     className="press inline-flex h-9 items-center gap-1.5 rounded-md border border-emerald-600/50 bg-emerald-50 px-3 text-[13px] font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-60"
                   >
                     {busyId === r.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <RotateCcw className="size-3.5" aria-hidden />}
-                    Restore hidden listing
+                    Restore hidden {r.targetType === 'SHOP' ? 'shop' : 'listing'}
                   </button>
                 </div>
               ) : null}
