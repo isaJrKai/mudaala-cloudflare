@@ -26,6 +26,9 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
   const [sent, setSent] = useState(false)
   const [appealAccessToken, setAppealAccessToken] = useState('')
   const [appealCaseId, setAppealCaseId] = useState('')
+  const [showExistingCase, setShowExistingCase] = useState(false)
+  const [existingCaseId, setExistingCaseId] = useState('')
+  const [existingAccessToken, setExistingAccessToken] = useState('')
 
   function close() {
     if (busy) return
@@ -88,6 +91,17 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
               <button type="button" aria-label="Close feedback form" onClick={close} disabled={busy} className="rounded-md p-2 hover:bg-muted disabled:opacity-50"><X className="size-4" aria-hidden /></button>
             </div>
 
+            {!sent ? (
+              <details className="mb-4 rounded-lg border p-3">
+                <summary className="cursor-pointer text-sm font-medium">Already submitted an appeal? Open your case</summary>
+                <div className="mt-3 space-y-2">
+                  <input value={existingCaseId} onChange={(event) => setExistingCaseId(event.target.value.trim())} maxLength={80} placeholder="Appeal case reference" className="h-10 w-full rounded-md border bg-background px-3 text-sm" />
+                  <input value={existingAccessToken} onChange={(event) => setExistingAccessToken(event.target.value.trim())} maxLength={128} placeholder="Private appeal access code" className="h-10 w-full rounded-md border bg-background px-3 text-sm" />
+                  <button type="button" onClick={() => setShowExistingCase(Boolean(existingCaseId && existingAccessToken))} disabled={!existingCaseId || !existingAccessToken} className="h-9 rounded-md border px-3 text-sm disabled:opacity-50">Open existing case</button>
+                  {showExistingCase && existingCaseId && existingAccessToken ? <AppealCasePortal caseId={existingCaseId} accessToken={existingAccessToken} /> : null}
+                </div>
+              </details>
+            ) : null}
             {sent ? (
               <div className="mt-5 rounded-lg border bg-muted/40 p-4">
                 <CheckCircle2 className="size-5 text-primary" aria-hidden />
