@@ -113,3 +113,7 @@ SELECT
 FROM "AppealCase"
 WHERE "id" LIKE 'ac_%'
 ON CONFLICT ("id") DO NOTHING;
+
+-- The original feedback rows remain as immutable legacy records; the active
+-- support inbox no longer treats them as new feedback or active appeals.
+UPDATE "Feedback" SET "category" = 'LEGACY_APPEAL' WHERE "category" = 'APPEAL';
