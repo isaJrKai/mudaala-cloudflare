@@ -147,13 +147,13 @@ export function SettingsView() {
         <div className="divide-y rounded-lg border bg-card">
           <SettingsLink icon={<Search className="size-4" aria-hidden />} title="Saved-search alerts" description="Manage searches that generate new-match alerts." onClick={() => navigate({ name: 'saved' })} />
           <SettingsLink icon={<Bell className="size-4" aria-hidden />} title="Your alerts" description="Review shop updates, customer activity and reminders." onClick={() => navigate({ name: 'notifications' })} />
-        </div>
-        <div className="rounded-lg border bg-card p-4">
-          <div className="mb-3">
-            <p className="text-sm font-medium">Device notifications</p>
-            <p className="mt-0.5 text-sm text-muted-foreground">Receive important Mudaala updates on this phone or computer.</p>
+          <div className="space-y-2.5 p-3.5 sm:p-4">
+            <div>
+              <p className="text-sm font-medium">Device notifications</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">Receive important Mudaala updates on this phone or computer.</p>
+            </div>
+            <PushNotificationControl />
           </div>
-          <PushNotificationControl />
         </div>
       </Section>
 
