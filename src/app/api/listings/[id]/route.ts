@@ -8,6 +8,7 @@ import { getSessionUser } from '@/lib/auth'
 import { isAdminUser } from '@/lib/admin'
 import { findTaxonomyNode, isValidTaxonomyAttributes, taxonomyAncestors } from '@/lib/product-taxonomy'
 import { recordListingDailyEvent } from '@/lib/listing-analytics'
+import { publicShopOwnerWhere } from '@/lib/shop-visibility'
 import { hit } from '@/lib/rate-limit'
 type Params = { params: Promise<{ id: string }> }
 
@@ -25,6 +26,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
             id: true,
             name: true,
             createdAt: true,
+            suspendedAt: true,
             profile: {
               select: {
                 businessName: true,
@@ -33,6 +35,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
                 county: true,
                 description: true,
                 hours: true,
+                moderationStatus: true,
               },
             },
           },
@@ -44,7 +47,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     // Resolve the viewer once so owner/admin previews do not inflate public
     // engagement metrics. Moderation state is never leaked to unauthorized viewers.
     const viewer = await getSessionUser()
-    if (listing.status === 'HIDDEN') {
+    if (listing.status === 'HIDDEN' || listing.user.suspendedAt || listing.user.profile?.moderationStatus === 'HIDDEN') {
       const privileged = viewer && (viewer.id === listing.userId || isAdminUser(viewer))
       if (!privileged) throw new ApiError(404, 'This listing does not exist or has been removed')
     }
