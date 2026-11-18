@@ -23,6 +23,7 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
+  const [appealAccessToken, setAppealAccessToken] = useState('')
 
   function close() {
     if (busy) return
@@ -35,21 +36,25 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
     setBusy(true)
     setError('')
     try {
-      const response = await fetch('/api/feedback', {
+      const isAppeal = category === 'APPEAL'
+      const response = await fetch(isAppeal ? '/api/appeals' : '/api/feedback', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          category,
+        body: JSON.stringify(isAppeal ? {
+          targetType: appealTargetType,
+          targetReference: appealTargetType === 'USER' ? undefined : appealTargetRef.trim(),
+          contact: contact.trim(),
           title,
-          description,
-          contact: contact.trim() || null,
+          statement: description,
+        } : {
+          category, title, description, contact: contact.trim() || null,
           pagePath: window.location.pathname + window.location.hash,
-          ...(category === 'APPEAL' ? { appealTargetType, appealTargetRef: appealTargetType === 'USER' ? null : appealTargetRef.trim() } : {}),
         }),
       })
       const payload = await response.json().catch(() => null)
       if (!response.ok) throw new Error(payload?.error ?? 'Your feedback could not be sent. Please try again.')
       setSent(true)
+      setAppealAccessToken(payload?.appealCase?.accessToken ?? '')
       setTitle('')
       setDescription('')
       setContact('')
@@ -83,8 +88,9 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
             {sent ? (
               <div className="mt-5 rounded-lg border bg-muted/40 p-4">
                 <CheckCircle2 className="size-5 text-primary" aria-hidden />
-                <h3 className="mt-2 font-medium">Feedback sent</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{category === 'APPEAL' ? 'Your appeal is now in the private Mudaala admin inbox for review.' : 'Thank you. Your message is now in the private Mudaala admin inbox. We also included the page you were on to help us investigate.'}</p>
+                <h3 className="mt-2 font-medium">{category === 'APPEAL' ? 'Appeal case created' : 'Feedback sent'}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{category === 'APPEAL' ? 'Your appeal has its own case record. Keep the private access code below; you will need it to follow up while your account is restricted.' : 'Thank you. Your message is now in the private Mudaala admin inbox. We also included the page you were on to help us investigate.'}</p>
+                {category === 'APPEAL' && appealAccessToken ? <div className="mt-3 rounded-md border bg-background p-3"><p className="text-xs font-semibold">Private appeal access code</p><code className="mt-1 block break-all text-xs">{appealAccessToken}</code><p className="mt-1 text-xs text-muted-foreground">Save this code somewhere private. Mudaala stores only its hash and cannot show it again.</p></div> : null}
                 <button type="button" onClick={close} className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">Done</button>
               </div>
             ) : (
