@@ -172,7 +172,10 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     ? intent.sort
     : (searchText && query.sort === 'discovery' ? 'newest' : query.sort) ?? (searchText ? 'newest' : 'discovery')
 
-  const where: Prisma.ListingWhereInput = { status: { in: includeStatuses } }
+  const where: Prisma.ListingWhereInput = {
+    status: { in: includeStatuses },
+    user: { is: { suspendedAt: null, shopRestrictedAt: null } },
+  }
   // ACTIVE is a persisted state updated by the scheduled sweep; expiry itself
   // is enforced here so a delayed sweep cannot surface stale public inventory.
   if (includeStatuses.length === 1 && includeStatuses[0] === 'ACTIVE') {
