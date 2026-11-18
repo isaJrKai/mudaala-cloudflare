@@ -59,7 +59,7 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
   return (
     <>
       <button type="button" aria-label={floating ? 'Report a bug' : undefined} onClick={() => { setOpen(true); setSent(false); setError('') }} className={floating
-        ? 'fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] right-3 z-[70] flex size-10 items-center justify-center rounded-full border bg-background/95 shadow-md hover:bg-accent sm:bottom-5 sm:right-5'
+        ? 'fixed bottom-[calc(5.25rem_+_env(safe-area-inset-bottom))] right-3 z-[70] flex size-10 items-center justify-center rounded-full border bg-background/95 shadow-md hover:bg-accent sm:bottom-5 sm:right-5'
         : 'inline-flex items-center gap-1.5 hover:text-foreground hover:underline'}>
         <MessageSquareWarning className="size-4" aria-hidden />
         {floating ? null : 'Report a bug / Send feedback'}
