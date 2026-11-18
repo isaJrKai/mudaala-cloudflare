@@ -1,18 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#174D36"/>
-      <stop offset="1" stop-color="#0F3D2E"/>
-    </linearGradient>
-    <linearGradient id="leaf" x1="140" y1="390" x2="375" y2="90" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#1B5E20"/>
-      <stop offset=".48" stop-color="#2E7D32"/>
-      <stop offset="1" stop-color="#81C784"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="112" fill="url(#background)"/>
-  <path d="M119 393C125 290 151 195 235 128 290 84 355 75 405 79c2 91-21 182-77 243-52 56-125 78-209 71Z" fill="url(#leaf)"/>
-  <path d="M101 420c78-111 165-205 284-300" fill="none" stroke="#A5D6A7" stroke-width="11" stroke-linecap="round"/>
-  <path d="M178 322c-5-37-21-64-47-87M232 265c36 0 68 13 94 39M285 209c28 1 51 10 70 27M148 366c-1-24-8-45-22-62" fill="none" stroke="#C8E6C9" stroke-width="7" stroke-linecap="round" opacity=".94"/>
-  <path d="M120 393c83 9 155-12 208-71" fill="none" stroke="#174D23" stroke-width="4" stroke-linecap="round" opacity=".7"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 280" width="280" height="280" role="img" aria-label="Mudaala app icon"><rect width="280" height="280" rx="64" fill="#F6F1E4"/><rect x="8" y="8" width="264" height="264" rx="57" fill="none" stroke="#E3DBC6" stroke-width="1.5"/><g transform="translate(140 140) scale(0.9) translate(-340 -174)"><path d="M250 56 H430 V82 a30 30 0 0 1 -60 0 a30 30 0 0 1 -60 0 a30 30 0 0 1 -60 0 Z" fill="#E9B824"/><path d="M416 232 L392 152 L340 202 L288 152 L264 232 C264 292 416 292 416 232 Z" fill="none" stroke="#0B2E24" stroke-width="28" stroke-linejoin="round" stroke-linecap="round"/></g></svg>
