@@ -1983,7 +1983,7 @@ async function main() {
       contact: alicePhone,
     }, alice)
     const shopAppealId: string = shopAppeal.json?.feedback?.id ?? ''
-    ok('shop owner can submit an appeal with their registered phone and MU-CODE', shopAppeal.status === 201 && Boolean(shopAppealId))
+    ok('shop owner can submit an appeal with their registered phone and shop code', shopAppeal.status === 201 && Boolean(shopAppealId))
     const shopAppealDecision = shopAppealId ? await call('PATCH', `/api/admin/feedback/${shopAppealId}`, {
       appealDecision: 'REVERSED',
       appealDecisionReason: 'CI test: shop appeal accepted and public visibility restored',
