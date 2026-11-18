@@ -1995,7 +1995,7 @@ async function main() {
     ok('accepting a shop appeal restores the shop and resolves the case', shopAppealDecision.status === 200 && directRestoredShop?.moderationStatus === 'ACTIVE' && storedShopAppeal?.appealDecision === 'REVERSED' && storedShopAppeal.status === 'RESOLVED')
     const shopHideAudit = aliceShop ? await db.auditLog.findFirst({ where: { targetType: 'SHOP', targetId: aliceShop.id, action: 'HIDE_SHOP' }, orderBy: { createdAt: 'desc' } }) : null
     const shopRestoreAudit = aliceShop ? await db.auditLog.findFirst({ where: { targetType: 'SHOP', targetId: aliceShop.id, action: 'RESTORE_SHOP' }, orderBy: { createdAt: 'desc' } }) : null
-    ok('shop hide and restore reasons are retained in audit history', shopHideAudit?.reason === directHideReason && shopRestoreAudit?.reason === directRestoreReason)
+    ok('shop hide and restore reasons are retained in audit history', shopHideAudit?.reason === directHideReason && shopRestoreAudit?.reason === 'CI test: shop appeal accepted and public visibility restored')
 
     const confirmedShopReport = await call('POST', '/api/reports', { targetType: 'SHOP', targetId: aliceShop?.id ?? 'missing', reason: 'PROHIBITED_ITEM' }, repB)
     const confirmedShopReportId: string = confirmedShopReport.json?.report?.id ?? ''
