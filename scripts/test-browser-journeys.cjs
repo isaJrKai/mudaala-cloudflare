@@ -402,22 +402,20 @@ async function verifyListingLifecycle(browser) {
     await publicGallerySection.getByRole('button', { name: 'Previous product photo' }).click();
     await publicGallerySection.getByText('1 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
 
-    // Verify the real buyer contact action reveals the number only on demand,
-    // then exposes working telephone and WhatsApp destinations.
-    const contactResponsePromise = page.waitForResponse((response) => {
-      return new URL(response.url()).pathname === '/api/listings/' + encodeURIComponent(publicListingId) + '/contact';
-    }, { timeout });
-    await page.getByRole('button', { name: 'Show number', exact: true }).click();
-    const contactResponse = await contactResponsePromise;
-    if (!contactResponse.ok()) throw new Error('Public contact reveal failed: HTTP ' + contactResponse.status());
-    const callLink = page.getByRole('link', { name: /^Call / });
-    await callLink.waitFor({ state: 'visible', timeout });
-    const callHref = await callLink.getAttribute('href');
-    if (!callHref?.startsWith('tel:')) throw new Error('Public Call action did not produce a tel: link');
-    const whatsappLink = page.getByRole('link', { name: 'WhatsApp', exact: true });
-    await whatsappLink.waitFor({ state: 'visible', timeout });
-    const whatsappHref = await whatsappLink.getAttribute('href');
-    if (!whatsappHref?.startsWith('https://wa.me/')) throw new Error('Public WhatsApp action did not produce a wa.me link');
+    // Public product pages now route buyers into Mudaala's native enquiry
+    // experience instead of exposing direct phone/WhatsApp contact actions.
+    const enquiryLink = page.getByRole('link', { name: 'Message seller', exact: true });
+    await enquiryLink.waitFor({ state: 'visible', timeout });
+    const enquiryHref = await enquiryLink.getAttribute('href');
+    if (enquiryHref !== '/#/listing/' + encodeURIComponent(publicListingId)) {
+      throw new Error('Public Message seller action did not point to the matching Mudaala listing: ' + enquiryHref);
+    }
+    if (await page.getByRole('button', { name: 'Show number', exact: true }).count()) {
+      throw new Error('Public product page must not expose the legacy Show number action');
+    }
+    if (await page.getByRole('link', { name: 'WhatsApp', exact: true }).count()) {
+      throw new Error('Public product page must not expose a direct WhatsApp contact action');
+    }
 
     // The shop link must lead to the actual shop route, not a dead button.
     // Use the stable destination contract rather than localized accessible copy.
@@ -427,7 +425,7 @@ async function verifyListingLifecycle(browser) {
     await shopLink.click();
     await page.waitForFunction(() => window.location.hash.startsWith('#/shop/'), null, { timeout });
     await page.goBack({ waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.getByRole('button', { name: 'Show number', exact: true }).waitFor({ state: 'visible', timeout });
+    await page.getByRole('link', { name: 'Message seller', exact: true }).waitFor({ state: 'visible', timeout });
 
     // The gallery journey deliberately switches to a phone viewport. Restore
     // desktop width before testing the featured-shop rail, which is hidden on phones.

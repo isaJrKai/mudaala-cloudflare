@@ -1904,8 +1904,9 @@ async function main() {
     const livePage = await fetch(`${BASE}/l/${cleanId}`)
     const liveHtml = await livePage.text()
     ok(
-      'ad page carries the safety card before contact',
-      liveHtml.indexOf('Before you call') !== -1 && liveHtml.indexOf('Before you call') < liveHtml.indexOf('Show number'),
+      'ad page carries the safety card before the Mudaala enquiry action',
+      liveHtml.indexOf('Before you call') !== -1 &&
+        liveHtml.indexOf('Before you call') < liveHtml.indexOf('Message seller'),
     )
     ok('safety card says never pay in advance', liveHtml.includes('Never pay in advance'))
     ok('ad page carries the report control', liveHtml.includes('aria-label="Report this ad"'))

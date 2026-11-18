@@ -28,7 +28,7 @@ export async function GET(request: Request, { params }: Params) {
             profile: {
               select: {
                 businessName: true, photoUrl: true, coverPhotoUrl: true, category: true,
-                description: true, county: true, area: true, phone: true, whatsapp: true,
+                description: true, county: true, area: true,
                 hours: true, shopCode: true, websiteUrl: true,
               },
             },
@@ -92,8 +92,6 @@ export async function GET(request: Request, { params }: Params) {
         description: profile.description,
         area: profile.area,
         county: profile.county,
-        phone: profile.phone,
-        whatsapp: profile.whatsapp,
         hours: profile.hours,
         shopCode: profile.shopCode,
         websiteUrl: profile.websiteUrl,
