@@ -228,6 +228,9 @@ jobs:
       - name: Apply and verify appeal phone verification migration in disposable PostgreSQL
         run: |
           set -euo pipefail
+          # The initial Prisma db push already created the model table. Drop it
+          # here so this step proves the versioned SQL migration builds it.
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."AppealPhoneVerificationChallenge" CASCADE;'
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261119010000_appeal_phone_verification/migration.sql
           table_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='AppealPhoneVerificationChallenge'")
           index_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='AppealPhoneVerificationChallenge' AND indexname IN ('AppealPhoneVerificationChallenge_userId_createdAt_idx','AppealPhoneVerificationChallenge_expiresAt_idx')")
