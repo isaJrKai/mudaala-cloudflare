@@ -49,6 +49,7 @@ export interface ShopShowroomItem {
 
 interface ShopPageData {
   showroomItems: ShopShowroomItem[]
+  standaloneShowroom: { slug: string; title: string; headline: string | null; coverPhotoUrl: string | null } | null
   shop: {
     id: string
     name: string
@@ -163,7 +164,7 @@ export async function getShopPage(userId: string): Promise<ShopPageData | null> 
   if (!user) return null
 
   const now = new Date()
-  const [listings, showroomItems] = await Promise.all([
+  const [listings, showroomItems, standaloneShowroom] = await Promise.all([
     db.listing.findMany({
       where: { userId, status: 'ACTIVE', ...activeListingExpiryFilter(now) },
       orderBy: [{ refreshedAt: 'desc' }],
@@ -186,6 +187,11 @@ export async function getShopPage(userId: string): Promise<ShopPageData | null> 
         createdAt: true,
       },
     }),
+    db.shopShowroom.findFirst({
+      where: { userId, status: 'PUBLISHED', publishedAt: { lte: now } },
+      orderBy: { publishedAt: 'desc' },
+      select: { slug: true, title: true, headline: true, coverPhotoUrl: true },
+    }),
   ])
 
   const profile = user.profile
@@ -193,6 +199,7 @@ export async function getShopPage(userId: string): Promise<ShopPageData | null> 
   const country = user.country ?? 'UG'
 
   return {
+    standaloneShowroom,
     showroomItems: showroomItems.map((item) => ({
       ...item,
       createdAt: item.createdAt.toISOString(),
