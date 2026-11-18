@@ -507,7 +507,7 @@ export function ShopView({ id }: { id: string }) {
       ) : null}
 
       {/* The selected showroom design stays a presentation setting; buyers see the shop and its products, not a showroom promotion. */}
-      <PublicShopCollections<PublicShopCollections shopId={shop.id} onOpenListing={(listingId) => navigate({ name: 'listing', id: listingId })} />
+      <PublicShopCollections shopId={shop.id} onOpenListing={(listingId) => navigate({ name: 'listing', id: listingId })} />
 
       <ShopShowroom shopId={shop.id} items={showroomItems ?? []} isOwner={isOwner} />
 
