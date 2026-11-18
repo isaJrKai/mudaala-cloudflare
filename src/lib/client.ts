@@ -280,6 +280,7 @@ export interface ShopPage {
   shop: ShopInfo
   listings: Listing[]
   showroomItems: ShopShowroomItemT[]
+  standaloneShowroom: { slug: string; title: string; headline: string | null; coverPhotoUrl: string | null } | null
 }
 
 /** Result of punching a MD-XXXX code into /api/shops/lookup - card-slim on
