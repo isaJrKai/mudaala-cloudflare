@@ -183,6 +183,7 @@ export function NotificationsView() {
                     <div className="min-w-0">
                       <div className="mb-1 flex flex-wrap items-center gap-1.5">
                         {n.category === 'GROWTH' ? <span className="rounded-full bg-[#F5E8C8] px-2 py-0.5 text-[10px] font-semibold tracking-wide text-[#76541B]">GROWTH COACH</span> : null}
+                        {n.category === 'SOCIAL' ? <span className="rounded-full bg-[#E6EFE9] px-2 py-0.5 text-[10px] font-semibold tracking-wide text-[#174A35]">PRODUCT INTEREST</span> : null}
                         {n.priority === 'HIGH' ? <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">PRIORITY</span> : null}
                         {!n.read ? <span className="size-1.5 rounded-full bg-primary" aria-label="Unread" /> : null}
                       </div>
