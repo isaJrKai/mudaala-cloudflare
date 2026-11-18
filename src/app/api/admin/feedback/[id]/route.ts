@@ -98,6 +98,34 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
               data: { actorId: admin.id, action: 'RESTORE_LISTING', targetType: 'LISTING', targetId: listing.id, reason },
             })
           }
+        } else if (changes.appealDecision === 'UPHELD') {
+          if (existing.appealTargetType === 'SHOP') {
+            const shop = await tx.businessProfile.findUnique({
+              where: { id: existing.appealTargetId! },
+              select: { userId: true },
+            })
+            if (shop) await tx.notification.create({
+              data: {
+                userId: shop.userId,
+                type: 'APPEAL_UPHELD',
+                title: 'Your shop appeal has been reviewed',
+                body: 'The restriction remains in place after review. Check your Mudaala feedback response for the decision details.',
+              },
+            })
+          } else if (existing.appealTargetType === 'LISTING') {
+            const listing = await tx.listing.findUnique({
+              where: { id: existing.appealTargetId! },
+              select: { userId: true },
+            })
+            if (listing) await tx.notification.create({
+              data: {
+                userId: listing.userId,
+                type: 'APPEAL_UPHELD',
+                title: 'Your listing appeal has been reviewed',
+                body: 'The restriction remains in place after review. Check your Mudaala feedback response for the decision details.',
+              },
+            })
+          }
         }
 
         await tx.feedback.update({
