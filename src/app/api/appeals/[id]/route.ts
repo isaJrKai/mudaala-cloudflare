@@ -48,7 +48,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         messages: {
           where: access.owner ? { internal: false } : {}, orderBy: { createdAt: 'asc' }, include: { sender: { select: { name: true } } },
         },
-        events: { orderBy: { createdAt: 'asc' } },
+        events: {
+          where: access.owner ? { eventType: { in: ['CREATED', 'STATUS_CHANGED', 'MESSAGE_ADDED', 'EVIDENCE_ADDED', 'DECIDED'] } } : {},
+          orderBy: { createdAt: 'asc' },
+          select: access.owner ? { id: true, eventType: true, createdAt: true } : { id: true, actorId: true, eventType: true, details: true, createdAt: true },
+        },
         owner: { select: { name: true, phone: true } },
         assignedAdmin: { select: { name: true } },
       },
