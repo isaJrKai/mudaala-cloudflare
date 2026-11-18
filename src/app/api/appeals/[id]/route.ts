@@ -58,7 +58,64 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       },
     })
     if (!appealCase) throw new ApiError(404, 'Appeal case not found')
-    return jsonOk({ appealCase })
+
+    let moderationContext: Record<string, unknown> | null = null
+    if (!access.owner) {
+      if (appealCase.targetType === 'USER') {
+        const target = await db.user.findUnique({
+          where: { id: appealCase.targetId },
+          select: { name: true, phone: true, suspendedAt: true, suspensionReason: true },
+        })
+        moderationContext = target ? {
+          title: target.name,
+          status: target.suspendedAt ? 'SUSPENDED' : 'ACTIVE',
+          reason: target.suspensionReason,
+          owner: { name: target.name, phone: target.phone },
+        } : null
+      } else if (appealCase.targetType === 'SHOP') {
+        const [target, violations] = await Promise.all([
+          db.businessProfile.findUnique({
+            where: { id: appealCase.targetId },
+            select: { businessName: true, shopCode: true, moderationStatus: true, moderationReason: true, moderatedAt: true, user: { select: { name: true, phone: true } } },
+          }),
+          db.policyViolation.findMany({
+            where: { targetType: 'SHOP', targetId: appealCase.targetId, reversedAt: null },
+            orderBy: { createdAt: 'desc' },
+            select: { policyCategory: true, createdAt: true, report: { select: { reason: true, details: true, status: true, createdAt: true } } },
+          }),
+        ])
+        moderationContext = target ? {
+          title: target.businessName,
+          reference: target.shopCode,
+          status: target.moderationStatus,
+          reason: target.moderationReason,
+          moderatedAt: target.moderatedAt,
+          owner: target.user,
+          violations,
+        } : null
+      } else {
+        const [target, violations] = await Promise.all([
+          db.listing.findUnique({
+            where: { id: appealCase.targetId },
+            select: { title: true, status: true, type: true, category: true, user: { select: { name: true, phone: true } } },
+          }),
+          db.policyViolation.findMany({
+            where: { targetType: 'LISTING', targetId: appealCase.targetId, reversedAt: null },
+            orderBy: { createdAt: 'desc' },
+            select: { policyCategory: true, createdAt: true, report: { select: { reason: true, details: true, status: true, createdAt: true } } },
+          }),
+        ])
+        moderationContext = target ? {
+          title: target.title,
+          status: target.status,
+          type: target.type,
+          category: target.category,
+          owner: target.user,
+          violations,
+        } : null
+      }
+    }
+    return jsonOk({ appealCase, moderationContext })
   })
 }
 
