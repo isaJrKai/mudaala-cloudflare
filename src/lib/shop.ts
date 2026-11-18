@@ -163,7 +163,7 @@ export async function getShopPage(userId: string): Promise<ShopPageData | null> 
       profile: true,
     },
   })
-  if (!user || user.suspendedAt || user.shopRestrictedAt || false) return null
+  if (!user || user.suspendedAt || user.shopRestrictedAt) return null
 
   const now = new Date()
   const [listings, showroomItems, standaloneShowrooms] = await Promise.all([
