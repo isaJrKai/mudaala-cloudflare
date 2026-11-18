@@ -150,7 +150,7 @@ export function AppealsDashboard() {
               <form onSubmit={sendReply} className="space-y-2">
                 <textarea value={reply} onChange={(event) => setReply(event.target.value)} rows={3} maxLength={3000} className="w-full rounded-md border bg-background p-3 text-sm" placeholder="Ask for evidence, clarify the case, or explain next steps…" />
                 <label className="block text-xs text-muted-foreground">Evidence links (optional, up to 5 HTTPS links; one per line)<textarea value={evidenceInput} onChange={(event) => setEvidenceInput(event.target.value)} rows={2} className="mt-1 w-full rounded-md border bg-background p-2 text-xs" placeholder="https://…" /></label>
-                <button type="submit" disabled={busy || !reply.trim()}                <button type="submit" disabled={busy || !reply.trim()} className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm text-primary-foreground disabled:opacity-50"><Send className="size-4" /> Send reply</button>
+                <button type="submit" disabled={busy || !reply.trim()} className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm text-primary-foreground disabled:opacity-50"><Send className="size-4" /> Send reply</button>
               </form>
             </div>
             {!selected.decision ? (
