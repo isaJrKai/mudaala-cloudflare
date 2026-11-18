@@ -69,7 +69,7 @@ export function AppealsDashboard() {
       const response = await fetch('/api/appeals/' + item.id)
       const payload = await response.json().catch(() => null)
       if (!response.ok) throw new Error(payload?.error ?? 'Could not load this case.')
-      setSelected(payload.appealCase)
+      setSelected({ ...payload.appealCase, moderationContext: payload.moderationContext ?? null })
       setMessages(payload.appealCase.messages ?? [])
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not load this case.') }
   }, [])
