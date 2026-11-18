@@ -90,7 +90,14 @@ jobs:
               const feedbackButton = page.getByRole('button', { name: 'Report a bug', exact: true });
               await feedbackButton.waitFor({ state: 'visible', timeout: 10000 });
               const feedbackBox = await feedbackButton.boundingBox();
+              const feedbackPosition = await feedbackButton.evaluate((element) => ({
+                position: getComputedStyle(element).position,
+                bottom: getComputedStyle(element).bottom,
+              }));
               const navBox = await page.getByRole('navigation', { name: 'Marketplace navigation' }).boundingBox();
+              if (feedbackPosition.position !== 'fixed' || feedbackPosition.bottom === 'auto') {
+                throw new Error('Mobile feedback action is not anchored to the viewport: ' + JSON.stringify(feedbackPosition));
+              }
               if (!feedbackBox || !navBox || feedbackBox.y + feedbackBox.height > navBox.y) {
                 throw new Error('Mobile feedback button overlaps the primary bottom navigation');
               }
