@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { route, jsonOk, jsonError, parseBody, requireUser } from '@/lib/api'
 import { normalizeAccountEmail, issueEmailCode } from '@/lib/email-auth'
+import { hit, RESET_WINDOW_MS } from '@/lib/rate-limit'
+import { getClientIp } from '@/lib/client-ip'
 
 const schema = z.object({ email: z.string().trim().email().max(254) })
 
@@ -10,6 +12,10 @@ export async function POST(request: Request) {
     const user = await requireUser()
     const data = await parseBody(request, schema)
     const email = normalizeAccountEmail(data.email)
+    const ip = getClientIp(request)
+    const ipBudget = await hit(`email-verify:ip:${ip}`, 10, RESET_WINDOW_MS)
+    const userBudget = await hit(`email-verify:user:${user.id}`, 3, RESET_WINDOW_MS)
+    if (!ipBudget.ok || !userBudget.ok) return jsonError(429, 'Too many verification requests. Please wait before trying again.')
     const owner = await db.user.findUnique({ where: { email }, select: { id: true } })
     if (owner && owner.id !== user.id) return jsonError(409, 'That email address is already linked to another Mudaala account.')
     try {
