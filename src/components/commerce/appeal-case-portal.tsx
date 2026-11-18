@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, Send } from 'lucide-react'
 
+function parseEvidenceUrls(raw: string): string[] {
+  try { const parsed = JSON.parse(raw); return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string' && value.startsWith('https://')) : [] } catch { return [] }
+}
+
 type AppealCaseView = {
   id: string
   title: string
@@ -60,7 +64,7 @@ export function AppealCasePortal({ caseId, accessToken }: { caseId: string; acce
               <article key={message.id} className="rounded-md bg-muted/40 p-3">
                 <p className="text-xs text-muted-foreground">{message.senderRole === 'MODERATOR' ? 'Mudaala review team' : 'You'} · {new Date(message.createdAt).toLocaleString()}</p>
                 <p className="mt-1 whitespace-pre-wrap text-sm">{message.body}</p>
-                {message.evidenceUrls && message.evidenceUrls !== '[]' ? <p className="mt-1 break-all text-xs">{message.evidenceUrls}</p> : null}
+                {parseEvidenceUrls(message.evidenceUrls).map((url, index) => <a key={url} href={url} target="_blank" rel="noreferrer" className="mt-2 mr-3 inline-block text-xs text-primary underline">Evidence {index + 1}</a>)}
               </article>
             ))}
           </div>
