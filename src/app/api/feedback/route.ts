@@ -31,6 +31,7 @@ export async function POST(request: Request) {
           select: { id: true, suspendedAt: true },
         })
         if (!target?.suspendedAt) throw new ApiError(404, 'We could not match an active restriction to those details')
+        if (user && user.id !== target.id) throw new ApiError(403, 'You can only appeal restrictions on your own account')
         appealTargetId = target.id
       } else if (data.appealTargetType === 'SHOP') {
         const shopCode = data.appealTargetRef?.trim().toUpperCase() ?? ''
