@@ -114,6 +114,22 @@ FROM "AppealCase"
 WHERE "id" LIKE 'ac_%'
 ON CONFLICT ("id") DO NOTHING;
 
+-- Keep at most one active appeal per owner and moderation target, including
+-- concurrent submissions. Preserve older duplicate case histories as closed.
+WITH ranked AS (
+  SELECT "id", ROW_NUMBER() OVER (PARTITION BY "ownerId", "targetType", "targetId" ORDER BY "createdAt" ASC, "id" ASC) AS position
+  FROM "AppealCase"
+  WHERE "status" IN ('OPEN', 'IN_REVIEW', 'WAITING_ON_OWNER')
+)
+UPDATE "AppealCase" AS c
+SET "status" = 'CLOSED', "updatedAt" = CURRENT_TIMESTAMP
+FROM ranked r
+WHERE c."id" = r."id" AND r.position > 1;
+
+CREATE UNIQUE INDEX "AppealCase_one_active_target_key"
+  ON "AppealCase"("ownerId", "targetType", "targetId")
+  WHERE "status" IN ('OPEN', 'IN_REVIEW', 'WAITING_ON_OWNER');
+
 -- The original feedback rows remain as immutable legacy records; the active
 -- support inbox no longer treats them as new feedback or active appeals.
 UPDATE "Feedback" SET "category" = 'LEGACY_APPEAL' WHERE "category" = 'APPEAL';
