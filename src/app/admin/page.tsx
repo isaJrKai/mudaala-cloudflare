@@ -9,6 +9,7 @@ import { withRequestDb } from '@/lib/db'
 import { AdminAnalytics } from './analytics-dashboard'
 import { ReportsDashboard } from './reports-dashboard'
 import { FeedbackDashboard } from './feedback-dashboard'
+import { AppealsDashboard } from './appeals-dashboard'
 import { AdminDirectory } from './directory-dashboard'
 import { AuditDashboard } from './audit-dashboard'
 
@@ -90,10 +91,18 @@ export default async function AdminPage() {
         <AuditDashboard />
       </section>
 
-      <section aria-labelledby="feedback-heading" className="mt-10 border-t pt-6">
-        <h2 id="feedback-heading" className="text-base font-semibold">Support & appeals</h2>
+      <section aria-labelledby="appeals-heading" className="mt-10 border-t pt-6">
+        <h2 id="appeals-heading" className="text-base font-semibold">Restriction appeals</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Private messages from users about bugs, complaints, ideas and restriction appeals. Review appeal decisions, update priority and keep internal investigation notes private.
+          Dedicated case queue for account, shop and listing appeals. Review the case timeline, assign a moderator, request evidence, communicate with the owner and record a reasoned decision.
+        </p>
+        <AppealsDashboard />
+      </section>
+
+      <section aria-labelledby="feedback-heading" className="mt-10 border-t pt-6">
+        <h2 id="feedback-heading" className="text-base font-semibold">General feedback & support</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Bug reports, complaints, ideas and general support messages. Formal restriction appeals are handled in the separate case queue above.
         </p>
         <FeedbackDashboard />
       </section>
