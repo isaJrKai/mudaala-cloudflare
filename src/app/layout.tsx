@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/mudaala-icon-v3.svg",
-    apple: "/mudaala-icon-v3.svg",
+    apple: "/apple-touch-icon.png",
   },
 };
 
