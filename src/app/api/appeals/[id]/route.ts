@@ -42,8 +42,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const access = await authorizeCase(request, id)
     const appealCase = await db.appealCase.findUnique({
       where: { id },
-      include: {
-        messages: { where: access.owner ? { internal: false } : {}, orderBy: { createdAt: 'asc' }, include: { sender: { select: { name: true } } } },
+      select: {
+        id: true, targetType: true, targetId: true, targetReference: true, title: true, statement: true,
+        status: true, priority: true, decision: true, decisionReason: true, decidedAt: true, createdAt: true, updatedAt: true,
+        messages: {
+          where: access.owner ? { internal: false } : {}, orderBy: { createdAt: 'asc' }, include: { sender: { select: { name: true } } },
+        },
         events: { orderBy: { createdAt: 'asc' } },
         owner: { select: { name: true, phone: true } },
         assignedAdmin: { select: { name: true } },
@@ -59,9 +63,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params
     const access = await authorizeCase(request, id)
     const data = await parseBody(request, messageSchema)
-    if (access.appealCase.ownerId !== (access.owner ? (await getSessionUser())?.id ?? access.appealCase.ownerId : access.appealCase.ownerId)) {
-      throw new ApiError(403, 'You cannot reply to this case')
-    }
     const current = await db.appealCase.findUnique({ where: { id }, select: { status: true, ownerId: true } })
     if (!current || ['DECIDED', 'CLOSED'].includes(current.status)) throw new ApiError(409, 'This appeal case is closed to new messages')
     const created = await db.$transaction(async (tx) => {
