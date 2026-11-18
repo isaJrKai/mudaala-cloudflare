@@ -182,7 +182,7 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
                 </div>
                 <div>
                   <label htmlFor="feedback-contact" className="mb-1.5 block text-sm font-medium">{category === 'APPEAL' ? 'Registered Mudaala phone number (required)' : 'Contact details (optional)'}</label>
-                  <input id="feedback-contact" value={contact} onChange={(event) => { setContact(event.target.value); setAppealCodeSent(false); setAppealVerificationCode('') }} required={category === 'APPEAL'} maxLength={120} placeholder={category === 'APPEAL' ? '+256 7XX XXX XXX' : "Email or phone if you'd like us to follow up"} className="h-10 w-full rounded-md border bg-background px-3 text-sm" />
+                  <input id="feedback-contact" value={contact} onChange={(event) => { setContact(event.target.value); setAppealCodeSent(false); setAppealVerificationCode('') }} required={category === 'APPEAL'} maxLength={30} placeholder={category === 'APPEAL' ? '+256 7XX XXX XXX' : "Email or phone if you'd like us to follow up"} className="h-10 w-full rounded-md border bg-background px-3 text-sm" />
                   <p className="mt-1 text-xs text-muted-foreground">{category === 'APPEAL' ? 'We send a one-time code to this registered number. You can appeal while signed out; no account login is required.' : 'Only the admin team can see this message and contact detail.'}</p>
                 </div>
                 {category === 'APPEAL' ? (
