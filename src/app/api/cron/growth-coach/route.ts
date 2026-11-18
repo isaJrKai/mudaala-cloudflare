@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 import { headers } from 'next/headers'
 import { route, jsonError, jsonOk } from '@/lib/api'
 import { db } from '@/lib/db'
-import { recommendMerchantActions } from '@/lib/merchant-growth'
+import { productPostGapStage, recommendMerchantActions } from '@/lib/merchant-growth'
 import { deliverPushNotification } from '@/lib/push-delivery'
 
 const SCHEDULED_HOURS = new Set([8, 11, 15])
@@ -212,7 +212,7 @@ export async function POST() {
       const postAgeDays = latestProductPost
         ? Math.max(0, localDayOrdinal(now, timezone) - localDayOrdinal(latestProductPost, timezone))
         : 0
-      const inactivityStage = postAgeDays >= 7 ? 7 : postAgeDays >= 5 ? 5 : postAgeDays >= 3 ? 3 : null
+      const inactivityStage = productPostGapStage(postAgeDays)
 
       if (inactivityStage !== null && local.hour === inactivityHour(merchant.id, local.day)) {
         const postAnchor = latestProductPost!.toISOString()
