@@ -3,7 +3,6 @@ import { route, jsonOk, ApiError } from '@/lib/api'
 import { db } from '@/lib/db'
 import { serializeListing } from '@/lib/listings'
 import { activeListingExpiryFilter } from '@/lib/listing-visibility'
-import { publicShopOwnerWhere } from '@/lib/shop-visibility'
 
 type Params = { params: Promise<{ id: string }> }
 
