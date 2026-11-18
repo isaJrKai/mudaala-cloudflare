@@ -1877,13 +1877,13 @@ async function main() {
     ok('non-admin action → 403', actionDenied.status === 403)
 
     // ---- Admin actions: restore, hide, dismiss (each logged) ----
-    const restore = queueRow ? await call('POST', `/api/admin/reports/${queueRow.id}/action`, { action: 'RESTORE' }, admin) : { status: 0 }
+    const restore = queueRow ? await call('POST', `/api/admin/reports/${queueRow.id}/action`, { action: 'RESTORE', reason: 'CI test: restore listing after review' }, admin) : { status: 0 }
     const restored = await call('GET', `/api/listings/${targetId}`)
     ok('admin RESTORE → the ad is ACTIVE again', restore.status === 200 && restored.status === 200 && restored.json?.listing?.status === 'ACTIVE')
     const restoreLog = await db.auditLog.findFirst({ where: { targetType: 'LISTING', targetId, action: 'RESTORE_LISTING' }, orderBy: { createdAt: 'desc' } })
     ok('restore logged with the admin as actor', Boolean(restoreLog && restoreLog.actorId === admin.user?.id))
 
-    const hide = queueRow ? await call('POST', `/api/admin/reports/${queueRow.id}/action`, { action: 'HIDE' }, admin) : { status: 0 }
+    const hide = queueRow ? await call('POST', `/api/admin/reports/${queueRow.id}/action`, { action: 'HIDE', reason: 'CI test: hide listing while reviewing report' }, admin) : { status: 0 }
     const reHidden = await call('GET', `/api/listings/${targetId}`)
     ok('admin HIDE → the ad is HIDDEN again', hide.status === 200 && reHidden.status === 404)
     const hideLog = await db.auditLog.findFirst({ where: { targetType: 'LISTING', targetId, action: 'HIDE_LISTING' }, orderBy: { createdAt: 'desc' } })
