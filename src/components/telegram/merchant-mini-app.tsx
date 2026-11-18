@@ -346,9 +346,7 @@ export function TelegramMerchantMiniApp() {
         <div className="mx-auto max-w-xl space-y-5">
           <header className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#10100f] bg-[#10100f]" style={{ backgroundImage: "url(/mudaala-african-textile.svg)", backgroundSize: 'cover', backgroundPosition: 'center' }}>
-                <span className="flex size-8 items-center justify-center rounded-full bg-[#f5f0e4]"><Image src="/logo.svg" alt="Mudaala" width={23} height={23} priority /></span>
-              </span>
+              <span className="flex size-11 shrink-0 items-center justify-center"><Image src="/logo.svg" alt="Mudaala" width={34} height={34} priority /></span>
               <div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#718276]">MUDAALA</p><p className="text-sm font-semibold">Merchant shop</p></div>
             </div>
             {!loading && !onboarding && !error ? <button type="button" onClick={() => void loadShop()} disabled={refreshing} aria-label="Refresh shop" className="flex size-10 items-center justify-center rounded-full border border-[#dce3d9] bg-white text-[#315b46] disabled:opacity-50"><RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} /></button> : null}
