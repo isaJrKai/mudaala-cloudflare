@@ -171,15 +171,6 @@ export default async function AdPage({ params }: Params) {
   const activeSince = owner.profile?.createdAt ?? owner.createdAt
   const directionsUrl = mapsSearchUrl({ area: listing.area, county: listing.county, country: countryDef(listing.country ?? 'UG').name })
   const market = await marketContext(listing)
-  const telegramSetting = await db.appSetting.findUnique({ where: { key: 'telegram:merchant:' + listing.userId } })
-  let telegramContactEnabled = false
-  if (telegramSetting) {
-    try {
-      const settings = JSON.parse(telegramSetting.value) as { enabled?: unknown; activatedAt?: unknown; chatId?: unknown }
-      telegramContactEnabled = Boolean(owner.profile) && settings.enabled === true && typeof settings.activatedAt === 'string' && Number.isSafeInteger(settings.chatId)
-    } catch { telegramContactEnabled = false }
-  }
-
   // Same fire-and-forget counter the API detail uses; crawlers included,
   // because a view is a view whoever asked.
   await db.listing.update({ where: { id: listing.id }, data: { viewCount: { increment: 1 } } }).catch(() => undefined)
