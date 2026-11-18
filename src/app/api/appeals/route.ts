@@ -95,7 +95,7 @@ export async function POST(request: Request) {
           userId: admin.id, type: 'NEW_APPEAL', category: 'SYSTEM', priority: 'HIGH',
           title: 'New restriction appeal',
           body: 'A new appeal case is waiting for review in the admin dashboard.',
-          actionUrl: '/admin/appeals', actionLabel: 'Review appeal',
+          actionUrl: '/admin#appeals-heading', actionLabel: 'Review appeal',
         })),
       })
       return created
