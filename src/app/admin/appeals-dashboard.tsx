@@ -21,12 +21,17 @@ type AppealCase = {
 }
 type CaseMessage = { id: string; body: string; senderRole: string; evidenceUrls: string; internal: boolean; createdAt: string; sender: { name: string } }
 
+function parseEvidenceUrls(raw: string): string[] {
+  try { const parsed = JSON.parse(raw); return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string' && value.startsWith('https://')) : [] } catch { return [] }
+}
+
 export function AppealsDashboard() {
   const [status, setStatus] = useState<CaseStatus>('OPEN')
   const [cases, setCases] = useState<AppealCase[]>([])
   const [selected, setSelected] = useState<AppealCase | null>(null)
   const [messages, setMessages] = useState<CaseMessage[]>([])
   const [reply, setReply] = useState('')
+  const [evidenceInput, setEvidenceInput] = useState('')
   const [decisionReason, setDecisionReason] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -77,10 +82,11 @@ export function AppealsDashboard() {
     if (!selected || !reply.trim()) return
     setBusy(true); setError('')
     try {
-      const response = await fetch('/api/appeals/' + selected.id, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ body: reply.trim() }) })
+      const response = await fetch('/api/appeals/' + selected.id, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ body: reply.trim(), evidenceUrls: evidenceInput.split(/\r?\n/).map((value) => value.trim()).filter(Boolean).slice(0, 5) }) })
       const payload = await response.json().catch(() => null)
       if (!response.ok) throw new Error(payload?.error ?? 'Could not send your reply.')
       setReply('')
+      setEvidenceInput('')
       await openCase(selected)
       await load()
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not send your reply.') }
@@ -132,12 +138,13 @@ export function AppealsDashboard() {
                 <article key={message.id} className="rounded-md bg-muted/40 p-3">
                   <p className="text-xs text-muted-foreground">{message.senderRole === 'MODERATOR' ? 'Mudaala review team' : message.sender.name} · {new Date(message.createdAt).toLocaleString()}</p>
                   <p className="mt-1 whitespace-pre-wrap text-sm">{message.body}</p>
-                  {message.evidenceUrls && message.evidenceUrls !== '[]' ? <p className="mt-2 break-all text-xs">{message.evidenceUrls}</p> : null}
+                  {parseEvidenceUrls(message.evidenceUrls).map((url, index) => <a key={url} href={url} target="_blank" rel="noreferrer" className="mt-2 mr-3 inline-block text-xs text-primary underline">Evidence {index + 1}</a>)}
                 </article>
               ))}
               <form onSubmit={sendReply} className="space-y-2">
                 <textarea value={reply} onChange={(event) => setReply(event.target.value)} rows={3} maxLength={3000} className="w-full rounded-md border bg-background p-3 text-sm" placeholder="Ask for evidence, clarify the case, or explain next steps…" />
-                <button type="submit" disabled={busy || !reply.trim()} className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm text-primary-foreground disabled:opacity-50"><Send className="size-4" /> Send reply</button>
+                <label className="block text-xs text-muted-foreground">Evidence links (optional, up to 5 HTTPS links; one per line)<textarea value={evidenceInput} onChange={(event) => setEvidenceInput(event.target.value)} rows={2} className="mt-1 w-full rounded-md border bg-background p-2 text-xs" placeholder="https://…" /></label>
+                <button type="submit" disabled={busy || !reply.trim()}                <button type="submit" disabled={busy || !reply.trim()} className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm text-primary-foreground disabled:opacity-50"><Send className="size-4" /> Send reply</button>
               </form>
             </div>
             {!selected.decision ? (
