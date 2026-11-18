@@ -25,6 +25,7 @@ export function InAppEnquiryButton({
   initialMessage,
   label = 'Message seller',
   className,
+  variant = 'outline',
 }: Props) {
   const { user, isLoading } = useSession()
   const { navigate, setAuthOpen } = useAppStore()
