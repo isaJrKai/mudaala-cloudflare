@@ -506,30 +506,7 @@ export function ShopView({ id }: { id: string }) {
         </section>
       ) : null}
 
-      {data.standaloneShowrooms.length > 0 ? (
-        <section aria-label="Shop websites" className="space-y-3">
-          {data.standaloneShowrooms.map((showroom) => (
-            <article key={showroom.slug} className="overflow-hidden rounded-lg border bg-card">
-              {showroom.coverPhotoUrl ? (
-                <a href={`/showroom/${showroom.slug}`} className="block">
-                  <img src={showroom.coverPhotoUrl} alt="" loading="lazy" className="h-36 w-full object-cover sm:h-48" />
-                </a>
-              ) : null}
-              <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Our showroom</p>
-                  <h2 className="mt-1 text-base font-semibold">{showroom.headline?.trim() || showroom.title}</h2>
-                  <p className="mt-1 text-xs text-muted-foreground">Explore this shop's dedicated Mudaala website.</p>
-                </div>
-                <Button asChild className="shrink-0">
-                  <a href={`/showroom/${showroom.slug}`}>Visit showroom <ExternalLink className="ml-2 size-4" aria-hidden /></a>
-                </Button>
-              </div>
-            </article>
-          ))}
-        </section>
-      ) : null}
-
+      {/* The selected showroom design stays a presentation setting; buyers see the shop and its products, not a showroom promotion. */}
       <PublicShopCollections shopId={shop.id} onOpenListing={(listingId) => navigate({ name: 'listing', id: listingId })} />
 
       <ShopShowroom shopId={shop.id} items={showroomItems ?? []} isOwner={isOwner} />
