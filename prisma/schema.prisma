@@ -41,6 +41,10 @@ model User {
   suspendedAt DateTime?
   suspensionReason String?
   suspendedBy String?
+  // Shop-only restriction: buyers may still use the account, but the shop and merchant tools are unavailable.
+  shopRestrictedAt DateTime?
+  shopRestrictionReason String?
+  shopRestrictedBy String?
 
   // Task 4 - legal acceptance: when the user confirmed "18+ and accept the
   // Terms and Privacy Policy" and WHICH version they saw. NULL for accounts
