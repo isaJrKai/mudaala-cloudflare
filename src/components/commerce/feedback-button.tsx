@@ -125,7 +125,7 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
                 <div>
                   <label htmlFor="feedback-contact" className="mb-1.5 block text-sm font-medium">{category === 'APPEAL' ? 'Registered Mudaala phone number (required)' : 'Contact details (optional)'}</label>
                   <input id="feedback-contact" value={contact} onChange={(event) => setContact(event.target.value)} required={category === 'APPEAL'} maxLength={120} placeholder={category === 'APPEAL' ? '+256 7XX XXX XXX' : "Email or phone if you'd like us to follow up"} className="h-10 w-full rounded-md border bg-background px-3 text-sm" />
-                  <p className="mt-1 text-xs text-muted-foreground">{category === 'APPEAL' ? 'We use this number to match the appeal to the restricted account, shop or listing.' : 'Only the admin team can see this message and contact detail.'}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{category === 'APPEAL' ? 'We use this number to match the restriction. An administrator may verify ownership before changing account access or shop visibility.' : 'Only the admin team can see this message and contact detail.'}</p>
                 </div>
                 {error ? <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p> : null}
                 <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
