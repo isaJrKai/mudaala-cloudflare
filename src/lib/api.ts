@@ -94,6 +94,7 @@ export async function requireUser(message = 'Sign in to continue'): Promise<User
 // ready. Existing merchants were explicitly grandfathered by migration.
 export async function requireSeller(message = 'Sign in to manage your shop'): Promise<User> {
   const user = await requireUser(message)
+  if (user.shopRestrictedAt) throw new ApiError(403, 'Shop management is temporarily restricted. Contact Mudaala support if you need a review.')
   if (process.env.SELLER_GOOGLE_REQUIRED?.trim().toLowerCase() !== 'true') return user
   if (user.sellerGoogleExempt) return user
 
