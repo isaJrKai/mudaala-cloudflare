@@ -47,7 +47,7 @@ export function AppealsDashboard() {
       setCases(payload?.appealCases ?? [])
       if (selectedId) {
         const refreshed = (payload?.appealCases ?? []).find((item: AppealCase) => item.id === selectedId)
-        if (refreshed) setSelected(refreshed)
+        if (refreshed) setSelected((current) => current?.id === refreshed.id ? { ...refreshed, ...current } : refreshed)
       }
     } catch (err) { setError(err instanceof Error ? err.message : 'Connection problem.') }
   }, [status, selectedId])
