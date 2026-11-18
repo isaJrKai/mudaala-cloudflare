@@ -16,6 +16,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
+      - name: Install Playwright Chromium for the full mobile viewport audit
+        run: |
+          npm install --prefix /tmp/mudaala-browser-test playwright@1.56.1
+          /tmp/mudaala-browser-test/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Audit all primary views across mobile and tablet widths
+        env:
+          APP_URL: https://mudaala.store
+        run: node scripts/test-mobile-viewport.cjs
+
       - name: Install Playwright Chromium
         run: |
           npm install --prefix /tmp/mudaala-category-check playwright@1.56.1
@@ -85,7 +95,31 @@ jobs:
               // The persistent feedback action must remain clear of the fixed
               // mobile navigation. Opening and closing the form is read-only.
               const feedbackButton = page.getByRole('button', { name: 'Report a bug', exact: true });
-              await feedbackButton.waitFor({ state: 'visible', timeout: 10000 });
+              try {
+                await feedbackButton.waitFor({ state: 'visible', timeout: 10000 });
+              } catch (error) {
+                const diagnostics = await page.evaluate(() => ({
+                  url: window.location.href,
+                  title: document.title,
+                  feedbackMatches: Array.from(document.querySelectorAll('button')).map(button => ({
+                    text: (button.innerText || '').trim(),
+                    ariaLabel: button.getAttribute('aria-label'),
+                    visible: button.getBoundingClientRect().width > 0 && button.getBoundingClientRect().height > 0,
+                    className: typeof button.className === 'string' ? button.className : '',
+                  })).filter(button => /feedback|bug|report/i.test(button.text + ' ' + button.ariaLabel)),
+                  visibleButtons: Array.from(document.querySelectorAll('button')).filter(button => {
+                    const rect = button.getBoundingClientRect();
+                    return rect.width > 0 && rect.height > 0;
+                  }).map(button => ({
+                    text: (button.innerText || '').trim().slice(0, 80),
+                    ariaLabel: button.getAttribute('aria-label'),
+                    className: typeof button.className === 'string' ? button.className.slice(0, 120) : '',
+                  })).slice(0, 50),
+                  bodyText: document.body.innerText.slice(0, 1800),
+                }));
+                console.error('Floating feedback control diagnostic:', JSON.stringify(diagnostics, null, 2));
+                throw error;
+              }
               const feedbackBox = await feedbackButton.boundingBox();
               const feedbackPosition = await feedbackButton.evaluate((element) => ({
                 position: getComputedStyle(element).position,
