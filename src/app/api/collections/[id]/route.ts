@@ -10,7 +10,7 @@ export async function GET(_request: Request, context: Context) {
     const { id } = await context.params
     const now = new Date()
     const collection = await db.productCollection.findFirst({
-      where: { id, ...publicCollectionVisibilityWhere(now) },
+      where: { id, ...publicCollectionVisibilityWhere(now), user: { is: { suspendedAt: null, shopRestrictedAt: null } } },
       select: {
         id: true,
         userId: true,
