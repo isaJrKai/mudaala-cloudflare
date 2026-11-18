@@ -24,6 +24,7 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
   const [busy, setBusy] = useState(false)
   const [sendingAppealCode, setSendingAppealCode] = useState(false)
   const [appealCodeSent, setAppealCodeSent] = useState(false)
+  const [appealCodeNotice, setAppealCodeNotice] = useState('')
   const [appealVerificationCode, setAppealVerificationCode] = useState('')
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
@@ -56,7 +57,8 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
       if (!response.ok) throw new Error(payload?.error ?? 'Could not request a verification code.')
       setAppealCodeSent(true)
       setAppealVerificationCode('')
-      setError(payload?.message ?? 'If the details match an active restriction, a code has been sent.')
+      setError('')
+      setAppealCodeNotice(payload?.message ?? 'If the details match an active restriction, a code has been sent.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not request a verification code.')
     } finally {
@@ -96,6 +98,7 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
       setAppealTargetRef('')
       setAppealCodeSent(false)
       setAppealVerificationCode('')
+      setAppealCodeNotice('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection problem. Please try again.')
     } finally {
@@ -154,7 +157,7 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
                   <>
                     <div>
                       <label htmlFor="appeal-target-type" className="mb-1.5 block text-sm font-medium">What was restricted?</label>
-                      <select id="appeal-target-type" value={appealTargetType} onChange={(event) => { setAppealTargetType(event.target.value as typeof appealTargetType); setAppealTargetRef(''); setAppealCodeSent(false); setAppealVerificationCode('') }} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+                      <select id="appeal-target-type" value={appealTargetType} onChange={(event) => { setAppealTargetType(event.target.value as typeof appealTargetType); setAppealTargetRef(''); setAppealCodeSent(false); setAppealVerificationCode(''); setAppealCodeNotice('') }} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
                         <option value="USER">My Mudaala account</option>
                         <option value="SHOP">My shop</option>
                         <option value="LISTING">One of my listings</option>
@@ -189,10 +192,11 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
                     <button type="button" onClick={() => void sendAppealVerificationCode()} disabled={sendingAppealCode || !contact.trim() || (appealTargetType !== 'USER' && !appealTargetRef.trim())} className="h-9 rounded-md border px-3 text-sm disabled:opacity-50">
                       {sendingAppealCode ? 'Sending code…' : appealCodeSent ? 'Send a new code' : 'Send verification code'}
                     </button>
+                    {appealCodeNotice ? <p role="status" className="text-xs text-muted-foreground">{appealCodeNotice}</p> : null}
                     {appealCodeSent ? (
                       <div>
                         <label htmlFor="appeal-verification-code" className="mb-1 block text-xs font-medium">6-digit SMS code</label>
-                        <input id="appeal-verification-code" inputMode="numeric" autoComplete="one-time-code" value={appealVerificationCode} onChange={(event) => setAppealVerificationCode(event.target.value.replace(/\\D/g, '').slice(0, 6))} required maxLength={6} pattern="[0-9]{6}" placeholder="000000" className="h-10 w-full rounded-md border bg-background px-3 text-sm tracking-[0.25em]" />
+                        <input id="appeal-verification-code" inputMode="numeric" autoComplete="one-time-code" value={appealVerificationCode} onChange={(event) => setAppealVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))} required maxLength={6} pattern="[0-9]{6}" placeholder="000000" className="h-10 w-full rounded-md border bg-background px-3 text-sm tracking-[0.25em]" />
                       </div>
                     ) : null}
                   </div>
