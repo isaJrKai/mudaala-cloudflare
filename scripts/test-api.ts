@@ -1326,6 +1326,8 @@ async function main() {
     })
     const accountAppealId: string = accountAppeal.json?.feedback?.id ?? ''
     ok('suspended account can submit an appeal without signing in', suspendForAppeal.status === 200 && accountAppeal.status === 201 && Boolean(accountAppealId))
+    const appealQueue = await call('GET', '/api/admin/feedback?status=ALL&category=APPEAL', undefined, admin)
+    ok('admin can filter the inbox to restriction appeals', appealQueue.status === 200 && (appealQueue.json?.feedback ?? []).some((item: any) => item.id === accountAppealId))
     const accountAppealDecision = accountAppealId ? await call('PATCH', `/api/admin/feedback/${accountAppealId}`, {
       appealDecision: 'REVERSED',
       appealDecisionReason: 'CI test: appeal accepted after review and account restriction reversed',
