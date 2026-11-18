@@ -99,7 +99,7 @@ export async function POST(request: Request) {
             data: admins.map((admin) => ({
               userId: admin.id,
               type: data.category === 'APPEAL' ? 'NEW_APPEAL' : 'NEW_FEEDBACK',
-              title: data.category === 'APPEAL' ? 'New account or shop appeal' : 'New bug report or feedback',
+              title: data.category === 'APPEAL' ? 'New account, shop or listing appeal' : 'New bug report or feedback',
               body: data.category === 'APPEAL' ? 'A user has appealed a Mudaala restriction. Open the admin dashboard to review it.' : `New ${data.category.toLowerCase()} feedback: ${data.title}. Open the admin dashboard to review it.`,
             })),
           })
