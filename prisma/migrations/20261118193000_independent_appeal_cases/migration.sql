@@ -130,6 +130,6 @@ CREATE UNIQUE INDEX "AppealCase_one_active_target_key"
   ON "AppealCase"("ownerId", "targetType", "targetId")
   WHERE "status" IN ('OPEN', 'IN_REVIEW', 'WAITING_ON_OWNER');
 
--- The original feedback rows remain as immutable legacy records; the active
--- support inbox no longer treats them as new feedback or active appeals.
+-- Successfully migrated feedback rows remain as immutable legacy records and
+-- are hidden from the general inbox. Unmatched appeals stay visible for review.
 UPDATE "Feedback" f SET "category" = 'LEGACY_APPEAL' WHERE f."category" = 'APPEAL' AND EXISTS (SELECT 1 FROM "AppealCase" c WHERE c."id" = 'ac_' || f."id");
