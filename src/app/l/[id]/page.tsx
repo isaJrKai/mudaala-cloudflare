@@ -367,14 +367,16 @@ export default async function AdPage({ params }: Params) {
         {/* Buyer contact starts inside Mudaala. The shared public page must
             send shoppers into the native listing view, where they can open a
             private enquiry and continue the conversation in Messages. */}
-        <section className="rounded-lg border bg-card p-4 sm:p-5" aria-label={`Message ${shopDisplayName} about this product`}>
-          <h2 className="text-sm font-semibold">Ask the seller about this product</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Send a private message through Mudaala. The shop can reply when they are back online.</p>
-          <Button asChild className="press mt-3 h-11 w-full gap-1.5 text-[15px]">
-            <a href={`/#/listing/${encodeURIComponent(listing.id)}`}>
-              <MessageCircle className="size-4" aria-hidden /> Message seller
-            </a>
-          </Button>
+        <section className="rounded-lg border bg-card p-4 sm:p-5" aria-label={copy.listing.contact(shopDisplayName)}>
+          {listing.type === 'OFFER' ? <>
+            <h2 className="text-sm font-semibold">Ask the seller about this product</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Send a private message through Mudaala. The shop can reply when they are back online.</p>
+            <Button asChild className="press mt-3 h-11 w-full gap-1.5 text-[15px]">
+              <a href={`/#/listing/${encodeURIComponent(listing.id)}`}>
+                <MessageCircle className="size-4" aria-hidden /> Message seller
+              </a>
+            </Button>
+          </> : <h2 className="text-sm font-semibold">{copy.listing.contact(shopDisplayName)}</h2>}
           <div className="mt-4">
             <SafetyCard />
           </div>
