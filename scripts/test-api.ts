@@ -1908,6 +1908,12 @@ async function main() {
     ok('admin can hide a reported shop with a reason', shopHide.status === 200 && hiddenShop?.moderationStatus === 'HIDDEN' && hiddenShop.moderationReason === shopHideReason)
     const hiddenShopPage = alice.user?.id ? await call('GET', `/api/shops/${alice.user.id}`) : { status: 0 }
     ok('hidden shop public page returns 404', hiddenShopPage.status === 404)
+    const hiddenShopSearch = await call('GET', '/api/shops/search?q=Alice')
+    ok('hidden shop is absent from public shop search', !(hiddenShopSearch.json?.shops ?? []).some((shop: any) => shop.id === alice.user?.id))
+    const hiddenShopDiscover = await call('GET', `/api/shops/discover?ids=${encodeURIComponent(alice.user?.id ?? '')}`)
+    ok('hidden shop is absent from public shop discovery', !(hiddenShopDiscover.json?.shops ?? []).some((shop: any) => shop.id === alice.user?.id))
+    const hiddenListingSearch = await call('GET', '/api/listings?q=Alice%20shop%20moderation%20test%20listing')
+    ok('hidden shop listing is absent from Browse search', !(hiddenListingSearch.json?.items ?? []).some((item: any) => item.id === aliceShopListingId))
     const hiddenShopListing = aliceShopListingId ? await call('GET', `/api/listings/${aliceShopListingId}`) : { status: 0 }
     ok('hidden shop listings disappear from direct public detail', hiddenShopListing.status === 404)
     const shopRestoreReason = 'CI test: shop report reviewed and restored'
@@ -1916,6 +1922,10 @@ async function main() {
     ok('admin can restore a reported shop with a reason', shopRestore.status === 200 && restoredShop?.moderationStatus === 'ACTIVE' && restoredShop.moderationReason === null)
     const restoredShopPage = alice.user?.id ? await call('GET', `/api/shops/${alice.user.id}`) : { status: 0 }
     ok('restored shop public page is available again', restoredShopPage.status === 200)
+    const restoredShopSearch = await call('GET', '/api/shops/search?q=Alice')
+    ok('restored shop returns to public shop search', (restoredShopSearch.json?.shops ?? []).some((shop: any) => shop.id === alice.user?.id))
+    const restoredListingSearch = await call('GET', '/api/listings?q=Alice%20shop%20moderation%20test%20listing')
+    ok('restored shop listings return to Browse search', (restoredListingSearch.json?.items ?? []).some((item: any) => item.id === aliceShopListingId))
     const restoredShopListing = aliceShopListingId ? await call('GET', `/api/listings/${aliceShopListingId}`) : { status: 0 }
     ok('restoring a shop makes its listings public again', restoredShopListing.status === 200)
 
