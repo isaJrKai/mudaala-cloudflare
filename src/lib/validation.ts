@@ -392,3 +392,10 @@ export function fieldErrors(error: z.ZodError): Record<string, string> {
   }
   return out
 }
+
+
+// Admin account lifecycle actions always require a documented reason.
+export const adminAccountRestrictionSchema = z.object({
+  action: z.enum(['SUSPEND', 'REINSTATE']),
+  reason: z.string().trim().min(10, 'Provide a reason of at least 10 characters').max(500, 'Keep the reason under 500 characters'),
+})
