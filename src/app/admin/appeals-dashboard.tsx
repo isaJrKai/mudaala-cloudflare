@@ -36,6 +36,7 @@ export function AppealsDashboard() {
   const [decisionReason, setDecisionReason] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const selectedId = selected?.id
 
   const load = useCallback(async () => {
     setError('')
@@ -44,12 +45,12 @@ export function AppealsDashboard() {
       const payload = await response.json().catch(() => null)
       if (!response.ok) throw new Error(payload?.error ?? 'Could not load appeal cases.')
       setCases(payload?.appealCases ?? [])
-      if (selected) {
-        const refreshed = (payload?.appealCases ?? []).find((item: AppealCase) => item.id === selected.id)
+      if (selectedId) {
+        const refreshed = (payload?.appealCases ?? []).find((item: AppealCase) => item.id === selectedId)
         if (refreshed) setSelected(refreshed)
       }
     } catch (err) { setError(err instanceof Error ? err.message : 'Connection problem.') }
-  }, [status, selected?.id])
+  }, [status, selectedId])
 
   const openCase = useCallback(async (item: AppealCase) => {
     setSelected(item)
