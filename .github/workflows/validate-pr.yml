@@ -210,8 +210,11 @@ jobs:
           migrated_event=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM public.\"AppealCaseEvent\" WHERE \"caseId\"='ac_appeal-migration-fixture-feedback' AND \"eventType\"='CREATED'")
           archived_feedback=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM public.\"Feedback\" WHERE \"id\"='appeal-migration-fixture-feedback' AND \"category\"='LEGACY_APPEAL'")
           unmatched_feedback=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM public.\"Feedback\" WHERE \"id\"='appeal-migration-unmatched-feedback' AND \"category\"='APPEAL'")
-          if [ "$case_tables" != "3" ] || [ "$token_column" != "1" ] || [ "$token_index" != "1" ] || [ "$active_index" != "1" ] || [ "$migrated_case" != "1" ] || [ "$migrated_event" != "1" ] || [ "$archived_feedback" != "1" ] || [ "$unmatched_feedback" != "1" ]; then
-            echo "Independent appeal case migration failed: tables=$case_tables token_column=$token_column token_index=$token_index active_index=$active_index case=$migrated_case event=$migrated_event archived_feedback=$archived_feedback unmatched_feedback=$unmatched_feedback"
+          rls_tables=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('AppealCase','AppealCaseMessage','AppealCaseEvent') AND c.relrowsecurity")
+          runtime_policies=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename IN ('AppealCase','AppealCaseMessage','AppealCaseEvent') AND policyname='mudaala_runtime_access'")
+          deny_policies=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename IN ('AppealCase','AppealCaseMessage','AppealCaseEvent') AND policyname='deny_direct_api_clients'")
+          if [ "$case_tables" != "3" ] || [ "$token_column" != "1" ] || [ "$token_index" != "1" ] || [ "$active_index" != "1" ] || [ "$migrated_case" != "1" ] || [ "$migrated_event" != "1" ] || [ "$archived_feedback" != "1" ] || [ "$unmatched_feedback" != "1" ] || [ "$rls_tables" != "3" ] || [ "$runtime_policies" != "3" ] || [ "$deny_policies" != "3" ]; then
+            echo "Independent appeal case migration failed: tables=$case_tables token_column=$token_column token_index=$token_index active_index=$active_index case=$migrated_case event=$migrated_event archived_feedback=$archived_feedback unmatched_feedback=$unmatched_feedback rls_tables=$rls_tables runtime_policies=$runtime_policies deny_policies=$deny_policies"
             exit 1
           fi
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
