@@ -150,7 +150,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           ? [assigned.assignedAdminId]
           : (await tx.user.findMany({ where: { id: { in: adminIds } }, select: { id: true } })).map((item) => item.id)
         if (recipients.length) await tx.notification.createMany({
-          data: recipients.map((userId) => ({ userId, type: 'APPEAL_MESSAGE', category: 'SYSTEM', priority: 'HIGH', title: 'New appeal case message', body: 'An appeal owner has replied. Open the moderator appeal queue to respond.', actionUrl: '/admin/appeals', actionLabel: 'Open case' })),
+          data: recipients.map((userId) => ({ userId, type: 'APPEAL_MESSAGE', category: 'SYSTEM', priority: 'HIGH', title: 'New appeal case message', body: 'An appeal owner has replied. Open the moderator appeal queue to respond.', actionUrl: '/admin#appeals-heading', actionLabel: 'Open case' })),
         })
       }
       return message
@@ -189,7 +189,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             if (reversed.count > 0) await tx.auditLog.create({ data: { actorId: admin.id, action: 'REVERSE_VIOLATION', targetType: 'SHOP', targetId: shop.id, reason } })
             const result = await applyShopModeration(tx, { profileId: shop.id, actorId: admin.id, action: 'RESTORE', reason })
             if (!result.ok) throw new ApiError(409, result.error)
-            await tx.notification.create({ data: { userId: shop.userId, type: 'SHOP_RESTORED', category: 'SYSTEM', priority: 'HIGH', title: 'Your shop has been restored', body: 'Your appeal was accepted and your shop is visible to buyers again.' } })
           } else {
             const listing = await tx.listing.findUnique({ where: { id: existing.targetId }, select: { id: true, userId: true, status: true } })
             if (!listing || listing.status !== 'HIDDEN') throw new ApiError(409, 'This listing is no longer hidden')
