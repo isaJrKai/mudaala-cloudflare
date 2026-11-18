@@ -1,20 +1,20 @@
 import type { Prisma } from '@prisma/client'
 
-// Public discovery must respect both account-level suspension and shop-level
-// moderation. Reuse this predicate across Browse, shop pages, QR lookup,
-// collections, and published showrooms so no alternate URL bypasses a hide.
+// Public shop discovery requires a completed, active shop profile and an
+// account that is not suspended.
 export const publicShopOwnerWhere = {
   suspendedAt: null,
   profile: { is: { moderationStatus: 'ACTIVE' } },
 } satisfies Prisma.UserWhereInput
 
-// Listings may be published before a seller completes a shop profile. Keep
-// those listings public, while still excluding suspended accounts and shops
-// explicitly hidden by moderation.
+// Listings and collections may belong to sellers who have not completed a
+// shop profile yet. Exclude suspended users and profiles explicitly hidden
+// by moderation, while allowing a missing profile and all active profiles.
 export const publicListingOwnerWhere = {
   suspendedAt: null,
-  OR: [
-    { profile: { is: { moderationStatus: 'ACTIVE' } } },
-    { profile: { is: null } },
-  ],
+  NOT: {
+    profile: {
+      is: { moderationStatus: { not: 'ACTIVE' } },
+    },
+  },
 } satisfies Prisma.UserWhereInput
