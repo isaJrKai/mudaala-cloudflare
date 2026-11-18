@@ -40,7 +40,7 @@ Push actions are not assumed to be supported uniformly. If a platform cannot exp
 3. **Completion awareness.** Re-evaluate after product creation, photo upload, shop-profile edits, poster/share actions, and notification action completion.
 4. **No false poster claims.** A poster can be generated from the existing shop identity/QR. Track an explicit merchant share action separately from a poster download; downloading is not proof it was shared externally.
 5. **Habit support, not compulsion.** Streaks count meaningful merchant actions, not merely opening the app. No shame, guilt, fake urgency, or manipulative loss aversion.
-6. **Frequency caps.** Scheduled opportunities at 08:00, 11:00, and 15:00 in the merchant's local timezone are opportunities, not guaranteed sends. Add at most one inactivity re-engagement reminder per local day, at a bounded randomized time. Event-triggered alerts are subject to priority, quiet hours, deduplication, and a daily cap.
+6. **Frequency caps.** Scheduled opportunities at 08:00, 11:00, and 15:00 in the merchant's local timezone are opportunities, not guaranteed sends. Product-post inactivity reminders trigger at 3, 5, and 7 local calendar days since the latest active product was published, at a bounded randomized hour. Each milestone is sent once per latest-post timestamp; a new product post resets the sequence. Event-triggered alerts are subject to priority, quiet hours, deduplication, and a daily cap.
 7. **Respect and control.** Honour opt-in, quiet hours, snooze, archive, dismissal, and channel preferences. Critical account/security notices remain distinct from growth coaching.
 8. **Outcome measurement.** Track delivered, displayed, opened, snoozed, dismissed, archived, completed, and resulting merchant/customer actions as separate events.
 
@@ -89,11 +89,18 @@ Do not introduce an LLM dependency for basic shop-state decisions. AI can be con
 One central service handles:
 - Immediate event triggers.
 - 08:00 / 11:00 / 15:00 local-time opportunities.
-- At most one randomized inactivity reminder per local day.
+- Product-post gap reminders at 3, 5, and 7 local days after the latest active product publication, with one notification per milestone and latest-post timestamp.
 - Snooze scheduling and retry safety.
 - Quiet hours, opt-in, deduplication, per-day caps, and idempotency.
 
 Cloudflare Cron should call a secret-protected server endpoint. Do not run database logic directly in the Worker scheduled handler; preserve the existing authenticated internal sweep pattern.
+
+### Product-interest notifications
+
+- A signed-in shopper saving/liking an active product creates a private `SOCIAL` notification for its owner and attempts Web Push delivery through the existing subscription service.
+- The alert says only that someone liked the product; it never includes buyer identity, phone number, or shortlist contents.
+- Duplicate saves do not notify again, seller self-likes are suppressed, and each product is capped at one like alert per UTC day.
+- Guest hearts remain device-local and do not notify sellers until an anonymous, abuse-resistant signal can be implemented without collecting unnecessary identity data.
 
 ### 4. Persistence and APIs
 
