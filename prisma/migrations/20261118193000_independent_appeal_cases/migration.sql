@@ -58,6 +58,24 @@ CREATE INDEX "AppealCaseMessage_senderId_createdAt_idx" ON "AppealCaseMessage"("
 CREATE INDEX "AppealCaseEvent_caseId_createdAt_idx" ON "AppealCaseEvent"("caseId", "createdAt");
 CREATE INDEX "AppealCaseEvent_actorId_createdAt_idx" ON "AppealCaseEvent"("actorId", "createdAt");
 
+-- New public-schema tables must follow Mudaala's restricted runtime model.
+-- Browser Data API roles are denied; only the trusted Worker role can access them.
+ALTER TABLE "AppealCase" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "AppealCaseMessage" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "AppealCaseEvent" ENABLE ROW LEVEL SECURITY;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "AppealCase" TO mudaala_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "AppealCaseMessage" TO mudaala_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "AppealCaseEvent" TO mudaala_runtime;
+
+CREATE POLICY mudaala_runtime_access ON "AppealCase" FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
+CREATE POLICY mudaala_runtime_access ON "AppealCaseMessage" FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
+CREATE POLICY mudaala_runtime_access ON "AppealCaseEvent" FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
+
+CREATE POLICY deny_direct_api_clients ON "AppealCase" FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+CREATE POLICY deny_direct_api_clients ON "AppealCaseMessage" FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+CREATE POLICY deny_direct_api_clients ON "AppealCaseEvent" FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);
+
 -- Migrate valid legacy appeals without losing their original submission or decision.
 INSERT INTO "AppealCase" (
   "id", "ownerId", "targetType", "targetId", "targetReference", "title", "statement",
