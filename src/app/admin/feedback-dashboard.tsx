@@ -131,13 +131,14 @@ function FeedbackCard({ item, onSaved }: { item: FeedbackItem; onSaved: () => vo
 
 export function FeedbackDashboard() {
   const [status, setStatus] = useState<FeedbackStatus>('OPEN')
+  const [category, setCategory] = useState<'ALL' | 'APPEAL' | 'FEEDBACK'>('ALL')
   const [items, setItems] = useState<FeedbackItem[] | null>(null)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
     setError('')
     try {
-      const response = await fetch(`/api/admin/feedback?status=${status}`)
+      const response = await fetch(`/api/admin/feedback?status=${status}&category=${category}`)
       const payload = await response.json().catch(() => null)
       if (!response.ok) throw new Error(payload?.error ?? 'Could not load the feedback inbox.')
       setItems(payload?.feedback ?? [])
@@ -145,7 +146,7 @@ export function FeedbackDashboard() {
       setError(err instanceof Error ? err.message : 'Connection problem. Please refresh.')
       setItems([])
     }
-  }, [status])
+  }, [status, category])
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => { void load() }, 0)
@@ -155,6 +156,11 @@ export function FeedbackDashboard() {
   return (
     <div className="mt-4">
       <div className="flex flex-wrap items-center gap-2">
+        <label className="text-xs font-medium">Queue
+          <select value={category} onChange={(event) => setCategory(event.target.value as typeof category)} className="ml-2 h-9 rounded-md border bg-background px-2 text-sm">
+            <option value="ALL">All items</option><option value="APPEAL">Appeals only</option><option value="FEEDBACK">Other feedback</option>
+          </select>
+        </label>
         {(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'ALL'] as const).map((value) => (
           <button key={value} type="button" onClick={() => setStatus(value)} aria-pressed={status === value} className={`rounded-full border px-3 py-1.5 text-xs font-medium ${status === value ? 'border-foreground bg-foreground text-background' : 'bg-card hover:bg-accent/50'}`}>
             {value === 'IN_PROGRESS' ? 'In progress' : value === 'ALL' ? 'All' : value[0] + value.slice(1).toLowerCase()}
