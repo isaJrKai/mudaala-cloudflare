@@ -128,8 +128,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         await tx.auditLog.create({ data: { actorId: admin.id, action: changes.decision === 'REVERSED' ? 'APPEAL_REVERSED' : 'APPEAL_UPHELD', targetType: 'APPEAL_CASE', targetId: id, reason } })
         await tx.appealCaseEvent.create({ data: { caseId: id, actorId: admin.id, eventType: 'DECIDED', details: { decision: changes.decision, reason } } })
       } else {
-        await tx.appealCase.update({ where: { id }, data: { status: changes.status, priority: changes.priority, assignedAdminId: changes.assignedAdminId } })
-        if (changes.assignedAdminId !== undefined) await tx.appealCaseEvent.create({ data: { caseId: id, actorId: admin.id, eventType: 'ASSIGNED', details: { assignedAdminId: changes.assignedAdminId } } })
+        await tx.appealCase.update({ where: { id }, data: { status: changes.status, priority: changes.priority, assignedAdminId: changes.assignedAdminId === 'SELF' ? admin.id : changes.assignedAdminId } })
+        if (changes.assignedAdminId !== undefined) await tx.appealCaseEvent.create({ data: { caseId: id, actorId: admin.id, eventType: 'ASSIGNED', details: { assignedAdminId: changes.assignedAdminId === 'SELF' ? admin.id : changes.assignedAdminId } } })
         if (changes.status) await tx.appealCaseEvent.create({ data: { caseId: id, actorId: admin.id, eventType: 'STATUS_CHANGED', details: { status: changes.status } } })
       }
     })
