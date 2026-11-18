@@ -202,8 +202,10 @@ jobs:
             echo "Independent appeal case migration failed: tables=$case_tables token_column=$token_column token_index=$token_index active_index=$active_index case=$migrated_case event=$migrated_event archived_feedback=$archived_feedback"
             exit 1
           fi
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DELETE FROM public."Feedback" WHERE id = ''appeal-migration-fixture-feedback'';'
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DELETE FROM public."User" WHERE id = ''appeal-migration-fixture-user'';'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DELETE FROM public."Feedback" WHERE "id" = 'appeal-migration-fixture-feedback';
+          DELETE FROM public."User" WHERE "id" = 'appeal-migration-fixture-user';
+          SQL
           echo "Independent appeal case migration and legacy backfill passed."
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
