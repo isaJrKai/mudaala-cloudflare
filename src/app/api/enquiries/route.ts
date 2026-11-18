@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { ApiError, jsonOk, parseBody, requireUser, route } from '@/lib/api'
 import { db } from '@/lib/db'
@@ -6,30 +7,80 @@ import { hit } from '@/lib/rate-limit'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+type EnquiryInboxRow = {
+  id: string
+  status: string
+  followUpConsentAt: Date | null
+  merchantId: string
+  shopperId: string | null
+  listingId: string
+  listingTitle: string
+  listingStatus: string
+  sellerPhone: string
+  shopName: string | null
+  messageBody: string | null
+  messageSenderType: string | null
+  messageCreatedAt: Date | null
+  messageDeliveryStatus: string | null
+  lastMessageAt: Date
+}
+
 export async function GET() {
   return route(async () => {
     const user = await requireUser()
-    const items = await db.enquiry.findMany({
-      where: { OR: [{ merchantId: user.id }, { shopperId: user.id }] },
-      include: {
-        listing: { select: { id: true, title: true, status: true, contactPhone: true } },
-        merchant: { select: { profile: { select: { businessName: true } } } },
-        messages: { orderBy: { createdAt: 'desc' }, take: 1, select: { body: true, senderType: true, createdAt: true, deliveryStatus: true } },
-      },
-      orderBy: { lastMessageAt: 'desc' },
-      take: 100,
-    })
-    return jsonOk({ enquiries: items.map((item) => ({
+
+    // Keep the inbox read to one indexed SQL query. Prisma's nested
+    // relation include for 100 enquiries caused excessive Worker CPU use
+    // when it also built a per-enquiry latest-message relation.
+    const rows = await db.$queryRaw<EnquiryInboxRow[]>(Prisma.sql`
+      SELECT
+        e."id",
+        e."status",
+        e."followUpConsentAt",
+        e."merchantId",
+        e."shopperId",
+        e."listingId",
+        l."title" AS "listingTitle",
+        l."status" AS "listingStatus",
+        l."contactPhone" AS "sellerPhone",
+        bp."businessName" AS "shopName",
+        latest."body" AS "messageBody",
+        latest."senderType" AS "messageSenderType",
+        latest."createdAt" AS "messageCreatedAt",
+        latest."deliveryStatus" AS "messageDeliveryStatus",
+        e."lastMessageAt"
+      FROM "Enquiry" e
+      INNER JOIN "Listing" l ON l."id" = e."listingId"
+      INNER JOIN "User" merchant ON merchant."id" = e."merchantId"
+      LEFT JOIN "BusinessProfile" bp ON bp."userId" = merchant."id"
+      LEFT JOIN LATERAL (
+        SELECT m."body", m."senderType", m."createdAt", m."deliveryStatus"
+        FROM "EnquiryMessage" m
+        WHERE m."enquiryId" = e."id"
+        ORDER BY m."createdAt" DESC
+        LIMIT 1
+      ) latest ON TRUE
+      WHERE e."merchantId" = ${user.id} OR e."shopperId" = ${user.id}
+      ORDER BY e."lastMessageAt" DESC
+      LIMIT 100
+    `)
+
+    return jsonOk({ enquiries: rows.map((item) => ({
       id: item.id,
       status: item.status,
       followUpConsentAt: item.followUpConsentAt,
       role: item.merchantId === user.id ? 'MERCHANT' : 'SHOPPER',
-      listing: { id: item.listing.id, title: item.listing.title, status: item.listing.status },
+      listing: { id: item.listingId, title: item.listingTitle, status: item.listingStatus },
       // The seller's phone is revealed only to the buyer who already opened
       // this private enquiry. Merchant inboxes never receive shopper numbers.
-      sellerPhone: item.shopperId === user.id ? item.listing.contactPhone : null,
-      shopName: item.merchant.profile?.businessName || 'Mudaala shop',
-      lastMessage: item.messages[0] || null,
+      sellerPhone: item.shopperId === user.id ? item.sellerPhone : null,
+      shopName: item.shopName || 'Mudaala shop',
+      lastMessage: item.messageBody === null ? null : {
+        body: item.messageBody,
+        senderType: item.messageSenderType,
+        createdAt: item.messageCreatedAt,
+        deliveryStatus: item.messageDeliveryStatus,
+      },
       lastMessageAt: item.lastMessageAt,
     })) })
   })
