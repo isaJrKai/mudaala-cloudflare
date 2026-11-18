@@ -155,7 +155,7 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
   const surface = surfaces[template.surface] || surfaces.paper
   const heroPhoto = showroom.coverPhotoUrl || showroom.photos[0] || null
   const galleryPhotos = showroom.coverPhotoUrl ? showroom.photos.slice(0, 3) : showroom.photos.slice(1, 4)
-  const contactNumber = (shop.whatsapp || shop.phone || '').replace(/\\D/g, '')
+  const contactNumber = (shop.whatsapp || shop.phone || '').replace(/\D/g, '')
   const heroLayoutClass: Record<string, string> = {
     'cover-story': 'grid gap-8 md:grid-cols-[1.05fr_.95fr] md:items-end',
     'full-bleed': 'grid gap-6',
@@ -231,12 +231,12 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
         <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-3 sm:px-10 sm:py-4">
           <div className="flex min-w-0 items-center gap-3 sm:gap-5">
             <a href="/" aria-label="Back to Mudaala marketplace" className="shrink-0 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">
-              <Image src="/logo.svg" alt="Mudaala" width={142} height={44} priority className="h-8 w-auto object-contain sm:h-9" />
+              <Image src="/logo.svg" alt="Mudaala" width={142} height={44} priority className="h-7 w-auto object-contain sm:h-9" />
             </a>
             <span aria-hidden="true" className="h-8 w-px shrink-0 bg-current/20" />
             <a href="#top" className="flex min-w-0 items-center gap-2">
               {showroom.logoUrl || shop.logoUrl ? <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full"><Image src={showroom.logoUrl || shop.logoUrl!} alt="" fill unoptimized sizes="32px" className="object-cover" /></span> : null}
-              <span className="min-w-0"><span className="block max-w-[34vw] truncate text-xs font-semibold tracking-tight sm:max-w-none sm:text-sm">{shop.name}</span><span className="mt-0.5 block truncate text-[9px] font-medium uppercase tracking-[.12em] opacity-85">{shop.area || shop.county || shop.category || 'Independent shop'}</span></span>
+              <span className="min-w-0"><span className="block max-w-[22vw] truncate text-xs font-semibold tracking-tight sm:max-w-none sm:text-sm">{shop.name}</span><span className="mt-0.5 block truncate text-[9px] font-medium uppercase tracking-[.12em] opacity-85">{shop.area || shop.county || shop.category || 'Independent shop'}</span></span>
             </a>
           </div>
           <nav aria-label="Showroom navigation" className="flex shrink-0 items-center gap-3 text-[10px] font-semibold sm:gap-6 sm:text-xs">
