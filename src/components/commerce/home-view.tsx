@@ -16,7 +16,6 @@ import {
   Bell,
   Bookmark,
   MapPin,
-  Phone,
   RefreshCw,
   PlusCircle,
   Search,
