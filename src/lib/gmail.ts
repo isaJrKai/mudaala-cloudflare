@@ -80,7 +80,16 @@ async function getAccessToken(env: GmailEnvironment): Promise<string> {
   return payload.access_token
 }
 
-export function gmailSenderAddress(env: GmailEnvironment = process.env): string {
+function runtimeGmailEnvironment(): GmailEnvironment {
+  return {
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    GOOGLE_GMAIL_REFRESH_TOKEN: process.env.GOOGLE_GMAIL_REFRESH_TOKEN,
+    GOOGLE_GMAIL_SENDER: process.env.GOOGLE_GMAIL_SENDER,
+  }
+}
+
+export function gmailSenderAddress(env: GmailEnvironment = runtimeGmailEnvironment()): string {
   const sender = env.GOOGLE_GMAIL_SENDER?.trim() || 'mudaalakatale@gmail.com'
   if (!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(sender)) {
     throw new Error('Gmail sender address is invalid')
@@ -93,7 +102,7 @@ export async function sendGmailMessage(
   to: string,
   subject: string,
   text: string,
-  env: GmailEnvironment = process.env,
+  env: GmailEnvironment = runtimeGmailEnvironment(),
 ): Promise<void> {
   const recipient = safeHeader(to.trim(), 'recipient')
   if (!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(recipient)) {
