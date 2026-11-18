@@ -49,8 +49,9 @@ export async function GET(_request: NextRequest, { params }: Params) {
       }),
     ])
 
+    const { suspendedAt: _suspendedAt, shopRestrictedAt: _shopRestrictedAt, ...publicSeller } = seller
     return jsonOk({
-      seller,
+      seller: publicSeller,
       profile,
       listings: listings.map(serializeListing),
     })
