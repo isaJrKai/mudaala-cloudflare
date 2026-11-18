@@ -1989,23 +1989,23 @@ async function main() {
     const directHide = aliceShop ? await call('POST', `/api/admin/shops/${aliceShop.id}/restriction`, { action: 'HIDE', reason: directHideReason }, admin) : { status: 0 }
     const directHiddenShop = aliceShop ? await db.businessProfile.findUnique({ where: { id: aliceShop.id }, select: { moderationStatus: true, moderationReason: true } }) : null
     ok('shops directory can hide a shop with an audited reason', directHide.status === 200 && directHiddenShop?.moderationStatus === 'HIDDEN' && directHiddenShop.moderationReason === directHideReason)
-    const shopAppeal = await call('POST', '/api/feedback', {
-      category: 'APPEAL',
-      appealTargetType: 'SHOP',
-      appealTargetRef: aliceShop?.shopCode ?? '',
+    const shopAppeal = await call('POST', '/api/appeals', {
+      targetType: 'SHOP',
+      targetReference: aliceShop?.shopCode ?? '',
       title: 'Appeal of shop restriction',
-      description: 'I believe the shop restriction was applied in error. Please review the shop and its listings.',
+      statement: 'I believe the shop restriction was applied in error. Please review the shop and its listings.',
       contact: alicePhone,
     }, alice)
-    const shopAppealId: string = shopAppeal.json?.feedback?.id ?? ''
-    ok('shop owner can submit an appeal with their registered phone and shop code', shopAppeal.status === 201 && Boolean(shopAppealId))
-    const shopAppealDecision = shopAppealId ? await call('PATCH', `/api/admin/feedback/${shopAppealId}`, {
-      appealDecision: 'REVERSED',
-      appealDecisionReason: 'CI test: shop appeal accepted and public visibility restored',
+    const shopAppealId: string = shopAppeal.json?.appealCase?.id ?? ''
+    const shopAppealToken: string = shopAppeal.json?.appealCase?.accessToken ?? ''
+    ok('shop owner can submit an independent appeal case with a private access code', shopAppeal.status === 201 && Boolean(shopAppealId && shopAppealToken))
+    const shopAppealDecision = shopAppealId ? await call('PATCH', `/api/appeals/${shopAppealId}`, {
+      decision: 'REVERSED',
+      decisionReason: 'CI test: shop appeal accepted and public visibility restored',
     }, admin) : { status: 0 }
     const directRestoredShop = aliceShop ? await db.businessProfile.findUnique({ where: { id: aliceShop.id }, select: { moderationStatus: true } }) : null
-    const storedShopAppeal = shopAppealId ? await db.feedback.findUnique({ where: { id: shopAppealId }, select: { appealDecision: true, status: true } }) : null
-    ok('accepting a shop appeal restores the shop and resolves the case', shopAppealDecision.status === 200 && directRestoredShop?.moderationStatus === 'ACTIVE' && storedShopAppeal?.appealDecision === 'REVERSED' && storedShopAppeal.status === 'RESOLVED')
+    const storedShopAppeal = shopAppealId ? await db.appealCase.findUnique({ where: { id: shopAppealId }, select: { decision: true, status: true } }) : null
+    ok('accepting a shop appeal restores the shop and resolves the case', shopAppealDecision.status === 200 && directRestoredShop?.moderationStatus === 'ACTIVE' && storedShopAppeal?.decision === 'REVERSED' && storedShopAppeal.status === 'DECIDED')
     const shopHideAudit = aliceShop ? await db.auditLog.findFirst({ where: { targetType: 'SHOP', targetId: aliceShop.id, action: 'HIDE_SHOP' }, orderBy: { createdAt: 'desc' } }) : null
     const shopRestoreAudit = aliceShop ? await db.auditLog.findFirst({ where: { targetType: 'SHOP', targetId: aliceShop.id, action: 'RESTORE_SHOP' }, orderBy: { createdAt: 'desc' } }) : null
     ok('shop hide and restore reasons are retained in audit history', shopHideAudit?.reason === directHideReason && shopRestoreAudit?.reason === 'CI test: shop appeal accepted and public visibility restored')
