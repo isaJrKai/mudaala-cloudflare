@@ -16,6 +16,7 @@ type Props = {
   initialMessage: string
   label?: string
   className?: string
+  variant?: 'default' | 'outline'
 }
 
 export function InAppEnquiryButton({
