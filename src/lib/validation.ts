@@ -372,10 +372,14 @@ export const feedbackAdminUpdateSchema = z.object({
   status: z.enum(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']).optional(),
   priority: z.enum(['NORMAL', 'HIGH', 'URGENT']).optional(),
   adminNotes: z.string().trim().max(3000, 'Admin notes must be under 3000 characters').optional().nullable(),
-}).refine((value) => value.status !== undefined || value.priority !== undefined || value.adminNotes !== undefined, {
-  message: 'Choose a status, priority, or add an internal note',
+  appealDecision: z.enum(['UPHELD', 'REVERSED']).optional(),
+  appealDecisionReason: z.string().trim().min(10).max(500).optional(),
+}).refine((value) => value.appealDecision === undefined || Boolean(value.appealDecisionReason && value.appealDecisionReason.length >= 10), {
+  message: 'Provide a decision reason of at least 10 characters',
+  path: ['appealDecisionReason'],
+}).refine((value) => value.status !== undefined || value.priority !== undefined || value.adminNotes !== undefined || value.appealDecision !== undefined, {
+  message: 'Provide at least one feedback update',
 })
-
 export const adminReportsQuerySchema = z.object({
   status: z.enum(['OPEN', 'ACTIONED', 'DISMISSED', 'ALL']).default('OPEN'),
 })

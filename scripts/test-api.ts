@@ -1315,6 +1315,35 @@ async function main() {
     alice.token = freshAliceLogin.json?.sessionToken
     ok('reinstated account can sign in again with a fresh session', freshAliceLogin.status === 200)
 
+    const appealSuspendReason = 'CI test: suspend account before appeal review'
+    const suspendForAppeal = await call('POST', `/api/admin/people/${restrictedUserId}/restriction`, { action: 'SUSPEND', reason: appealSuspendReason }, admin)
+    const accountAppeal = await call('POST', '/api/appeals', {
+      targetType: 'USER',
+      title: 'Appeal of account suspension',
+      statement: 'I believe this account restriction was applied in error. Please review the account activity.',
+      contact: alicePhone,
+    })
+    const accountAppealId: string = accountAppeal.json?.appealCase?.id ?? ''
+    const accountAppealToken: string = accountAppeal.json?.appealCase?.accessToken ?? ''
+    ok('suspended account can open an independent appeal case without signing in', suspendForAppeal.status === 200 && accountAppeal.status === 201 && Boolean(accountAppealId && accountAppealToken))
+    const accountCaseRead = accountAppealId ? await call('GET', `/api/appeals/${accountAppealId}`, undefined, undefined, { 'x-appeal-access-token': accountAppealToken }) : { status: 0 }
+    ok('suspended account can securely read its case using the private access code', accountCaseRead.status === 200)
+    const accountModeratorReview = accountAppealId ? await call('GET', `/api/appeals/${accountAppealId}`, undefined, admin) : { status: 0, json: null }
+    ok('moderator can see the original account suspension reason in the case', accountModeratorReview.status === 200 && accountModeratorReview.json?.moderationContext?.status === 'SUSPENDED' && Boolean(accountModeratorReview.json?.moderationContext?.reason))
+    const appealQueue = await call('GET', '/api/admin/appeals?status=ALL', undefined, admin)
+    ok('admin can find account appeals in the dedicated case queue', appealQueue.status === 200 && (appealQueue.json?.appealCases ?? []).some((item: any) => item.id === accountAppealId))
+    const accountAppealDecision = accountAppealId ? await call('PATCH', `/api/appeals/${accountAppealId}`, {
+      decision: 'REVERSED',
+      decisionReason: 'CI test: appeal accepted after review and account restriction reversed',
+    }, admin) : { status: 0 }
+    const accountAfterAppeal = await db.user.findUnique({ where: { id: restrictedUserId }, select: { suspendedAt: true } })
+    const storedAccountAppeal = accountAppealId ? await db.appealCase.findUnique({ where: { id: accountAppealId }, select: { decision: true, status: true } }) : null
+    ok('accepting an account appeal reinstates the account and records the decision', accountAppealDecision.status === 200 && accountAfterAppeal?.suspendedAt === null && storedAccountAppeal?.decision === 'REVERSED' && storedAccountAppeal.status === 'DECIDED')
+    const postAppealLogin = await call('POST', '/api/auth/login', { phone: alicePhone, password: 'password321' }, alice)
+    storeCookie(alice, postAppealLogin)
+    alice.token = postAppealLogin.json?.sessionToken
+    ok('account appeal reinstatement permits a fresh login', postAppealLogin.status === 200)
+
     const anonymousAnalytics = await call('GET', '/api/admin/analytics')
     ok('admin analytics denies anonymous access → 401', anonymousAnalytics.status === 401)
 
@@ -1889,6 +1918,37 @@ async function main() {
     const hideLog = await db.auditLog.findFirst({ where: { targetType: 'LISTING', targetId, action: 'HIDE_LISTING' }, orderBy: { createdAt: 'desc' } })
     ok('admin hide logged with the admin as actor', Boolean(hideLog && hideLog.actorId === admin.user?.id))
 
+    const ownerAccount = owner.user?.id ? await db.user.findUnique({ where: { id: owner.user.id }, select: { phone: true } }) : null
+    const listingAppeal = await call('POST', '/api/appeals', {
+      targetType: 'LISTING',
+      targetReference: targetId,
+      title: 'Appeal of listing restriction',
+      statement: 'I believe my listing was hidden by mistake. Please review the report and restore it if appropriate.',
+      contact: ownerAccount?.phone ?? '',
+    }, owner)
+    const listingAppealId: string = listingAppeal.json?.appealCase?.id ?? ''
+    const listingAppealToken: string = listingAppeal.json?.appealCase?.accessToken ?? ''
+    ok('listing owner can open an independent appeal case', listingAppeal.status === 201 && Boolean(listingAppealId && listingAppealToken))
+    const listingCaseRead = listingAppealId ? await call('GET', `/api/appeals/${listingAppealId}`, undefined, undefined, { 'x-appeal-access-token': listingAppealToken }) : { status: 0, json: null }
+    ok('appeal owner can read their case with its private access code', listingCaseRead.status === 200 && listingCaseRead.json?.appealCase?.messages?.length === 1)
+    const listingOwnerReply = listingAppealId ? await call('POST', `/api/appeals/${listingAppealId}`, { body: 'I can provide the original listing photos and supplier receipt if needed.', evidenceUrls: ['https://example.com/supplier-receipt.pdf'] }, undefined, { 'x-appeal-access-token': listingAppealToken }) : { status: 0, json: null }
+    ok('appeal owner can add a message to the case timeline', listingOwnerReply.status === 201)
+    const listingQueue = await call('GET', '/api/admin/appeals?status=ALL', undefined, admin)
+    ok('appeal cases appear in the dedicated moderator queue', listingQueue.status === 200 && (listingQueue.json?.appealCases ?? []).some((item: any) => item.id === listingAppealId))
+    const listingAssign = listingAppealId ? await call('PATCH', `/api/appeals/${listingAppealId}`, { assignedAdminId: 'SELF' }, admin) : { status: 0 }
+    ok('moderator can assign an appeal case to themselves', listingAssign.status === 200)
+    const listingModeratorReply = listingAppealId ? await call('POST', `/api/appeals/${listingAppealId}`, { body: 'Please provide the supplier receipt so we can complete the review.' }, admin) : { status: 0 }
+    ok('moderator can communicate with the appeal owner', listingModeratorReply.status === 201)
+    const listingOwnerFollowUp = listingAppealId ? await call('POST', `/api/appeals/${listingAppealId}`, { body: 'I have reviewed the request and am ready to proceed.' }, undefined, { 'x-appeal-access-token': listingAppealToken }) : { status: 0 }
+    ok('owner can reply using the private case access code without an active session', listingOwnerFollowUp.status === 201)
+    const listingAppealDecision = listingAppealId ? await call('PATCH', `/api/appeals/${listingAppealId}`, {
+      decision: 'REVERSED',
+      decisionReason: 'CI test: listing appeal accepted after moderation review',
+    }, admin) : { status: 0 }
+    const listingAfterAppeal = await db.listing.findUnique({ where: { id: targetId }, select: { status: true } })
+    const storedListingAppeal = listingAppealId ? await db.appealCase.findUnique({ where: { id: listingAppealId }, select: { decision: true, status: true } }) : null
+    ok('accepting a listing appeal restores the listing and preserves a decision record', listingAppealDecision.status === 200 && listingAfterAppeal?.status === 'ACTIVE' && storedListingAppeal?.decision === 'REVERSED' && storedListingAppeal.status === 'DECIDED')
+
     const dismiss = queueRow ? await call('POST', `/api/admin/reports/${queueRow.id}/action`, { action: 'DISMISS' }, admin) : { status: 0 }
     ok('admin DISMISS → 200', dismiss.status === 200)
     const openAfter = await call('GET', '/api/admin/reports?status=OPEN', undefined, admin)
@@ -1933,13 +1993,28 @@ async function main() {
     const directHide = aliceShop ? await call('POST', `/api/admin/shops/${aliceShop.id}/restriction`, { action: 'HIDE', reason: directHideReason }, admin) : { status: 0 }
     const directHiddenShop = aliceShop ? await db.businessProfile.findUnique({ where: { id: aliceShop.id }, select: { moderationStatus: true, moderationReason: true } }) : null
     ok('shops directory can hide a shop with an audited reason', directHide.status === 200 && directHiddenShop?.moderationStatus === 'HIDDEN' && directHiddenShop.moderationReason === directHideReason)
-    const directRestoreReason = 'CI test: direct shop directory reinstatement'
-    const directRestore = aliceShop ? await call('POST', `/api/admin/shops/${aliceShop.id}/restriction`, { action: 'RESTORE', reason: directRestoreReason }, admin) : { status: 0 }
+    const shopAppeal = await call('POST', '/api/appeals', {
+      targetType: 'SHOP',
+      targetReference: aliceShop?.shopCode ?? '',
+      title: 'Appeal of shop restriction',
+      statement: 'I believe the shop restriction was applied in error. Please review the shop and its listings.',
+      contact: alicePhone,
+    }, alice)
+    const shopAppealId: string = shopAppeal.json?.appealCase?.id ?? ''
+    const shopAppealToken: string = shopAppeal.json?.appealCase?.accessToken ?? ''
+    ok('shop owner can submit an independent appeal case with a private access code', shopAppeal.status === 201 && Boolean(shopAppealId && shopAppealToken))
+    const shopModeratorReview = shopAppealId ? await call('GET', `/api/appeals/${shopAppealId}`, undefined, admin) : { status: 0, json: null }
+    ok('moderator can see the original shop restriction reason in the case', shopModeratorReview.status === 200 && shopModeratorReview.json?.moderationContext?.status === 'HIDDEN' && shopModeratorReview.json?.moderationContext?.reason === directHideReason)
+    const shopAppealDecision = shopAppealId ? await call('PATCH', `/api/appeals/${shopAppealId}`, {
+      decision: 'REVERSED',
+      decisionReason: 'CI test: shop appeal accepted and public visibility restored',
+    }, admin) : { status: 0 }
     const directRestoredShop = aliceShop ? await db.businessProfile.findUnique({ where: { id: aliceShop.id }, select: { moderationStatus: true } }) : null
-    ok('shops directory can restore a shop with an audited reason', directRestore.status === 200 && directRestoredShop?.moderationStatus === 'ACTIVE')
+    const storedShopAppeal = shopAppealId ? await db.appealCase.findUnique({ where: { id: shopAppealId }, select: { decision: true, status: true } }) : null
+    ok('accepting a shop appeal restores the shop and resolves the case', shopAppealDecision.status === 200 && directRestoredShop?.moderationStatus === 'ACTIVE' && storedShopAppeal?.decision === 'REVERSED' && storedShopAppeal.status === 'DECIDED')
     const shopHideAudit = aliceShop ? await db.auditLog.findFirst({ where: { targetType: 'SHOP', targetId: aliceShop.id, action: 'HIDE_SHOP' }, orderBy: { createdAt: 'desc' } }) : null
     const shopRestoreAudit = aliceShop ? await db.auditLog.findFirst({ where: { targetType: 'SHOP', targetId: aliceShop.id, action: 'RESTORE_SHOP' }, orderBy: { createdAt: 'desc' } }) : null
-    ok('shop hide and restore reasons are retained in audit history', shopHideAudit?.reason === directHideReason && shopRestoreAudit?.reason === directRestoreReason)
+    ok('shop hide and restore reasons are retained in audit history', shopHideAudit?.reason === directHideReason && shopRestoreAudit?.reason === 'CI test: shop appeal accepted and public visibility restored')
 
     const confirmedShopReport = await call('POST', '/api/reports', { targetType: 'SHOP', targetId: aliceShop?.id ?? 'missing', reason: 'PROHIBITED_ITEM' }, repB)
     const confirmedShopReportId: string = confirmedShopReport.json?.report?.id ?? ''

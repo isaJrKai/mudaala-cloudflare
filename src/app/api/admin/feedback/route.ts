@@ -12,8 +12,14 @@ export async function GET(request: NextRequest) {
     const requested = request.nextUrl.searchParams.get('status') ?? 'OPEN'
     if (!STATUSES.includes(requested as typeof STATUSES[number])) throw new ApiError(400, 'Invalid feedback status filter')
     const status = requested as typeof STATUSES[number]
+    const category = request.nextUrl.searchParams.get('category') ?? 'ALL'
+    if (!['ALL', 'FEEDBACK'].includes(category)) throw new ApiError(400, 'Invalid feedback category filter')
+    const where = {
+      ...(status === 'ALL' ? {} : { status }),
+      category: category === 'FEEDBACK' ? { notIn: ['APPEAL', 'LEGACY_APPEAL'] } : { not: 'LEGACY_APPEAL' },
+    }
     const feedback = await db.feedback.findMany({
-      where: status === 'ALL' ? {} : { status },
+      where,
       orderBy: { createdAt: 'desc' },
       take: 200,
       include: { reporter: { select: { name: true } } },
@@ -32,6 +38,11 @@ export async function GET(request: NextRequest) {
         status: item.status,
         priority: item.priority,
         adminNotes: item.adminNotes,
+        appealTargetType: item.appealTargetType,
+        appealTargetRef: item.appealTargetRef,
+        appealTargetId: item.appealTargetId,
+        appealDecision: item.appealDecision,
+        appealDecisionReason: item.appealDecisionReason,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
         reporterName: item.reporter?.name ?? 'Guest',

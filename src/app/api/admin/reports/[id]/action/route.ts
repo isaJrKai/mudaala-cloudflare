@@ -68,7 +68,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
               userId: target.userId,
               type: 'LISTING_HIDDEN',
               title: 'A listing was hidden after review',
-              body: 'Our team reviewed a report and confirmed that this listing broke Mudaala policy, so it has been hidden. You can appeal this decision using “Report a bug / Send feedback” in the site footer.',
+              body: 'Our team reviewed a report and confirmed that this listing broke Mudaala policy, so it has been hidden. To appeal, open “Report a bug / Send feedback” and choose “Appeal”.',
               listingId: target.id,
             },
           })
@@ -99,7 +99,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
               userId: target.userId,
               type: 'POLICY_WARNING',
               title: 'Formal marketplace policy warning',
-              body: `Our moderators have confirmed ${confirmedViolationCount} policy violations on your account. A formal warning has been placed after moderator review. The latest confirmed case concerns: ${(policyCategory ?? report.reason).replaceAll('_', ' ').toLowerCase()} on “${targetLabel}”. Please follow Mudaala’s marketplace rules. Further confirmed violations may lead to account restrictions. If you believe this decision is wrong, appeal using “Report a bug / Send feedback” in the site footer and mention this warning.`,
+              body: `Our moderators have confirmed ${confirmedViolationCount} policy violations on your account. A formal warning has been placed after moderator review. The latest confirmed case concerns: ${(policyCategory ?? report.reason).replaceAll('_', ' ').toLowerCase()} on “${targetLabel}”. Please follow Mudaala’s marketplace rules. Further confirmed violations may lead to account restrictions. If you believe this decision is wrong, open “Report a bug / Send feedback”, choose “Appeal”, and mention this warning.`,
             },
           })
           await tx.policyViolation.update({ where: { reportId: report.id }, data: { warningSentAt: new Date() } })
@@ -179,7 +179,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         if (listing.status === 'ACTIVE') {
           await tx.listing.update({ where: { id: listing.id }, data: { status: 'HIDDEN' } })
           await tx.notification.create({
-            data: { userId: listing.userId, type: 'LISTING_HIDDEN', title: `Your listing "${listing.title}" was hidden`, body: 'Our team hid this listing while reviewing reports. A report alone is not a confirmed policy violation. If you believe this was a mistake, appeal using “Report a bug / Send feedback” in the site footer.', listingId: listing.id },
+            data: { userId: listing.userId, type: 'LISTING_HIDDEN', title: `Your listing "${listing.title}" was hidden`, body: 'Our team hid this listing while reviewing reports. A report alone is not a confirmed policy violation. If you believe this was a mistake, open “Report a bug / Send feedback” and choose “Appeal”.', listingId: listing.id },
           })
         }
         await tx.report.update({ where: { id: report.id }, data: { status: 'ACTIONED' } })

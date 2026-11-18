@@ -1,6 +1,5 @@
-// POST /api/feedback - private bug reports and user feedback.
-// Guests may submit; submissions are rate-limited and only admins can read them.
-// The client sends only a pathname, never an arbitrary URL or screenshot payload.
+// POST /api/feedback - private bug reports and general user feedback.
+// Formal restriction appeals use /api/appeals and never enter this inbox.
 import { route, jsonOk, parseBody } from '@/lib/api'
 import { feedbackCreateSchema } from '@/lib/validation'
 import { getSessionUser } from '@/lib/auth'
@@ -18,8 +17,6 @@ export async function POST(request: Request) {
     const data = await parseBody(request, feedbackCreateSchema)
     const ip = getClientIp(request)
     const user = await getSessionUser()
-    // Always apply the IP bucket as well as the per-account bucket, so
-    // creating multiple accounts does not bypass the guest/device limit.
     const ipVerdict = await hit(`feedback:ip:${ip}`, FEEDBACK_IP_MAX, FEEDBACK_WINDOW_MS)
     const userVerdict = user
       ? await hit(`feedback:user:${user.id}`, FEEDBACK_USER_MAX, FEEDBACK_WINDOW_MS)
@@ -46,11 +43,6 @@ export async function POST(request: Request) {
         },
         select: { id: true, status: true, createdAt: true },
       })
-
-      // Notify configured production admins in their existing in-app inbox.
-      // Keep the comment/contact out of notifications; full details remain
-      // private inside /admin. If the allowlist is empty, the admin inbox
-      // still receives the submission and no arbitrary users are notified.
       if (adminIds.length > 0) {
         const admins = await tx.user.findMany({ where: { id: { in: adminIds } }, select: { id: true } })
         if (admins.length > 0) {

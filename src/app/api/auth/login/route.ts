@@ -47,7 +47,15 @@ export async function POST(request: Request) {
 
     if (user.suspendedAt) {
       const reason = user.suspensionReason ? ` Reason: ${user.suspensionReason}` : ''
-      return jsonError(403, `This account is currently restricted.${reason} You can appeal by submitting feedback as a guest through the site feedback form.`)
+      const latestAppeal = await db.appealCase.findFirst({
+        where: { ownerId: user.id, targetType: 'USER' },
+        orderBy: { createdAt: 'desc' },
+        select: { decision: true, decisionReason: true },
+      })
+      const appealResult = latestAppeal?.decision === 'UPHELD'
+        ? ` Your latest appeal was reviewed and upheld. Decision: ${latestAppeal.decisionReason ?? 'The restriction remains in place.'}`
+        : ''
+      return jsonError(403, `This account is currently restricted.${reason}${appealResult} To appeal, open “Report a bug / Send feedback” and choose “Appeal”.`)
     }
 
     const session = await createSession(user.id)
