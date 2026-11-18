@@ -115,7 +115,7 @@ export async function POST() {
           take: 100,
         },
         growthEvents: {
-          where: { eventType: { in: ['POSTER_GENERATED', 'POSTER_SHARED', 'POSTER_SHARE_INITIATED', 'PRODUCT_PHOTO_ADDED', 'PRODUCT_PHOTOS_SHARE_INITIATED', 'SHOP_OPENED'] } },
+          where: { eventType: { in: ['PRODUCT_CREATED', 'POSTER_GENERATED', 'POSTER_SHARED', 'POSTER_SHARE_INITIATED', 'PRODUCT_PHOTO_ADDED', 'PRODUCT_PHOTOS_SHARE_INITIATED', 'SHOP_OPENED'] } },
           orderBy: { createdAt: 'desc' },
           take: 40,
           select: { eventType: true, entityId: true, createdAt: true },
@@ -208,7 +208,9 @@ export async function POST() {
       // Re-engage around meaningful product-post gaps, not merely days the
       // merchant did not open the dashboard. A shop can be active in Mudaala
       // and still need a prompt to publish something fresh.
-      const latestProductPost = merchant.listings[0]?.publishedAt ?? null
+      const latestProductPost = merchant.growthEvents.find((event) => event.eventType === 'PRODUCT_CREATED')?.createdAt
+        ?? merchant.listings[0]?.publishedAt
+        ?? null
       const postAgeDays = latestProductPost
         ? Math.max(0, localDayOrdinal(now, timezone) - localDayOrdinal(latestProductPost, timezone))
         : 0
