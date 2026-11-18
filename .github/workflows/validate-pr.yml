@@ -184,6 +184,15 @@ jobs:
         run: |
           set -euo pipefail
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $roles$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mudaala_runtime') THEN
+              CREATE ROLE mudaala_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon NOLOGIN; END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
+          END
+          $roles$;
           INSERT INTO public."User" ("id", "phone", "name", "passwordHash", "createdAt", "updatedAt")
           VALUES ('appeal-migration-fixture-user', '+256700000099', 'Appeal migration fixture', 'not-a-real-password-hash', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
           INSERT INTO public."Feedback" ("id", "category", "title", "description", "appealTargetType", "appealTargetId", "createdAt", "updatedAt")
@@ -230,8 +239,14 @@ jobs:
 
       - name: Apply and verify direct Data API deny policies in disposable PostgreSQL
         run: |
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE ROLE anon NOLOGIN;'
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE ROLE authenticated NOLOGIN;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $roles$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon NOLOGIN; END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
+          END
+          $roles$;
+          SQL
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
           DO $body$
           BEGIN
