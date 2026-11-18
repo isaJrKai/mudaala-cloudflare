@@ -40,7 +40,7 @@ Product create/edit actions open existing Mudaala routes in the same Telegram we
 
 ## Brand and product rules
 
-- Use Mudaala's real leaf mark and African-textile identity.
+- Use the approved Mudaala market-stall M mark and official logo lockups. Do not use the retired leaf mark or add a black circular backing.
 - Keep the established forest-green, mango/marigold, warm-paper and ink palette.
 - Prioritise real seller tasks and real account data.
 - No fabricated products, metrics, customer activity, trust claims or testimonials.
