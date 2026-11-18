@@ -19,6 +19,16 @@ type AppealCase = {
   assignedAdmin: { id: string; name: string } | null
   _count?: { messages: number; events: number }
   events?: Array<{ id: string; eventType: string; createdAt: string; actorId?: string | null; details?: unknown }>
+  moderationContext?: {
+    title: string
+    status: string
+    reason?: string | null
+    reference?: string | null
+    type?: string
+    category?: string
+    owner?: { name: string; phone: string }
+    violations?: Array<{ policyCategory: string; createdAt: string; report: { reason: string; details: string | null; status: string; createdAt: string } }>
+  } | null
 }
 type CaseMessage = { id: string; body: string; senderRole: string; evidenceUrls: string; internal: boolean; createdAt: string; sender: { name: string } }
 
@@ -127,6 +137,14 @@ export function AppealsDashboard() {
               <div><h3 className="font-semibold">{selected.title}</h3><p className="mt-1 text-xs text-muted-foreground">{selected.targetType} · {selected.targetId} · {selected.owner.name} ({selected.owner.phone})</p></div>
               <span className="rounded-full border px-2 py-1 text-xs">{selected.status.replaceAll('_', ' ')}</span>
             </div>
+            {selected.moderationContext ? <div className="mt-3 rounded-md border bg-muted/20 p-3">
+              <p className="text-xs font-semibold">Original moderation record</p>
+              <p className="mt-1 text-sm font-medium">{selected.moderationContext.title}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Status: {selected.moderationContext.status}{selected.moderationContext.reference ? ` · ${selected.moderationContext.reference}` : ''}</p>
+              {selected.moderationContext.reason ? <p className="mt-2 whitespace-pre-wrap text-sm">Restriction reason: {selected.moderationContext.reason}</p> : null}
+              {selected.moderationContext.owner ? <p className="mt-1 text-xs text-muted-foreground">Owner: {selected.moderationContext.owner.name} · {selected.moderationContext.owner.phone}</p> : null}
+              {selected.moderationContext.violations?.length ? <div className="mt-2 border-t pt-2"><p className="text-xs font-semibold">Active confirmed violations</p>{selected.moderationContext.violations.map((violation, index) => <div key={index} className="mt-2 text-xs"><p>{violation.policyCategory} · {violation.report.reason} · {violation.report.status}</p>{violation.report.details ? <p className="mt-1 text-muted-foreground">{violation.report.details}</p> : null}</div>)}</div> : null}
+            </div> : null}
             <p className="mt-3 whitespace-pre-wrap text-sm">{selected.statement}</p>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               <label className="text-xs font-medium">Assign to
