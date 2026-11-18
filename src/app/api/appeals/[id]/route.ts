@@ -77,10 +77,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await tx.appealCaseEvent.create({
         data: { caseId: id, actorId: access.admin?.id ?? current.ownerId, eventType: (data.evidenceUrls?.length ?? 0) ? 'EVIDENCE_ADDED' : 'MESSAGE_ADDED', details: { senderRole: access.admin ? 'MODERATOR' : 'OWNER', evidenceCount: data.evidenceUrls?.length ?? 0 } },
       })
-      const recipientId = access.admin ? current.ownerId : (await tx.appealCase.findUnique({ where: { id }, select: { assignedAdminId: true } }))?.assignedAdminId
-      if (recipientId) await tx.notification.create({
-        data: { userId: recipientId, type: 'APPEAL_MESSAGE', category: 'SYSTEM', priority: 'HIGH', title: 'New appeal case message', body: 'There is a new message in an appeal case. Open the appeal case to respond.', actionUrl: access.admin ? '/notifications' : '/admin/appeals', actionLabel: 'Open case' },
-      })
+      if (access.admin) {
+        await tx.notification.create({
+          data: { userId: current.ownerId, type: 'APPEAL_MESSAGE', category: 'SYSTEM', priority: 'HIGH', title: 'New appeal case message', body: 'The Mudaala review team has replied to your appeal. Open your private case to respond.', actionUrl: '/notifications', actionLabel: 'View update' },
+        })
+      } else {
+        const assigned = await tx.appealCase.findUnique({ where: { id }, select: { assignedAdminId: true } })
+        const adminIds = (process.env.ADMIN_USER_IDS ?? '').split(',').map((value) => value.trim()).filter(Boolean)
+        const recipients = assigned?.assignedAdminId
+          ? [assigned.assignedAdminId]
+          : (await tx.user.findMany({ where: { id: { in: adminIds } }, select: { id: true } })).map((item) => item.id)
+        if (recipients.length) await tx.notification.createMany({
+          data: recipients.map((userId) => ({ userId, type: 'APPEAL_MESSAGE', category: 'SYSTEM', priority: 'HIGH', title: 'New appeal case message', body: 'An appeal owner has replied. Open the moderator appeal queue to respond.', actionUrl: '/admin/appeals', actionLabel: 'Open case' })),
+        })
+      }
       return message
     })
     return jsonOk({ message: { id: created.id, createdAt: created.createdAt } }, 201)
