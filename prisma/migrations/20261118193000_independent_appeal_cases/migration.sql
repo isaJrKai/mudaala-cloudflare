@@ -138,11 +138,20 @@ WITH ranked AS (
   SELECT "id", ROW_NUMBER() OVER (PARTITION BY "ownerId", "targetType", "targetId" ORDER BY "createdAt" ASC, "id" ASC) AS position
   FROM "AppealCase"
   WHERE "status" IN ('OPEN', 'IN_REVIEW', 'WAITING_ON_OWNER')
+),
+closed AS (
+  UPDATE "AppealCase" AS c
+  SET "status" = 'CLOSED', "updatedAt" = CURRENT_TIMESTAMP
+  FROM ranked r
+  WHERE c."id" = r."id" AND r.position > 1
+  RETURNING c."id", c."createdAt"
 )
-UPDATE "AppealCase" AS c
-SET "status" = 'CLOSED', "updatedAt" = CURRENT_TIMESTAMP
-FROM ranked r
-WHERE c."id" = r."id" AND r.position > 1;
+INSERT INTO "AppealCaseEvent" ("id", "caseId", "actorId", "eventType", "details", "createdAt")
+SELECT 'ace_dedup_' || "id", "id", NULL, 'STATUS_CHANGED',
+       jsonb_build_object('status', 'CLOSED', 'reason', 'duplicate_legacy_case'),
+       CURRENT_TIMESTAMP
+FROM closed
+ON CONFLICT ("id") DO NOTHING;
 
 CREATE UNIQUE INDEX "AppealCase_one_active_target_key"
   ON "AppealCase"("ownerId", "targetType", "targetId")
