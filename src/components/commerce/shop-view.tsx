@@ -506,6 +506,26 @@ export function ShopView({ id }: { id: string }) {
         </section>
       ) : null}
 
+      {data.standaloneShowroom ? (
+        <section aria-label="Shop website" className="overflow-hidden rounded-lg border bg-card">
+          {data.standaloneShowroom.coverPhotoUrl ? (
+            <a href={`/showroom/${data.standaloneShowroom.slug}`} className="block">
+              <img src={data.standaloneShowroom.coverPhotoUrl} alt="" loading="lazy" className="h-36 w-full object-cover sm:h-48" />
+            </a>
+          ) : null}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Our showroom</p>
+              <h2 className="mt-1 text-base font-semibold">{data.standaloneShowroom.headline?.trim() || data.standaloneShowroom.title}</h2>
+              <p className="mt-1 text-xs text-muted-foreground">Explore this shop's dedicated Mudaala website.</p>
+            </div>
+            <Button asChild className="shrink-0">
+              <a href={`/showroom/${data.standaloneShowroom.slug}`}>Visit showroom <ExternalLink className="ml-2 size-4" aria-hidden /></a>
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
       <PublicShopCollections shopId={shop.id} onOpenListing={(listingId) => navigate({ name: 'listing', id: listingId })} />
 
       <ShopShowroom shopId={shop.id} items={showroomItems ?? []} isOwner={isOwner} />
