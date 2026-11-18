@@ -10,6 +10,7 @@ import { AdminAnalytics } from './analytics-dashboard'
 import { ReportsDashboard } from './reports-dashboard'
 import { FeedbackDashboard } from './feedback-dashboard'
 import { AdminDirectory } from './directory-dashboard'
+import { AuditDashboard } from './audit-dashboard'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,6 +82,12 @@ export default async function AdminPage() {
           Reports from buyers across Mudaala. Hide what breaks the rules, restore what was flagged by mistake, dismiss the rest.
         </p>
         <ReportsDashboard />
+      </section>
+
+      <section aria-labelledby="audit-heading" className="mt-10 border-t pt-6">
+        <h2 id="audit-heading" className="text-base font-semibold">Administrative history</h2>
+        <p className="mt-1 text-sm text-muted-foreground">A timestamped record of moderation and admin actions. Automated actions are identified as System.</p>
+        <AuditDashboard />
       </section>
 
       <section aria-labelledby="feedback-heading" className="mt-10 border-t pt-6">
