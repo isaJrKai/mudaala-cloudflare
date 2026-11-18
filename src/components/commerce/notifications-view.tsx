@@ -24,6 +24,7 @@ import { EmptyState } from './empty-state'
 import { ErrorState } from './listings-browse'
 import { cn } from '@/lib/utils'
 import { copy } from '@/lib/copy'
+import { PushNotificationControl } from './push-notification-control'
 
 type InboxTab = 'new' | 'action' | 'scheduled' | 'completed' | 'archived'
 type LifecycleAction = 'archive' | 'restore' | 'dismiss' | 'complete' | 'snooze'
@@ -143,6 +144,10 @@ export function NotificationsView() {
             </Button>
           ) : null}
         </div>
+      </div>
+
+      <div className="rounded-xl border bg-card px-3 py-3">
+        <PushNotificationControl />
       </div>
 
       <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Notification categories">
