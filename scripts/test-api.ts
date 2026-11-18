@@ -1328,6 +1328,8 @@ async function main() {
     ok('suspended account can open an independent appeal case without signing in', suspendForAppeal.status === 200 && accountAppeal.status === 201 && Boolean(accountAppealId && accountAppealToken))
     const accountCaseRead = accountAppealId ? await call('GET', `/api/appeals/${accountAppealId}`, undefined, undefined, { 'x-appeal-access-token': accountAppealToken }) : { status: 0 }
     ok('suspended account can securely read its case using the private access code', accountCaseRead.status === 200)
+    const accountModeratorReview = accountAppealId ? await call('GET', `/api/appeals/${accountAppealId}`, undefined, admin) : { status: 0, json: null }
+    ok('moderator can see the original account suspension reason in the case', accountModeratorReview.status === 200 && accountModeratorReview.json?.moderationContext?.status === 'SUSPENDED' && Boolean(accountModeratorReview.json?.moderationContext?.reason))
     const appealQueue = await call('GET', '/api/admin/appeals?status=ALL', undefined, admin)
     ok('admin can find account appeals in the dedicated case queue', appealQueue.status === 200 && (appealQueue.json?.appealCases ?? []).some((item: any) => item.id === accountAppealId))
     const accountAppealDecision = accountAppealId ? await call('PATCH', `/api/appeals/${accountAppealId}`, {
@@ -2001,6 +2003,8 @@ async function main() {
     const shopAppealId: string = shopAppeal.json?.appealCase?.id ?? ''
     const shopAppealToken: string = shopAppeal.json?.appealCase?.accessToken ?? ''
     ok('shop owner can submit an independent appeal case with a private access code', shopAppeal.status === 201 && Boolean(shopAppealId && shopAppealToken))
+    const shopModeratorReview = shopAppealId ? await call('GET', `/api/appeals/${shopAppealId}`, undefined, admin) : { status: 0, json: null }
+    ok('moderator can see the original shop restriction reason in the case', shopModeratorReview.status === 200 && shopModeratorReview.json?.moderationContext?.status === 'HIDDEN' && shopModeratorReview.json?.moderationContext?.reason === directHideReason)
     const shopAppealDecision = shopAppealId ? await call('PATCH', `/api/appeals/${shopAppealId}`, {
       decision: 'REVERSED',
       decisionReason: 'CI test: shop appeal accepted and public visibility restored',
