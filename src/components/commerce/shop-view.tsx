@@ -199,7 +199,7 @@ export function ShopView({ id }: { id: string }) {
     )
   }
 
-  const { shop, listings, showroomItems } = data
+  const { shop, listings, showroomItems, standaloneShowrooms } = data
   const trackShopEngagement = (event: 'CALL_CLICK' | 'WHATSAPP_CLICK' | 'SHARE_CLICK') => {
     void apiFetch(`/api/shops/${encodeURIComponent(shop.id)}/engagement`, {
       method: 'POST',
@@ -507,6 +507,33 @@ export function ShopView({ id }: { id: string }) {
       ) : null}
 
       {/* The selected showroom design stays a presentation setting; buyers see the shop and its products, not a showroom promotion. */}
+      {standaloneShowrooms?.length ? (
+        <section className="min-w-0 space-y-3" aria-label="Shop showrooms">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold tracking-tight">Shop showrooms</h2>
+              <p className="text-[11px] text-muted-foreground">Explore this shop's featured spaces</p>
+            </div>
+            <span className="text-xs text-muted-foreground">{standaloneShowrooms.length} {standaloneShowrooms.length === 1 ? 'showroom' : 'showrooms'}</span>
+          </div>
+          <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+            {standaloneShowrooms.map((showroom) => (
+              <a key={showroom.slug} href={`/showroom/${showroom.slug}`} className="press min-w-0 overflow-hidden rounded-lg border bg-card text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`Visit ${showroom.title} showroom`}>
+                {showroom.coverPhotoUrl ? (
+                  <img src={showroom.coverPhotoUrl} alt="" loading="lazy" className="aspect-[16/10] w-full object-cover" />
+                ) : (
+                  <span className="flex aspect-[16/10] w-full items-center justify-center bg-secondary text-sm text-muted-foreground">Shop showroom</span>
+                )}
+                <span className="block space-y-1 p-3">
+                  <span className="block truncate text-sm font-semibold">{showroom.headline?.trim() || showroom.title}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{showroom.title}</span>
+                </span>
+              </a>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <PublicShopCollections shopId={shop.id} onOpenListing={(listingId) => navigate({ name: 'listing', id: listingId })} />
 
       <ShopShowroom shopId={shop.id} items={showroomItems ?? []} isOwner={isOwner} />
