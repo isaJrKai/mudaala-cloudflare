@@ -909,6 +909,7 @@ model EmailAuthChallenge {
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   purpose     String   // VERIFY_EMAIL | PASSWORD_RESET | PASSWORDLESS_LOGIN
+  targetEmail String   // destination snapshot; never accepted as proof until challenge succeeds
   codeHash    String
   expiresAt   DateTime
   attempts    Int      @default(0)
