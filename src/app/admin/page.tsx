@@ -91,7 +91,7 @@ export default async function AdminPage() {
       </section>
 
       <section aria-labelledby="feedback-heading" className="mt-10 border-t pt-6">
-        <h2 id="feedback-heading" className="text-base font-semibold">Bug reports & feedback</h2>
+        <h2 id="feedback-heading" className="text-base font-semibold">Support & appeals</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Private messages from users about bugs, slow pages, complaints and ideas. Update status and priority, and keep internal investigation notes here.
         </p>
