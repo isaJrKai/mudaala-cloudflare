@@ -78,7 +78,7 @@ export async function POST(request: Request) {
           title: data.title,
           description: data.description,
           pagePath: data.pagePath ?? null,
-          contact: appealContact ?? data.contact?.trim() || null,
+          contact: (appealContact ?? data.contact?.trim()) || null,
           appealTargetType: data.category === 'APPEAL' ? data.appealTargetType ?? null : null,
           appealTargetRef: data.category === 'APPEAL' ? data.appealTargetRef?.trim() || null : null,
           appealTargetId,
