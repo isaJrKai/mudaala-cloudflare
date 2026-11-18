@@ -82,6 +82,7 @@ model User {
   googleIdentities GoogleIdentity[]
   googleOAuthStates GoogleOAuthState[]
   phoneVerificationChallenges PhoneVerificationChallenge[]
+  appealPhoneVerificationChallenges AppealPhoneVerificationChallenge[]
 }
 
 // Products a shop can showcase beyond its current stock. These records are
@@ -768,6 +769,24 @@ model PhoneVerificationChallenge {
   @@index([expiresAt])
 }
 
+
+// One-time proof that an unauthenticated appeal applicant controls the
+// registered phone number on the restricted account. Kept separate from
+// Google-link challenges so the two security flows cannot invalidate each other.
+model AppealPhoneVerificationChallenge {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phoneHash String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+}
 
 // A shopper's private shortlist. Saving a listing never creates an enquiry
 // or reserves stock; uniqueness prevents duplicate saves.
