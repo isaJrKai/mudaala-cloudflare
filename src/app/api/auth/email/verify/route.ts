@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { route, jsonOk, jsonError, parseBody, requireUser } from '@/lib/api'
 import { normalizeAccountEmail, emailCodeMatches, EMAIL_CODE_MAX_ATTEMPTS } from '@/lib/email-auth'
+import { sendGmailMessage } from '@/lib/gmail'
 
 const schema = z.object({ email: z.string().trim().email().max(254), code: z.string().trim().regex(/^\d{6}$/) })
 
@@ -31,12 +32,24 @@ export async function POST(request: Request) {
         })
         if (claimed.count !== 1) return false
         await tx.user.update({ where: { id: user.id }, data: { email, emailVerifiedAt: new Date() } })
+        await tx.auditLog.create({ data: { actorId: user.id, action: 'ACCOUNT_EMAIL_VERIFIED', targetType: 'USER', targetId: user.id, reason: 'Account email verified' } })
         await tx.emailAuthChallenge.updateMany({ where: { userId: user.id, purpose: 'VERIFY_EMAIL', consumedAt: null }, data: { consumedAt: new Date() } })
         return true
       })
       if (!verified) return jsonError(400, 'That verification code did not work or has expired. Request a new code.')
     } catch {
       return jsonError(409, 'That email address is already linked to another Mudaala account.')
+    }
+    if (user.email && user.email !== email && user.emailVerifiedAt) {
+      try {
+        await sendGmailMessage(
+          user.email,
+          'Your Mudaala account email was changed',
+          'The verified email address on your Mudaala account was changed. If you did not make this change, sign in using your phone and password and contact Mudaala support.',
+        )
+      } catch {
+        console.error('[email-auth] previous account email security notice could not be delivered')
+      }
     }
     return jsonOk({ ok: true, email, emailVerified: true })
   })
