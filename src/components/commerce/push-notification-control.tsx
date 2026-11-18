@@ -113,7 +113,12 @@ export function PushNotificationControl() {
   }
 
   if (!supported) return unsupportedMessage ? <p className="border-t border-[#dfcfaa]/70 pt-3 text-[11px] leading-relaxed text-[#6b6c60]">{unsupportedMessage}</p> : null
-  if (configured === false) return null
+  if (configured === false) return (
+    <div className="border-t border-[#dfcfaa]/70 pt-3" role="status">
+      <p className="text-xs font-semibold text-[#174a35]">Device alerts</p>
+      <p className="mt-0.5 text-[11px] leading-relaxed text-[#6b6c60]">Device push is not configured on this Mudaala environment yet. Your in-app notification centre still works; device alerts can be enabled here once the secure push keys are configured.</p>
+    </div>
+  )
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#dfcfaa]/70 pt-3">
