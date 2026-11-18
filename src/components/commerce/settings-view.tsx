@@ -27,11 +27,14 @@ export function SettingsView() {
   const [busy, setBusy] = useState(false)
   const [googleBusy, setGoogleBusy] = useState(false)
   const [error, setError] = useState('')
+  const [settingsSearch, setSettingsSearch] = useState('')
 
   if (isLoading) return <ListingListSkeleton count={3} />
   if (!user) return <EmptyState title="Sign in to manage settings" description="Your account settings are available after you sign in." action={<Button onClick={() => setAuthOpen(true)}>Sign in</Button>} />
   // Capture the authenticated user after the guard so async callbacks retain the non-null type.
   const signedInUser = user
+  const normalizedSearch = settingsSearch.trim().toLowerCase()
+  const matches = (keywords: string) => !normalizedSearch || keywords.toLowerCase().includes(normalizedSearch)
 
   async function linkGoogle() {
     setGoogleBusy(true)
@@ -98,9 +101,13 @@ export function SettingsView() {
     <div className="space-y-5">
       <Button variant="ghost" size="sm" className="-ml-2 gap-1" onClick={() => navigate({ name: 'account' })}><ArrowLeft className="size-4" aria-hidden /> Back to account</Button>
       <div><h1 className="text-xl font-semibold tracking-tight">Settings</h1><p className="mt-0.5 text-sm text-muted-foreground">Manage your sign-in, preferences and privacy.</p></div>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <Input value={settingsSearch} onChange={(event) => setSettingsSearch(event.target.value)} placeholder="Search settings…" aria-label="Search settings" className="h-11 pl-9" />
+      </div>
       <Separator />
 
-      <Section icon={<LockKeyhole className="size-4" aria-hidden />} title="Account & security" description="Change your password using a code sent to your registered phone.">
+      {matches('account security password sign in sms phone change reset') && <Section icon={<LockKeyhole className="size-4" aria-hidden />} title="Account & security" description="Change your password using a code sent to your registered phone.">
         <div className="rounded-lg border bg-card p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div><p className="text-sm font-medium">Password</p><p className="mt-0.5 text-sm text-muted-foreground">Registered phone: {user.phone}</p></div>
@@ -116,9 +123,9 @@ export function SettingsView() {
           </form> : null}
           {error && step === 'request' ? <p role="alert" className="mt-3 text-sm text-destructive">{error}</p> : null}
         </div>
-      </Section>
+      </Section>}
 
-      <Section icon={<Link2 className="size-4" aria-hidden />} title="Google seller identity" description="Google sign-in is required for seller privileges. Buyers can continue browsing and contacting shops without Google. Google sign-in does not certify a shop or verify its products.">
+      {matches('google identity seller account connect unlink sign in') && <Section icon={<Link2 className="size-4" aria-hidden />} title="Google seller identity" description="Google sign-in is required for seller privileges. Buyers can continue browsing and contacting shops without Google. Google sign-in does not certify a shop or verify its products.">
         <div className="rounded-lg border bg-card p-4">
           {signedInUser.googleLinked ? (
             <div className="space-y-3">
@@ -133,17 +140,17 @@ export function SettingsView() {
             </div>
           )}
         </div>
-      </Section>
+      </Section>}
 
-      <Section icon={<Store className="size-4" aria-hidden />} title="Shop profile" description="Your shop name, photos, location and public contacts are part of your account profile.">
+      {matches('shop profile business name photos location public contacts') && <Section icon={<Store className="size-4" aria-hidden />} title="Shop profile" description="Your shop name, photos, location and public contacts are part of your account profile.">
         <Button variant="outline" onClick={() => navigate({ name: 'account' })}>Manage shop profile</Button>
-      </Section>
+      </Section>}
 
-      <Section title="Telegram account" description="Link your Mudaala account to the official bot. Shop owners can separately choose whether to accept Telegram enquiries.">
+      {matches('telegram bot merchant assistant connect enquiries messages') && <Section title="Telegram account" description="Link your Mudaala account to the official bot. Shop owners can separately choose whether to accept Telegram enquiries.">
         <TelegramEnquirySettings />
-      </Section>
+      </Section>}
 
-      <Section icon={<Bell className="size-4" aria-hidden />} title="Notifications" description="Choose how Mudaala reaches you and review your shop updates.">
+      {matches('notifications alerts saved search device push phone desktop sound reminders likes') && <Section icon={<Bell className="size-4" aria-hidden />} title="Notifications" description="Choose how Mudaala reaches you and review your shop updates.">
         <div className="divide-y rounded-lg border bg-card">
           <SettingsLink icon={<Search className="size-4" aria-hidden />} title="Saved-search alerts" description="Manage searches that generate new-match alerts." onClick={() => navigate({ name: 'saved' })} />
           <SettingsLink icon={<Bell className="size-4" aria-hidden />} title="Your alerts" description="Review shop updates, customer activity and reminders." onClick={() => navigate({ name: 'notifications' })} />
@@ -155,18 +162,19 @@ export function SettingsView() {
             <PushNotificationControl />
           </div>
         </div>
-      </Section>
+      </Section>}
 
-      <Section icon={<Globe2 className="size-4" aria-hidden />} title="Language" description="Mudaala's interface is currently available in English.">
+      {matches('language english translation app language') && <Section icon={<Globe2 className="size-4" aria-hidden />} title="Language" description="Mudaala's interface is currently available in English.">
         <div className="max-w-sm space-y-1.5"><Label htmlFor="settings-language">App language</Label><Input id="settings-language" value="English" readOnly aria-readonly="true" /><p className="text-xs text-muted-foreground">More languages can be added when translations are ready.</p></div>
-      </Section>
+      </Section>}
 
-      <Section icon={<ShieldCheck className="size-4" aria-hidden />} title="Privacy & your data" description="Read the privacy policy or manage the data connected to your account.">
+      {matches('privacy data export delete account policy security') && <Section icon={<ShieldCheck className="size-4" aria-hidden />} title="Privacy & your data" description="Read the privacy policy or manage the data connected to your account.">
         <div className="divide-y rounded-lg border bg-card">
           <SettingsLink icon={<FileText className="size-4" aria-hidden />} title="Privacy policy" description="How Mudaala handles account and shop information." onClick={() => window.open('/privacy', '_blank', 'noopener,noreferrer')} external />
           <SettingsLink icon={<ShieldCheck className="size-4" aria-hidden />} title="Export data or delete account" description="These account-wide actions are managed from your Account page." onClick={() => navigate({ name: 'account' })} />
         </div>
-      </Section>
+      </Section>}
+      {normalizedSearch && !['account security password sign in sms phone change reset','google identity seller account connect unlink sign in','shop profile business name photos location public contacts','telegram bot merchant assistant connect enquiries messages','notifications alerts saved search device push phone desktop sound reminders likes','language english translation app language','privacy data export delete account policy security'].some(matches) ? <p className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">No settings found for “{settingsSearch}”. Try another word.</p> : null}
     </div>
   )
 }
