@@ -154,6 +154,10 @@ async function run() {
   const buyerInbox = await requestJson('/api/enquiries', {}, shopper.token)
   assertStatus(buyerInbox.status, 200, 'buyer messages inbox')
   assert.ok(buyerInbox.body.enquiries.some((item: { id: string }) => item.id === inAppEnquiryId), 'buyer can retrieve the same conversation')
+  const buyerEnquiryItem = buyerInbox.body.enquiries.find((item: { id: string }) => item.id === inAppEnquiryId)
+  assert.equal(buyerEnquiryItem?.sellerPhone, merchant.phone, 'buyer can access the seller phone only after opening the enquiry')
+  const sellerEnquiryItem = sellerInbox.body.enquiries.find((item: { id: string }) => item.id === inAppEnquiryId)
+  assert.equal(sellerEnquiryItem?.sellerPhone, null, 'merchant inbox does not receive a buyer contact number')
   const privateMessages = await requestJson('/api/enquiries/' + encodeURIComponent(inAppEnquiryId) + '/messages', {}, stranger.token)
   assertStatus(privateMessages.status, 404, 'unrelated account cannot read native conversation')
 

@@ -16,7 +16,7 @@ import QRCode from 'react-qr-code'
 import { Button } from '@/components/ui/button'
 import { apiFetch, apiGet } from '@/lib/client'
 import type { ShopPage as ShopPageT, ListingShopOwner } from '@/lib/client'
-import { telLink, whatsappLink, formatPhonePretty } from '@/lib/format'
+import { formatPhonePretty } from '@/lib/format'
 import { useAppStore } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { useAddToBasket } from './basket-view'
@@ -209,7 +209,6 @@ export function ShopView({ id }: { id: string }) {
       keepalive: true,
     }).catch(() => undefined)
   }
-  const whatsappNumber = shop.whatsapp ?? shop.phone
   const doneCount = Object.values(shop.checklist).filter(Boolean).length
   // Copy the till-style code. If the clipboard refuses (permissions), nothing
   // breaks - the code sits right there in big monospace; typing it was always
@@ -419,46 +418,9 @@ export function ShopView({ id }: { id: string }) {
           )}
         </div>
 
-        {/* Shop contact - the same direct links buyers get everywhere. The
-            line above the buttons says WHY they exist: no middleman, no fees,
-            the shop's own phone rings. The owner reads the mirror version -
-            these are their incoming lines. */}
-        <div className="border-t bg-secondary/40 p-4 sm:p-5">
-          <p className="mb-2.5 text-xs leading-relaxed text-muted-foreground">
-            {isOwner ? copy.shop.contactOwnerNote : copy.shop.contactBuyerNote}
-          </p>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button asChild className="press h-11 flex-1 text-[15px]">
-              <a href={telLink(shop.phone)} aria-label={`Call ${shop.name}`} onClick={() => trackShopEngagement('CALL_CLICK')}>
-                <Phone className="size-4" aria-hidden /> {copy.common.call}
-              </a>
-            </Button>
-            {shop.websiteUrl ? (
-              <Button asChild variant="outline" className="press h-11 flex-1 text-[15px]">
-                <a href={shop.websiteUrl} target="_blank" rel="noopener noreferrer" aria-label={`Visit ${shop.name}'s website`}>
-                  <ExternalLink className="size-4" aria-hidden /> Visit website
-                </a>
-              </Button>
-            ) : null}
-            {whatsappNumber ? (
-              <Button
-                asChild
-                variant="outline"
-                className="press h-11 flex-1 border-emerald-600 text-[15px] text-emerald-800 hover:bg-emerald-50"
-              >
-                <a
-                  href={whatsappLink(whatsappNumber, shop.name, 'OFFER')}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`WhatsApp ${shop.name}`}
-                  onClick={() => trackShopEngagement('WHATSAPP_CLICK')}
-                >
-                  <WhatsAppIcon className="size-4" aria-hidden /> WhatsApp
-                </a>
-              </Button>
-            ) : null}
-          </div>
-        </div>
+        {/* Buyer contact stays inside a product-specific Mudaala enquiry.
+            Sharing and the seller's website remain available separately. */}
+        {!isOwner ? <div className="border-t bg-secondary/40 p-4 sm:p-5"><p className="text-sm text-muted-foreground">To ask about a product, open it from this shop and send the seller a private Mudaala message.</p>{shop.websiteUrl ? <Button asChild variant="outline" className="mt-3 h-10"><a href={shop.websiteUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 size-4" aria-hidden /> Visit website</a></Button> : null}</div> : null}
       </section>
 
       {/* The bridge for buyers: the code IS the address. Someone who landed
@@ -548,7 +510,7 @@ export function ShopView({ id }: { id: string }) {
 
       <PublicShopCollections shopId={shop.id} onOpenListing={(listingId) => navigate({ name: 'listing', id: listingId })} />
 
-      <ShopShowroom shopId={shop.id} items={showroomItems ?? []} isOwner={isOwner} contactPhone={whatsappNumber} />
+      <ShopShowroom shopId={shop.id} items={showroomItems ?? []} isOwner={isOwner} />
 
       {/* The catalogue - every active listing this shop runs */}
       <section aria-label="Shop catalogue" className="space-y-3">

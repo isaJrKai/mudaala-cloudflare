@@ -1,11 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Phone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { apiFetch } from '@/lib/client'
 import { useSession } from '@/hooks/use-session'
 import { useAppStore } from '@/lib/store'
+import { formatPhonePretty, telLink } from '@/lib/format'
 
 type Enquiry = {
   id: string
@@ -14,6 +16,7 @@ type Enquiry = {
   role: 'MERCHANT' | 'SHOPPER'
   listing: { id: string; title: string; status: string }
   shopName: string
+  sellerPhone: string | null
   lastMessage: { body: string; senderType: string; createdAt: string; deliveryStatus: string } | null
   lastMessageAt: string
 }
@@ -205,7 +208,7 @@ export function EnquiriesView({ shopperOnly = false }: { shopperOnly?: boolean }
           {selected ? <>
             <header className="border-b px-4 py-3">
               <p className="text-sm font-semibold">{selected.listing.title}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{selected.role === 'MERCHANT' ? 'Customer enquiry' : 'Chat with ' + selected.shopName} · {selected.status.toLowerCase()}</p>
+              <div className="mt-1 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{selected.role === 'MERCHANT' ? 'Customer enquiry' : 'Chat with ' + selected.shopName} · {selected.status.toLowerCase()}</p>{selected.role === 'SHOPPER' && selected.sellerPhone ? <Button asChild size="sm" variant="outline" className="h-8 gap-1.5"><a href={telLink(selected.sellerPhone)} aria-label={`Call ${selected.shopName} at ${formatPhonePretty(selected.sellerPhone)}`}><Phone className="size-3.5" aria-hidden /> Call shop</a></Button> : null}</div>
               {selected.role === 'SHOPPER' ? <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-xs text-muted-foreground">Allow seller to send a later follow-up?</span><Button size="sm" variant={selected.followUpConsentAt ? 'outline' : 'secondary'} onClick={async () => { try { const result = await apiFetch<{ followUpConsentAt: string | null }>(`/api/enquiries/${encodeURIComponent(selected.id)}/follow-up-consent`, { method: 'PATCH', body: JSON.stringify({ consent: !selected.followUpConsentAt }) }); setItems((current) => current.map((item) => item.id === selected.id ? { ...item, followUpConsentAt: result.followUpConsentAt } : item)) } catch (err) { setError(err instanceof Error ? err.message : 'Could not update consent.') } }}>{selected.followUpConsentAt ? 'Turn off follow-ups' : 'Allow follow-up'}</Button></div> : null}
             </header>
             <div className="flex-1 space-y-3 overflow-y-auto p-4">

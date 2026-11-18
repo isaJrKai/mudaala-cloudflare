@@ -155,7 +155,6 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
   const surface = surfaces[template.surface] || surfaces.paper
   const heroPhoto = showroom.coverPhotoUrl || showroom.photos[0] || null
   const galleryPhotos = showroom.coverPhotoUrl ? showroom.photos.slice(0, 3) : showroom.photos.slice(1, 4)
-  const whatsapp = (shop.whatsapp || shop.phone || '').replace(/\D/g, '')
   const heroLayoutClass: Record<string, string> = {
     'cover-story': 'grid gap-8 md:grid-cols-[1.05fr_.95fr] md:items-end',
     'full-bleed': 'grid gap-6',
@@ -235,7 +234,6 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
         <nav className="flex items-center gap-4 text-[11px] sm:gap-7 sm:text-xs">
           <a href="#collection" className="opacity-75 hover:opacity-100">Collection</a>
           <a href="#about" className="hidden opacity-75 hover:opacity-100 sm:inline">About</a>
-          <a href={whatsapp ? `https://wa.me/${whatsapp}` : `tel:${shop.phone || ''}`} target="_blank" rel="noreferrer" className="border-b pb-1 font-semibold" style={{ borderColor: accent }}>Contact</a>
         </nav>
       </header>
 
@@ -268,15 +266,15 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
           <div><p className="text-[10px] uppercase tracking-[.2em] opacity-50">Selected for you</p><h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-5xl">{showroom.title}</h2></div>
           <p className="text-right text-[10px] uppercase tracking-[.14em] opacity-50">{products.length} items</p>
         </div>
-        {products.length ? <div className={gridClass}>{products.map((product, index) => <div key={product.id} className={template.productLayout === 'masonry' ? 'mb-5 break-inside-avoid' : template.productLayout === 'collection-rail' ? 'w-[72vw] shrink-0 snap-start sm:w-[32vw]' : template.productLayout === 'feature-and-grid' && index === 0 ? 'col-span-2' : ''}><ProductCard product={product} layout={template.productLayout} accent={accent} templateId={template.id} /></div>)}</div> : <p className="py-16 text-center text-sm opacity-60">The shop is preparing its collection. Contact the seller to ask what is available.</p>}
+        {products.length ? <div className={gridClass}>{products.map((product, index) => <div key={product.id} className={template.productLayout === 'masonry' ? 'mb-5 break-inside-avoid' : template.productLayout === 'collection-rail' ? 'w-[72vw] shrink-0 snap-start sm:w-[32vw]' : template.productLayout === 'feature-and-grid' && index === 0 ? 'col-span-2' : ''}><ProductCard product={product} layout={template.productLayout} accent={accent} templateId={template.id} /></div>)}</div> : <p className="py-16 text-center text-sm opacity-60">The shop is preparing its collection. Check back for products you can enquire about directly on Mudaala.</p>}
       </section>
 
       {(showroom.story || shop.description) && <section id="about" className="border-y border-current/15 px-5 py-16 sm:px-10 sm:py-24"><div className="mx-auto max-w-3xl"><p className="text-[10px] uppercase tracking-[.2em] opacity-50">A little about us</p><h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-5xl">{shop.name}</h2><p className="mt-6 whitespace-pre-line text-sm leading-8 opacity-75 sm:text-base">{showroom.story || shop.description}</p></div></section>}
 
       <footer className="mx-auto max-w-[1440px] px-5 py-12 sm:px-10 sm:py-16">
         <div className="grid gap-10 sm:grid-cols-2 sm:items-end">
-          <div><p className="text-[10px] uppercase tracking-[.2em] opacity-50">Visit or get in touch</p><h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{shop.name}</h2><p className="mt-3 text-sm opacity-65">{[shop.area, shop.county].filter(Boolean).join(', ')}</p>{shop.hours && <p className="mt-2 text-xs opacity-55">{shop.hours}</p>}{shop.shopCode && <p className="mt-4 text-[10px] uppercase tracking-[.18em] opacity-50">Mudaala shop code · {shop.shopCode}</p>}</div>
-          <div className="flex flex-wrap gap-3 sm:justify-end">{whatsapp && <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer" className="px-5 py-3 text-xs font-semibold" style={{ backgroundColor: primary, color: '#fff' }}>WhatsApp the shop ↗</a>}{shop.phone && <a href={`tel:${shop.phone}`} className="border border-current/25 px-5 py-3 text-xs font-semibold">Call the shop</a>}{shop.websiteUrl && <a href={shop.websiteUrl} target="_blank" rel="noreferrer" className="border border-current/25 px-5 py-3 text-xs font-semibold">Website ↗</a>}</div>
+          <div><p className="text-[10px] uppercase tracking-[.2em] opacity-50">Continue on Mudaala</p><h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{shop.name}</h2><p className="mt-3 text-sm opacity-65">{[shop.area, shop.county].filter(Boolean).join(', ')}</p>{shop.hours && <p className="mt-2 text-xs opacity-55">{shop.hours}</p>}{shop.shopCode && <p className="mt-4 text-[10px] uppercase tracking-[.18em] opacity-50">Mudaala shop code · {shop.shopCode}</p>}</div>
+          <div className="flex flex-wrap gap-3 sm:justify-end">{shop.websiteUrl && <a href={shop.websiteUrl} target="_blank" rel="noreferrer" className="border border-current/25 px-5 py-3 text-xs font-semibold">Website ↗</a>}<a href="#collection" className="px-5 py-3 text-xs font-semibold" style={{ backgroundColor: primary, color: '#fff' }}>Explore products</a></div>
         </div>
         <div className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-current/15 pt-5 text-[10px] opacity-45"><span>{shop.name} · {template.name}</span><span>Independent shop on Mudaala</span></div>
       </footer>

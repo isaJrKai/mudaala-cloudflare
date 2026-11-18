@@ -16,7 +16,6 @@ import {
   Bell,
   Bookmark,
   MapPin,
-  Phone,
   RefreshCw,
   PlusCircle,
   Search,
@@ -37,8 +36,7 @@ import {
 } from '@/components/ui/chart'
 import { Line, LineChart, XAxis, YAxis } from 'recharts'
 import { apiGet, apiPost, shopName, type HomeData, type ListingsPage, type PriceTrendsData } from '@/lib/client'
-import { formatPrice, formatQuantity, timeAgo, whatsappLink, telLink } from '@/lib/format'
-import { WhatsAppIcon } from '@/components/commerce/brand-icons'
+import { formatPrice, formatQuantity, timeAgo } from '@/lib/format'
 import { haversineMeters, formatDistance } from '@/lib/geo'
 import { CATEGORIES, COUNTRIES } from '@/lib/constants'
 import { useAppStore, type BrowseFilters } from '@/lib/store'
@@ -465,7 +463,6 @@ function OfferRow({
     : null
   const distance = refSpot && spot ? formatDistance(haversineMeters(refSpot, spot)) : null
   const place = [listing.area ?? listing.user?.profile?.area, listing.county].filter(Boolean).join(', ')
-  const whatsappNumber = listing.contactWhatsapp ?? (listing.type === 'OFFER' ? listing.contactPhone : null)
   const photo = listing.photos[0]
 
   return (
@@ -500,27 +497,6 @@ function OfferRow({
         </p>
       </div>
 
-      <div className="flex shrink-0 flex-col gap-1.5 sm:flex-row sm:items-center">
-        <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 px-2.5 text-xs">
-          <a href={telLink(listing.contactPhone)} aria-label={`Call ${shopDisplayName}`}>
-            <Phone className="size-3.5" aria-hidden />
-            {copy.common.call}
-          </a>
-        </Button>
-        {whatsappNumber ? (
-          <Button asChild size="sm" className="whatsapp-brand h-8 gap-1.5 px-2.5 text-xs">
-            <a
-              href={whatsappLink(whatsappNumber, listing.title, listing.type)}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`WhatsApp ${shopDisplayName}`}
-            >
-              <WhatsAppIcon className="size-3.5" aria-hidden />
-              {copy.common.whatsapp}
-            </a>
-          </Button>
-        ) : null}
-      </div>
     </div>
   )
 }

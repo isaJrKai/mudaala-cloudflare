@@ -16,6 +16,7 @@ type Props = {
   initialMessage: string
   label?: string
   className?: string
+  variant?: 'default' | 'outline'
 }
 
 export function InAppEnquiryButton({
@@ -24,6 +25,7 @@ export function InAppEnquiryButton({
   initialMessage,
   label = 'Message seller',
   className,
+  variant = 'outline',
 }: Props) {
   const { user, isLoading } = useSession()
   const { navigate, setAuthOpen } = useAppStore()
@@ -69,7 +71,7 @@ export function InAppEnquiryButton({
 
   return (
     <>
-      <Button type="button" variant="outline" className={className} onClick={startEnquiry} disabled={isLoading}>
+      <Button type="button" variant={variant} className={className} onClick={startEnquiry} disabled={isLoading}>
         <MessageCircle className="size-4" aria-hidden />
         {label}
       </Button>
