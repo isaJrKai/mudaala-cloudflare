@@ -368,18 +368,18 @@ export default async function AdPage({ params }: Params) {
             send shoppers into the native listing view, where they can open a
             private enquiry and continue the conversation in Messages. */}
         <section className="rounded-lg border bg-card p-4 sm:p-5" aria-label={copy.listing.contact(shopDisplayName)}>
+          <div className="mt-3">
+            <SafetyCard />
+          </div>
           {listing.type === 'OFFER' ? <>
-            <h2 className="text-sm font-semibold">Ask the seller about this product</h2>
+            <h2 className="mt-4 text-sm font-semibold">Ask the seller about this product</h2>
             <p className="mt-1 text-sm text-muted-foreground">Send a private message through Mudaala. The shop can reply when they are back online.</p>
             <Button asChild className="press mt-3 h-11 w-full gap-1.5 text-[15px]">
               <a href={`/#/listing/${encodeURIComponent(listing.id)}`}>
                 <MessageCircle className="size-4" aria-hidden /> Message seller
               </a>
             </Button>
-          </> : <h2 className="text-sm font-semibold">{copy.listing.contact(shopDisplayName)}</h2>}
-          <div className="mt-4">
-            <SafetyCard />
-          </div>
+          </> : <h2 className="mt-4 text-sm font-semibold">{copy.listing.contact(shopDisplayName)}</h2>}
           <Button asChild variant="outline" className="press mt-2 h-11 w-full gap-1.5 text-[15px]">
             <a href={directionsUrl} target="_blank" rel="noopener noreferrer" aria-label={copy.listing.directionsAria(placeOf(listing))}>
               <Navigation className="size-4" aria-hidden /> {copy.listing.directions}
