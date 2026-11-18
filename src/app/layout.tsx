@@ -16,6 +16,31 @@ const fraunces = Fraunces({
   subsets: ["latin"],
 });
 
+const brandStructuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
+      url: `${siteUrl}/`,
+      name: "Mudaala",
+      alternateName: "Mudaala Uganda",
+      inLanguage: "en",
+      publisher: { "@id": `${siteUrl}/#organization` },
+    },
+    {
+      "@type": "Organization",
+      "@id": `${siteUrl}/#organization`,
+      name: "Mudaala",
+      url: `${siteUrl}/`,
+      logo: {
+        "@type": "ImageObject",
+        url: `${siteUrl}/apple-touch-icon.png`,
+      },
+    },
+  ],
+};
+
 export const metadata: Metadata = {
   // Anchors every relative canonical/OG URL to one origin (ad pages depend on it).
   metadataBase: new URL(siteUrl),
@@ -24,7 +49,9 @@ export const metadata: Metadata = {
   keywords: ["Mudaala", "marketplace", "local commerce", "Uganda", "Kampala", "offer", "request"],
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/mudaala-icon-v3.svg",
+    // Google Search's favicon crawler supports PNG; use the existing square
+    // raster brand asset rather than relying on SVG favicon support.
+    icon: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
     apple: "/apple-touch-icon.png",
   },
 };
@@ -49,6 +76,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${fraunces.variable} antialiased bg-background text-foreground`}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(brandStructuredData).replace(/</g, "\\u003c"),
+          }}
+        />
         {children}
         <FeedbackButton floating />
         <PwaInstallPrompt />
