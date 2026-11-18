@@ -8,6 +8,7 @@ type AuditEvent = {
   action: string
   targetType: string
   targetId: string
+  reason: string | null
   createdAt: string
   actor: string
 }
@@ -85,7 +86,7 @@ export function AuditDashboard() {
             <div className="min-w-0">
               <p className="break-words text-sm font-medium">{event.action.replaceAll('_', ' ')}</p>
               <p className="mt-1 break-all text-xs text-muted-foreground">{event.targetType} · {event.targetId}</p>
-              <p className="mt-1 text-xs text-muted-foreground">By {event.actor}</p>
+              <p className="mt-1 text-xs text-muted-foreground">By {event.actor}</p>{event.reason ? <p className="mt-2 whitespace-pre-wrap break-words text-xs">Reason: {event.reason}</p> : null}
             </div>
             <time dateTime={event.createdAt} className="text-xs text-muted-foreground">{new Date(event.createdAt).toLocaleString()}</time>
           </li>)}
