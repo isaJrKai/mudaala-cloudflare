@@ -36,7 +36,7 @@ import { pickMovers, MOVER_MIN_SAMPLE, MOVER_MIN_PCT, MOVER_LIMIT } from '../src
 import { addToBasket, setLineQty, restoreLine, markShopDone, isShopDone, readBasket, basketCount } from '../src/lib/basket'
 import { createMemoryRateLimiter, createRedisRateLimiter, createDurableObjectRateLimiter, RateLimitUnavailableError } from '../src/lib/rate-limit'
 import { businessProfileSchema, MOMO_NETWORKS } from '../src/lib/validation'
-import { hashResetCode, resetCodeMatches } from '../src/lib/sms'
+import { hashResetCode, resetCodeMatches, hashPhoneForVerification } from '../src/lib/sms'
 
 const BASE = 'http://localhost:3000'
 const databaseUrl = process.env.DATABASE_URL
@@ -1317,15 +1317,31 @@ async function main() {
 
     const appealSuspendReason = 'CI test: suspend account before appeal review'
     const suspendForAppeal = await call('POST', `/api/admin/people/${restrictedUserId}/restriction`, { action: 'SUSPEND', reason: appealSuspendReason }, admin)
-    const accountAppeal = await call('POST', '/api/appeals', {
+    const appealPayload = {
       targetType: 'USER',
       title: 'Appeal of account suspension',
       statement: 'I believe this account restriction was applied in error. Please review the account activity.',
       contact: alicePhone,
+    }
+    const appealWithoutProof = await call('POST', '/api/appeals', appealPayload)
+    ok('anonymous account appeal is rejected without phone ownership proof', appealWithoutProof.status === 400)
+    const appealVerificationCode = '381624'
+    await db.appealPhoneVerificationChallenge.create({
+      data: {
+        userId: restrictedUserId,
+        phoneHash: hashPhoneForVerification(alicePhone),
+        codeHash: hashResetCode(appealVerificationCode),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
     })
+    const wrongAppealCode = await call('POST', '/api/appeals', { ...appealPayload, verificationCode: '000000' })
+    ok('incorrect appeal verification code is rejected', wrongAppealCode.status === 400)
+    const accountAppeal = await call('POST', '/api/appeals', { ...appealPayload, verificationCode: appealVerificationCode })
     const accountAppealId: string = accountAppeal.json?.appealCase?.id ?? ''
     const accountAppealToken: string = accountAppeal.json?.appealCase?.accessToken ?? ''
     ok('suspended account can open an independent appeal case without signing in', suspendForAppeal.status === 200 && accountAppeal.status === 201 && Boolean(accountAppealId && accountAppealToken))
+    const reusedAppealCode = await call('POST', '/api/appeals', { ...appealPayload, verificationCode: appealVerificationCode })
+    ok('appeal phone verification code is one-time and cannot recover a case twice', reusedAppealCode.status === 400)
     const accountCaseRead = accountAppealId ? await call('GET', `/api/appeals/${accountAppealId}`, undefined, undefined, { 'x-appeal-access-token': accountAppealToken }) : { status: 0 }
     ok('suspended account can securely read its case using the private access code', accountCaseRead.status === 200)
     const accountModeratorReview = accountAppealId ? await call('GET', `/api/appeals/${accountAppealId}`, undefined, admin) : { status: 0, json: null }

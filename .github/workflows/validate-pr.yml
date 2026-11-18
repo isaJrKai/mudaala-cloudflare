@@ -225,6 +225,27 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Apply and verify appeal phone verification migration in disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          # The initial Prisma db push already created the model table. Drop it
+          # here so this step proves the versioned SQL migration builds it.
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."AppealPhoneVerificationChallenge" CASCADE;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261119010000_appeal_phone_verification/migration.sql
+          table_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='AppealPhoneVerificationChallenge'")
+          index_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='AppealPhoneVerificationChallenge' AND indexname IN ('AppealPhoneVerificationChallenge_userId_createdAt_idx','AppealPhoneVerificationChallenge_expiresAt_idx')")
+          rls_enabled=$(psql "$DATABASE_URL" -Atc "SELECT relrowsecurity FROM pg_class WHERE oid='public.\"AppealPhoneVerificationChallenge\"'::regclass")
+          runtime_policy=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='AppealPhoneVerificationChallenge' AND policyname='mudaala_runtime_access'")
+          deny_policy=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='AppealPhoneVerificationChallenge' AND policyname='deny_direct_api_clients'")
+          runtime_grant=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name='AppealPhoneVerificationChallenge' AND grantee='mudaala_runtime' AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          if [ "$table_count" != "1" ] || [ "$index_count" != "2" ] || [ "$rls_enabled" != "t" ] || [ "$runtime_policy" != "1" ] || [ "$deny_policy" != "1" ] || [ "$runtime_grant" != "4" ]; then
+            echo "Appeal phone verification migration failed: table=$table_count indexes=$index_count rls=$rls_enabled runtime_policy=$runtime_policy deny_policy=$deny_policy runtime_grant=$runtime_grant"
+            exit 1
+          fi
+          echo "Appeal phone verification migration and RLS policies passed."
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
       - name: Apply and verify listing taxonomy migration in disposable PostgreSQL
         run: |
           set -euo pipefail
