@@ -128,14 +128,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           } else if (existing.targetType === 'SHOP') {
             const shop = await tx.businessProfile.findUnique({ where: { id: existing.targetId }, select: { id: true, moderationStatus: true, userId: true } })
             if (!shop || shop.moderationStatus !== 'HIDDEN') throw new ApiError(409, 'This shop is no longer hidden')
-            await tx.policyViolation.updateMany({ where: { targetType: 'SHOP', targetId: shop.id, reversedAt: null }, data: { reversedAt: new Date(), reversedBy: admin.id, activeKey: null } })
+            const reversed = await tx.policyViolation.updateMany({ where: { targetType: 'SHOP', targetId: shop.id, reversedAt: null }, data: { reversedAt: new Date(), reversedBy: admin.id, activeKey: null } })
+            if (reversed.count > 0) await tx.auditLog.create({ data: { actorId: admin.id, action: 'REVERSE_VIOLATION', targetType: 'SHOP', targetId: shop.id, reason } })
             const result = await applyShopModeration(tx, { profileId: shop.id, actorId: admin.id, action: 'RESTORE', reason })
             if (!result.ok) throw new ApiError(409, result.error)
             await tx.notification.create({ data: { userId: shop.userId, type: 'SHOP_RESTORED', category: 'SYSTEM', priority: 'HIGH', title: 'Your shop has been restored', body: 'Your appeal was accepted and your shop is visible to buyers again.' } })
           } else {
             const listing = await tx.listing.findUnique({ where: { id: existing.targetId }, select: { id: true, userId: true, status: true } })
             if (!listing || listing.status !== 'HIDDEN') throw new ApiError(409, 'This listing is no longer hidden')
-            await tx.policyViolation.updateMany({ where: { targetType: 'LISTING', targetId: listing.id, reversedAt: null }, data: { reversedAt: new Date(), reversedBy: admin.id, activeKey: null } })
+            const reversed = await tx.policyViolation.updateMany({ where: { targetType: 'LISTING', targetId: listing.id, reversedAt: null }, data: { reversedAt: new Date(), reversedBy: admin.id, activeKey: null } })
+            if (reversed.count > 0) await tx.auditLog.create({ data: { actorId: admin.id, action: 'REVERSE_VIOLATION', targetType: 'LISTING', targetId: listing.id, reason } })
             await tx.listing.update({ where: { id: listing.id }, data: { status: 'ACTIVE' } })
             await tx.auditLog.create({ data: { actorId: admin.id, action: 'RESTORE_LISTING', targetType: 'LISTING', targetId: listing.id, reason } })
             await tx.notification.create({ data: { userId: listing.userId, type: 'LISTING_RESTORED', category: 'SYSTEM', priority: 'HIGH', title: 'Your listing has been restored', body: 'Your appeal was accepted and the listing is visible to buyers again.', listingId: listing.id } })
