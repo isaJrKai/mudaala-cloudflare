@@ -26,7 +26,10 @@ export function AppealCasePortal({ caseId, accessToken }: { caseId: string; acce
     setAppealCase(payload.appealCase)
   }, [caseId, accessToken])
 
-  useEffect(() => { void load().catch((err) => setError(err instanceof Error ? err.message : 'Could not load the case.')) }, [load])
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load().catch((err) => setError(err instanceof Error ? err.message : 'Could not load the case.')) }, 0)
+    return () => window.clearTimeout(timer)
+  }, [load])
 
   async function sendReply(event: React.FormEvent) {
     event.preventDefault()
