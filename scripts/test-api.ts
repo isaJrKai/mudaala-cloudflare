@@ -1927,7 +1927,7 @@ async function main() {
     const listingAppealId: string = listingAppeal.json?.appealCase?.id ?? ''
     const listingAppealToken: string = listingAppeal.json?.appealCase?.accessToken ?? ''
     ok('listing owner can open an independent appeal case', listingAppeal.status === 201 && Boolean(listingAppealId && listingAppealToken))
-    const listingCaseRead = listingAppealId ? await call('GET', `/api/appeals/${listingAppealId}`, undefined, undefined, { 'x-appeal-access-token': listingAppealToken }) : { status: 0 }
+    const listingCaseRead = listingAppealId ? await call('GET', `/api/appeals/${listingAppealId}`, undefined, undefined, { 'x-appeal-access-token': listingAppealToken }) : { status: 0, json: null }
     ok('appeal owner can read their case with its private access code', listingCaseRead.status === 200 && listingCaseRead.json?.appealCase?.messages?.length === 1)
     const listingOwnerReply = listingAppealId ? await call('POST', `/api/appeals/${listingAppealId}`, { body: 'I can provide the original listing photos and supplier receipt if needed.' }, undefined, { 'x-appeal-access-token': listingAppealToken }) : { status: 0 }
     ok('appeal owner can add a message to the case timeline', listingOwnerReply.status === 201)
