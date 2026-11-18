@@ -1,28 +1,27 @@
 'use client'
 
 // The basket view - the upper surface where final decisions happen: paying
-// each seller through the mobile-money pay sheet, and talking to them about
-// this exact list (WhatsApp or call). The quiet collecting while the buyer
+// each seller through the mobile-money pay sheet, and sending an in-app
+// enquiry about this exact list. The quiet collecting while the buyer
 // shops lives in the cart dock; this page is where the list turns into a
 // decision.
 //
 // Honesty rules enforced here:
 //   • Every line is re-checked against the public listing API; gone/expired/
-//     fulfilled items are flagged before the buyer pays or sends anything.
+//     fulfilled items are flagged before the buyer pays or sends an enquiry.
 //   • The subtotal is labelled an estimate - the seller confirms.
 //   • The basket lives on this phone (localStorage), and the UI says so.
 
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Check, CheckCircle2, Minus, Phone, Plus, Smartphone, Store, Trash2, TriangleAlert } from 'lucide-react'
+import { Check, CheckCircle2, Minus, Plus, Smartphone, Store, Trash2, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ToastAction } from '@/components/ui/toast'
 import { PaySheet } from '@/components/commerce/pay-sheet'
 import { InAppEnquiryButton } from './in-app-enquiry-button'
-import { WhatsAppIcon } from '@/components/commerce/brand-icons'
 import { apiGet } from '@/lib/client'
 import type { ListingDetail, ShopPage } from '@/lib/client'
-import { formatPrice, telLink } from '@/lib/format'
+import { formatPrice } from '@/lib/format'
 import { useAppStore } from '@/lib/store'
 import {
   addToBasket,
@@ -30,14 +29,11 @@ import {
   basketSubtotal,
   isShopDone,
   markShopDone,
-  orderWhatsAppHref,
   removeShop,
   restoreLine,
   setLineQty,
   useBasket,
   type BasketAddListing,
-  type BasketShopInfo,
-  type BasketLineInfo,
 } from '@/lib/basket'
 import { useToast } from '@/hooks/use-toast'
 import { EmptyState } from './empty-state'
@@ -281,7 +277,6 @@ function BasketShopSection({
   const fresh = entries.filter(([id]) => !statuses.data || statuses.data[id] === 'ACTIVE')
   const stale = entries.filter(([id]) => statuses.data && statuses.data[id] !== 'ACTIVE')
   const sendable = statuses.isLoading ? entries : fresh
-  const sendableLines = sendable.map(([, line]) => line)
   const subtotal = basketSubtotal(sendableLines)
 
   // The subtotal flash - Mudaala's answer to the ticker-tape cue: when the
@@ -408,10 +403,8 @@ function BasketShopSection({
         })}
       </ul>
 
-      {/* Footer - the final decisions. Pay is the hero action; talking to
-          the seller about this exact list is the other decision, so the
-          fresh list goes to their WhatsApp and their line. Stale lines
-          stay visible but never ride in the estimate or the message. */}
+      {/* Footer - the buyer can pay using the seller's existing methods or
+          start a private Mudaala enquiry about the fresh items. */}
       <div className="space-y-2 border-t bg-secondary/40 px-4 py-3">
         {stale.length > 0 ? (
           <p className="flex items-start gap-1.5 text-xs text-amber-800">
@@ -458,41 +451,6 @@ function BasketShopSection({
           />
         ) : null}
 
-        {sendable.length > 0 && shop.whatsapp ? (
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              asChild
-              variant="outline"
-              className="press h-10 flex-1 border-emerald-600 text-[13px] text-emerald-800 hover:bg-emerald-50"
-            >
-              <a
-                href={orderWhatsAppHref(shop, sendableLines)}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={copy.basket.sendListAria(sendable.length, shop.name)}
-              >
-                <WhatsAppIcon className="size-4" aria-hidden /> {copy.basket.sendList}
-              </a>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="press h-10 flex-1 text-[13px]"
-            >
-              <a href={telLink(shop.phone)} aria-label={copy.basket.callWithListAria(shop.name)}>
-                <Phone className="size-4" aria-hidden /> {copy.basket.callWithList}
-              </a>
-            </Button>
-          </div>
-        ) : null}
-        {sendable.length > 0 && !shop.whatsapp ? (
-          <p className="text-center text-xs text-muted-foreground">{copy.basket.noWhatsappNote}</p>
-        ) : null}
-        {sendable.length === 0 ? (
-          <Button variant="outline" className="h-10 w-full" disabled>
-            <WhatsAppIcon className="size-4" aria-hidden /> {copy.basket.nothingToSend}
-          </Button>
-        ) : null}
 
         {/* The pay sheet opens on FRESH shop data, never the basket's
             snapshot - a merchant code is exactly the thing a buyer should
