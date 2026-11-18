@@ -4,7 +4,7 @@ import { Loader2, Search, Users, Store, PackageSearch } from 'lucide-react'
 type DirectoryType = 'PEOPLE' | 'SHOPS' | 'LISTINGS'
 type Result = { id: string; [key: string]: any }
 const tabs: { value: DirectoryType; label: string; icon: typeof Users }[] = [{ value: 'PEOPLE', label: 'People', icon: Users }, { value: 'SHOPS', label: 'Shops', icon: Store }, { value: 'LISTINGS', label: 'Listings', icon: PackageSearch }]
-function dateLabel(value: unknown) { return typeof value === 'string' ? new Date(value).toLocaleDateString() : '—' }
+function dateLabel(value: unknown) { return typeof value === 'string' ? new Date(value).toLocaleDateString() : '-' }
 export function AdminDirectory() {
  const [type, setType] = useState<DirectoryType>('PEOPLE')
  const [query, setQuery] = useState('')
