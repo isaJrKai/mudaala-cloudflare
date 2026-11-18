@@ -208,9 +208,11 @@ export async function POST() {
       // Re-engage around meaningful product-post gaps, not merely days the
       // merchant did not open the dashboard. A shop can be active in Mudaala
       // and still need a prompt to publish something fresh.
-      const latestProductPost = merchant.growthEvents.find((event) => event.eventType === 'PRODUCT_CREATED')?.createdAt
-        ?? merchant.listings[0]?.publishedAt
-        ?? null
+      const latestProductPost = [
+        merchant.growthEvents.find((event) => event.eventType === 'PRODUCT_CREATED')?.createdAt ?? null,
+        merchant.listings[0]?.publishedAt ?? null,
+      ].filter((date): date is Date => date !== null)
+        .sort((a, b) => b.getTime() - a.getTime())[0] ?? null
       const postAgeDays = latestProductPost
         ? Math.max(0, localDayOrdinal(now, timezone) - localDayOrdinal(latestProductPost, timezone))
         : 0
