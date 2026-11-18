@@ -33,6 +33,12 @@ function localParts(date: Date, timezone: string): { day: string; hour: number }
   }
 }
 
+function localDayOrdinal(date: Date, timezone: string): number {
+  const day = localParts(date, timezone).day
+  const [year, month, dateOfMonth] = day.split('-').map(Number)
+  return Math.floor(Date.UTC(year, month - 1, dateOfMonth) / 86_400_000)
+}
+
 function photoCount(raw: string): number {
   try {
     const photos: unknown = JSON.parse(raw)
@@ -104,7 +110,7 @@ export async function POST() {
         },
         listings: {
           where: { type: 'OFFER', status: 'ACTIVE' },
-          select: { id: true, title: true, photos: true },
+          select: { id: true, title: true, photos: true, publishedAt: true },
           orderBy: { publishedAt: 'desc' },
           take: 100,
         },
@@ -199,40 +205,59 @@ export async function POST() {
         }
       }
 
-      if (local.hour === inactivityHour(merchant.id, local.day)) {
-        const openedToday = merchant.growthEvents.some((event) =>
-          event.eventType === 'SHOP_OPENED' && localParts(event.createdAt, timezone).day === local.day,
-        )
-        if (!openedToday) {
-          const dedupeKey = `growth:${local.day}:inactive`
-          const sentKeys = sentKeysByUser.get(merchant.id) ?? new Set<string>()
-          if (!sentKeys.has(dedupeKey) && (countByUser.get(merchant.id) ?? 0) < DAILY_GROWTH_CAP) {
-            const result = await db.notification.createMany({
-              data: [{
-                userId: merchant.id,
-                type: 'GROWTH_INACTIVITY',
-                category: 'GROWTH',
-                priority: 'NORMAL',
-                title: 'Your shop is waiting for you',
-                body: recommendations[0]?.body ?? 'Take a moment to check your shop, refresh your products and share your latest photos or shop poster.',
-                actionUrl: recommendations[0]?.actionUrl ?? `/#/shop/${encodeURIComponent(merchant.id)}`,
-                actionLabel: recommendations[0]?.actionLabel ?? 'Open my shop',
-                source: 'DAILY_INACTIVITY',
-                dedupeKey,
-              }],
-              skipDuplicates: true,
+      // Re-engage around meaningful product-post gaps, not merely days the
+      // merchant did not open the dashboard. A shop can be active in Mudaala
+      // and still need a prompt to publish something fresh.
+      const latestProductPost = merchant.listings[0]?.publishedAt ?? null
+      const postAgeDays = latestProductPost
+        ? Math.max(0, localDayOrdinal(now, timezone) - localDayOrdinal(latestProductPost, timezone))
+        : 0
+      const inactivityStage = postAgeDays >= 7 ? 7 : postAgeDays >= 5 ? 5 : postAgeDays >= 3 ? 3 : null
+
+      if (inactivityStage !== null && local.hour === inactivityHour(merchant.id, local.day)) {
+        const postAnchor = latestProductPost!.toISOString()
+        const dedupeKey = `growth:post-gap:${postAnchor}:${inactivityStage}d`
+        const sentKeys = sentKeysByUser.get(merchant.id) ?? new Set<string>()
+        if (!sentKeys.has(dedupeKey) && (countByUser.get(merchant.id) ?? 0) < DAILY_GROWTH_CAP) {
+          const reminder = inactivityStage === 3
+            ? {
+                title: 'It has been a few days since your last post',
+                body: 'Your last product post was 3 days ago. Add a fresh item or update its photos so nearby customers have something new to discover.',
+              }
+            : inactivityStage === 5
+              ? {
+                  title: 'Give your shop something new to show',
+                  body: 'It has been 5 days since your last product post. Share a product customers can ask you about today.',
+                }
+              : {
+                  title: 'Let’s bring your shop back into view',
+                  body: 'It has been a week since your last product post. Add a new product or refresh your catalogue to give customers a reason to visit.',
+                }
+          const result = await db.notification.createMany({
+            data: [{
+              userId: merchant.id,
+              type: `GROWTH_POST_GAP_${inactivityStage}D`,
+              category: 'GROWTH',
+              priority: inactivityStage === 7 ? 'HIGH' : 'NORMAL',
+              title: reminder.title,
+              body: reminder.body,
+              actionUrl: '/#/publish',
+              actionLabel: 'Post a product',
+              source: `PRODUCT_POST_GAP_${inactivityStage}D`,
+              dedupeKey,
+            }],
+            skipDuplicates: true,
+          })
+          created += result.count
+          if (result.count > 0) {
+            const notification = await db.notification.findUnique({
+              where: { userId_dedupeKey: { userId: merchant.id, dedupeKey } },
+              select: { id: true, userId: true, title: true, body: true, actionUrl: true, actionLabel: true, priority: true },
             })
-            created += result.count
-            if (result.count > 0) {
-              const notification = await db.notification.findUnique({
-                where: { userId_dedupeKey: { userId: merchant.id, dedupeKey } },
-                select: { id: true, userId: true, title: true, body: true, actionUrl: true, actionLabel: true, priority: true },
-              })
-              if (notification) await deliverPushNotification(merchant.id, notification)
-              sentKeys.add(dedupeKey)
-              sentKeysByUser.set(merchant.id, sentKeys)
-              countByUser.set(merchant.id, (countByUser.get(merchant.id) ?? 0) + 1)
-            }
+            if (notification) await deliverPushNotification(merchant.id, notification)
+            sentKeys.add(dedupeKey)
+            sentKeysByUser.set(merchant.id, sentKeys)
+            countByUser.set(merchant.id, (countByUser.get(merchant.id) ?? 0) + 1)
           }
         }
       }
