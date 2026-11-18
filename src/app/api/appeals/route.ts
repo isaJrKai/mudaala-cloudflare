@@ -13,7 +13,7 @@ const createSchema = z.object({
   contact: z.string().trim().min(1).max(30),
   title: z.string().trim().min(4).max(120),
   statement: z.string().trim().min(20).max(3000),
-  verificationCode: z.string().regex(/^\\d{6}$/).optional(),
+  verificationCode: z.string().regex(/^\d{6}$/).optional(),
 })
 
 function randomToken(): string {
