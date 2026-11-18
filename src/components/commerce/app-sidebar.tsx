@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, ExternalLink, LayoutDashboard, Package, Plus, Settings, Store, MessageSquare } from 'lucide-react'
+import { ArrowLeft, ExternalLink, LayoutDashboard, Package, Plus, Settings, Store, MessageSquare, PanelsTopLeft } from 'lucide-react'
 import { useAppStore, type ViewName } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { Button } from '@/components/ui/button'
@@ -67,8 +67,8 @@ export function AppSidebar() {
           href="/seller/showrooms"
           className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
         >
-          <span className="[&_svg]:size-[18px]"><Store aria-hidden /></span>
-          <span>Design showroom</span>
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[#f7e6bd] text-[#47734d] [&_svg]:size-[17px]"><PanelsTopLeft aria-hidden /></span>
+          <span className="text-[#47734d]">Design showroom</span>
           <ExternalLink className="ml-auto size-3.5 opacity-60" aria-hidden />
         </a>
       </nav>
