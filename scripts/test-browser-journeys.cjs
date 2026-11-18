@@ -368,9 +368,9 @@ async function verifyListingLifecycle(browser) {
     const gallery = page.locator('[aria-roledescription="carousel"]');
     const gallerySection = gallery.locator('xpath=..');
     await gallery.waitFor({ state: 'visible', timeout });
-    await page.getByRole('button', { name: 'Next product photo' }).click();
+    await gallerySection.getByRole('button', { name: 'Next product photo' }).click();
     await gallerySection.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
-    await page.getByRole('button', { name: 'Previous product photo' }).click();
+    await gallerySection.getByRole('button', { name: 'Previous product photo' }).click();
     await gallerySection.getByText('1 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
 
     // Recheck the gallery controls at a phone width, and ensure the page itself
@@ -384,7 +384,7 @@ async function verifyListingLifecycle(browser) {
     if (mobileGallery.pageWidth > mobileGallery.viewportWidth + 1) {
       throw new Error('Listing photo gallery introduced mobile horizontal overflow: ' + JSON.stringify(mobileGallery));
     }
-    await page.getByRole('button', { name: 'Next product photo' }).click();
+    await gallerySection.getByRole('button', { name: 'Next product photo' }).click();
     await page.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
 
     // The public share page must use the same uncropped, arrow-based gallery.
@@ -395,11 +395,11 @@ async function verifyListingLifecycle(browser) {
     const publicGallery = page.locator('[aria-roledescription="carousel"]');
     const publicGallerySection = publicGallery.locator('xpath=..');
     await publicGallery.waitFor({ state: 'visible', timeout });
-    await page.getByRole('button', { name: 'Next product photo' }).click();
+    await publicGallerySection.getByRole('button', { name: 'Next product photo' }).click();
     await publicGallerySection.getByText('2 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
     const publicPhotoFit = await publicGallery.locator('img').first().evaluate((img) => getComputedStyle(img).objectFit);
     if (publicPhotoFit !== 'contain') throw new Error('Public product gallery must show the whole photo; object-fit was ' + publicPhotoFit);
-    await page.getByRole('button', { name: 'Previous product photo' }).click();
+    await publicGallerySection.getByRole('button', { name: 'Previous product photo' }).click();
     await publicGallerySection.getByText('1 / 2', { exact: true }).waitFor({ state: 'visible', timeout });
 
     // Verify the real buyer contact action reveals the number only on demand,
