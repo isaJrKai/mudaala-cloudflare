@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       }),
       db.businessProfile.findMany({
         where: { id: { in: shopIds } },
-        select: { id: true, businessName: true, shopCode: true, county: true },
+        select: { id: true, businessName: true, shopCode: true, county: true, moderationStatus: true },
       }),
     ])
     const listingById = new Map(listings.map((l) => [l.id, l]))
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
             ? { id: listing.id, title: listing.title, status: listing.status, type: listing.type, price: listing.price, ownerName: listing.user.name }
             : null, // target may have been deleted since the report
           shop: shop
-            ? { id: shop.id, businessName: shop.businessName, shopCode: shop.shopCode, county: shop.county }
+            ? { id: shop.id, businessName: shop.businessName, shopCode: shop.shopCode, county: shop.county, moderationStatus: shop.moderationStatus }
             : null,
         }
       }),
