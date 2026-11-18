@@ -405,6 +405,8 @@ function ForgotPasswordForm({ onDone, onBack }: { onDone: () => void; onBack: ()
   const { toast } = useToast()
   const [step, setStep] = useState<'phone' | 'code'>('phone')
   const [phone, setPhone] = useState('')
+  const [emailAddress, setEmailAddress] = useState('')
+  const [emailMode, setEmailMode] = useState(false)
   const [code, setCode] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -414,15 +416,19 @@ function ForgotPasswordForm({ onDone, onBack }: { onDone: () => void; onBack: ()
   async function requestCode(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    if (!phone.trim()) {
-      setError('Enter your phone number first')
+    if (emailMode ? !emailAddress.trim() : !phone.trim()) {
+      setError(emailMode ? 'Enter your account email first' : 'Enter your phone number first')
       return
     }
 
     setBusy(true)
     try {
-      await apiPost<{ ok: boolean; message: string }>('/api/auth/forgot-password', { phone })
-      // Same message either way - relay it as-is and move on to the code.
+      if (emailMode) {
+        await apiPost<{ ok: boolean; message: string }>('/api/auth/email-reset/request', { email: emailAddress })
+      } else {
+        await apiPost<{ ok: boolean; message: string }>('/api/auth/forgot-password', { phone })
+      }
+      // Both channels use anti-enumeration responses.
       setStep('code')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not send the code. Please try again.')
@@ -437,11 +443,9 @@ function ForgotPasswordForm({ onDone, onBack }: { onDone: () => void; onBack: ()
 
     setBusy(true)
     try {
-      const res = await apiPost<{ ok: boolean; message: string }>('/api/auth/reset-password', {
-        phone,
-        code,
-        newPassword,
-      })
+      const res = emailMode
+        ? await apiPost<{ ok: boolean; message: string }>('/api/auth/email-reset/verify', { email: emailAddress, code, newPassword })
+        : await apiPost<{ ok: boolean; message: string }>('/api/auth/reset-password', { phone, code, newPassword })
       toast({ title: res.message || 'Password updated' })
       onDone()
     } catch (err) {
@@ -455,20 +459,9 @@ function ForgotPasswordForm({ onDone, onBack }: { onDone: () => void; onBack: ()
     return (
       <form onSubmit={requestCode} className="mt-4 space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor="forgot-phone">Your phone number</Label>
-          <Input
-            id="forgot-phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="0772 345 678"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            required
-          />
-          <p className="text-xs text-muted-foreground">
-            We will text you a 6-digit code if this number has an account.
-          </p>
+          <div className="flex items-center justify-between gap-2"><Label htmlFor={emailMode ? 'forgot-email' : 'forgot-phone'}>{emailMode ? 'Your verified account email' : 'Your phone number'}</Label><button type="button" className="text-xs underline underline-offset-2" onClick={() => { setEmailMode(value => !value); setError(null) }}>{emailMode ? 'Use phone instead' : 'Use verified email'}</button></div>
+          {emailMode ? <Input id="forgot-email" type="email" autoComplete="email" placeholder="you@example.com" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} required /> : <Input id="forgot-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="0772 345 678" value={phone} onChange={event => setPhone(event.target.value)} required />}
+          <p className="text-xs text-muted-foreground">{emailMode ? 'We will email a 6-digit code if this address is verified on a Mudaala account.' : 'We will text a 6-digit code if this number has an account.'}</p>
         </div>
         {error ? (
           <p role="alert" className="text-sm text-destructive">
@@ -490,10 +483,10 @@ function ForgotPasswordForm({ onDone, onBack }: { onDone: () => void; onBack: ()
   return (
     <form onSubmit={submitReset} className="mt-4 space-y-3">
       <p className="text-sm text-muted-foreground">
-        Enter the 6-digit code we sent to your phone, then choose a new password.
+        Enter the 6-digit code we sent to your {emailMode ? 'email' : 'phone'}, then choose a new password.
       </p>
       <div className="space-y-1.5">
-        <Label htmlFor="forgot-code">Code from the SMS</Label>
+        <Label htmlFor="forgot-code">Code from the {emailMode ? 'email' : 'SMS'}</Label>
         <Input
           id="forgot-code"
           inputMode="numeric"
