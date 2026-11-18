@@ -6,8 +6,7 @@
 
 import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, MapPin, Navigation, Package, Phone, Plus, Store } from 'lucide-react'
-import { WhatsAppIcon } from '@/components/commerce/brand-icons'
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, MapPin, Navigation, Package, Plus, Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { apiFetch, apiGet } from '@/lib/client'
@@ -18,16 +17,12 @@ import {
   formatDateTime,
   timeAgo,
   expiryLabel,
-  whatsappLink,
-  telLink,
-  formatPhonePretty,
   mapsSearchUrl,
 } from '@/lib/format'
 import { categoryLabel, unitLabel, countryDef } from '@/lib/constants'
 import { ShareAdRow } from './share-row'
 import { RelatedListings } from './related-listings'
 import { SafetyCard } from './safety-card'
-import { TelegramEnquiryButton } from './telegram-enquiry-button'
 import { InAppEnquiryButton } from './in-app-enquiry-button'
 import { ReportButton } from './report-button'
 import { PlaceholderTile } from './placeholder-tile'
@@ -150,9 +145,8 @@ export function ListingDetail({ id }: { id: string }) {
   // only runs client-side), so no SSR guard is needed in practice.
   const listing = data?.listing
   const shareUrl = listing ? `${window.location.origin}/l/${listing.id}` : null
-  const trackEngagement = (event: 'CALL_CLICK' | 'WHATSAPP_CLICK' | 'SHARE_CLICK') => {
+  const trackEngagement = (event: 'SHARE_CLICK') => {
     if (!listing) return
-    // keepalive lets the aggregate request finish when tel:/WhatsApp opens another app.
     void apiFetch(`/api/listings/${encodeURIComponent(listing.id)}/engagement`, {
       method: 'POST',
       body: JSON.stringify({ event }),
@@ -184,7 +178,6 @@ export function ListingDetail({ id }: { id: string }) {
 
   const quantity = formatQuantity(listing.quantity, listing.unit)
   const sharePriceLabel = listing.price !== null ? formatPrice(listing.price, listing.unit ? unitLabel(listing.unit) : null, listing.currency) : null
-  const whatsapp = listing.contactWhatsapp ?? (listing.type === 'OFFER' ? listing.contactPhone : listing.contactWhatsapp)
   const shopDisplayName = listing.user.profile?.businessName?.trim() || listing.user.name
   const shopPhoto = listing.user.profile?.photoUrl ?? null
   const directionsUrl = mapsSearchUrl({
@@ -289,6 +282,13 @@ export function ListingDetail({ id }: { id: string }) {
               </p>
             </div>
           </div>
+          {listing.type === 'OFFER' && listing.status === 'ACTIVE' ? <InAppEnquiryButton
+            listingId={listing.id}
+            shopName={shopDisplayName}
+            initialMessage={`Hello, I'm interested in ${listing.title}. Is it available?`}
+            label="Message seller"
+            className="press mt-3 h-11 w-full gap-1.5 text-[15px]"
+          /> : null}
 
           {listing.status !== 'ACTIVE' ? (
             <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -351,41 +351,13 @@ export function ListingDetail({ id }: { id: string }) {
           </dl>
         </div>
 
-        {/* Contact - only real, owner-provided contact details. The safety
-            card comes FIRST: read before contact happens. Plus directions
-            for the "can I pick it up myself?" decision. */}
+        {/* Keep safety guidance and directions here; buyer-to-seller contact
+            starts in the Mudaala enquiry thread above. */}
         <div className="border-t bg-secondary/40 p-4 sm:p-5">
-          <h2 className="text-sm font-semibold">{copy.listing.contact(shopDisplayName)}</h2>
-          <p className="mt-1 text-sm text-muted-foreground tabular-nums">{formatPhonePretty(listing.contactPhone)}</p>
+          <h2 className="text-sm font-semibold">Before you visit</h2>
           <div className="mt-3">
             <SafetyCard />
           </div>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <Button asChild className="mudaala-money-cta press h-11 flex-1 text-[15px]">
-              <a href={telLink(listing.contactPhone)} aria-label={`Call ${formatPhonePretty(listing.contactPhone)}`} onClick={() => trackEngagement('CALL_CLICK')}>
-                <Phone className="size-4" aria-hidden /> {copy.common.call}
-              </a>
-            </Button>
-            {whatsapp ? (
-              <Button
-                asChild
-                variant="outline"
-                className="whatsapp-brand press h-11 flex-1 text-[15px]"
-              >
-                <a href={whatsappLink(whatsapp, listing.title, listing.type)} target="_blank" rel="noopener noreferrer" onClick={() => trackEngagement('WHATSAPP_CLICK')}>
-                  <WhatsAppIcon className="size-4" aria-hidden /> {copy.common.whatsapp}
-                </a>
-              </Button>
-            ) : null}
-          </div>
-          {listing.type === 'OFFER' ? <InAppEnquiryButton
-            listingId={listing.id}
-            shopName={shopDisplayName}
-            initialMessage={`Hello, I'm interested in ${listing.title}. Is it available?`}
-            label="Message seller in Mudaala"
-            className="press mt-2 h-11 w-full gap-1.5 text-[15px]"
-          /> : null}
-          {listing.type === 'OFFER' ? <TelegramEnquiryButton listingId={listing.id} enabled={Boolean(listing.telegramContactEnabled)} /> : null}
           <Button asChild variant="outline" className="press mt-2 h-11 w-full gap-1.5 text-[15px]">
             <a
               href={directionsUrl}
