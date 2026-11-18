@@ -12,7 +12,7 @@ export async function GET() {
     const items = await db.enquiry.findMany({
       where: { OR: [{ merchantId: user.id }, { shopperId: user.id }] },
       include: {
-        listing: { select: { id: true, title: true, status: true } },
+        listing: { select: { id: true, title: true, status: true, contactPhone: true } },
         merchant: { select: { profile: { select: { businessName: true } } } },
         messages: { orderBy: { createdAt: 'desc' }, take: 1, select: { body: true, senderType: true, createdAt: true, deliveryStatus: true } },
       },
@@ -24,7 +24,10 @@ export async function GET() {
       status: item.status,
       followUpConsentAt: item.followUpConsentAt,
       role: item.merchantId === user.id ? 'MERCHANT' : 'SHOPPER',
-      listing: item.listing,
+      listing: { id: item.listing.id, title: item.listing.title, status: item.listing.status },
+      // The seller's phone is revealed only to the buyer who already opened
+      // this private enquiry. Merchant inboxes never receive shopper numbers.
+      sellerPhone: item.shopperId === user.id ? item.listing.contactPhone : null,
       shopName: item.merchant.profile?.businessName || 'Mudaala shop',
       lastMessage: item.messages[0] || null,
       lastMessageAt: item.lastMessageAt,
