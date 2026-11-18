@@ -39,6 +39,8 @@ export function verifyPassword(password: string, stored: string): boolean {
 }
 
 export async function createSession(userId: string, authMethod: 'PASSWORD' | 'GOOGLE' = 'PASSWORD'): Promise<{ token: string; expiresAt: Date }> {
+  const account = await db.user.findUnique({ where: { id: userId }, select: { suspendedAt: true } })
+  if (!account || account.suspendedAt) throw new Error('This Mudaala account is currently restricted')
   const token = randomBytes(32).toString('hex')
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000)
   await db.session.create({ data: { id: token, userId, authMethod, expiresAt } })
@@ -100,7 +102,7 @@ export async function getSessionUser(): Promise<User | null> {
   if (!token) return null
   const session = await db.session.findUnique({ where: { id: token }, include: { user: true } })
   if (!session) return null
-  if (session.expiresAt.getTime() < Date.now()) {
+  if (session.expiresAt.getTime() < Date.now() || session.user.suspendedAt) {
     await db.session.delete({ where: { id: token } }).catch(() => undefined)
     return null
   }
