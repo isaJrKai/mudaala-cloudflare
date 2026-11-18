@@ -399,3 +399,9 @@ export const adminAccountRestrictionSchema = z.object({
   action: z.enum(['SUSPEND', 'REINSTATE']),
   reason: z.string().trim().min(10, 'Provide a reason of at least 10 characters').max(500, 'Keep the reason under 500 characters'),
 })
+
+
+export const adminShopModerationSchema = z.object({
+  action: z.enum(['HIDE', 'RESTORE']),
+  reason: z.string().trim().min(10, 'Provide a reason of at least 10 characters').max(500, 'Keep the reason under 500 characters'),
+})
