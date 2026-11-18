@@ -45,6 +45,11 @@ export async function POST(request: Request) {
     // Success clears the failure counters for every form of this phone.
     for (const phone of candidates) await clear(`login:fail:${phone}`)
 
+    if (user.suspendedAt) {
+      const reason = user.suspensionReason ? ` Reason: ${user.suspensionReason}` : ''
+      return jsonError(403, `This account is currently restricted.${reason} You can appeal by submitting feedback as a guest through the site feedback form.`)
+    }
+
     const session = await createSession(user.id)
     await setSessionCookie(session.token, session.expiresAt)
 

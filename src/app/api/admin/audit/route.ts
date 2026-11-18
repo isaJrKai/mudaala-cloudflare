@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: (page - 1) * 50,
         take: 50,
-        select: { id: true, actorId: true, action: true, targetType: true, targetId: true, createdAt: true },
+        select: { id: true, actorId: true, action: true, targetType: true, targetId: true, reason: true, createdAt: true },
       }),
       db.auditLog.count({ where }),
     ])
@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
         action: event.action,
         targetType: event.targetType,
         targetId: event.targetId,
+        reason: event.reason,
         createdAt: event.createdAt,
         actor: event.actorId ? (actorNames.get(event.actorId) ?? 'Former admin account') : 'System',
       })),

@@ -36,6 +36,12 @@ model User {
   // Existing active merchants are grandfathered during Google-link rollout.
   sellerGoogleExempt Boolean @default(false)
 
+  // Administrative account restriction. A restriction revokes all sessions;
+  // reinstatement requires a fresh sign-in.
+  suspendedAt DateTime?
+  suspensionReason String?
+  suspendedBy String?
+
   // Task 4 - legal acceptance: when the user confirmed "18+ and accept the
   // Terms and Privacy Policy" and WHICH version they saw. NULL for accounts
   // created before versioned terms existed.
@@ -416,6 +422,9 @@ model AuditLog {
   targetType String // LISTING | SHOP | REPORT
   targetId   String
   createdAt  DateTime @default(now())
+
+  reason     String?
+  metadata   Json?
 
   @@index([action, createdAt])
   @@index([targetType, targetId])

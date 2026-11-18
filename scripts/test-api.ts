@@ -1281,7 +1281,39 @@ async function main() {
     const adminLogin = await call('POST', '/api/auth/login', { phone: '0712000001', password: 'demo1234' }, admin)
     storeCookie(admin, adminLogin)
     admin.token = adminLogin.json?.sessionToken
+    admin.user = adminLogin.json?.user
     ok('admin phone signs in (precondition)', adminLogin.status === 200)
+
+    // ---- Account restrictions: suspend, revoke every session, then reinstate ----
+    const restrictedUserId = alice.user?.id ?? ''
+    const suspendReason = 'CI test: account restriction lifecycle verification'
+    const suspend = restrictedUserId
+      ? await call('POST', `/api/admin/people/${restrictedUserId}/restriction`, { action: 'SUSPEND', reason: suspendReason }, admin)
+      : { status: 0, json: {} }
+    ok('admin can suspend a non-admin account with a documented reason', suspend.status === 200)
+    const suspendedUser = restrictedUserId
+      ? await db.user.findUnique({ where: { id: restrictedUserId }, select: { suspendedAt: true, suspensionReason: true } })
+      : null
+    const remainingSessions = restrictedUserId ? await db.session.count({ where: { userId: restrictedUserId } }) : -1
+    ok('suspension is persisted and all sessions are revoked', Boolean(suspendedUser?.suspendedAt && suspendedUser.suspensionReason === suspendReason && remainingSessions === 0))
+    const suspensionAudit = restrictedUserId ? await db.auditLog.findFirst({ where: { targetType: 'USER', targetId: restrictedUserId, action: 'SUSPEND_ACCOUNT' }, orderBy: { createdAt: 'desc' } }) : null
+    ok('suspension audit record stores the reason and admin actor', Boolean(suspensionAudit?.reason === suspendReason && suspensionAudit.actorId === admin.user?.id))
+    const blockedExistingSession = await call('GET', '/api/notifications', undefined, alice)
+    ok('suspended account cannot use an existing session', blockedExistingSession.status === 401)
+    const blockedPasswordLogin = await call('POST', '/api/auth/login', { phone: alicePhone, password: 'password321' })
+    ok('suspended account cannot sign in with password', blockedPasswordLogin.status === 403 && String(blockedPasswordLogin.json?.error).includes(suspendReason))
+
+    const reinstateReason = 'CI test: restriction lifted after review'
+    const reinstate = restrictedUserId
+      ? await call('POST', `/api/admin/people/${restrictedUserId}/restriction`, { action: 'REINSTATE', reason: reinstateReason }, admin)
+      : { status: 0, json: {} }
+    ok('admin can reinstate a suspended account with a documented reason', reinstate.status === 200)
+    const reinstatementAudit = restrictedUserId ? await db.auditLog.findFirst({ where: { targetType: 'USER', targetId: restrictedUserId, action: 'REINSTATE_ACCOUNT' }, orderBy: { createdAt: 'desc' } }) : null
+    ok('reinstatement audit record stores the reason and admin actor', Boolean(reinstatementAudit?.reason === reinstateReason && reinstatementAudit.actorId === admin.user?.id))
+    const freshAliceLogin = await call('POST', '/api/auth/login', { phone: alicePhone, password: 'password321' }, alice)
+    storeCookie(alice, freshAliceLogin)
+    alice.token = freshAliceLogin.json?.sessionToken
+    ok('reinstated account can sign in again with a fresh session', freshAliceLogin.status === 200)
 
     const anonymousAnalytics = await call('GET', '/api/admin/analytics')
     ok('admin analytics denies anonymous access → 401', anonymousAnalytics.status === 401)

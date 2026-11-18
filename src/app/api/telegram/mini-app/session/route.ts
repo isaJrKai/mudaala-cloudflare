@@ -74,6 +74,7 @@ export async function POST(request: Request) {
     if (!user) {
       throw new ApiError(403, 'The linked Mudaala account could not be found. Connect your account again.')
     }
+    if (user.suspendedAt) throw new ApiError(403, 'This Mudaala account is currently restricted. Submit an appeal through the site feedback form.')
 
     const session = await createSession(user.id)
     await setSessionCookie(session.token, session.expiresAt)

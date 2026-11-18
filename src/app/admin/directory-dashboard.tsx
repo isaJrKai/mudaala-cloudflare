@@ -5,6 +5,38 @@ type DirectoryType = 'PEOPLE' | 'SHOPS' | 'LISTINGS'
 type Result = { id: string; [key: string]: any }
 const tabs: { value: DirectoryType; label: string; icon: typeof Users }[] = [{ value: 'PEOPLE', label: 'People', icon: Users }, { value: 'SHOPS', label: 'Shops', icon: Store }, { value: 'LISTINGS', label: 'Listings', icon: PackageSearch }]
 function dateLabel(value: unknown) { return typeof value === 'string' ? new Date(value).toLocaleDateString() : '-' }
+function AccountRestrictionControls({ item, onChanged }: { item: Result; onChanged: () => void }) {
+ const [reason, setReason] = useState('')
+ const [open, setOpen] = useState(false)
+ const [busy, setBusy] = useState(false)
+ const [error, setError] = useState('')
+ const suspended = Boolean(item.suspendedAt)
+ async function submit(event: React.FormEvent<HTMLFormElement>) {
+  event.preventDefault()
+  if (reason.trim().length < 10) { setError('Provide a reason of at least 10 characters.'); return }
+  setBusy(true); setError('')
+  try {
+   const response = await fetch('/api/admin/people/' + encodeURIComponent(String(item.id)) + '/restriction', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action: suspended ? 'REINSTATE' : 'SUSPEND', reason: reason.trim() }),
+   })
+   const payload = await response.json().catch(() => null)
+   if (!response.ok) throw new Error(payload?.error ?? 'Could not update this account.')
+   setReason(''); setOpen(false); onChanged()
+  } catch (err) { setError(err instanceof Error ? err.message : 'Connection problem. Try again.') }
+  finally { setBusy(false) }
+ }
+ return <div className='mt-3 border-t pt-3'>
+  {suspended ? <><p className='text-xs font-semibold text-destructive'>Account suspended</p><p className='mt-1 text-xs text-muted-foreground'>Reason: {String(item.suspensionReason ?? 'Not recorded')}</p></> : <p className='text-xs text-muted-foreground'>Account active</p>}
+  {!open ? <button type='button' onClick={() => setOpen(true)} className='mt-2 h-8 rounded-md border px-3 text-xs font-medium'>{suspended ? 'Reinstate account' : 'Suspend account'}</button> : <form onSubmit={submit} className='mt-2 space-y-2'>
+   <label className='block text-xs font-medium'>{suspended ? 'Reason for reinstatement' : 'Reason for suspension'}
+    <textarea value={reason} onChange={event => setReason(event.target.value)} minLength={10} maxLength={500} required rows={2} className='mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm' placeholder='Document the reviewed reason and relevant case details.' />
+   </label>
+   {error ? <p role='alert' className='text-xs text-destructive'>{error}</p> : null}
+   <div className='flex gap-2'><button type='submit' disabled={busy || reason.trim().length < 10} className='h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-50'>{busy ? 'Saving…' : suspended ? 'Confirm reinstatement' : 'Confirm suspension'}</button><button type='button' disabled={busy} onClick={() => { setOpen(false); setError('') }} className='h-8 rounded-md border px-3 text-xs'>Cancel</button></div>
+  </form>}
+ </div>
+}
 export function AdminDirectory() {
  const [type, setType] = useState<DirectoryType>('PEOPLE')
  const [query, setQuery] = useState('')
@@ -29,7 +61,7 @@ export function AdminDirectory() {
   {loading ? <p className='mt-4 flex items-center gap-2 text-sm text-muted-foreground'><Loader2 className='size-4 animate-spin' aria-hidden />Searching…</p> : null}
   {!loading && submitted.length >= 2 && results?.length === 0 ? <p className='mt-4 text-sm text-muted-foreground'>No matching records found.</p> : null}
   {!loading && results && results.length > 0 ? <div className='mt-4 space-y-2'><p className='text-xs text-muted-foreground'>{results.length} results · newest first</p><ul className='space-y-2'>{results.map(item => <li key={String(item.id)} className='rounded-lg border bg-card p-3'>
-   {type === 'PEOPLE' ? <><div className='flex flex-wrap items-start justify-between gap-2'><p className='font-medium'>{item.name}</p><span className='text-xs text-muted-foreground'>Joined {dateLabel(item.joinedAt)}</span></div><p className='mt-1 text-sm text-muted-foreground'>{item.phoneMasked} · {item.shop?.businessName ?? 'No shop profile'}</p>{item.shop?.shopCode ? <p className='mt-1 text-xs text-muted-foreground'>Shop code {item.shop.shopCode} · {item.shop.county ?? 'District not set'}</p> : null}<p className='mt-2 text-xs text-muted-foreground'>{item.listingCount} listings · {item.enquiryCount} enquiries</p></> : null}
+   {type === 'PEOPLE' ? <><div className='flex flex-wrap items-start justify-between gap-2'><p className='font-medium'>{item.name}</p><span className='text-xs text-muted-foreground'>Joined {dateLabel(item.joinedAt)}</span></div><p className='mt-1 text-sm text-muted-foreground'>{item.phoneMasked} · {item.shop?.businessName ?? 'No shop profile'}</p>{item.shop?.shopCode ? <p className='mt-1 text-xs text-muted-foreground'>Shop code {item.shop.shopCode} · {item.shop.county ?? 'District not set'}</p> : null}<p className='mt-2 text-xs text-muted-foreground'>{item.listingCount} listings · {item.enquiryCount} enquiries</p><AccountRestrictionControls item={item} onChanged={() => { setSubmitted(''); window.setTimeout(() => setSubmitted(query), 0) }} /></> : null}
    {type === 'SHOPS' ? <><div className='flex flex-wrap items-start justify-between gap-2'><p className='font-medium'>{item.businessName}</p><span className='text-xs text-muted-foreground'>Created {dateLabel(item.createdAt)}</span></div><p className='mt-1 text-sm text-muted-foreground'>{item.shopCode ?? 'No shop code'} · {item.county ?? 'District not set'}{item.area ? ' · ' + item.area : ''}</p><p className='mt-1 text-sm'>Owner: {item.ownerName} <span className='text-muted-foreground'>({item.ownerPhoneMasked})</span></p><p className='mt-2 text-xs text-muted-foreground'>{item.listingCount} listings</p></> : null}
    {type === 'LISTINGS' ? <><div className='flex flex-wrap items-start justify-between gap-2'><p className='font-medium'>{item.title}</p><span className='rounded-full border px-2 py-0.5 text-xs'>{item.status}</span></div><p className='mt-1 text-sm text-muted-foreground'>{item.type} · {item.category} · {item.county}</p><p className='mt-1 text-sm'>{item.shopName ?? item.ownerName}{item.shopCode ? ' · ' + item.shopCode : ''}</p><p className='mt-1 text-xs text-muted-foreground'>Created {dateLabel(item.createdAt)} · ID {item.id}</p></> : null}
   </li>)}</ul></div> : null}
