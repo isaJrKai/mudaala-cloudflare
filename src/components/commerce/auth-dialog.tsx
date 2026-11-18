@@ -91,6 +91,34 @@ function SignInForm({ onDone, onForgot }: { onDone: () => void; onForgot: () => 
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [emailMode, setEmailMode] = useState(false)
+  const [emailAddress, setEmailAddress] = useState('')
+  const [emailCode, setEmailCode] = useState('')
+  const [emailCodeSent, setEmailCodeSent] = useState(false)
+
+  async function requestEmailCode() {
+    setError(null); setBusy(true)
+    try {
+      await apiPost<{ ok: boolean; message: string }>('/api/auth/email-login/request', { email: emailAddress })
+      setEmailCodeSent(true)
+      toast({ title: 'Check your inbox', description: 'If that email is verified on a Mudaala account, a sign-in code is on its way.' })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not request an email code.')
+    } finally { setBusy(false) }
+  }
+
+  async function verifyEmailCode() {
+    setError(null); setBusy(true)
+    try {
+      const res = await apiPost<{ user: SessionUser; sessionToken?: string }>('/api/auth/email-login/verify', { email: emailAddress, code: emailCode })
+      if (res.sessionToken) storeSessionToken(res.sessionToken)
+      await queryClient.invalidateQueries()
+      toast({ title: `Signed in as ${res.user.name}` })
+      onDone()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That code could not sign you in.')
+    } finally { setBusy(false) }
+  }
 
   async function startGoogleSignIn() {
     setError(null)
@@ -170,6 +198,22 @@ function SignInForm({ onDone, onForgot }: { onDone: () => void; onForgot: () => 
       <Button type="submit" className="w-full" disabled={busy}>
         {busy ? 'Signing in…' : 'Sign in'}
       </Button>
+      <div className="rounded-lg border p-3 space-y-2">
+        <button type="button" className="w-full text-sm font-medium underline underline-offset-4" onClick={() => { setEmailMode(value => !value); setError(null) }}>
+          {emailMode ? 'Use phone and password instead' : 'Sign in with an email code'}
+        </button>
+        {emailMode ? <div className="space-y-2">
+          <Label htmlFor="signin-email">Verified account email</Label>
+          <Input id="signin-email" type="email" autoComplete="email" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} placeholder="you@example.com" disabled={busy || emailCodeSent} />
+          {emailCodeSent ? <>
+            <Label htmlFor="signin-email-code">6-digit code</Label>
+            <Input id="signin-email-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={emailCode} onChange={event => setEmailCode(event.target.value.replace(/\D/g, ''))} />
+            <Button type="button" className="w-full" disabled={busy || emailCode.length !== 6} onClick={() => void verifyEmailCode()}>{busy ? 'Signing in…' : 'Verify code and sign in'}</Button>
+            <button type="button" className="w-full text-xs underline" disabled={busy} onClick={() => { setEmailCodeSent(false); setEmailCode('') }}>Use a different email</button>
+          </> : <Button type="button" variant="outline" className="w-full" disabled={busy || !emailAddress.trim()} onClick={() => void requestEmailCode()}>{busy ? 'Sending…' : 'Send sign-in code'}</Button>}
+          <p className="text-xs text-muted-foreground">Only an email already verified in your Mudaala account can be used. Phone/password sign-in remains available.</p>
+        </div> : null}
+      </div>
       <div className="relative py-1">
         <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
         <div className="relative flex justify-center"><span className="bg-background px-2 text-xs text-muted-foreground">or</span></div>
