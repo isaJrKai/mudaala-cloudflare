@@ -115,9 +115,9 @@ export async function POST() {
           take: 100,
         },
         growthEvents: {
-          where: { eventType: { in: ['PRODUCT_CREATED', 'POSTER_GENERATED', 'POSTER_SHARED', 'POSTER_SHARE_INITIATED', 'PRODUCT_PHOTO_ADDED', 'PRODUCT_PHOTOS_SHARE_INITIATED', 'SHOP_OPENED'] } },
+          where: { eventType: { in: ['PRODUCT_CREATED', 'POSTER_GENERATED', 'POSTER_SHARED', 'POSTER_SHARE_INITIATED', 'PRODUCT_PHOTO_ADDED', 'PRODUCT_PHOTOS_SHARE_INITIATED'] } },
           orderBy: { createdAt: 'desc' },
-          take: 40,
+          take: 100,
           select: { eventType: true, entityId: true, createdAt: true },
         },
       },
