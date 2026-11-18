@@ -1,4 +1,5 @@
 import { generateResetCode, hashResetCode, resetCodeMatches } from '@/lib/sms'
+import { db } from '@/lib/db'
 import { sendGmailMessage } from '@/lib/gmail'
 
 export const EMAIL_CODE_TTL_MS = 10 * 60 * 1000
@@ -16,7 +17,7 @@ export async function issueEmailCode(
   intro: string,
 ): Promise<void> {
   const code = generateResetCode()
-  await import('@/lib/db').then(({ db }) => db.$transaction(async (tx) => {
+  await db.$transaction(async (tx) => {
     await tx.emailAuthChallenge.updateMany({
       where: { userId, purpose, consumedAt: null },
       data: { consumedAt: new Date() },
@@ -30,7 +31,7 @@ export async function issueEmailCode(
         expiresAt: new Date(Date.now() + EMAIL_CODE_TTL_MS),
       },
     })
-  }))
+  })
   try {
     await sendGmailMessage(
       targetEmail,
@@ -38,7 +39,6 @@ export async function issueEmailCode(
       `${intro}\n\nYour one-time code is ${code}. It expires in 10 minutes. If you did not request this, ignore this email.`,
     )
   } catch {
-    const { db } = await import('@/lib/db')
     await db.emailAuthChallenge.updateMany({
       where: { userId, purpose, targetEmail, consumedAt: null },
       data: { consumedAt: new Date() },
