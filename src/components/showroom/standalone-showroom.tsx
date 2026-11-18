@@ -155,7 +155,6 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
   const surface = surfaces[template.surface] || surfaces.paper
   const heroPhoto = showroom.coverPhotoUrl || showroom.photos[0] || null
   const galleryPhotos = showroom.coverPhotoUrl ? showroom.photos.slice(0, 3) : showroom.photos.slice(1, 4)
-  const contactNumber = (shop.whatsapp || shop.phone || '').replace(/\D/g, '')
   const heroLayoutClass: Record<string, string> = {
     'cover-story': 'grid gap-8 md:grid-cols-[1.05fr_.95fr] md:items-end',
     'full-bleed': 'grid gap-6',
