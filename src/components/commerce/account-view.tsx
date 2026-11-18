@@ -595,10 +595,8 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
         </p>
         {shopCode && shopUrl ? (
           <div className="mt-1.5 rounded-md border bg-secondary/30 p-2.5">
-            <p className="text-xs text-muted-foreground">
-              Your shop code is <span className="font-semibold tracking-widest text-foreground tabular-nums">{shopCode}</span>. It never changes, so buyers and old posters can always find you.
-            </p>
-            <div className="mt-2 flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold tracking-widest text-foreground tabular-nums">{shopCode}</span>
               <a
                 href={shopUrl}
                 className="min-w-0 flex-1 truncate text-xs font-medium text-foreground underline-offset-2 hover:underline"
@@ -623,9 +621,6 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
                 )}
               </button>
             </div>
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Anyone with this link lands straight on your public shop page. Put it on WhatsApp, posters, business cards.
-            </p>
           </div>
         ) : null}
       </div>
@@ -967,54 +962,20 @@ function ShopChecklist({ form }: { form: ProfileFormState }) {
     { key: 'hours', label: 'Opening hours', done: form.hours.trim() !== '' },
     { key: 'whatsapp', label: 'WhatsApp number', done: form.whatsapp.trim() !== '' },
   ]
-  const done = items.filter((i) => i.done).length
-  const complete = done === items.length
+  const remaining = items.filter((item) => !item.done)
+
+  // Completed details disappear immediately as the seller fills them in.
+  // Once every detail is present, remove the checklist panel entirely.
+  if (remaining.length === 0) return null
 
   return (
-    <div
-      className={complete ? 'rounded-lg border border-emerald-600/30 bg-emerald-50/60 p-3.5' : 'rounded-lg border bg-secondary/30 p-3.5'}
-      aria-label="Shop completeness checklist"
-    >
-      <div className="flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-sm font-semibold">
-          {complete ? (
-            <BadgeCheck className="size-4 text-emerald-700" aria-hidden />
-          ) : (
-            <CheckCircle2 className="size-4 text-muted-foreground" aria-hidden />
-          )}
-          {complete ? 'Shop details complete' : 'Complete your shop'}
-        </p>
-        <span className={complete ? 'text-sm font-bold text-emerald-800' : 'text-sm font-semibold text-muted-foreground'}>
-          {done}/{items.length}
-        </span>
-      </div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {complete
-          ? 'Buyers see the Complete badge on your shop page.'
-          : 'Shops with complete details look real. Buyers call them with confidence.'}
-      </p>
-      <div
-        className="mt-2 h-1.5 overflow-hidden rounded-full bg-border"
-        role="progressbar"
-        aria-valuenow={done}
-        aria-valuemin={0}
-        aria-valuemax={items.length}
-        aria-label={`${done} of ${items.length} shop details complete`}
-      >
-        <div
-          className={complete ? 'h-full rounded-full bg-emerald-600' : 'h-full rounded-full bg-primary'}
-          style={{ width: `${(done / items.length) * 100}%` }}
-        />
-      </div>
-      <ul className="mt-2.5 grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
-        {items.map((item) => (
-          <li key={item.key} className={item.done ? 'flex items-center gap-1.5' : 'flex items-center gap-1.5 text-muted-foreground'}>
-            {item.done ? (
-              <CheckCircle2 className="size-4 shrink-0 text-emerald-700" aria-label="done" />
-            ) : (
-              <Circle className="size-4 shrink-0 text-muted-foreground/50" aria-label="not done yet" />
-            )}
-            <span className={item.done ? 'font-medium' : ''}>{item.label}</span>
+    <div className="rounded-lg border bg-secondary/30 p-3.5" aria-label="Shop details to complete">
+      <p className="text-sm font-semibold">Finish your shop</p>
+      <ul className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
+        {remaining.map((item) => (
+          <li key={item.key} className="flex items-center gap-1.5 text-muted-foreground">
+            <Circle className="size-4 shrink-0 text-muted-foreground/50" aria-hidden />
+            <span>{item.label}</span>
           </li>
         ))}
       </ul>
