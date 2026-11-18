@@ -230,7 +230,7 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
       <header className={`sticky top-0 z-40 border-b border-current/15 bg-inherit/95 backdrop-blur-md ${templateHeaderClasses[template.id] || ''}`}>
         <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-3 sm:px-10 sm:py-4">
           <div className="flex min-w-0 items-center gap-3 sm:gap-5">
-            <a href="/" aria-label="Back to Mudaala marketplace" className="shrink-0 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">
+            <a href="/" aria-label="Back to Mudaala marketplace" className="shrink-0 rounded-sm bg-[#f5f0e7] px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">
               <Image src="/logo.svg" alt="Mudaala" width={142} height={44} priority className="h-7 w-auto object-contain sm:h-9" />
             </a>
             <span aria-hidden="true" className="h-8 w-px shrink-0 bg-current/20" />
