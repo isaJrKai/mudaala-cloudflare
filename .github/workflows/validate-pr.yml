@@ -164,6 +164,22 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Apply and verify admin appeals migration in disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."Feedback" DROP COLUMN IF EXISTS "appealTargetType", DROP COLUMN IF EXISTS "appealTargetRef", DROP COLUMN IF EXISTS "appealTargetId", DROP COLUMN IF EXISTS "appealDecision", DROP COLUMN IF EXISTS "appealDecisionReason";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP INDEX IF EXISTS public."Feedback_appealTargetType_appealTargetId_createdAt_idx";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261118190000_admin_appeals/migration.sql
+          appeal_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='Feedback' AND column_name IN ('appealTargetType','appealTargetRef','appealTargetId','appealDecision','appealDecisionReason')")
+          index_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='Feedback' AND indexname='Feedback_appealTargetType_appealTargetId_createdAt_idx'")
+          if [ "$appeal_columns" != "5" ] || [ "$index_count" != "1" ]; then
+            echo "Admin appeals migration failed: appeal_columns=$appeal_columns index_count=$index_count"
+            exit 1
+          fi
+          echo "Admin appeals migration passed."
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
       - name: Apply and verify listing taxonomy migration in disposable PostgreSQL
         run: |
           set -euo pipefail
