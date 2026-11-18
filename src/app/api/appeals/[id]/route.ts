@@ -189,7 +189,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             if (reversed.count > 0) await tx.auditLog.create({ data: { actorId: admin.id, action: 'REVERSE_VIOLATION', targetType: 'SHOP', targetId: shop.id, reason } })
             const result = await applyShopModeration(tx, { profileId: shop.id, actorId: admin.id, action: 'RESTORE', reason })
             if (!result.ok) throw new ApiError(409, result.error)
-            await tx.notification.create({ data: { userId: shop.userId, type: 'SHOP_RESTORED', category: 'SYSTEM', priority: 'HIGH', title: 'Your shop has been restored', body: 'Your appeal was accepted and your shop is visible to buyers again.' } })
           } else {
             const listing = await tx.listing.findUnique({ where: { id: existing.targetId }, select: { id: true, userId: true, status: true } })
             if (!listing || listing.status !== 'HIDDEN') throw new ApiError(409, 'This listing is no longer hidden')
