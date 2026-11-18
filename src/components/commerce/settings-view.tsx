@@ -29,6 +29,7 @@ export function SettingsView() {
   const [error, setError] = useState('')
   const [settingsSearch, setSettingsSearch] = useState('')
   const [accountEmail, setAccountEmail] = useState('')
+  const [accountEmailPassword, setAccountEmailPassword] = useState('')
   const [emailCode, setEmailCode] = useState('')
   const [emailStep, setEmailStep] = useState<'address' | 'verify'>('address')
   const [emailBusy, setEmailBusy] = useState(false)
@@ -78,8 +79,9 @@ export function SettingsView() {
   async function requestEmailVerification() {
     setEmailBusy(true); setEmailError('')
     try {
-      const result = await apiPost<{ ok: boolean; message: string }>('/api/auth/email/request-verification', { email: accountEmail })
+      const result = await apiPost<{ ok: boolean; message: string }>('/api/auth/email/request-verification', { email: accountEmail, password: accountEmailPassword })
       setEmailStep('verify')
+      setAccountEmailPassword('')
       toast({ title: 'Check your email', description: result.message })
     } catch (err) {
       setEmailError(err instanceof Error ? err.message : 'Could not send a verification code.')
@@ -142,8 +144,9 @@ export function SettingsView() {
             <Label htmlFor="account-email">Private account email</Label>
             <Input id="account-email" type="email" autoComplete="email" value={accountEmail} onChange={event => setAccountEmail(event.target.value)} placeholder="you@example.com" disabled={emailBusy || emailStep === 'verify'} />
             <p className="text-xs text-muted-foreground">{signedInUser.emailVerified ? 'Verified. You can use this address for email sign-in and password recovery.' : 'Not verified. Verify it before it can be used for account recovery.'}</p>
+            {emailStep === 'address' ? <div className="space-y-1.5"><Label htmlFor="account-email-password">Confirm your Mudaala password</Label><Input id="account-email-password" type="password" autoComplete="current-password" value={accountEmailPassword} onChange={event => setAccountEmailPassword(event.target.value)} disabled={emailBusy} required /></div> : null}
           </div>
-          {emailStep === 'address' ? <Button type="button" onClick={() => void requestEmailVerification()} disabled={emailBusy || !accountEmail.trim()}>{emailBusy ? 'Sending…' : signedInUser.emailVerified ? 'Verify another email' : 'Send verification code'}</Button> : <form onSubmit={verifyAccountEmail} className="space-y-3 border-t pt-3">
+          {emailStep === 'address' ? <Button type="button" onClick={() => void requestEmailVerification()} disabled={emailBusy || !accountEmail.trim() || !accountEmailPassword}>{emailBusy ? 'Sending…' : signedInUser.emailVerified ? 'Verify another email' : 'Send verification code'}</Button> : <form onSubmit={verifyAccountEmail} className="space-y-3 border-t pt-3">
             <p className="text-sm text-muted-foreground">Enter the 6-digit code sent to {accountEmail}. It expires in 10 minutes.</p>
             <Input aria-label="Email verification code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={emailCode} onChange={event => setEmailCode(event.target.value.replace(/\D/g, ''))} required />
             <div className="flex flex-wrap gap-2"><Button type="submit" disabled={emailBusy || emailCode.length !== 6}>{emailBusy ? 'Verifying…' : 'Verify email'}</Button><Button type="button" variant="outline" disabled={emailBusy} onClick={() => { setEmailStep('address'); setEmailCode(''); setEmailError('') }}>Change email</Button></div>
