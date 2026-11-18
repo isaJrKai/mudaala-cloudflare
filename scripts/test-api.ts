@@ -1924,6 +1924,19 @@ async function main() {
     const shopRestoreAudit = aliceShop ? await db.auditLog.findFirst({ where: { targetType: 'SHOP', targetId: aliceShop.id, action: 'RESTORE_SHOP' }, orderBy: { createdAt: 'desc' } }) : null
     ok('shop hide and restore reasons are retained in audit history', shopHideAudit?.reason === directHideReason && shopRestoreAudit?.reason === directRestoreReason)
 
+    const confirmedShopReport = await call('POST', '/api/reports', { targetType: 'SHOP', targetId: aliceShop?.id ?? 'missing', reason: 'PROHIBITED_ITEM' }, repB)
+    const confirmedShopReportId: string = confirmedShopReport.json?.report?.id ?? ''
+    const confirmShopViolation = confirmedShopReportId ? await call('POST', `/api/admin/reports/${confirmedShopReportId}/action`, { action: 'CONFIRM_VIOLATION', policyCategory: 'PROHIBITED_ITEM' }, admin) : { status: 0 }
+    const violationHiddenShop = aliceShop ? await db.businessProfile.findUnique({ where: { id: aliceShop.id }, select: { moderationStatus: true } }) : null
+    ok('confirmed shop violation automatically hides the shop', confirmShopViolation.status === 200 && violationHiddenShop?.moderationStatus === 'HIDDEN')
+    const blockedShopRestore = confirmedShopReportId ? await call('POST', `/api/admin/reports/${confirmedShopReportId}/action`, { action: 'RESTORE', reason: 'CI test: attempted restore before overturn' }, admin) : { status: 0 }
+    ok('confirmed shop violation blocks restoration until overturned', blockedShopRestore.status === 409)
+    const reverseShopViolation = confirmedShopReportId ? await call('POST', `/api/admin/reports/${confirmedShopReportId}/action`, { action: 'REVERSE_VIOLATION' }, admin) : { status: 0 }
+    ok('admin can overturn a confirmed shop violation', reverseShopViolation.status === 200)
+    const restoreAfterOverturn = confirmedShopReportId ? await call('POST', `/api/admin/reports/${confirmedShopReportId}/action`, { action: 'RESTORE', reason: 'CI test: restore shop after violation overturned' }, admin) : { status: 0 }
+    const restoredAfterOverturn = aliceShop ? await db.businessProfile.findUnique({ where: { id: aliceShop.id }, select: { moderationStatus: true } }) : null
+    ok('shop can be restored after confirmed violation is overturned', restoreAfterOverturn.status === 200 && restoredAfterOverturn?.moderationStatus === 'ACTIVE')
+
     // ---- Daily cap: 10 accepted, the 11th refused ----
     let capAccepted = 0
     for (let i = 1; i <= 10; i++) {
