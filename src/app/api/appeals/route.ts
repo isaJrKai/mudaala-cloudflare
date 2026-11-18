@@ -60,13 +60,25 @@ export async function POST(request: Request) {
     if (sessionUser && sessionUser.id !== ownerId) throw new ApiError(403, 'You can only appeal a restriction on your own account or shop')
     const openCase = await db.appealCase.findFirst({
       where: { ownerId, targetType: data.targetType, targetId, status: { in: ['OPEN', 'IN_REVIEW', 'WAITING_ON_OWNER'] } },
-      select: { id: true },
+      select: { id: true, status: true, createdAt: true, accessTokenHash: true },
     })
-    if (openCase) throw new ApiError(409, 'An appeal for this restriction is already open. Use its existing case reference.')
+    if (openCase) {
+      if (!openCase.accessTokenHash) {
+        const accessToken = randomToken()
+        await db.$transaction(async (tx) => {
+          await tx.appealCase.update({ where: { id: openCase.id }, data: { accessTokenHash: await sha256(accessToken) } })
+          await tx.appealCaseEvent.create({ data: { caseId: openCase.id, actorId: ownerId, eventType: 'ACCESS_TOKEN_ISSUED', details: { reason: 'legacy_case_claim' } } })
+        })
+        return jsonOk({ appealCase: { id: openCase.id, status: openCase.status, createdAt: openCase.createdAt, accessToken }, message: 'Your existing appeal was recovered. Keep this private access code to follow its progress.' }, 200)
+      }
+      throw new ApiError(409, 'An appeal for this restriction is already open. Use its saved private case access code.')
+    }
 
     const accessToken = randomToken()
     const accessTokenHash = await sha256(accessToken)
-    const appealCase = await db.$transaction(async (tx) => {
+    let appealCase
+    try {
+      appealCase = await db.$transaction(async (tx) => {
       const created = await tx.appealCase.create({
         data: {
           ownerId, targetType: data.targetType, targetId, targetReference,
@@ -87,7 +99,13 @@ export async function POST(request: Request) {
         })),
       })
       return created
-    })
+      })
+    } catch (error) {
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
+        throw new ApiError(409, 'An appeal for this restriction was just submitted. Use its existing case reference.')
+      }
+      throw error
+    }
 
     return jsonOk({
       appealCase: { ...appealCase, accessToken },
