@@ -1915,22 +1915,35 @@ async function main() {
     ok('admin hide logged with the admin as actor', Boolean(hideLog && hideLog.actorId === admin.user?.id))
 
     const ownerAccount = owner.user?.id ? await db.user.findUnique({ where: { id: owner.user.id }, select: { phone: true } }) : null
-    const listingAppeal = await call('POST', '/api/feedback', {
-      category: 'APPEAL',
-      appealTargetType: 'LISTING',
-      appealTargetRef: targetId,
+    const listingAppeal = await call('POST', '/api/appeals', {
+      targetType: 'LISTING',
+      targetReference: targetId,
       title: 'Appeal of listing restriction',
-      description: 'I believe my listing was hidden by mistake. Please review the report and restore it if appropriate.',
+      statement: 'I believe my listing was hidden by mistake. Please review the report and restore it if appropriate.',
       contact: ownerAccount?.phone ?? '',
     }, owner)
-    const listingAppealId: string = listingAppeal.json?.feedback?.id ?? ''
-    ok('listing owner can submit an appeal for their hidden listing', listingAppeal.status === 201 && Boolean(listingAppealId))
-    const listingAppealDecision = listingAppealId ? await call('PATCH', `/api/admin/feedback/${listingAppealId}`, {
-      appealDecision: 'REVERSED',
-      appealDecisionReason: 'CI test: listing appeal accepted after moderation review',
+    const listingAppealId: string = listingAppeal.json?.appealCase?.id ?? ''
+    const listingAppealToken: string = listingAppeal.json?.appealCase?.accessToken ?? ''
+    ok('listing owner can open an independent appeal case', listingAppeal.status === 201 && Boolean(listingAppealId && listingAppealToken))
+    const listingCaseRead = listingAppealId ? await call('GET', `/api/appeals/${listingAppealId}`, undefined, undefined, { 'x-appeal-access-token': listingAppealToken }) : { status: 0 }
+    ok('appeal owner can read their case with its private access code', listingCaseRead.status === 200 && listingCaseRead.json?.appealCase?.messages?.length === 1)
+    const listingOwnerReply = listingAppealId ? await call('POST', `/api/appeals/${listingAppealId}`, { body: 'I can provide the original listing photos and supplier receipt if needed.' }, undefined, { 'x-appeal-access-token': listingAppealToken }) : { status: 0 }
+    ok('appeal owner can add a message to the case timeline', listingOwnerReply.status === 201)
+    const listingQueue = await call('GET', '/api/admin/appeals?status=ALL', undefined, admin)
+    ok('appeal cases appear in the dedicated moderator queue', listingQueue.status === 200 && (listingQueue.json?.appealCases ?? []).some((item: any) => item.id === listingAppealId))
+    const listingAssign = listingAppealId ? await call('PATCH', `/api/appeals/${listingAppealId}`, { assignedAdminId: 'SELF' }, admin) : { status: 0 }
+    ok('moderator can assign an appeal case to themselves', listingAssign.status === 200)
+    const listingModeratorReply = listingAppealId ? await call('POST', `/api/appeals/${listingAppealId}`, { body: 'Please provide the supplier receipt so we can complete the review.' }, admin) : { status: 0 }
+    ok('moderator can communicate with the appeal owner', listingModeratorReply.status === 201)
+    const listingOwnerFollowUp = listingAppealId ? await call('POST', `/api/appeals/${listingAppealId}`, { body: 'I have reviewed the request and am ready to proceed.' }, undefined, { 'x-appeal-access-token': listingAppealToken }) : { status: 0 }
+    ok('owner can reply using the private case access code without an active session', listingOwnerFollowUp.status === 201)
+    const listingAppealDecision = listingAppealId ? await call('PATCH', `/api/appeals/${listingAppealId}`, {
+      decision: 'REVERSED',
+      decisionReason: 'CI test: listing appeal accepted after moderation review',
     }, admin) : { status: 0 }
     const listingAfterAppeal = await db.listing.findUnique({ where: { id: targetId }, select: { status: true } })
-    ok('accepting a listing appeal restores the listing', listingAppealDecision.status === 200 && listingAfterAppeal?.status === 'ACTIVE')
+    const storedListingAppeal = listingAppealId ? await db.appealCase.findUnique({ where: { id: listingAppealId }, select: { decision: true, status: true } }) : null
+    ok('accepting a listing appeal restores the listing and preserves a decision record', listingAppealDecision.status === 200 && listingAfterAppeal?.status === 'ACTIVE' && storedListingAppeal?.decision === 'REVERSED' && storedListingAppeal.status === 'DECIDED')
 
     const dismiss = queueRow ? await call('POST', `/api/admin/reports/${queueRow.id}/action`, { action: 'DISMISS' }, admin) : { status: 0 }
     ok('admin DISMISS → 200', dismiss.status === 200)
