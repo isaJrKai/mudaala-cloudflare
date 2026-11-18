@@ -124,8 +124,8 @@ export interface ShopLookupResult {
 export async function lookupShopByCode(raw: string): Promise<ShopLookupResult | null> {
   const code = normalizeShopCode(raw)
   if (!code) return null
-  const row = await db.businessProfile.findUnique({
-    where: { shopCode: code },
+  const row = await db.businessProfile.findFirst({
+    where: { shopCode: code, user: { is: { suspendedAt: null, shopRestrictedAt: null } } },
     select: {
       businessName: true,
       photoUrl: true,
@@ -163,7 +163,7 @@ export async function getShopPage(userId: string): Promise<ShopPageData | null> 
       profile: true,
     },
   })
-  if (!user || user.suspendedAt || user.shopRestrictedAt || user.profile?.shopRestrictedAt) return null
+  if (!user || user.suspendedAt || user.shopRestrictedAt || false) return null
 
   const now = new Date()
   const [listings, showroomItems, standaloneShowrooms] = await Promise.all([
