@@ -152,6 +152,7 @@ export async function GET(request: Request) {
         include: { user: true },
       })
       if (!linkedIdentity) return returnToApp('error', 'not-linked')
+      if (linkedIdentity.user.suspendedAt) return returnToApp('error', 'account-restricted')
 
       // Create the Mudaala session only for the exact immutable Google subject
       // that was explicitly linked earlier. Email equality never links accounts.
