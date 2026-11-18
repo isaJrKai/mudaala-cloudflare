@@ -1912,6 +1912,24 @@ async function main() {
     const hideLog = await db.auditLog.findFirst({ where: { targetType: 'LISTING', targetId, action: 'HIDE_LISTING' }, orderBy: { createdAt: 'desc' } })
     ok('admin hide logged with the admin as actor', Boolean(hideLog && hideLog.actorId === admin.user?.id))
 
+    const ownerAccount = owner.user?.id ? await db.user.findUnique({ where: { id: owner.user.id }, select: { phone: true } }) : null
+    const listingAppeal = await call('POST', '/api/feedback', {
+      category: 'APPEAL',
+      appealTargetType: 'LISTING',
+      appealTargetRef: targetId,
+      title: 'Appeal of listing restriction',
+      description: 'I believe my listing was hidden by mistake. Please review the report and restore it if appropriate.',
+      contact: ownerAccount?.phone ?? '',
+    }, owner)
+    const listingAppealId: string = listingAppeal.json?.feedback?.id ?? ''
+    ok('listing owner can submit an appeal for their hidden listing', listingAppeal.status === 201 && Boolean(listingAppealId))
+    const listingAppealDecision = listingAppealId ? await call('PATCH', `/api/admin/feedback/${listingAppealId}`, {
+      appealDecision: 'REVERSED',
+      appealDecisionReason: 'CI test: listing appeal accepted after moderation review',
+    }, admin) : { status: 0 }
+    const listingAfterAppeal = await db.listing.findUnique({ where: { id: targetId }, select: { status: true } })
+    ok('accepting a listing appeal restores the listing', listingAppealDecision.status === 200 && listingAfterAppeal?.status === 'ACTIVE')
+
     const dismiss = queueRow ? await call('POST', `/api/admin/reports/${queueRow.id}/action`, { action: 'DISMISS' }, admin) : { status: 0 }
     ok('admin DISMISS → 200', dismiss.status === 200)
     const openAfter = await call('GET', '/api/admin/reports?status=OPEN', undefined, admin)
