@@ -1315,6 +1315,29 @@ async function main() {
     alice.token = freshAliceLogin.json?.sessionToken
     ok('reinstated account can sign in again with a fresh session', freshAliceLogin.status === 200)
 
+    const appealSuspendReason = 'CI test: suspend account before appeal review'
+    const suspendForAppeal = await call('POST', `/api/admin/people/${restrictedUserId}/restriction`, { action: 'SUSPEND', reason: appealSuspendReason }, admin)
+    const accountAppeal = await call('POST', '/api/feedback', {
+      category: 'APPEAL',
+      appealTargetType: 'USER',
+      title: 'Appeal of account suspension',
+      description: 'I believe this account restriction was applied in error. Please review the account activity.',
+      contact: alicePhone,
+    })
+    const accountAppealId: string = accountAppeal.json?.feedback?.id ?? ''
+    ok('suspended account can submit an appeal without signing in', suspendForAppeal.status === 200 && accountAppeal.status === 201 && Boolean(accountAppealId))
+    const accountAppealDecision = accountAppealId ? await call('PATCH', `/api/admin/feedback/${accountAppealId}`, {
+      appealDecision: 'REVERSED',
+      appealDecisionReason: 'CI test: appeal accepted after review and account restriction reversed',
+    }, admin) : { status: 0 }
+    const accountAfterAppeal = await db.user.findUnique({ where: { id: restrictedUserId }, select: { suspendedAt: true } })
+    const storedAccountAppeal = accountAppealId ? await db.feedback.findUnique({ where: { id: accountAppealId }, select: { appealDecision: true, status: true } }) : null
+    ok('accepting an account appeal reinstates the account and resolves the case', accountAppealDecision.status === 200 && accountAfterAppeal?.suspendedAt === null && storedAccountAppeal?.appealDecision === 'REVERSED' && storedAccountAppeal.status === 'RESOLVED')
+    const postAppealLogin = await call('POST', '/api/auth/login', { phone: alicePhone, password: 'password321' }, alice)
+    storeCookie(alice, postAppealLogin)
+    alice.token = postAppealLogin.json?.sessionToken
+    ok('account appeal reinstatement permits a fresh login', postAppealLogin.status === 200)
+
     const anonymousAnalytics = await call('GET', '/api/admin/analytics')
     ok('admin analytics denies anonymous access → 401', anonymousAnalytics.status === 401)
 
@@ -1933,10 +1956,23 @@ async function main() {
     const directHide = aliceShop ? await call('POST', `/api/admin/shops/${aliceShop.id}/restriction`, { action: 'HIDE', reason: directHideReason }, admin) : { status: 0 }
     const directHiddenShop = aliceShop ? await db.businessProfile.findUnique({ where: { id: aliceShop.id }, select: { moderationStatus: true, moderationReason: true } }) : null
     ok('shops directory can hide a shop with an audited reason', directHide.status === 200 && directHiddenShop?.moderationStatus === 'HIDDEN' && directHiddenShop.moderationReason === directHideReason)
-    const directRestoreReason = 'CI test: direct shop directory reinstatement'
-    const directRestore = aliceShop ? await call('POST', `/api/admin/shops/${aliceShop.id}/restriction`, { action: 'RESTORE', reason: directRestoreReason }, admin) : { status: 0 }
+    const shopAppeal = await call('POST', '/api/feedback', {
+      category: 'APPEAL',
+      appealTargetType: 'SHOP',
+      appealTargetRef: aliceShop?.shopCode ?? '',
+      title: 'Appeal of shop restriction',
+      description: 'I believe the shop restriction was applied in error. Please review the shop and its listings.',
+      contact: alicePhone,
+    }, alice)
+    const shopAppealId: string = shopAppeal.json?.feedback?.id ?? ''
+    ok('shop owner can submit an appeal with their registered phone and MU-CODE', shopAppeal.status === 201 && Boolean(shopAppealId))
+    const shopAppealDecision = shopAppealId ? await call('PATCH', `/api/admin/feedback/${shopAppealId}`, {
+      appealDecision: 'REVERSED',
+      appealDecisionReason: 'CI test: shop appeal accepted and public visibility restored',
+    }, admin) : { status: 0 }
     const directRestoredShop = aliceShop ? await db.businessProfile.findUnique({ where: { id: aliceShop.id }, select: { moderationStatus: true } }) : null
-    ok('shops directory can restore a shop with an audited reason', directRestore.status === 200 && directRestoredShop?.moderationStatus === 'ACTIVE')
+    const storedShopAppeal = shopAppealId ? await db.feedback.findUnique({ where: { id: shopAppealId }, select: { appealDecision: true, status: true } }) : null
+    ok('accepting a shop appeal restores the shop and resolves the case', shopAppealDecision.status === 200 && directRestoredShop?.moderationStatus === 'ACTIVE' && storedShopAppeal?.appealDecision === 'REVERSED' && storedShopAppeal.status === 'RESOLVED')
     const shopHideAudit = aliceShop ? await db.auditLog.findFirst({ where: { targetType: 'SHOP', targetId: aliceShop.id, action: 'HIDE_SHOP' }, orderBy: { createdAt: 'desc' } }) : null
     const shopRestoreAudit = aliceShop ? await db.auditLog.findFirst({ where: { targetType: 'SHOP', targetId: aliceShop.id, action: 'RESTORE_SHOP' }, orderBy: { createdAt: 'desc' } }) : null
     ok('shop hide and restore reasons are retained in audit history', shopHideAudit?.reason === directHideReason && shopRestoreAudit?.reason === directRestoreReason)
