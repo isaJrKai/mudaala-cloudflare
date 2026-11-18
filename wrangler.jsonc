@@ -13,7 +13,7 @@
   "vars": {
     "RATE_LIMIT_REQUIRE_SHARED": "1",
     "APP_ORIGIN": "https://mudaala.store",
-    "GOOGLE_CLIENT_ID": "945073139445-5f3ht87b9pk47r4mrgo7p1v6rlh4jdqn.apps.googleusercontent.com",
+    "GOOGLE_CLIENT_ID": "727596049652-gj8mj799v0n07rd49aej6t2ig0vpvbet.apps.googleusercontent.com",
     "GOOGLE_REDIRECT_URI": "https://mudaala.store/api/auth/google/callback",
     "SELLER_GOOGLE_REQUIRED": "false",
     "VAPID_PUBLIC_KEY": "BBaTwp2Gl0k_arUjxhG-0gOXpqjGyZgrnMgM19Dm0CjXjWe4yLc_TORu8RK7nyCex-zAdvEgrbF_jm4u-aiSej0"
