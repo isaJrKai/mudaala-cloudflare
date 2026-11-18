@@ -62,7 +62,6 @@ async function createShopPosterFile(
     posterImageData(shop.photoUrl),
     posterImageData('/logo.svg'),
     posterImageData('/mudaala-mark.svg'),
-    posterImageData('/mudaala-african-textile.svg'),
   ])
   if ((shop.coverPhotoUrl || shop.photoUrl) && !values[0]) return null
   if (shop.photoUrl && !values[1]) return null
@@ -77,7 +76,6 @@ async function createShopPosterFile(
   const profile = values[1] ? '<image href="' + values[1] + '" x="70" y="645" width="200" height="200" preserveAspectRatio="xMidYMid slice"/>' : ''
   const markHeader = values[2] ? '<image href="' + values[2] + '" x="70" y="52" width="230" height="72" preserveAspectRatio="xMinYMid meet"/>' : ''
   const mark = values[3] ? '<image href="' + values[3] + '" x="796" y="746" width="38" height="48" preserveAspectRatio="xMidYMid meet"/>' : ''
-  const textile = values[4] ? '<image href="' + values[4] + '" x="820" y="0" width="260" height="140" preserveAspectRatio="xMidYMid slice"/>' : ''
   const qrPattern = '<rect x="665" y="620" width="300" height="300" rx="24" fill="#f6f1e4"' + ' stroke="#e3dbc6" stroke-width="3"/>'
   const svg = [
     '<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">',
