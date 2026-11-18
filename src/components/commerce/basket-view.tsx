@@ -33,6 +33,8 @@ import {
   restoreLine,
   setLineQty,
   useBasket,
+  type BasketShopInfo,
+  type BasketLineInfo,
   type BasketAddListing,
 } from '@/lib/basket'
 import { useToast } from '@/hooks/use-toast'
@@ -277,6 +279,7 @@ function BasketShopSection({
   const fresh = entries.filter(([id]) => !statuses.data || statuses.data[id] === 'ACTIVE')
   const stale = entries.filter(([id]) => statuses.data && statuses.data[id] !== 'ACTIVE')
   const sendable = statuses.isLoading ? entries : fresh
+  const sendableLines = sendable.map(([, line]) => line)
   const subtotal = basketSubtotal(sendableLines)
 
   // The subtotal flash - Mudaala's answer to the ticker-tape cue: when the
