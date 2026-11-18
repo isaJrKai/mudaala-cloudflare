@@ -65,12 +65,12 @@ export async function POST(request: Request) {
     // prove control of the registered phone before creating or recovering a case.
     let challengeId: string | null = null
     if (!sessionUser) {
+      if (!data.verificationCode) throw new ApiError(400, 'Verify your registered phone number before submitting this appeal')
       const [phoneLimit, ipLimit] = await Promise.all([
         hit(`appeal-phone:verify:phone:${phone}`, 5, 10 * 60 * 1000),
         hit(`appeal-phone:verify:ip:${ip}`, 15, 10 * 60 * 1000),
       ])
       if (!phoneLimit.ok || !ipLimit.ok) throw new ApiError(429, 'Too many verification attempts. Request a new code later.')
-      if (!data.verificationCode) throw new ApiError(400, 'Verify your registered phone number before submitting this appeal')
       const now = new Date()
       const challenge = await db.appealPhoneVerificationChallenge.findFirst({
         where: {
