@@ -155,6 +155,7 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
   const surface = surfaces[template.surface] || surfaces.paper
   const heroPhoto = showroom.coverPhotoUrl || showroom.photos[0] || null
   const galleryPhotos = showroom.coverPhotoUrl ? showroom.photos.slice(0, 3) : showroom.photos.slice(1, 4)
+  const contactNumber = (shop.whatsapp || shop.phone || '').replace(/[^\\d]/g, '')
   const heroLayoutClass: Record<string, string> = {
     'cover-story': 'grid gap-8 md:grid-cols-[1.05fr_.95fr] md:items-end',
     'full-bleed': 'grid gap-6',
@@ -289,7 +290,7 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
       <footer id="contact" className="mx-auto max-w-[1440px] px-5 py-12 sm:px-10 sm:py-16">
         <div className="grid gap-10 sm:grid-cols-2 sm:items-end">
           <div><p className="text-[10px] uppercase tracking-[.2em] opacity-85">Continue on Mudaala</p><h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{shop.name}</h2><p className="mt-3 text-sm opacity-80">{[shop.area, shop.county].filter(Boolean).join(', ')}</p>{shop.hours && <p className="mt-2 text-xs opacity-85">{shop.hours}</p>}{shop.shopCode && <p className="mt-4 text-[10px] uppercase tracking-[.18em] opacity-85">Mudaala shop code · {shop.shopCode}</p>}</div>
-          <div className="flex flex-wrap gap-3 sm:justify-end">{shop.websiteUrl && <a href={shop.websiteUrl} target="_blank" rel="noreferrer" className="border border-current/25 px-5 py-3 text-xs font-semibold">Website ↗</a>}<a href="#collection" className="px-5 py-3 text-xs font-semibold" style={{ backgroundColor: primary, color: '#fff' }}>Explore products</a></div>
+          <div className="flex flex-wrap gap-3 sm:justify-end">{shop.websiteUrl && <a href={shop.websiteUrl} target="_blank" rel="noreferrer" className="border border-current/30 px-5 py-3 text-xs font-semibold">Website ↗</a>}{contactNumber && <a href={`https://wa.me/${contactNumber}`} target="_blank" rel="noreferrer" className="border border-current/30 px-5 py-3 text-xs font-semibold">WhatsApp shop ↗</a>}<a href="#collection" className="px-5 py-3 text-xs font-semibold" style={{ backgroundColor: primary, color: '#fff' }}>Explore products</a></div>
         </div>
         <div className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-current/15 pt-5 text-[10px] opacity-85"><span>{shop.name} · {template.name}</span><span>Independent shop on Mudaala</span></div>
       </footer>
