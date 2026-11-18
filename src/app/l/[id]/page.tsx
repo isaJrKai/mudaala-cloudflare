@@ -16,9 +16,7 @@
 import type { Metadata } from 'next'
 import { notFound, permanentRedirect } from 'next/navigation'
 import { cache } from 'react'
-import { MapPin, Navigation, Package, Store } from 'lucide-react'
-import { ShowNumber } from '@/components/commerce/show-number'
-import { TelegramEnquiryButton } from '@/components/commerce/telegram-enquiry-button'
+import { MapPin, MessageCircle, Navigation, Package, Store } from 'lucide-react'
 import { PublicPhotoGallery } from '@/components/commerce/public-photo-gallery'
 import { StatusBadge, TypeBadge } from '@/components/commerce/badges'
 import { ShareAdRow } from '@/components/commerce/share-row'
@@ -375,16 +373,20 @@ export default async function AdPage({ params }: Params) {
           </Button>
         </section>
 
-        {/* Contact - the safety card comes FIRST: read before contact happens.
-            The number itself is NOT in this HTML: a crawler sweeping ad pages
-            collects nothing, a buyer taps "Show number" once and calls. */}
-        <section className="rounded-lg border bg-card p-4 sm:p-5" aria-label={copy.listing.contact(shopDisplayName)}>
-          <h2 className="text-sm font-semibold">{copy.listing.contact(shopDisplayName)}</h2>
-          <div className="mt-3">
+        {/* Buyer contact starts inside Mudaala. The shared public page must
+            send shoppers into the native listing view, where they can open a
+            private enquiry and continue the conversation in Messages. */}
+        <section className="rounded-lg border bg-card p-4 sm:p-5" aria-label={`Message ${shopDisplayName} about this product`}>
+          <h2 className="text-sm font-semibold">Ask the seller about this product</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Send a private message through Mudaala. The shop can reply when they are back online.</p>
+          <Button asChild className="press mt-3 h-11 w-full gap-1.5 text-[15px]">
+            <a href={`/#/listing/${encodeURIComponent(listing.id)}`}>
+              <MessageCircle className="size-4" aria-hidden /> Message seller
+            </a>
+          </Button>
+          <div className="mt-4">
             <SafetyCard />
           </div>
-          {listing.type === 'OFFER' ? <TelegramEnquiryButton listingId={listing.id} enabled={telegramContactEnabled} /> : null}
-          <ShowNumber listingId={listing.id} listingTitle={listing.title} listingType={listing.type as ListingType} />
           <Button asChild variant="outline" className="press mt-2 h-11 w-full gap-1.5 text-[15px]">
             <a href={directionsUrl} target="_blank" rel="noopener noreferrer" aria-label={copy.listing.directionsAria(placeOf(listing))}>
               <Navigation className="size-4" aria-hidden /> {copy.listing.directions}
