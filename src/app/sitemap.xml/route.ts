@@ -8,7 +8,7 @@
 
 import { db, withRequestDb } from '@/lib/db'
 import { siteUrl } from '@/lib/site'
-import { publicShopOwnerWhere } from '@/lib/shop-visibility'
+import { publicShopOwnerWhere, publicListingOwnerWhere } from '@/lib/shop-visibility'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
   // PLACEHOLDER RULE - seed listings are development fixtures, never real
   // content: search engines never crawl them from the sitemap.
   const ownerActiveListing = { status: 'ACTIVE', expiresAt: { gt: new Date() }, isSeed: false }
-  const activeListing = { ...ownerActiveListing, user: { is: publicShopOwnerWhere } }
+  const activeListing = { ...ownerActiveListing, user: { is: publicListingOwnerWhere } }
   const [listingCount, shopCount, showroomCount] = await Promise.all([
     db.listing.count({ where: activeListing }),
     db.businessProfile.count({
