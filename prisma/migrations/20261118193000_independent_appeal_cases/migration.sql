@@ -20,6 +20,9 @@ CREATE TABLE "AppealCase" (
   CONSTRAINT "AppealCase_assignedAdminId_fkey" FOREIGN KEY ("assignedAdminId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
+ALTER TABLE "AppealCase" ADD COLUMN "accessTokenHash" TEXT;
+CREATE UNIQUE INDEX "AppealCase_accessTokenHash_key" ON "AppealCase"("accessTokenHash");
+
 CREATE TABLE "AppealCaseMessage" (
   "id" TEXT NOT NULL,
   "caseId" TEXT NOT NULL,
