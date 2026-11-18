@@ -1317,24 +1317,26 @@ async function main() {
 
     const appealSuspendReason = 'CI test: suspend account before appeal review'
     const suspendForAppeal = await call('POST', `/api/admin/people/${restrictedUserId}/restriction`, { action: 'SUSPEND', reason: appealSuspendReason }, admin)
-    const accountAppeal = await call('POST', '/api/feedback', {
-      category: 'APPEAL',
-      appealTargetType: 'USER',
+    const accountAppeal = await call('POST', '/api/appeals', {
+      targetType: 'USER',
       title: 'Appeal of account suspension',
-      description: 'I believe this account restriction was applied in error. Please review the account activity.',
+      statement: 'I believe this account restriction was applied in error. Please review the account activity.',
       contact: alicePhone,
     })
-    const accountAppealId: string = accountAppeal.json?.feedback?.id ?? ''
-    ok('suspended account can submit an appeal without signing in', suspendForAppeal.status === 200 && accountAppeal.status === 201 && Boolean(accountAppealId))
-    const appealQueue = await call('GET', '/api/admin/feedback?status=ALL&category=APPEAL', undefined, admin)
-    ok('admin can filter the inbox to restriction appeals', appealQueue.status === 200 && (appealQueue.json?.feedback ?? []).some((item: any) => item.id === accountAppealId))
-    const accountAppealDecision = accountAppealId ? await call('PATCH', `/api/admin/feedback/${accountAppealId}`, {
-      appealDecision: 'REVERSED',
-      appealDecisionReason: 'CI test: appeal accepted after review and account restriction reversed',
+    const accountAppealId: string = accountAppeal.json?.appealCase?.id ?? ''
+    const accountAppealToken: string = accountAppeal.json?.appealCase?.accessToken ?? ''
+    ok('suspended account can open an independent appeal case without signing in', suspendForAppeal.status === 200 && accountAppeal.status === 201 && Boolean(accountAppealId && accountAppealToken))
+    const accountCaseRead = accountAppealId ? await call('GET', `/api/appeals/${accountAppealId}`, undefined, undefined, { 'x-appeal-access-token': accountAppealToken }) : { status: 0 }
+    ok('suspended account can securely read its case using the private access code', accountCaseRead.status === 200)
+    const appealQueue = await call('GET', '/api/admin/appeals?status=ALL', undefined, admin)
+    ok('admin can find account appeals in the dedicated case queue', appealQueue.status === 200 && (appealQueue.json?.appealCases ?? []).some((item: any) => item.id === accountAppealId))
+    const accountAppealDecision = accountAppealId ? await call('PATCH', `/api/appeals/${accountAppealId}`, {
+      decision: 'REVERSED',
+      decisionReason: 'CI test: appeal accepted after review and account restriction reversed',
     }, admin) : { status: 0 }
     const accountAfterAppeal = await db.user.findUnique({ where: { id: restrictedUserId }, select: { suspendedAt: true } })
-    const storedAccountAppeal = accountAppealId ? await db.feedback.findUnique({ where: { id: accountAppealId }, select: { appealDecision: true, status: true } }) : null
-    ok('accepting an account appeal reinstates the account and resolves the case', accountAppealDecision.status === 200 && accountAfterAppeal?.suspendedAt === null && storedAccountAppeal?.appealDecision === 'REVERSED' && storedAccountAppeal.status === 'RESOLVED')
+    const storedAccountAppeal = accountAppealId ? await db.appealCase.findUnique({ where: { id: accountAppealId }, select: { decision: true, status: true } }) : null
+    ok('accepting an account appeal reinstates the account and records the decision', accountAppealDecision.status === 200 && accountAfterAppeal?.suspendedAt === null && storedAccountAppeal?.decision === 'REVERSED' && storedAccountAppeal.status === 'DECIDED')
     const postAppealLogin = await call('POST', '/api/auth/login', { phone: alicePhone, password: 'password321' }, alice)
     storeCookie(alice, postAppealLogin)
     alice.token = postAppealLogin.json?.sessionToken
