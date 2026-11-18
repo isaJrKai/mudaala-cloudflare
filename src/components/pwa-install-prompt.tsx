@@ -98,7 +98,7 @@ export function PwaInstallPrompt() {
   }
 
   return (
-    <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-3 z-[80] flex max-w-[calc(100vw-4.5rem)] flex-col items-start gap-2 sm:bottom-5 sm:left-5 sm:max-w-[calc(100vw-6rem)]">
+    <div className="fixed bottom-[calc(5rem_+_env(safe-area-inset-bottom))] left-3 z-[80] flex max-w-[calc(100vw-4.5rem)] flex-col items-start gap-2 sm:bottom-5 sm:left-5 sm:max-w-[calc(100vw-6rem)]">
       {helpOpen && (
         <section className="w-[min(21rem,calc(100vw-4.5rem))] max-w-full rounded-xl border border-border bg-background p-4 text-foreground shadow-lg" aria-live="polite">
           <div className="mb-2 flex items-start justify-between gap-3">
