@@ -71,7 +71,7 @@ export function InAppEnquiryButton({
 
   return (
     <>
-      <Button type="button" variant="outline" className={className} onClick={startEnquiry} disabled={isLoading}>
+      <Button type="button" variant={variant} className={className} onClick={startEnquiry} disabled={isLoading}>
         <MessageCircle className="size-4" aria-hidden />
         {label}
       </Button>
