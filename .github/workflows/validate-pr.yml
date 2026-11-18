@@ -234,8 +234,8 @@ jobs:
           rls_enabled=$(psql "$DATABASE_URL" -Atc "SELECT relrowsecurity FROM pg_class WHERE oid='public.\"AppealPhoneVerificationChallenge\"'::regclass")
           runtime_policy=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='AppealPhoneVerificationChallenge' AND policyname='mudaala_runtime_access'")
           deny_policy=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='AppealPhoneVerificationChallenge' AND policyname='deny_direct_api_clients'")
-          runtime_grant=$(psql "$DATABASE_URL" -Atc "SELECT has_table_privilege('mudaala_runtime', 'public.\"AppealPhoneVerificationChallenge\"', 'SELECT,INSERT,UPDATE,DELETE')")
-          if [ "$table_count" != "1" ] || [ "$index_count" != "2" ] || [ "$rls_enabled" != "t" ] || [ "$runtime_policy" != "1" ] || [ "$deny_policy" != "1" ] || [ "$runtime_grant" != "t" ]; then
+          runtime_grant=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name='AppealPhoneVerificationChallenge' AND grantee='mudaala_runtime' AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          if [ "$table_count" != "1" ] || [ "$index_count" != "2" ] || [ "$rls_enabled" != "t" ] || [ "$runtime_policy" != "1" ] || [ "$deny_policy" != "1" ] || [ "$runtime_grant" != "4" ]; then
             echo "Appeal phone verification migration failed: table=$table_count indexes=$index_count rls=$rls_enabled runtime_policy=$runtime_policy deny_policy=$deny_policy runtime_grant=$runtime_grant"
             exit 1
           fi
