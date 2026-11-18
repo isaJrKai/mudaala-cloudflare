@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { route, jsonOk, parseBody, ApiError } from '@/lib/api'
 import { getSessionUser } from '@/lib/auth'
-import { requireAdmin } from '@/lib/admin'
+import { requireAdmin, isAdminUser } from '@/lib/admin'
 import { applyShopModeration } from '@/lib/admin-shop-moderation'
 import { db } from '@/lib/db'
 
@@ -96,6 +96,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!existing) throw new ApiError(404, 'Appeal case not found')
     if (existing.decision || ['DECIDED', 'CLOSED'].includes(existing.status)) throw new ApiError(409, 'This appeal case has already been decided or closed')
 
+    if (changes.assignedAdminId && changes.assignedAdminId !== 'SELF') {
+      const assignee = await db.user.findUnique({ where: { id: changes.assignedAdminId }, select: { id: true, phone: true } })
+      if (!assignee || !isAdminUser(assignee)) throw new ApiError(400, 'Choose an active Mudaala administrator')
+    }
     await db.$transaction(async (tx) => {
       if (changes.decision) {
         const reason = changes.decisionReason!
