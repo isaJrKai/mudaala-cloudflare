@@ -480,7 +480,9 @@ export function ListingsBrowse() {
           onRetry={() => refetch()}
         />
       ) : data && data.items.length === 0 ? (
-        <EmptyState
+        <>
+          {showDiscoverySections ? <ExploreStandaloneShowroomsSection showrooms={discoveryQuery.data?.showrooms ?? []} /> : null}
+          <EmptyState
           title={activeFilterCount > 0 || filters.q ? copy.browse.emptyFilteredTitle : copy.browse.emptyTitle}
           description={
             activeFilterCount > 0 || filters.q ? copy.browse.emptyFilteredSub : copy.browse.emptySub
@@ -495,6 +497,7 @@ export function ListingsBrowse() {
             )
           }
         />
+        </>
       ) : data ? (
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_240px] lg:items-start lg:gap-4">
           <div className={isFetching ? 'space-y-3 opacity-60 transition-opacity' : 'space-y-3'}>
@@ -515,6 +518,7 @@ export function ListingsBrowse() {
             </div>
             {showDiscoverySections ? (
               <>
+                <ExploreStandaloneShowroomsSection showrooms={discoveryQuery.data?.showrooms ?? []} />
                 {marketplaceCategoryGroups.map((group, index) => renderCategoryShelf(group, index))}
               </>
             ) : (
@@ -543,6 +547,55 @@ type ShopDiscoveryResponse = {
     county: string | null
     showroomItems: ShopPageT['showroomItems']
   }>
+  showrooms: Array<{
+    slug: string
+    title: string
+    headline: string | null
+    coverPhotoUrl: string | null
+    shop: { id: string; name: string; category: string | null; area: string | null; county: string | null }
+  }>
+}
+
+function ExploreStandaloneShowroomsSection({
+  showrooms,
+}: {
+  showrooms: ShopDiscoveryResponse['showrooms']
+}) {
+  if (showrooms.length === 0) return null
+  return (
+    <section className="min-w-0 space-y-3 py-1" aria-labelledby="standalone-showrooms-heading">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 id="standalone-showrooms-heading" className="text-base font-semibold tracking-tight">Explore showrooms</h2>
+          <p className="text-[11px] text-muted-foreground">Independent shop websites, made on Mudaala</p>
+        </div>
+        <span className="text-xs text-muted-foreground">{showrooms.length} {showrooms.length === 1 ? 'showroom' : 'showrooms'}</span>
+      </div>
+      <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 scrollbar-slim">
+        {showrooms.map((showroom) => (
+          <a
+            key={showroom.slug}
+            href={`/showroom/${showroom.slug}`}
+            className="press w-56 shrink-0 overflow-hidden rounded-lg border bg-card text-left hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label={`Visit ${showroom.shop.name}'s ${showroom.title} showroom`}
+          >
+            {showroom.coverPhotoUrl ? (
+              <img src={showroom.coverPhotoUrl} alt="" loading="lazy" className="aspect-[16/10] w-full object-cover" />
+            ) : (
+              <span className="flex aspect-[16/10] w-full items-center justify-center bg-secondary text-primary">
+                <Store className="size-7" aria-hidden />
+              </span>
+            )}
+            <span className="block space-y-1 p-3">
+              <span className="block truncate text-sm font-semibold">{showroom.headline?.trim() || showroom.title}</span>
+              <span className="block truncate text-xs text-muted-foreground">{showroom.shop.name}</span>
+              <span className="block truncate text-[11px] text-muted-foreground">{[showroom.shop.area, showroom.shop.county].filter(Boolean).join(', ') || shopCategoryLabel(showroom.shop.category)}</span>
+            </span>
+          </a>
+        ))}
+      </div>
+    </section>
+  )
 }
 
 function shopCategoryLabel(category: string | null): string {
@@ -627,7 +680,7 @@ function ExploreShowroomsSection({
   return (
     <section className="min-w-0 space-y-3 py-1" aria-labelledby="explore-showrooms-heading">
       <div className="flex items-center justify-between gap-3">
-        <h2 id="explore-showrooms-heading" className="text-base font-semibold tracking-tight">Explore showrooms</h2>
+        <h2 id="explore-showrooms-heading" className="text-base font-semibold tracking-tight">Shop highlights</h2>
         <span className="text-xs text-muted-foreground">More from local shops</span>
       </div>
       <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 scrollbar-slim">

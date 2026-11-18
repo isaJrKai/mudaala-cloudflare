@@ -67,7 +67,34 @@ export async function GET(request: NextRequest) {
           },
         },
       })
+      const publishedShowrooms = await db.shopShowroom.findMany({
+        where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, user: { isSeed: false, profile: { is: { isSeed: false } } } },
+        orderBy: { publishedAt: 'desc' },
+        take: 16,
+        select: {
+          slug: true, title: true, headline: true, coverPhotoUrl: true,
+          user: {
+            select: {
+              id: true, name: true,
+              profile: { select: { businessName: true, category: true, area: true, county: true } },
+            },
+          },
+        },
+      })
       return jsonOk({
+        showrooms: publishedShowrooms.map((showroom) => ({
+          slug: showroom.slug,
+          title: showroom.title,
+          headline: showroom.headline,
+          coverPhotoUrl: showroom.coverPhotoUrl,
+          shop: {
+            id: showroom.user.id,
+            name: showroom.user.profile?.businessName?.trim() || showroom.user.name,
+            category: showroom.user.profile?.category ?? null,
+            area: showroom.user.profile?.area ?? null,
+            county: showroom.user.profile?.county ?? null,
+          },
+        })),
         shops: directoryRows.map((row) => ({
           id: row.id,
           name: row.profile?.businessName?.trim() || row.name,
