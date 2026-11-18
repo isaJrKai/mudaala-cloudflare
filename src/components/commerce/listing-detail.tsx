@@ -282,7 +282,7 @@ export function ListingDetail({ id }: { id: string }) {
               </p>
             </div>
           </div>
-          {listing.type === 'OFFER' && listing.status === 'ACTIVE' ? <InAppEnquiryButton
+          {listing.type === 'OFFER' && listing.status === 'ACTIVE' && user?.id !== listing.userId ? <InAppEnquiryButton
             listingId={listing.id}
             shopName={shopDisplayName}
             initialMessage={`Hello, I'm interested in ${listing.title}. Is it available?`}
