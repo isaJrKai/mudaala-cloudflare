@@ -161,3 +161,12 @@ export function recommendMerchantActions(snapshot: MerchantGrowthSnapshot): Grow
 export function recommendNextMerchantAction(snapshot: MerchantGrowthSnapshot): GrowthRecommendation | null {
   return recommendMerchantActions(snapshot)[0] ?? null
 }
+
+
+/** Product-post re-engagement milestones; returns the highest elapsed stage. */
+export function productPostGapStage(daysSinceLastPost: number): 3 | 5 | 7 | null {
+  if (!Number.isFinite(daysSinceLastPost) || daysSinceLastPost < 3) return null
+  if (daysSinceLastPost >= 7) return 7
+  if (daysSinceLastPost >= 5) return 5
+  return 3
+}
