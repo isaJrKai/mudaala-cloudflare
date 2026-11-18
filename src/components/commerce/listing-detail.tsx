@@ -287,6 +287,7 @@ export function ListingDetail({ id }: { id: string }) {
             shopName={shopDisplayName}
             initialMessage={`Hello, I'm interested in ${listing.title}. Is it available?`}
             label="Message seller"
+            variant="default"
             className="press mt-3 h-11 w-full gap-1.5 text-[15px]"
           /> : null}
 
