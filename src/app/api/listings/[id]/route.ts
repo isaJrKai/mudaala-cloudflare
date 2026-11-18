@@ -25,6 +25,8 @@ export async function GET(_request: NextRequest, { params }: Params) {
             id: true,
             name: true,
             createdAt: true,
+            suspendedAt: true,
+            shopRestrictedAt: true,
             profile: {
               select: {
                 businessName: true,
@@ -39,7 +41,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
         },
       },
     })
-    if (!listing) throw new ApiError(404, 'This listing does not exist or has been removed')
+    if (!listing || listing.user.suspendedAt || listing.user.shopRestrictedAt) throw new ApiError(404, 'This listing does not exist or has been removed')
 
     // Resolve the viewer once so owner/admin previews do not inflate public
     // engagement metrics. Moderation state is never leaked to unauthorized viewers.
