@@ -24,6 +24,7 @@ import { EmptyState } from './empty-state'
 import { ErrorState } from './listings-browse'
 import { cn } from '@/lib/utils'
 import { copy } from '@/lib/copy'
+import { PushNotificationControl } from './push-notification-control'
 
 type InboxTab = 'new' | 'action' | 'scheduled' | 'completed' | 'archived'
 type LifecycleAction = 'archive' | 'restore' | 'dismiss' | 'complete' | 'snooze'
@@ -145,6 +146,10 @@ export function NotificationsView() {
         </div>
       </div>
 
+      <div className="rounded-xl border bg-card px-3 py-3">
+        <PushNotificationControl />
+      </div>
+
       <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Notification categories">
         {tabs.map((item) => (
           <button
@@ -183,6 +188,7 @@ export function NotificationsView() {
                     <div className="min-w-0">
                       <div className="mb-1 flex flex-wrap items-center gap-1.5">
                         {n.category === 'GROWTH' ? <span className="rounded-full bg-[#F5E8C8] px-2 py-0.5 text-[10px] font-semibold tracking-wide text-[#76541B]">GROWTH COACH</span> : null}
+                        {n.category === 'SOCIAL' ? <span className="rounded-full bg-[#E6EFE9] px-2 py-0.5 text-[10px] font-semibold tracking-wide text-[#174A35]">PRODUCT INTEREST</span> : null}
                         {n.priority === 'HIGH' ? <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">PRIORITY</span> : null}
                         {!n.read ? <span className="size-1.5 rounded-full bg-primary" aria-label="Unread" /> : null}
                       </div>

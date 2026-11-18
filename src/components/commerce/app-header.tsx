@@ -20,6 +20,7 @@ import { basketCount, basketUnits, basketFillLevel, useBasket } from '@/lib/bask
 import { copy } from '@/lib/copy'
 import { apiGet } from '@/lib/client'
 import { BasketGlyph } from './basket-icon'
+import { useBellShake } from '@/hooks/use-bell-shake'
 
 export function AppHeader() {
   const { view, navigate, setAuthOpen } = useAppStore()
@@ -41,6 +42,7 @@ export function AppHeader() {
     refetchIntervalInBackground: false,
   })
   const unread = user ? (notificationsQuery.data?.unreadCount ?? 0) : 0
+  const bellRef = useBellShake(unread)
 
   // Pop + badge bump fire only when the count GROWS during this visit -
   // never on first render (a page reload with a saved basket must not look
@@ -115,8 +117,14 @@ export function AppHeader() {
                 view.name === 'notifications' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
               )}
             >
-              <Bell className="size-[18px]" aria-hidden />
-              {unread > 0 ? <span className="absolute right-1 top-1 size-2 rounded-full bg-destructive ring-2 ring-background" aria-hidden /> : null}
+              <span ref={bellRef} className="inline-flex" style={{ transformOrigin: '50% 18%' }}>
+                <Bell className="size-[18px]" aria-hidden />
+              </span>
+              {unread > 0 ? (
+                <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-white ring-2 ring-background">
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              ) : null}
             </button>
           ) : null}
           {/* The basket - buyer-side, always visible, signed in or not, and

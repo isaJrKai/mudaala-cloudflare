@@ -667,7 +667,31 @@ async function run() {
   const afterRemove = await requestJson('/api/saved-products', {}, shopper.token)
   assert.equal(afterRemove.body.products.length, 39, 'shortlist count updates after removal')
 
-  console.log('Telegram commerce tests passed: account-bound contact, one-to-one Telegram linking, identity revocation, /unlink, seller opt-in, enquiry privacy and shortlist cap.')
+  // A new buyer like creates a private seller alert and a push delivery attempt.
+  // The notification deliberately contains no buyer identity and repeat saves
+  // do not create a second alert for the same product.
+  const likedListing = await createListing(merchant.id, merchant.phone, 100)
+  const liked = await requestJson('/api/saved-products', {
+    method: 'POST',
+    body: JSON.stringify({ listingId: likedListing.id }),
+  }, shopper.token)
+  assertStatus(liked.status, 201, 'shopper likes a seller product')
+  const likeAlerts = await db.notification.findMany({
+    where: { userId: merchant.id, type: 'PRODUCT_LIKED', listingId: likedListing.id },
+  })
+  assert.equal(likeAlerts.length, 1, 'seller receives one private product-liked notification')
+  assert.equal(likeAlerts[0]!.category, 'SOCIAL', 'product-like alert is categorized as social')
+  assert.ok(!likeAlerts[0]!.body.includes(shopper.phone), 'seller alert does not reveal buyer phone')
+  const repeatedLike = await requestJson('/api/saved-products', {
+    method: 'POST',
+    body: JSON.stringify({ listingId: likedListing.id }),
+  }, shopper.token)
+  assertStatus(repeatedLike.status, 201, 'repeated like remains idempotent')
+  assert.equal(await db.notification.count({
+    where: { userId: merchant.id, type: 'PRODUCT_LIKED', listingId: likedListing.id },
+  }), 1, 'repeated like does not spam the seller')
+
+  console.log('Telegram commerce tests passed: account-bound contact, one-to-one Telegram linking, identity revocation, /unlink, seller opt-in, enquiry privacy, shortlist cap and private product-like alerts.')
 }
 
 run()

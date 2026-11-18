@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { recommendMerchantActions, recommendNextMerchantAction } from './merchant-growth.ts'
+import { productPostGapStage, recommendMerchantActions, recommendNextMerchantAction } from './merchant-growth.ts'
 
 const completeProfile = {
   photoUrl: 'https://example.test/shop.jpg',
@@ -22,6 +22,24 @@ const base = {
   latestPhotoListingTitle: null,
   productPhotosShareInitiatedAt: null,
 }
+
+describe('product-post inactivity milestones', () => {
+  it('starts at day 3, advances at days 5 and 7, and does not nag earlier', () => {
+    expect(productPostGapStage(0)).toBeNull()
+    expect(productPostGapStage(2)).toBeNull()
+    expect(productPostGapStage(3)).toBe(3)
+    expect(productPostGapStage(4)).toBe(3)
+    expect(productPostGapStage(5)).toBe(5)
+    expect(productPostGapStage(6)).toBe(5)
+    expect(productPostGapStage(7)).toBe(7)
+    expect(productPostGapStage(30)).toBe(7)
+  })
+
+  it('ignores invalid elapsed-day values', () => {
+    expect(productPostGapStage(Number.NaN)).toBeNull()
+    expect(productPostGapStage(Number.POSITIVE_INFINITY)).toBeNull()
+  })
+})
 
 describe('merchant Growth Coach recommendations', () => {
   it('does not invent a shop when no profile exists', () => {
