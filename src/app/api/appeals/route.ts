@@ -5,6 +5,7 @@ import { getClientIp } from '@/lib/client-ip'
 import { hit } from '@/lib/rate-limit'
 import { normalizePhone } from '@/lib/validation'
 import { db } from '@/lib/db'
+import { resetCodeMatches, hashPhoneForVerification } from '@/lib/sms'
 
 const createSchema = z.object({
   targetType: z.enum(['USER', 'SHOP', 'LISTING']),
@@ -12,6 +13,7 @@ const createSchema = z.object({
   contact: z.string().trim().min(1).max(30),
   title: z.string().trim().min(4).max(120),
   statement: z.string().trim().min(20).max(3000),
+  verificationCode: z.string().regex(/^\d{6}$/).optional(),
 })
 
 function randomToken(): string {
@@ -58,47 +60,98 @@ export async function POST(request: Request) {
     }
 
     if (sessionUser && sessionUser.id !== ownerId) throw new ApiError(403, 'You can only appeal a restriction on your own account or shop')
-    const openCase = await db.appealCase.findFirst({
-      where: { ownerId, targetType: data.targetType, targetId, status: { in: ['OPEN', 'IN_REVIEW', 'WAITING_ON_OWNER'] } },
-      select: { id: true, status: true, createdAt: true, accessTokenHash: true },
-    })
-    if (openCase) {
-      if (!openCase.accessTokenHash) {
-        const accessToken = randomToken()
-        await db.$transaction(async (tx) => {
-          await tx.appealCase.update({ where: { id: openCase.id }, data: { accessTokenHash: await sha256(accessToken) } })
-          await tx.appealCaseEvent.create({ data: { caseId: openCase.id, actorId: ownerId, eventType: 'ACCESS_TOKEN_ISSUED', details: { reason: 'legacy_case_claim' } } })
+
+    // Suspended owners lose their sessions, so anonymous submissions must
+    // prove control of the registered phone before creating or recovering a case.
+    let challengeId: string | null = null
+    if (!sessionUser) {
+      const [phoneLimit, ipLimit] = await Promise.all([
+        hit(`appeal-phone:verify:phone:${phone}`, 5, 10 * 60 * 1000),
+        hit(`appeal-phone:verify:ip:${ip}`, 15, 10 * 60 * 1000),
+      ])
+      if (!phoneLimit.ok || !ipLimit.ok) throw new ApiError(429, 'Too many verification attempts. Request a new code later.')
+      if (!data.verificationCode) throw new ApiError(400, 'Verify your registered phone number before submitting this appeal')
+      const now = new Date()
+      const challenge = await db.appealPhoneVerificationChallenge.findFirst({
+        where: {
+          userId: ownerId,
+          phoneHash: hashPhoneForVerification(phone),
+          usedAt: null,
+          expiresAt: { gt: now },
+          attempts: { lt: 5 },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, codeHash: true, attempts: true },
+      })
+      if (!challenge) throw new ApiError(400, 'That verification code has expired. Request a new one.')
+      if (!resetCodeMatches(data.verificationCode, challenge.codeHash)) {
+        const failed = await db.appealPhoneVerificationChallenge.updateMany({
+          where: { id: challenge.id, usedAt: null, expiresAt: { gt: now }, attempts: { lt: 5 } },
+          data: { attempts: { increment: 1 }, ...(challenge.attempts >= 4 ? { usedAt: now } : {}) },
         })
-        return jsonOk({ appealCase: { id: openCase.id, status: openCase.status, createdAt: openCase.createdAt, accessToken }, message: 'Your existing appeal was recovered. Keep this private access code to follow its progress.' }, 200)
+        if (failed.count !== 1) throw new ApiError(409, 'That verification code has expired. Request a new one.')
+        throw new ApiError(400, 'The verification code is incorrect')
       }
-      throw new ApiError(409, 'An appeal for this restriction is already open. Use its saved private case access code.')
+      challengeId = challenge.id
     }
 
     const accessToken = randomToken()
     const accessTokenHash = await sha256(accessToken)
+    const openCase = await db.appealCase.findFirst({
+      where: { ownerId, targetType: data.targetType, targetId, status: { in: ['OPEN', 'IN_REVIEW', 'WAITING_ON_OWNER'] } },
+      select: { id: true, status: true, createdAt: true },
+    })
+
+    if (openCase) {
+      await db.$transaction(async (tx) => {
+        if (challengeId) {
+          const consumed = await tx.appealPhoneVerificationChallenge.updateMany({
+            where: { id: challengeId, userId: ownerId, phoneHash: hashPhoneForVerification(phone), usedAt: null, expiresAt: { gt: new Date() }, attempts: { lt: 5 } },
+            data: { usedAt: new Date() },
+          })
+          if (consumed.count !== 1) throw new ApiError(409, 'That verification code has already been used. Request a new one.')
+        }
+        await tx.appealCase.update({ where: { id: openCase.id }, data: { accessTokenHash } })
+        await tx.appealCaseEvent.create({
+          data: { caseId: openCase.id, actorId: ownerId, eventType: 'ACCESS_TOKEN_ISSUED', details: { reason: 'verified_phone_case_recovery' } },
+        })
+      })
+      return jsonOk({
+        appealCase: { id: openCase.id, status: openCase.status, createdAt: openCase.createdAt, accessToken },
+        message: 'Your existing appeal was recovered. Keep this private access code to follow its progress.',
+      }, 200)
+    }
+
     let appealCase
     try {
       appealCase = await db.$transaction(async (tx) => {
-      const created = await tx.appealCase.create({
-        data: {
-          ownerId, targetType: data.targetType, targetId, targetReference,
-          title: data.title, statement: data.statement, accessTokenHash,
-          messages: { create: { senderId: ownerId, senderRole: 'OWNER', body: data.statement } },
-          events: { create: { eventType: 'CREATED', actorId: sessionUser?.id ?? ownerId, details: { targetType: data.targetType } } },
-        },
-        select: { id: true, status: true, createdAt: true },
-      })
-      const adminIds = (process.env.ADMIN_USER_IDS ?? '').split(',').map((value) => value.trim()).filter(Boolean)
-      const admins = adminIds.length ? await tx.user.findMany({ where: { id: { in: adminIds } }, select: { id: true } }) : []
-      if (admins.length) await tx.notification.createMany({
-        data: admins.map((admin) => ({
-          userId: admin.id, type: 'NEW_APPEAL', category: 'SYSTEM', priority: 'HIGH',
-          title: 'New restriction appeal',
-          body: 'A new appeal case is waiting for review in the admin dashboard.',
-          actionUrl: '/admin#appeals-heading', actionLabel: 'Review appeal',
-        })),
-      })
-      return created
+        if (challengeId) {
+          const consumed = await tx.appealPhoneVerificationChallenge.updateMany({
+            where: { id: challengeId, userId: ownerId, phoneHash: hashPhoneForVerification(phone), usedAt: null, expiresAt: { gt: new Date() }, attempts: { lt: 5 } },
+            data: { usedAt: new Date() },
+          })
+          if (consumed.count !== 1) throw new ApiError(409, 'That verification code has already been used. Request a new one.')
+        }
+        const created = await tx.appealCase.create({
+          data: {
+            ownerId, targetType: data.targetType, targetId, targetReference,
+            title: data.title, statement: data.statement, accessTokenHash,
+            messages: { create: { senderId: ownerId, senderRole: 'OWNER', body: data.statement } },
+            events: { create: { eventType: 'CREATED', actorId: sessionUser?.id ?? ownerId, details: { targetType: data.targetType } } },
+          },
+          select: { id: true, status: true, createdAt: true },
+        })
+        const adminIds = (process.env.ADMIN_USER_IDS ?? '').split(',').map((value) => value.trim()).filter(Boolean)
+        const admins = adminIds.length ? await tx.user.findMany({ where: { id: { in: adminIds } }, select: { id: true } }) : []
+        if (admins.length) await tx.notification.createMany({
+          data: admins.map((admin) => ({
+            userId: admin.id, type: 'NEW_APPEAL', category: 'SYSTEM', priority: 'HIGH',
+            title: 'New restriction appeal',
+            body: 'A new appeal case is waiting for review in the admin dashboard.',
+            actionUrl: '/admin#appeals-heading', actionLabel: 'Review appeal',
+          })),
+        })
+        return created
       })
     } catch (error) {
       if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
