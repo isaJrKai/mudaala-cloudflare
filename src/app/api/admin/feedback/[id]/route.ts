@@ -41,6 +41,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
               data: {
                 userId: target.id,
                 type: 'ACCOUNT_REINSTATED',
+                category: 'SYSTEM',
+                priority: 'HIGH',
                 title: 'Your Mudaala account has been reinstated',
                 body: 'Your appeal was accepted. You can sign in again using your usual login details.',
               },
