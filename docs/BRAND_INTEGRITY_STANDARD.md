@@ -9,7 +9,7 @@ Mudaala must look and behave like one intentionally designed product. Remove gen
 
 ## Brand foundations
 
-- Use Mudaala's actual leaf mark and established African-textile identity assets. Never replace the logo with a generic store icon, emoji, stock illustration, or newly invented mark.
+- Use the approved Mudaala market-stall M mark and official horizontal/stacked lockups from the brand pack. Do not use the retired leaf mark or add a black circular backing, decorative ring, or unapproved treatment around the logo.
 - Preserve the established forest-green, mango/marigold, warm-paper, ink, and restrained textile palette.
 - Keep the product grounded in local Ugandan commerce: real shops, real products, useful seller information, clear prices and units, and direct ways to contact or visit sellers.
 - Use real product/shop photography where available. Never fabricate merchants, products, testimonials, activity, trust signals, or imagery presented as real.
