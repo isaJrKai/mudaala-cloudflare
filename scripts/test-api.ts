@@ -1281,6 +1281,7 @@ async function main() {
     const adminLogin = await call('POST', '/api/auth/login', { phone: '0712000001', password: 'demo1234' }, admin)
     storeCookie(admin, adminLogin)
     admin.token = adminLogin.json?.sessionToken
+    admin.user = adminLogin.json?.user
     ok('admin phone signs in (precondition)', adminLogin.status === 200)
 
     // ---- Account restrictions: suspend, revoke every session, then reinstate ----
