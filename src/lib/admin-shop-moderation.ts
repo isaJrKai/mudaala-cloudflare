@@ -62,7 +62,7 @@ export async function applyShopModeration(
       userId: profile.userId,
       type: 'SHOP_HIDDEN',
       title: 'Your shop has been hidden from Mudaala',
-      body: 'Mudaala has temporarily hidden your public shop, products, collections and showrooms while this decision is reviewed. Reason: ' + input.reason + '. You can appeal using “Report a bug / Send feedback” in the site footer.',
+      body: 'Mudaala has temporarily hidden your public shop, products, collections and showrooms while this decision is reviewed. Reason: ' + input.reason + '. To appeal, open “Report a bug / Send feedback” and choose “Appeal”.',
     },
   })
   await tx.auditLog.create({
