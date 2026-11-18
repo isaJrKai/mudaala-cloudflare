@@ -361,21 +361,34 @@ export const reportActionSchema = z.object({
 })
 
 export const feedbackCreateSchema = z.object({
-  category: z.enum(['BUG', 'PERFORMANCE', 'COMPLAINT', 'IDEA', 'OTHER'], { message: 'Choose a feedback category' }),
+  category: z.enum(['BUG', 'PERFORMANCE', 'COMPLAINT', 'IDEA', 'OTHER', 'APPEAL'], { message: 'Choose a feedback category' }),
   title: z.string().trim().min(4, 'Add a short summary (at least 4 characters)').max(120, 'Keep the summary under 120 characters'),
   description: z.string().trim().min(20, 'Please describe what happened in at least 20 characters').max(3000, 'Keep the description under 3000 characters'),
-  pagePath: z.string().trim().max(300).regex(/^\/(?!\/)[^\r\n]*$/, 'Invalid page path').optional().nullable(),
+  pagePath: z.string().trim().max(300).regex(/^\\/(?!\\/)[^\\r\\n]*$/, 'Invalid page path').optional().nullable(),
   contact: z.string().trim().max(120, 'Contact details are too long').optional().nullable(),
+  appealTargetType: z.enum(['USER', 'SHOP', 'LISTING']).optional(),
+  appealTargetRef: z.string().trim().max(120, 'Appeal reference is too long').optional().nullable(),
+}).refine((value) => value.category !== 'APPEAL' || (
+  value.appealTargetType !== undefined &&
+  Boolean(value.contact?.trim()) &&
+  (value.appealTargetType === 'USER' || Boolean(value.appealTargetRef?.trim()))
+), {
+  message: 'Appeals need a target type, the registered phone number, and a shop code or listing ID where applicable',
+  path: ['appealTargetType'],
 })
 
 export const feedbackAdminUpdateSchema = z.object({
   status: z.enum(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']).optional(),
   priority: z.enum(['NORMAL', 'HIGH', 'URGENT']).optional(),
   adminNotes: z.string().trim().max(3000, 'Admin notes must be under 3000 characters').optional().nullable(),
-}).refine((value) => value.status !== undefined || value.priority !== undefined || value.adminNotes !== undefined, {
-  message: 'Choose a status, priority, or add an internal note',
+  appealDecision: z.enum(['UPHELD', 'REVERSED']).optional(),
+  appealDecisionReason: z.string().trim().min(10).max(500).optional(),
+}).refine((value) => value.appealDecision === undefined || Boolean(value.appealDecisionReason && value.appealDecisionReason.length >= 10), {
+  message: 'Provide a decision reason of at least 10 characters',
+  path: ['appealDecisionReason'],
+}).refine((value) => value.status !== undefined || value.priority !== undefined || value.adminNotes !== undefined || value.appealDecision !== undefined, {
+  message: 'Provide at least one feedback update',
 })
-
 export const adminReportsQuerySchema = z.object({
   status: z.enum(['OPEN', 'ACTIONED', 'DISMISSED', 'ALL']).default('OPEN'),
 })
