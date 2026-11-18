@@ -18,6 +18,7 @@ type AppealCase = {
   owner: { id: string; name: string; phone: string }
   assignedAdmin: { id: string; name: string } | null
   _count?: { messages: number; events: number }
+  events?: Array<{ id: string; eventType: string; createdAt: string; actorId?: string | null; details?: unknown }>
 }
 type CaseMessage = { id: string; body: string; senderRole: string; evidenceUrls: string; internal: boolean; createdAt: string; sender: { name: string } }
 
@@ -135,6 +136,7 @@ export function AppealsDashboard() {
                 </select>
               </label>
             </div>
+            {selected.events?.length ? <details className="mt-4 border-t pt-3"><summary className="cursor-pointer text-sm font-semibold">Case timeline ({selected.events.length})</summary><ol className="mt-2 space-y-2">{selected.events.map((event) => <li key={event.id} className="flex flex-wrap justify-between gap-2 text-xs"><span>{event.eventType.replaceAll('_', ' ')}</span><time className="text-muted-foreground">{new Date(event.createdAt).toLocaleString()}</time></li>)}</ol></details> : null}
             <div className="mt-4 space-y-2 border-t pt-3">
               <h4 className="text-sm font-semibold">Case conversation</h4>
               {messages.map((message) => (
