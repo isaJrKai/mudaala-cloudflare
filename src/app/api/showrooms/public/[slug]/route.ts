@@ -20,7 +20,9 @@ export async function GET(request: Request, { params }: Params) {
     const preview = new URL(request.url).searchParams.get('preview') === '1'
     const previewUser = preview ? await requireSeller('Sign in as the shop owner to preview this showroom') : null
     const showroom = await db.shopShowroom.findFirst({
-      where: preview ? { slug, userId: previewUser!.id } : { slug, status: 'PUBLISHED', publishedAt: { lte: now } },
+      where: preview
+        ? { slug, userId: previewUser!.id }
+        : { slug, status: 'PUBLISHED', publishedAt: { lte: now }, user: { is: { suspendedAt: null, shopRestrictedAt: null } } },
       include: {
         user: {
           select: {
