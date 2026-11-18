@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     if (!['ALL', 'FEEDBACK'].includes(category)) throw new ApiError(400, 'Invalid feedback category filter')
     const where = {
       ...(status === 'ALL' ? {} : { status }),
-      category: { notIn: ['APPEAL', 'LEGACY_APPEAL'] },
+      category: category === 'FEEDBACK' ? { notIn: ['APPEAL', 'LEGACY_APPEAL'] } : { not: 'LEGACY_APPEAL' },
     }
     const feedback = await db.feedback.findMany({
       where,
