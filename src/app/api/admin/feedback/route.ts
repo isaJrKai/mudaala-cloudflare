@@ -13,10 +13,10 @@ export async function GET(request: NextRequest) {
     if (!STATUSES.includes(requested as typeof STATUSES[number])) throw new ApiError(400, 'Invalid feedback status filter')
     const status = requested as typeof STATUSES[number]
     const category = request.nextUrl.searchParams.get('category') ?? 'ALL'
-    if (!['ALL', 'APPEAL', 'FEEDBACK'].includes(category)) throw new ApiError(400, 'Invalid feedback category filter')
+    if (!['ALL', 'FEEDBACK'].includes(category)) throw new ApiError(400, 'Invalid feedback category filter')
     const where = {
       ...(status === 'ALL' ? {} : { status }),
-      ...(category === 'APPEAL' ? { category: 'APPEAL' } : category === 'FEEDBACK' ? { category: { not: 'APPEAL' } } : {}),
+      category: { notIn: ['APPEAL', 'LEGACY_APPEAL'] },
     }
     const feedback = await db.feedback.findMany({
       where,
