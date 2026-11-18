@@ -16,6 +16,11 @@ interface FeedbackItem {
   status: Exclude<FeedbackStatus, 'ALL'>
   priority: FeedbackPriority
   adminNotes: string | null
+  appealTargetType: 'USER' | 'SHOP' | 'LISTING' | null
+  appealTargetRef: string | null
+  appealTargetId: string | null
+  appealDecision: 'UPHELD' | 'REVERSED' | null
+  appealDecisionReason: string | null
   createdAt: string
   updatedAt: string
   reporterName: string
@@ -27,6 +32,22 @@ function FeedbackCard({ item, onSaved }: { item: FeedbackItem; onSaved: () => vo
   const [adminNotes, setAdminNotes] = useState(item.adminNotes ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [appealDecisionReason, setAppealDecisionReason] = useState('')
+
+  async function decideAppeal(decision: 'UPHELD' | 'REVERSED') {
+    if (appealDecisionReason.trim().length < 10) { setError('Provide a decision reason of at least 10 characters.'); return }
+    setBusy(true); setError('')
+    try {
+      const response = await fetch(`/api/admin/feedback/${item.id}`, {
+        method: 'PATCH', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ appealDecision: decision, appealDecisionReason: appealDecisionReason.trim() }),
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(payload?.error ?? 'Could not record the appeal decision.')
+      onSaved()
+    } catch (err) { setError(err instanceof Error ? err.message : 'Connection problem. Please try again.') }
+    finally { setBusy(false) }
+  }
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -59,6 +80,28 @@ function FeedbackCard({ item, onSaved }: { item: FeedbackItem; onSaved: () => vo
       <h3 className="mt-3 text-base font-semibold">{item.title}</h3>
       <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">{item.description}</p>
       {item.pagePath ? <p className="mt-3 text-xs text-muted-foreground">Page: <code>{item.pagePath}</code></p> : null}
+      {item.category === 'APPEAL' ? (
+        <section className="mt-4 rounded-lg border bg-muted/30 p-3">
+          <p className="text-xs font-semibold">Restriction appeal</p>
+          <p className="mt-1 text-sm">Target: {item.appealTargetType ?? 'Unknown'} {item.appealTargetId ? <code>{item.appealTargetId}</code> : null} {item.appealTargetRef ? <span>({item.appealTargetRef})</span> : null}</p>
+          {item.appealDecision ? (
+            <div className="mt-2 text-sm">
+              <p className="font-medium">{item.appealDecision === 'REVERSED' ? 'Appeal accepted and restriction reversed' : 'Appeal upheld; restriction remains'}</p>
+              {item.appealDecisionReason ? <p className="mt-1 text-xs text-muted-foreground">Decision reason: {item.appealDecisionReason}</p> : null}
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              <label className="block text-xs font-medium">Decision reason
+                <textarea value={appealDecisionReason} onChange={(event) => setAppealDecisionReason(event.target.value.slice(0, 500))} rows={2} maxLength={500} className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="Explain why the restriction is being upheld or reversed." />
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => void decideAppeal('UPHELD')} disabled={busy || appealDecisionReason.trim().length < 10} className="h-9 rounded-md border px-3 text-xs font-medium disabled:opacity-50">Uphold restriction</button>
+                <button type="button" onClick={() => void decideAppeal('REVERSED')} disabled={busy || appealDecisionReason.trim().length < 10} className="h-9 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-50">Accept appeal and restore</button>
+              </div>
+            </div>
+          )}
+        </section>
+      ) : null}
       {item.contact ? <p className="mt-2 text-sm">Requested follow-up: <span className="font-medium">{item.contact}</span></p> : null}
       {item.userAgent ? <details className="mt-2"><summary className="cursor-pointer text-xs text-muted-foreground">Technical details</summary><p className="mt-1 break-all text-xs text-muted-foreground">{item.userAgent}</p></details> : null}
       <form onSubmit={save} className="mt-4 space-y-3 border-t pt-4">
