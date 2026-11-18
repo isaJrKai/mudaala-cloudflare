@@ -115,14 +115,14 @@ function ProductCard({ product, layout, accent, templateId }: { product: Product
   return (
     <a href={`/l/${encodeURIComponent(product.id)}`} className={`group block min-w-0 ${wide ? 'grid grid-cols-[minmax(104px,34%)_1fr] gap-4 border-b border-current/15 py-4' : ''} ${templateId === 'market-day' ? 'rounded-xl border border-current/15 p-2 sm:p-3' : ''} ${templateId === 'object-study' ? 'border-b border-current/20 pb-5' : ''}`}>
       <div className={`relative overflow-hidden bg-black/5 ${wide ? 'aspect-square' : imageRatio} ${templateId === 'small-treasures' ? 'rounded-full' : templateId === 'skin-notes' ? 'rounded-[42%_42%_8px_8px]' : templateId === 'daily-goods' || templateId === 'open-shelf' ? 'rounded-md' : ''}`}>
-        {image ? <Image src={image} alt={product.title} fill unoptimized sizes="(max-width: 640px) 48vw, 25vw" className="object-cover transition-transform duration-700 group-hover:scale-[1.035]" /> : <div className="absolute inset-0 grid place-items-center text-xs opacity-50">Photo not supplied</div>}
+        {image ? <Image src={image} alt={product.title} fill unoptimized sizes="(max-width: 640px) 48vw, 25vw" className="object-cover transition-transform duration-700 group-hover:scale-[1.035]" /> : <div className="absolute inset-0 grid place-items-center text-xs opacity-85">Photo not supplied</div>}
       </div>
       <div className={wide ? 'self-center py-2' : 'pt-3'}>
-        <p className="text-[10px] uppercase tracking-[.18em] opacity-55">{product.brand || product.category}</p>
+        <p className="text-[10px] uppercase tracking-[.18em] opacity-85">{product.brand || product.category}</p>
         <h3 className={`mt-1 text-sm leading-snug ${titleStyle}`}>{product.title}</h3>
-        {product.description && <p className="mt-2 line-clamp-3 text-xs leading-5 opacity-65">{product.description}</p>}
+        {product.description && <p className="mt-2 line-clamp-3 text-xs leading-5 opacity-80">{product.description}</p>}
         <p className="mt-2 text-xs font-semibold" style={{ color: accent }}>{money(product.price, product.currency, product.priceNegotiable)}</p>
-        {product.availabilityStatus === 'OUT_OF_STOCK' && <p className="mt-1 text-[10px] uppercase tracking-wider opacity-55">Currently unavailable</p>}
+        {product.availabilityStatus === 'OUT_OF_STOCK' && <p className="mt-1 text-[10px] uppercase tracking-wider opacity-85">Currently unavailable</p>}
       </div>
     </a>
   )
@@ -147,7 +147,7 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
 
   const template = useMemo(() => payload ? getShowroomTemplate(payload.showroom.templateId, payload.showroom.templateVersion) : undefined, [payload])
   if (loading) return <main className="min-h-screen animate-pulse bg-[#f5f0e7] p-6"><div className="mx-auto max-w-6xl"><div className="h-5 w-32 bg-black/10" /><div className="mt-16 h-[42vh] bg-black/10" /><div className="mt-10 h-5 w-1/3 bg-black/10" /></div></main>
-  if (error || !payload || !template) return <main className="grid min-h-screen place-items-center bg-[#f5f0e7] px-6 text-center text-[#292820]"><div><p className="text-xs uppercase tracking-[.2em] opacity-60">Mudaala showroom</p><h1 className="mt-4 text-3xl font-semibold">This showroom is unavailable</h1><p className="mt-3 text-sm opacity-70">The shop may have unpublished this page or changed its address.</p><a href="/" className="mt-7 inline-block border-b border-current pb-1 text-sm">Explore Mudaala</a></div></main>
+  if (error || !payload || !template) return <main className="grid min-h-screen place-items-center bg-[#f5f0e7] px-6 text-center text-[#292820]"><div><p className="text-xs uppercase tracking-[.2em] opacity-80">Mudaala showroom</p><h1 className="mt-4 text-3xl font-semibold">This showroom is unavailable</h1><p className="mt-3 text-sm opacity-85">The shop may have unpublished this page or changed its address.</p><a href="/" className="mt-7 inline-block border-b border-current pb-1 text-sm">Explore Mudaala</a></div></main>
 
   const { showroom, shop, products } = payload
   const primary = showroom.primaryColor || accents[template.accent] || '#47734d'
@@ -155,6 +155,7 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
   const surface = surfaces[template.surface] || surfaces.paper
   const heroPhoto = showroom.coverPhotoUrl || showroom.photos[0] || null
   const galleryPhotos = showroom.coverPhotoUrl ? showroom.photos.slice(0, 3) : showroom.photos.slice(1, 4)
+  const contactNumber = (shop.whatsapp || shop.phone || '').replace(/\D/g, '')
   const heroLayoutClass: Record<string, string> = {
     'cover-story': 'grid gap-8 md:grid-cols-[1.05fr_.95fr] md:items-end',
     'full-bleed': 'grid gap-6',
@@ -226,57 +227,72 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
 
   return (
     <main className={`min-h-screen ${surface}`} style={{ '--showroom-accent': accent } as CSSProperties}>
-      <header className={`mx-auto flex max-w-[1440px] items-center justify-between px-5 py-5 sm:px-10 ${templateHeaderClasses[template.id] || ''}`}>
-        <a href="#top" className="flex min-w-0 items-center gap-3">
-          {showroom.logoUrl || shop.logoUrl ? <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full"><Image src={showroom.logoUrl || shop.logoUrl!} alt="" fill unoptimized sizes="40px" className="object-cover" /></span> : null}
-          <span className="min-w-0"><span className="block truncate text-sm font-semibold tracking-tight">{shop.name}</span><span className="mt-0.5 block text-[9px] uppercase tracking-[.18em] opacity-55">{shop.area || shop.county || shop.category || 'Independent shop'}</span></span>
-        </a>
-        <nav className="flex items-center gap-4 text-[11px] sm:gap-7 sm:text-xs">
-          <a href="#collection" className="opacity-75 hover:opacity-100">Collection</a>
-          <a href="#about" className="hidden opacity-75 hover:opacity-100 sm:inline">About</a>
-        </nav>
+      <header className={`sticky top-0 z-40 border-b border-current/15 bg-inherit/95 backdrop-blur-md ${templateHeaderClasses[template.id] || ''}`}>
+        <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-3 sm:px-10 sm:py-4">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+            <a href="/" aria-label="Back to Mudaala marketplace" className="shrink-0 rounded-sm bg-[#f5f0e7] px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">
+              <Image src="/logo.svg" alt="Mudaala" width={142} height={44} priority className="h-7 w-auto object-contain sm:h-9" />
+            </a>
+            <span aria-hidden="true" className="h-8 w-px shrink-0 bg-current/20" />
+            <a href="#top" className="flex min-w-0 items-center gap-2">
+              {showroom.logoUrl || shop.logoUrl ? <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full"><Image src={showroom.logoUrl || shop.logoUrl!} alt="" fill unoptimized sizes="32px" className="object-cover" /></span> : null}
+              <span className="min-w-0"><span className="block max-w-[22vw] truncate text-xs font-semibold tracking-tight sm:max-w-none sm:text-sm">{shop.name}</span><span className="mt-0.5 block truncate text-[9px] font-medium uppercase tracking-[.12em] opacity-85">{shop.area || shop.county || shop.category || 'Independent shop'}</span></span>
+            </a>
+          </div>
+          <nav aria-label="Showroom navigation" className="flex shrink-0 items-center gap-3 text-[10px] font-semibold sm:gap-6 sm:text-xs">
+            <a href="/" className="hidden rounded-sm border border-current/25 px-3 py-2 transition-colors hover:bg-current/5 sm:inline-flex">Back to Mudaala</a>
+            <a href="#collection" className="rounded-sm py-2 underline-offset-4 hover:underline">Products</a>
+            <a href="#about" className="hidden rounded-sm py-2 underline-offset-4 hover:underline sm:inline">About</a>
+            <a href="#contact" className="rounded-sm bg-[#0F3D2E] px-3 py-2 text-white transition-colors hover:bg-[#18543F] sm:px-4">Contact</a>
+          </nav>
+        </div>
+        <div className="flex items-center justify-center border-t border-current/10 px-4 py-1.5 sm:hidden">
+          <a href="/" className="text-[10px] font-semibold underline underline-offset-4">← Back to Mudaala marketplace</a>
+          <span className="mx-3 h-3 w-px bg-current/25" />
+          <a href="#about" className="text-[10px] font-semibold underline underline-offset-4">Discover this shop</a>
+        </div>
       </header>
 
       <section id="top" className="mx-auto max-w-[1440px] px-5 pb-14 pt-5 sm:px-10 sm:pb-24 sm:pt-12">
         {template.hero === 'catalogue' ? (
           <div className="grid gap-8 border-y border-current/15 py-10 md:grid-cols-[1fr_1.1fr] md:items-end">
-            <div><p className="text-[10px] uppercase tracking-[.22em] opacity-55">{template.name}</p><h1 className={`mt-5 max-w-3xl ${titleClass}`}>{showroom.headline || showroom.title}</h1></div>
-            <div className="md:justify-self-end md:max-w-md"><p className="text-sm leading-7 opacity-70">{showroom.introduction || shop.description}</p><p className="mt-5 text-xs opacity-50">{products.length} selected {products.length === 1 ? 'product' : 'products'}</p></div>
+            <div><p className="text-[10px] uppercase tracking-[.22em] opacity-85">{template.name}</p><h1 className={`mt-5 max-w-3xl ${titleClass}`}>{showroom.headline || showroom.title}</h1></div>
+            <div className="md:justify-self-end md:max-w-md"><p className="text-sm leading-7 opacity-85">{showroom.introduction || shop.description}</p><p className="mt-5 text-xs opacity-85">{products.length} selected {products.length === 1 ? 'product' : 'products'}</p></div>
           </div>
         ) : (
           <div className={`${templateHeroClasses[template.id] || heroLayoutClass[template.hero] || 'grid gap-8'} ${template.id === 'manifesto' ? 'py-8 sm:py-12' : ''} ${template.id === 'tech-index' ? 'border-y border-current/20 py-8' : ''} ${template.id === 'market-day' ? 'items-stretch' : ''}`}>
             <div className={template.hero === 'full-bleed' ? 'order-2' : ''}>
-              <p className="text-[10px] uppercase tracking-[.22em] opacity-55">{template.name} <span className="px-2">/</span> {shop.category || 'Shop'}</p>
+              <p className="text-[10px] uppercase tracking-[.22em] opacity-85">{template.name} <span className="px-2">/</span> {shop.category || 'Shop'}</p>
               <h1 className={`mt-6 max-w-4xl ${titleClass}`}>{showroom.headline || showroom.title}</h1>
-              {showroom.introduction && <p className="mt-6 max-w-xl text-sm leading-7 opacity-70 sm:text-base">{showroom.introduction}</p>}
+              {showroom.introduction && <p className="mt-6 max-w-xl text-sm leading-7 opacity-85 sm:text-base">{showroom.introduction}</p>}
               <a href="#collection" className="mt-8 inline-flex items-center gap-3 border-b pb-2 text-xs font-semibold" style={{ borderColor: accent }}>Explore the collection <span aria-hidden="true">↗</span></a>
             </div>
             {heroPhoto && <div className={`relative overflow-hidden bg-black/5 ${heroImageStyles[template.id] || 'aspect-[5/4]'} ${template.id === 'street-uniform' || template.id === 'new-wave' ? 'ring-1 ring-current/20' : ''}`}><Image src={heroPhoto} alt={showroom.title} fill priority unoptimized sizes="(max-width: 768px) 100vw, 60vw" className="object-cover" /></div>}
           </div>
         )}
-        {template.hero === 'full-bleed' && <p className="mt-4 text-[10px] uppercase tracking-[.18em] opacity-50">{shop.name} · {shop.area || shop.county || 'Uganda'}</p>}
+        {template.hero === 'full-bleed' && <p className="mt-4 text-[10px] uppercase tracking-[.18em] opacity-85">{shop.name} · {shop.area || shop.county || 'Uganda'}</p>}
       </section>
 
       {galleryPhotos.length > 0 && <section className="mx-auto grid max-w-[1440px] grid-cols-2 gap-2 px-5 pb-16 sm:grid-cols-3 sm:gap-4 sm:px-10">{galleryPhotos.map((photo, index) => <div key={photo} className={`relative overflow-hidden bg-black/5 ${index === 0 ? 'aspect-[4/5]' : 'aspect-[4/5]'}`}><Image src={photo} alt={`${shop.name} showroom photograph ${index + 2}`} fill unoptimized sizes="33vw" className="object-cover" /></div>)}</section>}
 
-      {showroom.sections.map((section, index) => <section key={index} className="mx-auto grid max-w-[1440px] gap-5 border-t border-current/15 px-5 py-12 sm:grid-cols-[.7fr_1.3fr] sm:px-10 sm:py-16">{section.photoUrl && <div className="relative aspect-[5/4] overflow-hidden"><Image src={section.photoUrl} alt={section.heading || shop.name} fill unoptimized sizes="50vw" className="object-cover" /></div>}<div className="self-center"><p className="text-[10px] uppercase tracking-[.2em] opacity-50">0{index + 1}</p>{section.heading && <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-4xl">{section.heading}</h2>}{section.body && <p className="mt-4 max-w-2xl whitespace-pre-line text-sm leading-7 opacity-70">{section.body}</p>}</div></section>)}
+      {showroom.sections.map((section, index) => <section key={index} className="mx-auto grid max-w-[1440px] gap-5 border-t border-current/15 px-5 py-12 sm:grid-cols-[.7fr_1.3fr] sm:px-10 sm:py-16">{section.photoUrl && <div className="relative aspect-[5/4] overflow-hidden"><Image src={section.photoUrl} alt={section.heading || shop.name} fill unoptimized sizes="50vw" className="object-cover" /></div>}<div className="self-center"><p className="text-[10px] uppercase tracking-[.2em] opacity-85">0{index + 1}</p>{section.heading && <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-4xl">{section.heading}</h2>}{section.body && <p className="mt-4 max-w-2xl whitespace-pre-line text-sm leading-7 opacity-85">{section.body}</p>}</div></section>)}
 
       <section id="collection" className="mx-auto max-w-[1440px] px-5 py-14 sm:px-10 sm:py-20">
         <div className="mb-8 flex items-end justify-between gap-4 border-b border-current/20 pb-5 sm:mb-12">
-          <div><p className="text-[10px] uppercase tracking-[.2em] opacity-50">Selected for you</p><h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-5xl">{showroom.title}</h2></div>
-          <p className="text-right text-[10px] uppercase tracking-[.14em] opacity-50">{products.length} items</p>
+          <div><p className="text-[10px] uppercase tracking-[.2em] opacity-85">Selected for you</p><h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-5xl">{showroom.title}</h2></div>
+          <p className="text-right text-[10px] uppercase tracking-[.14em] opacity-85">{products.length} items</p>
         </div>
-        {products.length ? <div className={gridClass}>{products.map((product, index) => <div key={product.id} className={template.productLayout === 'masonry' ? 'mb-5 break-inside-avoid' : template.productLayout === 'collection-rail' ? 'w-[72vw] shrink-0 snap-start sm:w-[32vw]' : template.productLayout === 'feature-and-grid' && index === 0 ? 'col-span-2' : ''}><ProductCard product={product} layout={template.productLayout} accent={accent} templateId={template.id} /></div>)}</div> : <p className="py-16 text-center text-sm opacity-60">The shop is preparing its collection. Check back for products you can enquire about directly on Mudaala.</p>}
+        {products.length ? <div className={gridClass}>{products.map((product, index) => <div key={product.id} className={template.productLayout === 'masonry' ? 'mb-5 break-inside-avoid' : template.productLayout === 'collection-rail' ? 'w-[72vw] shrink-0 snap-start sm:w-[32vw]' : template.productLayout === 'feature-and-grid' && index === 0 ? 'col-span-2' : ''}><ProductCard product={product} layout={template.productLayout} accent={accent} templateId={template.id} /></div>)}</div> : <p className="py-16 text-center text-sm opacity-80">The shop is preparing its collection. Check back for products you can enquire about directly on Mudaala.</p>}
       </section>
 
-      {(showroom.story || shop.description) && <section id="about" className="border-y border-current/15 px-5 py-16 sm:px-10 sm:py-24"><div className="mx-auto max-w-3xl"><p className="text-[10px] uppercase tracking-[.2em] opacity-50">A little about us</p><h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-5xl">{shop.name}</h2><p className="mt-6 whitespace-pre-line text-sm leading-8 opacity-75 sm:text-base">{showroom.story || shop.description}</p></div></section>}
+      {(showroom.story || shop.description) && <section id="about" className="border-y border-current/15 px-5 py-16 sm:px-10 sm:py-24"><div className="mx-auto max-w-3xl"><p className="text-[10px] uppercase tracking-[.2em] opacity-85">A little about us</p><h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-5xl">{shop.name}</h2><p className="mt-6 whitespace-pre-line text-sm leading-8 opacity-85 sm:text-base">{showroom.story || shop.description}</p></div></section>}
 
-      <footer className="mx-auto max-w-[1440px] px-5 py-12 sm:px-10 sm:py-16">
+      <footer id="contact" className="mx-auto max-w-[1440px] px-5 py-12 sm:px-10 sm:py-16">
         <div className="grid gap-10 sm:grid-cols-2 sm:items-end">
-          <div><p className="text-[10px] uppercase tracking-[.2em] opacity-50">Continue on Mudaala</p><h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{shop.name}</h2><p className="mt-3 text-sm opacity-65">{[shop.area, shop.county].filter(Boolean).join(', ')}</p>{shop.hours && <p className="mt-2 text-xs opacity-55">{shop.hours}</p>}{shop.shopCode && <p className="mt-4 text-[10px] uppercase tracking-[.18em] opacity-50">Mudaala shop code · {shop.shopCode}</p>}</div>
-          <div className="flex flex-wrap gap-3 sm:justify-end">{shop.websiteUrl && <a href={shop.websiteUrl} target="_blank" rel="noreferrer" className="border border-current/25 px-5 py-3 text-xs font-semibold">Website ↗</a>}<a href="#collection" className="px-5 py-3 text-xs font-semibold" style={{ backgroundColor: primary, color: '#fff' }}>Explore products</a></div>
+          <div><p className="text-[10px] uppercase tracking-[.2em] opacity-85">Continue on Mudaala</p><h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{shop.name}</h2><p className="mt-3 text-sm opacity-80">{[shop.area, shop.county].filter(Boolean).join(', ')}</p>{shop.hours && <p className="mt-2 text-xs opacity-85">{shop.hours}</p>}{shop.shopCode && <p className="mt-4 text-[10px] uppercase tracking-[.18em] opacity-85">Mudaala shop code · {shop.shopCode}</p>}</div>
+          <div className="flex flex-wrap gap-3 sm:justify-end">{shop.websiteUrl && <a href={shop.websiteUrl} target="_blank" rel="noreferrer" className="border border-current/30 px-5 py-3 text-xs font-semibold">Website ↗</a>}{contactNumber && <a href={`https://wa.me/${contactNumber}`} target="_blank" rel="noreferrer" className="border border-current/30 px-5 py-3 text-xs font-semibold">WhatsApp shop ↗</a>}<a href="#collection" className="px-5 py-3 text-xs font-semibold" style={{ backgroundColor: primary, color: '#fff' }}>Explore products</a></div>
         </div>
-        <div className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-current/15 pt-5 text-[10px] opacity-45"><span>{shop.name} · {template.name}</span><span>Independent shop on Mudaala</span></div>
+        <div className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-current/15 pt-5 text-[10px] opacity-85"><span>{shop.name} · {template.name}</span><span>Independent shop on Mudaala</span></div>
       </footer>
     </main>
   )
