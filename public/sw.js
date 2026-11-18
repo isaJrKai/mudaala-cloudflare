@@ -10,8 +10,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title || 'Mudaala'
   const options = {
     body: payload.body || 'There is something useful to do in your shop.',
-    icon: '/mudaala-icon-v2.svg',
-    badge: '/mudaala-icon-v2.svg',
+    icon: '/mudaala-icon-v3.svg',
+    badge: '/mudaala-icon-v3.svg',
     tag: payload.tag || payload.notificationId || 'mudaala-growth',
     renotify: false,
     requireInteraction: payload.priority === 'HIGH',
