@@ -107,8 +107,8 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
                     </div>
                     {appealTargetType !== 'USER' ? (
                       <div>
-                        <label htmlFor="appeal-target-ref" className="mb-1.5 block text-sm font-medium">{appealTargetType === 'SHOP' ? 'Shop code (MU-CODE)' : 'Listing ID'}</label>
-                        <input id="appeal-target-ref" value={appealTargetRef} onChange={(event) => setAppealTargetRef(event.target.value.slice(0, 120))} required minLength={3} maxLength={120} placeholder={appealTargetType === 'SHOP' ? 'Enter the code shown on your shop' : 'Enter the ID from your listing link'} className="h-10 w-full rounded-md border bg-background px-3 text-sm" />
+                        <label htmlFor="appeal-target-ref" className="mb-1.5 block text-sm font-medium">{appealTargetType === 'SHOP' ? 'Shop code (MD-XXXX)' : 'Listing ID'}</label>
+                        <input id="appeal-target-ref" value={appealTargetRef} onChange={(event) => setAppealTargetRef(event.target.value.slice(0, 120))} required minLength={3} maxLength={120} placeholder={appealTargetType === 'SHOP' ? 'Enter the MD-XXXX code shown on your shop' : 'Enter the ID from your listing link'} className="h-10 w-full rounded-md border bg-background px-3 text-sm" />
                       </div>
                     ) : null}
                   </>
