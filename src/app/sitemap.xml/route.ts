@@ -8,6 +8,7 @@
 
 import { db, withRequestDb } from '@/lib/db'
 import { siteUrl } from '@/lib/site'
+import { publicShopOwnerWhere } from '@/lib/shop-visibility'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,13 +42,14 @@ export async function GET(request: Request) {
 
   // PLACEHOLDER RULE - seed listings are development fixtures, never real
   // content: search engines never crawl them from the sitemap.
-  const activeListing = { status: 'ACTIVE', expiresAt: { gt: new Date() }, isSeed: false }
+  const ownerActiveListing = { status: 'ACTIVE', expiresAt: { gt: new Date() }, isSeed: false }
+  const activeListing = { ...ownerActiveListing, user: { is: publicShopOwnerWhere } }
   const [listingCount, shopCount, showroomCount] = await Promise.all([
     db.listing.count({ where: activeListing }),
     db.businessProfile.count({
-      where: { shopCode: { not: null }, user: { listings: { some: activeListing } } },
+      where: { shopCode: { not: null }, user: { is: { ...publicShopOwnerWhere, listings: { some: ownerActiveListing } } } },
     }),
-    db.shopShowroom.count({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } }),
+    db.shopShowroom.count({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, user: { is: publicShopOwnerWhere } } }),
   ])
 
   // Entry slot 0 is the home page; then every listing; then every live shop.
@@ -97,7 +99,7 @@ export async function GET(request: Request) {
   const sTo = Math.min(end, 1 + listingCount + shopCount)
   if (sTo > sFrom) {
     const shops = await db.businessProfile.findMany({
-      where: { shopCode: { not: null }, user: { listings: { some: activeListing } } },
+      where: { shopCode: { not: null }, user: { is: { ...publicShopOwnerWhere, listings: { some: ownerActiveListing } } } },
       select: { shopCode: true, updatedAt: true },
       orderBy: { updatedAt: 'desc' },
       skip: sFrom - 1 - listingCount,
@@ -113,7 +115,7 @@ export async function GET(request: Request) {
   const rTo = Math.min(end, totalEntries)
   if (rTo > rFrom) {
     const showrooms = await db.shopShowroom.findMany({
-      where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } },
+      where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, user: { is: publicShopOwnerWhere } },
       select: { slug: true, updatedAt: true },
       orderBy: { updatedAt: 'desc' },
       skip: rFrom - 1 - listingCount - shopCount,
