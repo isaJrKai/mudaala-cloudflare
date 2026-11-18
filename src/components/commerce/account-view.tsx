@@ -597,7 +597,6 @@ function BusinessProfileSection({ user }: { user: SessionUser }) {
           <div className="mt-1.5 rounded-md border bg-secondary/30 p-2.5">
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold tracking-widest text-foreground tabular-nums">{shopCode}</span>
-              <div className="min-w-0 flex-1" />
               <a
                 href={shopUrl}
                 className="min-w-0 flex-1 truncate text-xs font-medium text-foreground underline-offset-2 hover:underline"
