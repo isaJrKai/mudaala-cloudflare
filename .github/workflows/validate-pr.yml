@@ -130,6 +130,24 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Apply and verify admin account restriction migration in disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."User" DROP COLUMN IF EXISTS "suspendedAt", DROP COLUMN IF EXISTS "suspensionReason", DROP COLUMN IF EXISTS "suspendedBy";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."AuditLog" DROP COLUMN IF EXISTS "reason", DROP COLUMN IF EXISTS "metadata";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP INDEX IF EXISTS public."User_suspendedAt_idx";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261118100000_admin_account_restrictions/migration.sql
+          account_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='User' AND column_name IN ('suspendedAt','suspensionReason','suspendedBy')")
+          audit_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='AuditLog' AND column_name IN ('reason','metadata')")
+          index_count=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='User' AND indexname='User_suspendedAt_idx'")
+          if [ "$account_columns" != "3" ] || [ "$audit_columns" != "2" ] || [ "$index_count" != "1" ]; then
+            echo "Admin restriction migration failed: account_columns=$account_columns audit_columns=$audit_columns index_count=$index_count"
+            exit 1
+          fi
+          echo "Admin account restriction migration passed."
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
       - name: Apply and verify listing taxonomy migration in disposable PostgreSQL
         run: |
           set -euo pipefail
