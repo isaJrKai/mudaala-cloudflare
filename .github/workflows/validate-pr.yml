@@ -60,6 +60,9 @@ jobs:
       - name: Test Web Push VAPID and encryption
         run: npm run test:web-push
 
+      - name: Test Gmail API delivery with mocked Google endpoints
+        run: npm run test:gmail
+
       - name: Test public listing continues when expiry sweep fails
         run: npm run test:public-listing-expiry
 
