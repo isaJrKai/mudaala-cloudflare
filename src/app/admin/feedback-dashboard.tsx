@@ -95,8 +95,8 @@ function FeedbackCard({ item, onSaved }: { item: FeedbackItem; onSaved: () => vo
                 <textarea value={appealDecisionReason} onChange={(event) => setAppealDecisionReason(event.target.value.slice(0, 500))} rows={2} maxLength={500} className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="Explain why the restriction is being upheld or reversed." />
               </label>
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => void decideAppeal('UPHELD')} disabled={busy || appealDecisionReason.trim().length < 10} className="h-9 rounded-md border px-3 text-xs font-medium disabled:opacity-50">Uphold restriction</button>
-                <button type="button" onClick={() => void decideAppeal('REVERSED')} disabled={busy || appealDecisionReason.trim().length < 10} className="h-9 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-50">Accept appeal and restore</button>
+                <button type="button" onClick={() => { if (window.confirm('Uphold this restriction? The account, shop or listing will remain restricted.')) void decideAppeal('UPHELD') }} disabled={busy || appealDecisionReason.trim().length < 10} className="h-9 rounded-md border px-3 text-xs font-medium disabled:opacity-50">Uphold restriction</button>
+                <button type="button" onClick={() => { if (window.confirm('Accept this appeal? This will reverse the restriction and restore access or public visibility.')) void decideAppeal('REVERSED') }} disabled={busy || appealDecisionReason.trim().length < 10} className="h-9 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-50">Accept appeal and restore</button>
               </div>
             </div>
           )}
