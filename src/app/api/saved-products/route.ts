@@ -45,7 +45,11 @@ export async function POST(request: Request) {
         if (existing) return null
         const count = await tx.savedProduct.count({ where: { userId: user.id } })
         if (count >= 40) throw new ApiError(409, 'Your account shortlist is full. Remove a saved product before adding another.')
-        await tx.savedProduct.create({ data: { userId: user.id, listingId: listing.id } })
+        const saved = await tx.savedProduct.createMany({
+          data: [{ userId: user.id, listingId: listing.id }],
+          skipDuplicates: true,
+        })
+        if (saved.count === 0) return null
 
         // Likes stay private: the seller learns that someone liked the product,
         // never who the buyer is or what else they have saved. One alert per
