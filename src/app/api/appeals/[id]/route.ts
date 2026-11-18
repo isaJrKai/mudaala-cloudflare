@@ -150,7 +150,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           ? [assigned.assignedAdminId]
           : (await tx.user.findMany({ where: { id: { in: adminIds } }, select: { id: true } })).map((item) => item.id)
         if (recipients.length) await tx.notification.createMany({
-          data: recipients.map((userId) => ({ userId, type: 'APPEAL_MESSAGE', category: 'SYSTEM', priority: 'HIGH', title: 'New appeal case message', body: 'An appeal owner has replied. Open the moderator appeal queue to respond.', actionUrl: '/admin/appeals', actionLabel: 'Open case' })),
+          data: recipients.map((userId) => ({ userId, type: 'APPEAL_MESSAGE', category: 'SYSTEM', priority: 'HIGH', title: 'New appeal case message', body: 'An appeal owner has replied. Open the moderator appeal queue to respond.', actionUrl: '/admin#appeals-heading', actionLabel: 'Open case' })),
         })
       }
       return message
