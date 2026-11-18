@@ -22,6 +22,9 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
   const [appealTargetType, setAppealTargetType] = useState<'USER' | 'SHOP' | 'LISTING'>('USER')
   const [appealTargetRef, setAppealTargetRef] = useState('')
   const [busy, setBusy] = useState(false)
+  const [sendingAppealCode, setSendingAppealCode] = useState(false)
+  const [appealCodeSent, setAppealCodeSent] = useState(false)
+  const [appealVerificationCode, setAppealVerificationCode] = useState('')
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
   const [appealAccessToken, setAppealAccessToken] = useState('')
@@ -34,6 +37,31 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
     if (busy) return
     setOpen(false)
     setError('')
+  }
+
+  async function sendAppealVerificationCode() {
+    setSendingAppealCode(true)
+    setError('')
+    try {
+      const response = await fetch('/api/appeals/verify-phone', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          targetType: appealTargetType,
+          targetReference: appealTargetType === 'USER' ? undefined : appealTargetRef.trim(),
+          contact: contact.trim(),
+        }),
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(payload?.error ?? 'Could not request a verification code.')
+      setAppealCodeSent(true)
+      setAppealVerificationCode('')
+      setError(payload?.message ?? 'If the details match an active restriction, a code has been sent.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not request a verification code.')
+    } finally {
+      setSendingAppealCode(false)
+    }
   }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -51,6 +79,7 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
           contact: contact.trim(),
           title,
           statement: description,
+          verificationCode: appealVerificationCode.trim(),
         } : {
           category, title, description, contact: contact.trim() || null,
           pagePath: window.location.pathname + window.location.hash,
@@ -65,6 +94,8 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
       setDescription('')
       setContact('')
       setAppealTargetRef('')
+      setAppealCodeSent(false)
+      setAppealVerificationCode('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection problem. Please try again.')
     } finally {
@@ -123,7 +154,7 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
                   <>
                     <div>
                       <label htmlFor="appeal-target-type" className="mb-1.5 block text-sm font-medium">What was restricted?</label>
-                      <select id="appeal-target-type" value={appealTargetType} onChange={(event) => { setAppealTargetType(event.target.value as typeof appealTargetType); setAppealTargetRef('') }} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+                      <select id="appeal-target-type" value={appealTargetType} onChange={(event) => { setAppealTargetType(event.target.value as typeof appealTargetType); setAppealTargetRef(''); setAppealCodeSent(false); setAppealVerificationCode('') }} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
                         <option value="USER">My Mudaala account</option>
                         <option value="SHOP">My shop</option>
                         <option value="LISTING">One of my listings</option>
@@ -132,7 +163,7 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
                     {appealTargetType !== 'USER' ? (
                       <div>
                         <label htmlFor="appeal-target-ref" className="mb-1.5 block text-sm font-medium">{appealTargetType === 'SHOP' ? 'Shop code (MD-XXXX)' : 'Listing ID'}</label>
-                        <input id="appeal-target-ref" value={appealTargetRef} onChange={(event) => setAppealTargetRef(event.target.value.slice(0, 120))} required minLength={3} maxLength={120} placeholder={appealTargetType === 'SHOP' ? 'Enter the MD-XXXX code shown on your shop' : 'Enter the ID from your listing link'} className="h-10 w-full rounded-md border bg-background px-3 text-sm" />
+                        <input id="appeal-target-ref" value={appealTargetRef} onChange={(event) => { setAppealTargetRef(event.target.value.slice(0, 120)); setAppealCodeSent(false); setAppealVerificationCode('') }} required minLength={3} maxLength={120} placeholder={appealTargetType === 'SHOP' ? 'Enter the MD-XXXX code shown on your shop' : 'Enter the ID from your listing link'} className="h-10 w-full rounded-md border bg-background px-3 text-sm" />
                       </div>
                     ) : null}
                   </>
@@ -148,13 +179,28 @@ export function FeedbackButton({ floating = false }: { floating?: boolean }) {
                 </div>
                 <div>
                   <label htmlFor="feedback-contact" className="mb-1.5 block text-sm font-medium">{category === 'APPEAL' ? 'Registered Mudaala phone number (required)' : 'Contact details (optional)'}</label>
-                  <input id="feedback-contact" value={contact} onChange={(event) => setContact(event.target.value)} required={category === 'APPEAL'} maxLength={120} placeholder={category === 'APPEAL' ? '+256 7XX XXX XXX' : "Email or phone if you'd like us to follow up"} className="h-10 w-full rounded-md border bg-background px-3 text-sm" />
-                  <p className="mt-1 text-xs text-muted-foreground">{category === 'APPEAL' ? 'We use this number to match the restriction. An administrator may verify ownership before changing account access or shop visibility.' : 'Only the admin team can see this message and contact detail.'}</p>
+                  <input id="feedback-contact" value={contact} onChange={(event) => { setContact(event.target.value); setAppealCodeSent(false); setAppealVerificationCode('') }} required={category === 'APPEAL'} maxLength={120} placeholder={category === 'APPEAL' ? '+256 7XX XXX XXX' : "Email or phone if you'd like us to follow up"} className="h-10 w-full rounded-md border bg-background px-3 text-sm" />
+                  <p className="mt-1 text-xs text-muted-foreground">{category === 'APPEAL' ? 'We send a one-time code to this registered number. You can appeal while signed out; no account login is required.' : 'Only the admin team can see this message and contact detail.'}</p>
                 </div>
+                {category === 'APPEAL' ? (
+                  <div className="space-y-2 rounded-lg border p-3">
+                    <p className="text-sm font-medium">Verify that you own this phone number</p>
+                    <p className="text-xs text-muted-foreground">We will text a 6-digit code to the registered number. The code expires in 10 minutes and can only be used once.</p>
+                    <button type="button" onClick={() => void sendAppealVerificationCode()} disabled={sendingAppealCode || !contact.trim() || (appealTargetType !== 'USER' && !appealTargetRef.trim())} className="h-9 rounded-md border px-3 text-sm disabled:opacity-50">
+                      {sendingAppealCode ? 'Sending code…' : appealCodeSent ? 'Send a new code' : 'Send verification code'}
+                    </button>
+                    {appealCodeSent ? (
+                      <div>
+                        <label htmlFor="appeal-verification-code" className="mb-1 block text-xs font-medium">6-digit SMS code</label>
+                        <input id="appeal-verification-code" inputMode="numeric" autoComplete="one-time-code" value={appealVerificationCode} onChange={(event) => setAppealVerificationCode(event.target.value.replace(/\\D/g, '').slice(0, 6))} required maxLength={6} pattern="[0-9]{6}" placeholder="000000" className="h-10 w-full rounded-md border bg-background px-3 text-sm tracking-[0.25em]" />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 {error ? <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p> : null}
                 <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
                   <button type="button" onClick={close} disabled={busy} className="h-10 rounded-md border px-4 text-sm font-medium disabled:opacity-50">Cancel</button>
-                  <button type="submit" disabled={busy} className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-60">
+                  <button type="submit" disabled={busy || (category === 'APPEAL' && (!appealCodeSent || appealVerificationCode.length !== 6))} className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-60">
                     {busy ? <><Loader2 className="size-4 animate-spin" aria-hidden /> Sending…</> : 'Send to Mudaala admin'}
                   </button>
                 </div>
