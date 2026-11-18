@@ -164,7 +164,7 @@ export function AppealsDashboard() {
                   <button type="button" disabled={busy || decisionReason.trim().length < 10} onClick={() => { if (window.confirm('Accept the appeal and restore the account, shop or listing?')) void updateCase({ decision: 'REVERSED', decisionReason }) }} className="h-9 rounded-md bg-primary px-3 text-xs text-primary-foreground disabled:opacity-50">Accept and restore</button>
                 </div>
               </div>
-            ) : <p className="mt-4 border-t pt-3 text-sm font-medium">Decision: {selected.decision} — {selected.decisionReason}</p>}
+            ) : <p className="mt-4 border-t pt-3 text-sm font-medium">Decision: {selected.decision}. {selected.decisionReason}</p>}
           </section>
         ) : <div className="rounded-lg border p-6 text-sm text-muted-foreground">Select an appeal case to review its history and respond.</div>}
       </div>
