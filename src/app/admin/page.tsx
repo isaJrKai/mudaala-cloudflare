@@ -9,6 +9,7 @@ import { withRequestDb } from '@/lib/db'
 import { AdminAnalytics } from './analytics-dashboard'
 import { ReportsDashboard } from './reports-dashboard'
 import { FeedbackDashboard } from './feedback-dashboard'
+import { AdminDirectory } from './directory-dashboard'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,6 +68,12 @@ export default async function AdminPage() {
         A privacy-respecting view of platform growth, followed by the tools for reviewing reports.
       </p>
       <AdminAnalytics />
+
+      <section aria-labelledby="directory-heading" className="mt-10 border-t pt-6">
+        <h2 id="directory-heading" className="text-base font-semibold">People, shops & listings</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Search genuine platform records to investigate account, shop and listing issues. Private conversations and full contact numbers are not exposed here.</p>
+        <AdminDirectory />
+      </section>
 
       <section aria-labelledby="moderation-heading" className="mt-10 border-t pt-6">
         <h2 id="moderation-heading" className="text-base font-semibold">Moderation</h2>
