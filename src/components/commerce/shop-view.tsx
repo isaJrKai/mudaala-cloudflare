@@ -426,7 +426,7 @@ export function ShopView({ id }: { id: string }) {
           code, or forward the page on WhatsApp. The owner gets the poster tool
           below instead; two QRs on one page is one too many. */}
       {!isOwner && shop.shopCode ? (
-        <section aria-label="Find this shop again" className="rounded-lg border bg-card p-4 sm:p-5">
+        <section aria-label="Find this shop again" className="mt-4 rounded-lg border bg-card p-4 sm:p-5">
           <div className="flex items-center gap-3.5">
             <div className="flex size-16 shrink-0 items-center justify-center rounded-md border bg-white p-1.5">
               {shopUrl ? <QRCode value={shopUrl} size={48} role="img" aria-label={`QR code for ${shop.name}'s shop`} /> : null}
