@@ -102,7 +102,7 @@ function FeedbackCard({ item, onSaved }: { item: FeedbackItem; onSaved: () => vo
           )}
         </section>
       ) : null}
-      {item.contact ? <p className="mt-2 text-sm">Requested follow-up: <span className="font-medium">{item.contact}</span></p> : null}
+      {item.contact ? <p className="mt-2 text-sm">{item.category === 'APPEAL' ? 'Registered contact: ' : 'Requested follow-up: '}<span className="font-medium">{item.contact}</span></p> : null}
       {item.userAgent ? <details className="mt-2"><summary className="cursor-pointer text-xs text-muted-foreground">Technical details</summary><p className="mt-1 break-all text-xs text-muted-foreground">{item.userAgent}</p></details> : null}
       <form onSubmit={save} className="mt-4 space-y-3 border-t pt-4">
         <div className="grid gap-3 sm:grid-cols-2">
