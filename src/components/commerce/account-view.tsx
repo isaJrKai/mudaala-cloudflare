@@ -216,8 +216,6 @@ export function AccountView() {
       <Separator />
 
       <BusinessProfileSection user={user} />
-      <Separator />
-      <TelegramLinkSection />
 
       {/* Legal - the same three doors the footer carries, reachable inside
           the app where the footer sits below the fold. */}
