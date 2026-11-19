@@ -158,7 +158,7 @@ The Google OAuth client must allow the production origin `https://mudaala.store`
 - The migration has been committed but **has not been applied** to any database.
 - Prisma Client has been generated and the schema/build/typecheck/lint, OIDC unit tests, migration checks, API regression suite, browser journeys, mobile overflow check, and blocking production dependency audit passed on commit `0c0082c`. A follow-up hardening commit now adds verified-email enforcement and canonical-origin redirects; its full CI run is pending.
 - Google OAuth credentials and Cloudflare Worker secrets are not configured or verified.
-- New sellers still create a phone/password Mudaala account first and explicitly link Google in Settings. The current Google sign-in then works for those linked accounts. It does not yet create Google-only accounts or provide a new Google-first seller onboarding path.
+- New sellers may begin by selecting Continue with Google. Google first verifies the external identity, then the user must supply a real unique Mudaala phone number, choose a password, and accept the 18+/Terms requirements before the account is created. Existing phone/password accounts are never merged by email: their owner must sign in first and explicitly link Google in Settings. This is Google-assisted phone/password registration, not Google-only account creation.
 - Google sign-in can recover access for an already-linked account without the Mudaala password. Existing phone/password sign-in and SMS password reset remain available. A linked Google identity can be unlinked only after a fresh password-created session and a new SMS challenge to the current registered phone.
 - Account deletion reauthentication has not yet been updated for Google-only identities.
 - The linking flow requires a recent Mudaala password session plus a separate, short-lived SMS challenge to the account's current registered phone. The challenge is rate-limited, expires after 10 minutes, has a five-attempt ceiling, stores only an HMAC, and is audited. A keyed HMAC of the phone number is bound to the challenge, so the phone itself is not duplicated in the challenge table and changing the profile phone invalidates the proof.
@@ -230,3 +230,15 @@ Do not use a wildcard, a preview URL, an alternate host, or an HTTP URI for prod
 7. Keep `SELLER_GOOGLE_REQUIRED=false` until the migration, preview, rollback, and operational recovery checks have passed.
 
 **Do not enable the flag or run a production database migration as part of credential setup.** Credential configuration is a separate operator step; production rollout requires a separate review and explicit go/no-go decision.
+
+
+## First-time Google-assisted registration
+
+The current implementation supports first-time registration after a successful Google OIDC callback without weakening the existing account model:
+
+- Google email and immutable provider subject are verified server-side. A short-lived, browser-bound, one-use completion capability is stored by hash; the raw capability is held only in an HttpOnly, SameSite=Lax cookie.
+- The new user must still provide their own name, unique normalized phone number, and password, and accept the 18+ / Terms / Privacy confirmation. The same password policy and per-IP registration limit apply.
+- A phone number already attached to a Mudaala account is rejected with instructions to sign in to that account and explicitly link Google in Settings. Matching email addresses are never used to merge accounts.
+- The User, GoogleIdentity, Google-authenticated Session, and audit event are created in one database transaction. The completion capability is atomically consumed and cannot be replayed.
+- This does not create a phone-less or password-less Google-only account. It does not mark a phone as verified or a shop as legitimate.
+- The migration is additive. Apply it only through the reviewed production rollout; do not apply it manually while the pull request is under validation.
