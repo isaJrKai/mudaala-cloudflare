@@ -9,6 +9,12 @@ export function normalizeAccountEmail(value: string): string {
   return value.trim().toLowerCase()
 }
 
+/**
+ * Serializes challenge issuance with email replacement and code redemption.
+ * Login/reset challenges may only be issued for the user's currently verified
+ * address. The row lock prevents a stale address from gaining new authority
+ * while an email replacement is committing.
+ */
 export async function issueEmailCode(
   userId: string,
   targetEmail: string,
@@ -17,12 +23,22 @@ export async function issueEmailCode(
   intro: string,
 ): Promise<void> {
   const code = generateResetCode()
-  await db.$transaction(async (tx) => {
+  const challenge = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`
+    if (purpose !== 'VERIFY_EMAIL') {
+      const account = await tx.user.findUnique({
+        where: { id: userId },
+        select: { email: true, emailVerifiedAt: true },
+      })
+      if (!account?.emailVerifiedAt || normalizeAccountEmail(account.email ?? '') !== targetEmail) {
+        throw new Error('EMAIL_ADDRESS_CHANGED')
+      }
+    }
     await tx.emailAuthChallenge.updateMany({
       where: { userId, purpose, consumedAt: null },
       data: { consumedAt: new Date() },
     })
-    await tx.emailAuthChallenge.create({
+    return tx.emailAuthChallenge.create({
       data: {
         userId,
         purpose,
@@ -30,6 +46,7 @@ export async function issueEmailCode(
         codeHash: hashResetCode(code),
         expiresAt: new Date(Date.now() + EMAIL_CODE_TTL_MS),
       },
+      select: { id: true },
     })
   })
   try {
@@ -40,7 +57,7 @@ export async function issueEmailCode(
     )
   } catch {
     await db.emailAuthChallenge.updateMany({
-      where: { userId, purpose, targetEmail, consumedAt: null },
+      where: { id: challenge.id, userId, consumedAt: null },
       data: { consumedAt: new Date() },
     })
     throw new Error('EMAIL_DELIVERY_FAILED')
