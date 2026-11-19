@@ -21,15 +21,15 @@ describe('Mudaala Gmail delivery', () => {
   })
 
   it('refreshes an OAuth token and sends a base64url Gmail API message', async () => {
-    const calls: Array<{ url: string; init?: RequestInit }> = []
-    globalThis.fetch = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const calls = []
+    globalThis.fetch = mock(async (input, init) => {
       const url = String(input)
       calls.push({ url, init })
       if (url.includes('oauth2.googleapis.com')) {
         return new Response(JSON.stringify({ access_token: 'short-lived-access-token', expires_in: 3600 }), { status: 200 })
       }
       return new Response(JSON.stringify({ id: 'gmail-message-id' }), { status: 200 })
-    }) as typeof fetch
+    })
 
     await sendGmailMessage('buyer@example.com', 'Your Mudaala code', 'Your code is 123456.', env)
 
@@ -38,7 +38,7 @@ describe('Mudaala Gmail delivery', () => {
     expect(calls[1]?.url).toBe('https://gmail.googleapis.com/gmail/v1/users/me/messages/send')
     expect(new Headers(calls[1]?.init?.headers).get('authorization')).toBe('Bearer short-lived-access-token')
 
-    const payload = JSON.parse(String(calls[1]?.init?.body)) as { raw: string }
+    const payload = JSON.parse(String(calls[1]?.init?.body))
     const base64 = payload.raw.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(payload.raw.length / 4) * 4, '=')
     const decoded = new TextDecoder().decode(Uint8Array.from(atob(base64), (character) => character.charCodeAt(0)))
     expect(decoded).toContain('To: buyer@example.com')
@@ -49,14 +49,14 @@ describe('Mudaala Gmail delivery', () => {
   it('reuses a valid cached access token for subsequent messages', async () => {
     let tokenRequests = 0
     let sends = 0
-    globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+    globalThis.fetch = mock(async (input) => {
       if (String(input).includes('oauth2.googleapis.com')) {
         tokenRequests += 1
         return new Response(JSON.stringify({ access_token: 'cached-token', expires_in: 3600 }), { status: 200 })
       }
       sends += 1
       return new Response('{}', { status: 200 })
-    }) as typeof fetch
+    })
 
     await sendGmailMessage('one@example.com', 'First', 'First body', env)
     await sendGmailMessage('two@example.com', 'Second', 'Second body', env)
@@ -65,19 +65,19 @@ describe('Mudaala Gmail delivery', () => {
   })
 
   it('rejects header injection and never attempts a send without credentials', async () => {
-    globalThis.fetch = mock(async () => new Response('{}', { status: 200 })) as typeof fetch
+    globalThis.fetch = mock(async () => new Response('{}', { status: 200 }))
     await expect(sendGmailMessage('person@example.com\r\nBcc: thief@example.com', 'Hi', 'Body', env)).rejects.toThrow()
     await expect(sendGmailMessage('person@example.com', 'Hi', 'Body', {})).rejects.toThrow('not configured')
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 
   it('fails closed when Google refuses delivery', async () => {
-    globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+    globalThis.fetch = mock(async (input) => {
       if (String(input).includes('oauth2.googleapis.com')) {
         return new Response(JSON.stringify({ access_token: 'valid-token', expires_in: 3600 }), { status: 200 })
       }
       return new Response('private provider detail', { status: 403 })
-    }) as typeof fetch
+    })
 
     await expect(sendGmailMessage('person@example.com', 'Hi', 'Body', env)).rejects.toThrow('Gmail message delivery failed')
   })
