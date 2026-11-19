@@ -135,6 +135,11 @@ function SignInForm({ onDone, onForgot }: { onDone: () => void; onForgot: () => 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    if (emailMode) {
+      if (emailCodeSent) await verifyEmailCode()
+      else await requestEmailCode()
+      return
+    }
 
     const parsed = loginSchema.safeParse({ phone, password })
     if (!parsed.success) {
@@ -169,7 +174,8 @@ function SignInForm({ onDone, onForgot }: { onDone: () => void; onForgot: () => 
           placeholder="0772 345 678"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          required
+          required={!emailMode}
+          disabled={emailMode || busy}
         />
         <p className="text-xs text-muted-foreground">Any Ugandan format works: 07…, 2567… or +2567…</p>
       </div>
@@ -183,7 +189,8 @@ function SignInForm({ onDone, onForgot }: { onDone: () => void; onForgot: () => 
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            required
+            required={!emailMode}
+            disabled={emailMode || busy}
           />
           <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword}>
             {showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
@@ -199,18 +206,18 @@ function SignInForm({ onDone, onForgot }: { onDone: () => void; onForgot: () => 
         {busy ? 'Signing in…' : 'Sign in'}
       </Button>
       <div className="rounded-lg border p-3 space-y-2">
-        <button type="button" className="w-full text-sm font-medium underline underline-offset-4" onClick={() => { setEmailMode(value => !value); setError(null) }}>
+        <button type="button" className="w-full text-sm font-medium underline underline-offset-4" disabled={busy} onClick={() => { setEmailMode(value => !value); setError(null) }}>
           {emailMode ? 'Use phone and password instead' : 'Sign in with an email code'}
         </button>
         {emailMode ? <div className="space-y-2">
           <Label htmlFor="signin-email">Verified account email</Label>
-          <Input id="signin-email" type="email" autoComplete="email" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} placeholder="you@example.com" disabled={busy || emailCodeSent} />
+          <Input id="signin-email" type="email" autoComplete="email" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} placeholder="you@example.com" required={emailMode} disabled={!emailMode || busy || emailCodeSent} />
           {emailCodeSent ? <>
             <Label htmlFor="signin-email-code">6-digit code</Label>
             <Input id="signin-email-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={emailCode} onChange={event => setEmailCode(event.target.value.replace(/\D/g, ''))} />
-            <Button type="button" className="w-full" disabled={busy || emailCode.length !== 6} onClick={() => void verifyEmailCode()}>{busy ? 'Signing in…' : 'Verify code and sign in'}</Button>
+            <Button type="submit" className="w-full" disabled={busy || emailCode.length !== 6}>{busy ? 'Signing in…' : 'Verify code and sign in'}</Button>
             <button type="button" className="w-full text-xs underline" disabled={busy} onClick={() => { setEmailCodeSent(false); setEmailCode('') }}>Use a different email</button>
-          </> : <Button type="button" variant="outline" className="w-full" disabled={busy || !emailAddress.trim()} onClick={() => void requestEmailCode()}>{busy ? 'Sending…' : 'Send sign-in code'}</Button>}
+          </> : <Button type="submit" variant="outline" className="w-full" disabled={busy || !emailAddress.trim()}>{busy ? 'Sending…' : 'Send sign-in code'}</Button>}
           <p className="text-xs text-muted-foreground">Only an email already verified in your Mudaala account can be used. Phone/password sign-in remains available.</p>
         </div> : null}
       </div>
@@ -460,7 +467,7 @@ function ForgotPasswordForm({ onDone, onBack }: { onDone: () => void; onBack: ()
       <form onSubmit={requestCode} className="mt-4 space-y-3">
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2"><Label htmlFor={emailMode ? 'forgot-email' : 'forgot-phone'}>{emailMode ? 'Your verified account email' : 'Your phone number'}</Label><button type="button" className="text-xs underline underline-offset-2" onClick={() => { setEmailMode(value => !value); setError(null) }}>{emailMode ? 'Use phone instead' : 'Use verified email'}</button></div>
-          {emailMode ? <Input id="forgot-email" type="email" autoComplete="email" placeholder="you@example.com" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} required /> : <Input id="forgot-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="0772 345 678" value={phone} onChange={event => setPhone(event.target.value)} required />}
+          {emailMode ? <Input id="forgot-email" type="email" autoComplete="email" placeholder="you@example.com" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} required disabled={busy} /> : <Input id="forgot-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="0772 345 678" value={phone} onChange={event => setPhone(event.target.value)} required disabled={busy} />}
           <p className="text-xs text-muted-foreground">{emailMode ? 'We will email a 6-digit code if this address is verified on a Mudaala account.' : 'We will text a 6-digit code if this number has an account.'}</p>
         </div>
         {error ? (
