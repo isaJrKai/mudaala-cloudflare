@@ -49,3 +49,21 @@ Codes are HMAC-hashed, expire after 10 minutes, are limited to five failed attem
 5. Only then enable the updated application in production. Existing phone/password and SMS recovery remain available throughout the transition.
 
 The migration is additive: existing users retain their phone, password, sessions, and shop records. No email is inferred from a public shop contact or Google identity.
+
+## Google OAuth setup notes
+
+Use the Google Cloud project that owns the OAuth client. Enable the Gmail API and configure the OAuth consent screen. The sender account must be an allowed test user while the app is in Testing.
+
+For a one-time owner authorization, the Google OAuth 2.0 Playground can be used with **your own OAuth credentials**:
+1. In the OAuth client configuration, add `https://developers.google.com/oauthplayground` as an authorized redirect URI (only if using the Playground).
+2. In the Playground settings, enable **Use your own OAuth credentials**, select server-side flow and **Offline** access, then enter the OAuth client ID and secret.
+3. Authorize only `https://www.googleapis.com/auth/gmail.send` while signed into `mudaalakatale@gmail.com`.
+4. Exchange the authorization code and place the returned refresh token directly into the Cloudflare Worker secret. Do not paste it into chat, GitHub, source files or logs.
+
+**Important token-lifetime warning:** Google documents that refresh tokens issued while an External OAuth consent screen is in **Testing** expire after 7 days when Gmail scopes are requested. Do not treat a Testing-mode token as a production credential. Before relying on this sender in production, resolve the OAuth app publishing/verification requirements for the sensitive `gmail.send` scope and obtain a refresh token under the intended production consent configuration. Google may also revoke refresh tokens for other security or account-policy reasons, so delivery failures must be monitored.
+
+Official references:
+- https://developers.google.com/identity/protocols/oauth2
+- https://developers.google.com/workspace/gmail/api/auth/scopes
+- https://developers.google.com/oauthplayground
+
