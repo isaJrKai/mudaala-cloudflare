@@ -13,7 +13,7 @@ export function useSession() {
     // Avoid an authentication/database request every time an onboarded user
     // switches back to the tab. Recheck after a short freshness window.
     staleTime: 30_000,
-    refetchOnWindowFocus: 'stale',
+    refetchOnWindowFocus: true,
   })
   return {
     user: query.data?.user ?? null,
