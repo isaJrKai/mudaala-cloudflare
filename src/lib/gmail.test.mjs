@@ -67,6 +67,7 @@ describe('Mudaala Gmail delivery', () => {
   it('rejects header injection and never attempts a send without credentials', async () => {
     globalThis.fetch = mock(async () => new Response('{}', { status: 200 }))
     await expect(sendGmailMessage('person@example.com\r\nBcc: thief@example.com', 'Hi', 'Body', env)).rejects.toThrow()
+    await expect(sendGmailMessage('person@example.com', 'Hi\r\nBcc: thief@example.com', 'Body', env)).rejects.toThrow('subject')
     await expect(sendGmailMessage('person@example.com', 'Hi', 'Body', {})).rejects.toThrow('not configured')
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
