@@ -28,6 +28,14 @@ export function SettingsView() {
   const [googleBusy, setGoogleBusy] = useState(false)
   const [error, setError] = useState('')
   const [settingsSearch, setSettingsSearch] = useState('')
+  const [accountEmail, setAccountEmail] = useState<string | null>(null)
+  const currentAccountEmail = accountEmail ?? user?.email ?? ''
+  const accountEmailVerified = Boolean(user?.emailVerified && currentAccountEmail.trim().toLowerCase() === (user?.email ?? '').trim().toLowerCase())
+  const [accountEmailPassword, setAccountEmailPassword] = useState('')
+  const [emailCode, setEmailCode] = useState('')
+  const [emailStep, setEmailStep] = useState<'address' | 'verify'>('address')
+  const [emailBusy, setEmailBusy] = useState(false)
+  const [emailError, setEmailError] = useState('')
 
   if (isLoading) return <ListingListSkeleton count={3} />
   if (!user) return <EmptyState title="Sign in to manage settings" description="Your account settings are available after you sign in." action={<Button onClick={() => setAuthOpen(true)}>Sign in</Button>} />
@@ -69,6 +77,30 @@ export function SettingsView() {
     }
   }
 
+  async function requestEmailVerification() {
+    setEmailBusy(true); setEmailError('')
+    try {
+      const result = await apiPost<{ ok: boolean; message: string }>('/api/auth/email/request-verification', { email: currentAccountEmail, password: accountEmailPassword })
+      setEmailStep('verify')
+      setAccountEmailPassword('')
+      toast({ title: 'Check your email', description: result.message })
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : 'Could not send a verification code.')
+    } finally { setEmailBusy(false) }
+  }
+
+  async function verifyAccountEmail(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setEmailBusy(true); setEmailError('')
+    try {
+      await apiPost<{ ok: boolean; email: string; emailVerified: boolean }>('/api/auth/email/verify', { email: currentAccountEmail, code: emailCode.trim() })
+      toast({ title: 'Email verified', description: 'Your account email can now be used for sign-in and password recovery.' })
+      await queryClient.invalidateQueries()
+      setEmailStep('address'); setEmailCode('')
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : 'That code could not be verified.')
+    } finally { setEmailBusy(false) }
+  }
+
   async function requestCode() {
     setBusy(true); setError('')
     try {
@@ -106,6 +138,23 @@ export function SettingsView() {
         <Input value={settingsSearch} onChange={(event) => setSettingsSearch(event.target.value)} placeholder="Search settings…" aria-label="Search settings" className="h-11 pl-9" />
       </div>
       <Separator />
+
+      {matches('account email verify recovery sign in security') && <Section icon={<LockKeyhole className="size-4" aria-hidden />} title="Account email" description="Add a private email address for one-time sign-in codes and password recovery. This is separate from your public shop contact email.">
+        <div className="rounded-lg border bg-card p-4 space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="account-email">Private account email</Label>
+            <Input id="account-email" type="email" autoComplete="email" value={currentAccountEmail} onChange={event => setAccountEmail(event.target.value)} placeholder="you@example.com" disabled={emailBusy || emailStep === 'verify'} />
+            <p className="text-xs text-muted-foreground">{accountEmailVerified ? 'Verified. You can use this address for email sign-in and password recovery.' : 'Not verified. Verify it before it can be used for account recovery.'}</p>
+            {emailStep === 'address' ? <div className="space-y-1.5"><Label htmlFor="account-email-password">Confirm your Mudaala password</Label><Input id="account-email-password" type="password" autoComplete="current-password" value={accountEmailPassword} onChange={event => setAccountEmailPassword(event.target.value)} disabled={emailBusy} required /></div> : null}
+          </div>
+          {emailStep === 'address' ? <Button type="button" onClick={() => void requestEmailVerification()} disabled={emailBusy || !currentAccountEmail.trim() || !accountEmailPassword}>{emailBusy ? 'Sending…' : accountEmailVerified ? 'Verify another email' : 'Send verification code'}</Button> : <form onSubmit={verifyAccountEmail} className="space-y-3 border-t pt-3">
+            <p className="text-sm text-muted-foreground">Enter the 6-digit code sent to {currentAccountEmail}. It expires in 10 minutes.</p>
+            <Input aria-label="Email verification code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={emailCode} onChange={event => setEmailCode(event.target.value.replace(/\D/g, ''))} required />
+            <div className="flex flex-wrap gap-2"><Button type="submit" disabled={emailBusy || emailCode.length !== 6}>{emailBusy ? 'Verifying…' : 'Verify email'}</Button><Button type="button" variant="outline" disabled={emailBusy} onClick={() => { setEmailStep('address'); setEmailCode(''); setEmailError('') }}>Change email</Button></div>
+          </form>}
+          {emailError ? <p role="alert" className="text-sm text-destructive">{emailError}</p> : null}
+        </div>
+      </Section>}
 
       {matches('account security password sign in sms phone change reset') && <Section icon={<LockKeyhole className="size-4" aria-hidden />} title="Account & security" description="Change your password using a code sent to your registered phone.">
         <div className="rounded-lg border bg-card p-4">
@@ -174,7 +223,7 @@ export function SettingsView() {
           <SettingsLink icon={<ShieldCheck className="size-4" aria-hidden />} title="Export data or delete account" description="These account-wide actions are managed from your Account page." onClick={() => navigate({ name: 'account' })} />
         </div>
       </Section>}
-      {normalizedSearch && !['account security password sign in sms phone change reset','google identity seller account connect unlink sign in','shop profile business name photos location public contacts','telegram bot merchant assistant connect enquiries messages','notifications alerts saved search device push phone desktop sound reminders likes','language english translation app language','privacy data export delete account policy security'].some(matches) ? <p className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">No settings found for “{settingsSearch}”. Try another word.</p> : null}
+      {normalizedSearch && !['account email verify recovery sign in security','account security password sign in sms phone change reset','google identity seller account connect unlink sign in','shop profile business name photos location public contacts','telegram bot merchant assistant connect enquiries messages','notifications alerts saved search device push phone desktop sound reminders likes','language english translation app language','privacy data export delete account policy security'].some(matches) ? <p className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">No settings found for “{settingsSearch}”. Try another word.</p> : null}
     </div>
   )
 }
