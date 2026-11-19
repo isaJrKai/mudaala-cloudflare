@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { ApiError, route, requireUser } from '@/lib/api'
 import { createSession, getCurrentSessionToken, getSessionUser, setSessionCookie } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { parseGoogleRedirectUri, sha256Hex, verifyGoogleIdToken } from '@/lib/google-oidc'
+import { parseGoogleRedirectUri, secureRandomToken, sha256Hex, verifyGoogleIdToken } from '@/lib/google-oidc'
 
 function returnToApp(result: 'linked' | 'signed-in' | 'complete' | 'error', reason?: string) {
   // Never derive a redirect destination from the incoming Host header. A forged
