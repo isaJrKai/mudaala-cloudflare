@@ -163,8 +163,10 @@ export async function GET(request: Request) {
         // the same phone/password/terms required by ordinary registration.
         // No existing account is ever selected or merged by email address.
         const signupToken = secureRandomToken()
-        const remainingSeconds = Math.floor((stateRecord.expiresAt.getTime() - Date.now()) / 1000)
-        if (remainingSeconds < 1) throw new ApiError(400, 'Your Google sign-up session expired. Start again')
+        // OAuth state has already been consumed, so give the user a fresh,
+        // bounded completion window rather than making the form inherit the
+        // original five-minute OAuth redirect timeout.
+        const signupExpiresAt = new Date(Date.now() + 15 * 60 * 1000)
         const prepared = await db.googleOAuthState.updateMany({
           where: {
             id: stateRecord.id,
@@ -180,6 +182,7 @@ export async function GET(request: Request) {
             providerSub: identity.sub,
             googleEmail: identity.email,
             googleEmailVerified: identity.emailVerified,
+            expiresAt: signupExpiresAt,
           },
         })
         if (prepared.count !== 1) throw new ApiError(409, 'This Google sign-up attempt has already been used')
@@ -188,7 +191,7 @@ export async function GET(request: Request) {
           secure: redirect.protocol === 'https:',
           sameSite: 'lax',
           path: '/api/auth/google/complete',
-          maxAge: remainingSeconds,
+          maxAge: 15 * 60,
         })
         return returnToApp('complete')
       }
