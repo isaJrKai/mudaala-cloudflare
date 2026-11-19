@@ -2401,6 +2401,58 @@ async function main() {
       Boolean(termsUser?.termsAcceptedAt) && termsUser?.termsVersion === TERMS_VERSION,
     )
 
+    // ---- 15c2. First-time Google-assisted signup preserves account safeguards ----
+    const googleSignupToken = createHash('sha256').update(randomUUID() + randomUUID()).digest('hex')
+    const googleSignupSub = `google-test-${randomUUID()}`
+    const googleSignupState = await db.googleOAuthState.create({
+      data: {
+        userId: null,
+        purpose: 'LOGIN',
+        stateHash: createHash('sha256').update(randomUUID()).digest('hex'),
+        nonceHash: createHash('sha256').update(randomUUID()).digest('hex'),
+        signupTokenHash: createHash('sha256').update(googleSignupToken).digest('hex'),
+        providerSub: googleSignupSub,
+        googleEmail: `google-${randomUUID()}@example.com`,
+        googleEmailVerified: true,
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        usedAt: new Date(),
+      },
+    })
+    const googleSignupJar: Jar = { cookie: `mudaala_google_signup=${googleSignupToken}` }
+    const googleOrigin = { origin: BASE }
+    const googleNoTerms = await call('POST', '/api/auth/google/complete', {
+      name: 'Google Signup', phone: uniquePhone(), country: 'UG', password: 'quiet-harbor-31',
+    }, googleSignupJar, googleOrigin)
+    ok('15.15a Google-assisted signup refuses missing 18+/Terms consent', googleNoTerms.status === 400 && googleNoTerms.json?.error?.includes('18'))
+    const googleDuplicatePhone = await call('POST', '/api/auth/google/complete', {
+      name: 'Google Signup', phone: termsPhone, country: 'UG', password: 'quiet-harbor-31', acceptTerms: true,
+    }, googleSignupJar, googleOrigin)
+    ok('15.15b Google-assisted signup never merges an existing phone account', googleDuplicatePhone.status === 409 && googleDuplicatePhone.json?.error?.includes('already exists'))
+    const googleSignupPhone = uniquePhone()
+    const googleComplete = await call('POST', '/api/auth/google/complete', {
+      name: 'Google Signup', phone: googleSignupPhone, country: 'UG', password: 'quiet-harbor-31', acceptTerms: true,
+    }, googleSignupJar, googleOrigin)
+    if (googleComplete.json?.user?.id) createdUserIds.add(googleComplete.json.user.id)
+    ok('15.15c valid Google-assisted signup creates a Mudaala account (201)', googleComplete.status === 201 && Boolean(googleComplete.json?.user?.id))
+    const [googleCreatedUser, googleCreatedIdentity, googleCreatedSession] = googleComplete.json?.user?.id
+      ? await Promise.all([
+          db.user.findUnique({ where: { id: googleComplete.json.user.id } }),
+          db.googleIdentity.findUnique({ where: { provider_providerSub: { provider: 'google', providerSub: googleSignupSub } } }),
+          db.session.findFirst({ where: { userId: googleComplete.json.user.id, authMethod: 'GOOGLE' } }),
+        ])
+      : [null, null, null]
+    ok('15.15d Google signup stores the verified Google subject and a Google session', Boolean(googleCreatedIdentity?.emailVerified) && googleCreatedIdentity?.userId === googleCreatedUser?.id && Boolean(googleCreatedSession))
+    ok('15.15e Google signup records the same required legal acceptance', Boolean(googleCreatedUser?.termsAcceptedAt) && googleCreatedUser?.termsVersion === TERMS_VERSION)
+    const googlePasswordLogin = await call('POST', '/api/auth/login', {
+      phone: googleSignupPhone, password: 'quiet-harbor-31',
+    })
+    ok('15.15f Google-assisted accounts can also sign in with their chosen phone and password', googlePasswordLogin.status === 200)
+    const googleReplay = await call('POST', '/api/auth/google/complete', {
+      name: 'Google Signup', phone: uniquePhone(), country: 'UG', password: 'quiet-harbor-32', acceptTerms: true,
+    }, { cookie: `mudaala_google_signup=${googleSignupToken}` }, googleOrigin)
+    ok('15.15g Google signup capability cannot be replayed', googleReplay.status === 400)
+    await db.googleOAuthState.delete({ where: { id: googleSignupState.id } }).catch(() => undefined)
+
     // ---- 15d. Login flood: 20 attempts per IP per 15 min ----
     const ipFixed = `203.0.115.${(RUN_SALT % 200) + 7}`
     let lastLogin = { status: 0 }
