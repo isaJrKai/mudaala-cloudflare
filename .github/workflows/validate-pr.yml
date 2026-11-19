@@ -87,6 +87,36 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Validate additive Google signup migration on isolated PostgreSQL
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DROP TABLE IF EXISTS public."GoogleOAuthState" CASCADE;
+          CREATE TABLE public."GoogleOAuthState" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "userId" TEXT,
+            "purpose" TEXT NOT NULL DEFAULT 'LINK',
+            "stateHash" TEXT NOT NULL,
+            "nonceHash" TEXT NOT NULL,
+            "expiresAt" TIMESTAMP(3) NOT NULL,
+            "usedAt" TIMESTAMP(3),
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
+          CREATE UNIQUE INDEX "GoogleOAuthState_stateHash_key" ON public."GoogleOAuthState"("stateHash");
+          CREATE INDEX "GoogleOAuthState_userId_expiresAt_idx" ON public."GoogleOAuthState"("userId", "expiresAt");
+          CREATE INDEX "GoogleOAuthState_purpose_expiresAt_idx" ON public."GoogleOAuthState"("purpose", "expiresAt");
+          SQL
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261120100000_google_assisted_signup/migration.sql
+          google_signup_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='GoogleOAuthState' AND column_name IN ('signupTokenHash','providerSub','googleEmail','googleEmailVerified','signupCompletedAt')")
+          google_signup_index=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='GoogleOAuthState' AND indexname='GoogleOAuthState_signupTokenHash_key'")
+          if [ "$google_signup_columns" != "5" ] || [ "$google_signup_index" != "1" ]; then
+            echo "Google-assisted signup migration failed: columns=$google_signup_columns token_index=$google_signup_index"
+            exit 1
+          fi
+          echo "Google-assisted signup migration passed: five columns and the one-use token unique index are present."
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
       - name: Build Cloudflare Worker bundle without production credentials
         run: npx @opennextjs/cloudflare build
         env:
