@@ -740,6 +740,12 @@ model GoogleOAuthState {
   nonceHash String
   expiresAt DateTime
   usedAt    DateTime?
+  // Short-lived, browser-bound capability for completing a first-time Google-assisted signup.
+  signupTokenHash     String?  @unique
+  providerSub         String?
+  googleEmail         String?
+  googleEmailVerified Boolean  @default(false)
+  signupCompletedAt   DateTime?
   createdAt DateTime @default(now())
 
   @@index([userId, expiresAt])
