@@ -43,7 +43,7 @@ describe('Mudaala Gmail delivery', () => {
     const decoded = new TextDecoder().decode(Uint8Array.from(atob(base64), (character) => character.charCodeAt(0)))
     expect(decoded).toContain('To: buyer@example.com')
     expect(decoded).toContain('Subject: =?UTF-8?B?WW91ciBNdWRhYWxhIGNvZGU=?=')
-    const encodedBody = decoded.split('\\r\\n\\r\\n')[1]?.trim()
+    const encodedBody = decoded.split(/\\r?\\n\\r?\\n/)[1]?.trim()
     expect(encodedBody).toBeDefined()
     const body = new TextDecoder().decode(Uint8Array.from(atob(encodedBody ?? ''), (character) => character.charCodeAt(0)))
     expect(body).toBe('Your code is 123456.')
