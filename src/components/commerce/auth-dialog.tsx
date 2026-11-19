@@ -466,7 +466,7 @@ function ForgotPasswordForm({ onDone, onBack }: { onDone: () => void; onBack: ()
     return (
       <form onSubmit={requestCode} className="mt-4 space-y-3">
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-2"><Label htmlFor={emailMode ? 'forgot-email' : 'forgot-phone'}>{emailMode ? 'Your verified account email' : 'Your phone number'}</Label><button type="button" className="text-xs underline underline-offset-2" onClick={() => { setEmailMode(value => !value); setError(null) }}>{emailMode ? 'Use phone instead' : 'Use verified email'}</button></div>
+          <div className="flex items-center justify-between gap-2"><Label htmlFor={emailMode ? 'forgot-email' : 'forgot-phone'}>{emailMode ? 'Your verified account email' : 'Your phone number'}</Label><button type="button" className="text-xs underline underline-offset-2" disabled={busy} onClick={() => { setEmailMode(value => !value); setError(null) }}>{emailMode ? 'Use phone instead' : 'Use verified email'}</button></div>
           {emailMode ? <Input id="forgot-email" type="email" autoComplete="email" placeholder="you@example.com" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} required disabled={busy} /> : <Input id="forgot-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="0772 345 678" value={phone} onChange={event => setPhone(event.target.value)} required disabled={busy} />}
           <p className="text-xs text-muted-foreground">{emailMode ? 'We will email a 6-digit code if this address is verified on a Mudaala account.' : 'We will text a 6-digit code if this number has an account.'}</p>
         </div>
