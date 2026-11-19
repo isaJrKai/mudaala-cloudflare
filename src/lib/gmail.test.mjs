@@ -42,8 +42,11 @@ describe('Mudaala Gmail delivery', () => {
     const base64 = payload.raw.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(payload.raw.length / 4) * 4, '=')
     const decoded = new TextDecoder().decode(Uint8Array.from(atob(base64), (character) => character.charCodeAt(0)))
     expect(decoded).toContain('To: buyer@example.com')
-    expect(decoded).toContain('Your Mudaala code')
-    expect(decoded).toContain('Your code is 123456.')
+    expect(decoded).toContain('Subject: =?UTF-8?B?WW91ciBNdWRhYWxhIGNvZGU=?=')
+    const encodedBody = decoded.split('\\r\\n\\r\\n')[1]?.trim()
+    expect(encodedBody).toBeDefined()
+    const body = new TextDecoder().decode(Uint8Array.from(atob(encodedBody ?? ''), (character) => character.charCodeAt(0)))
+    expect(body).toBe('Your code is 123456.')
   })
 
   it('reuses a valid cached access token for subsequent messages', async () => {
