@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     const ipBudget = await hit(`email-verify:ip:${ip}`, 10, RESET_WINDOW_MS)
     const userBudget = await hit(`email-verify:user:${user.id}`, 3, RESET_WINDOW_MS)
     if (!ipBudget.ok || !userBudget.ok) return jsonError(429, 'Too many verification requests. Please wait before trying again.')
-    if (!verifyPassword(data.password, user.passwordHash)) return jsonError(401, 'Confirm your Mudaala password before changing account email.')
+    if (!verifyPassword(data.password, user.passwordHash)) return jsonError(403, 'Confirm your Mudaala password before changing account email.')
     const email = normalizeAccountEmail(data.email)
     const owner = await db.user.findUnique({ where: { email }, select: { id: true } })
     if (owner && owner.id !== user.id) return jsonError(409, 'That email address is already linked to another Mudaala account.')
