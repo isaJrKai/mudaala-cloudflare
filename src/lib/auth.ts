@@ -114,6 +114,8 @@ interface PublicUser {
   id: string
   name: string
   phone: string
+  email: string | null
+  emailVerified: boolean
   country: string
   createdAt: string
 }
@@ -123,6 +125,8 @@ export function toPublicUser(user: User): PublicUser {
     id: user.id,
     name: user.name,
     phone: user.phone,
+    email: user.email,
+    emailVerified: Boolean(user.emailVerifiedAt),
     country: user.country,
     createdAt: user.createdAt.toISOString(),
   }

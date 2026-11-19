@@ -91,6 +91,34 @@ function SignInForm({ onDone, onForgot }: { onDone: () => void; onForgot: () => 
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [emailMode, setEmailMode] = useState(false)
+  const [emailAddress, setEmailAddress] = useState('')
+  const [emailCode, setEmailCode] = useState('')
+  const [emailCodeSent, setEmailCodeSent] = useState(false)
+
+  async function requestEmailCode() {
+    setError(null); setBusy(true)
+    try {
+      await apiPost<{ ok: boolean; message: string }>('/api/auth/email-login/request', { email: emailAddress })
+      setEmailCodeSent(true)
+      toast({ title: 'Check your inbox', description: 'If that email is verified on a Mudaala account, a sign-in code is on its way.' })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not request an email code.')
+    } finally { setBusy(false) }
+  }
+
+  async function verifyEmailCode() {
+    setError(null); setBusy(true)
+    try {
+      const res = await apiPost<{ user: SessionUser; sessionToken?: string }>('/api/auth/email-login/verify', { email: emailAddress, code: emailCode })
+      if (res.sessionToken) storeSessionToken(res.sessionToken)
+      await queryClient.invalidateQueries()
+      toast({ title: `Signed in as ${res.user.name}` })
+      onDone()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That code could not sign you in.')
+    } finally { setBusy(false) }
+  }
 
   async function startGoogleSignIn() {
     setError(null)
@@ -170,6 +198,22 @@ function SignInForm({ onDone, onForgot }: { onDone: () => void; onForgot: () => 
       <Button type="submit" className="w-full" disabled={busy}>
         {busy ? 'Signing in…' : 'Sign in'}
       </Button>
+      <div className="rounded-lg border p-3 space-y-2">
+        <button type="button" className="w-full text-sm font-medium underline underline-offset-4" onClick={() => { setEmailMode(value => !value); setError(null) }}>
+          {emailMode ? 'Use phone and password instead' : 'Sign in with an email code'}
+        </button>
+        {emailMode ? <div className="space-y-2">
+          <Label htmlFor="signin-email">Verified account email</Label>
+          <Input id="signin-email" type="email" autoComplete="email" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} placeholder="you@example.com" disabled={busy || emailCodeSent} />
+          {emailCodeSent ? <>
+            <Label htmlFor="signin-email-code">6-digit code</Label>
+            <Input id="signin-email-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={emailCode} onChange={event => setEmailCode(event.target.value.replace(/\D/g, ''))} />
+            <Button type="button" className="w-full" disabled={busy || emailCode.length !== 6} onClick={() => void verifyEmailCode()}>{busy ? 'Signing in…' : 'Verify code and sign in'}</Button>
+            <button type="button" className="w-full text-xs underline" disabled={busy} onClick={() => { setEmailCodeSent(false); setEmailCode('') }}>Use a different email</button>
+          </> : <Button type="button" variant="outline" className="w-full" disabled={busy || !emailAddress.trim()} onClick={() => void requestEmailCode()}>{busy ? 'Sending…' : 'Send sign-in code'}</Button>}
+          <p className="text-xs text-muted-foreground">Only an email already verified in your Mudaala account can be used. Phone/password sign-in remains available.</p>
+        </div> : null}
+      </div>
       <div className="relative py-1">
         <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
         <div className="relative flex justify-center"><span className="bg-background px-2 text-xs text-muted-foreground">or</span></div>
@@ -361,6 +405,8 @@ function ForgotPasswordForm({ onDone, onBack }: { onDone: () => void; onBack: ()
   const { toast } = useToast()
   const [step, setStep] = useState<'phone' | 'code'>('phone')
   const [phone, setPhone] = useState('')
+  const [emailAddress, setEmailAddress] = useState('')
+  const [emailMode, setEmailMode] = useState(false)
   const [code, setCode] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -370,15 +416,19 @@ function ForgotPasswordForm({ onDone, onBack }: { onDone: () => void; onBack: ()
   async function requestCode(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    if (!phone.trim()) {
-      setError('Enter your phone number first')
+    if (emailMode ? !emailAddress.trim() : !phone.trim()) {
+      setError(emailMode ? 'Enter your account email first' : 'Enter your phone number first')
       return
     }
 
     setBusy(true)
     try {
-      await apiPost<{ ok: boolean; message: string }>('/api/auth/forgot-password', { phone })
-      // Same message either way - relay it as-is and move on to the code.
+      if (emailMode) {
+        await apiPost<{ ok: boolean; message: string }>('/api/auth/email-reset/request', { email: emailAddress })
+      } else {
+        await apiPost<{ ok: boolean; message: string }>('/api/auth/forgot-password', { phone })
+      }
+      // Both channels use anti-enumeration responses.
       setStep('code')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not send the code. Please try again.')
@@ -393,11 +443,9 @@ function ForgotPasswordForm({ onDone, onBack }: { onDone: () => void; onBack: ()
 
     setBusy(true)
     try {
-      const res = await apiPost<{ ok: boolean; message: string }>('/api/auth/reset-password', {
-        phone,
-        code,
-        newPassword,
-      })
+      const res = emailMode
+        ? await apiPost<{ ok: boolean; message: string }>('/api/auth/email-reset/verify', { email: emailAddress, code, newPassword })
+        : await apiPost<{ ok: boolean; message: string }>('/api/auth/reset-password', { phone, code, newPassword })
       toast({ title: res.message || 'Password updated' })
       onDone()
     } catch (err) {
@@ -411,20 +459,9 @@ function ForgotPasswordForm({ onDone, onBack }: { onDone: () => void; onBack: ()
     return (
       <form onSubmit={requestCode} className="mt-4 space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor="forgot-phone">Your phone number</Label>
-          <Input
-            id="forgot-phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="0772 345 678"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            required
-          />
-          <p className="text-xs text-muted-foreground">
-            We will text you a 6-digit code if this number has an account.
-          </p>
+          <div className="flex items-center justify-between gap-2"><Label htmlFor={emailMode ? 'forgot-email' : 'forgot-phone'}>{emailMode ? 'Your verified account email' : 'Your phone number'}</Label><button type="button" className="text-xs underline underline-offset-2" onClick={() => { setEmailMode(value => !value); setError(null) }}>{emailMode ? 'Use phone instead' : 'Use verified email'}</button></div>
+          {emailMode ? <Input id="forgot-email" type="email" autoComplete="email" placeholder="you@example.com" value={emailAddress} onChange={event => setEmailAddress(event.target.value)} required /> : <Input id="forgot-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="0772 345 678" value={phone} onChange={event => setPhone(event.target.value)} required />}
+          <p className="text-xs text-muted-foreground">{emailMode ? 'We will email a 6-digit code if this address is verified on a Mudaala account.' : 'We will text a 6-digit code if this number has an account.'}</p>
         </div>
         {error ? (
           <p role="alert" className="text-sm text-destructive">
@@ -446,10 +483,10 @@ function ForgotPasswordForm({ onDone, onBack }: { onDone: () => void; onBack: ()
   return (
     <form onSubmit={submitReset} className="mt-4 space-y-3">
       <p className="text-sm text-muted-foreground">
-        Enter the 6-digit code we sent to your phone, then choose a new password.
+        Enter the 6-digit code we sent to your {emailMode ? 'email' : 'phone'}, then choose a new password.
       </p>
       <div className="space-y-1.5">
-        <Label htmlFor="forgot-code">Code from the SMS</Label>
+        <Label htmlFor="forgot-code">Code from the {emailMode ? 'email' : 'SMS'}</Label>
         <Input
           id="forgot-code"
           inputMode="numeric"

@@ -204,6 +204,8 @@ export interface SessionUser {
   id: string
   name: string
   phone: string
+  email?: string | null
+  emailVerified?: boolean
   country: string
   createdAt: string
   /** Server-derived from the admin phone allowlist; never user-editable. */

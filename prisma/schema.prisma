@@ -20,6 +20,8 @@ datasource db {
 model User {
   id           String           @id @default(cuid())
   phone        String           @unique // normalized E.164: +2567XXXXXXXX (Uganda)
+  email        String?          @unique // private account/recovery email; never the public shop contact
+  emailVerifiedAt DateTime?
   name         String
   country      String           @default("UG") // UG (Uganda is the launch market)
   passwordHash String
@@ -68,6 +70,7 @@ model User {
   policyViolations PolicyViolation[]
   profile        BusinessProfile?
   passwordResets PasswordReset[]
+  emailAuthChallenges EmailAuthChallenge[]
   followingShops ShopFollow[] @relation("Follower")
   shopFollowers ShopFollow[] @relation("ShopOwner")
   categoryInterests CategoryInterest[]
@@ -896,4 +899,23 @@ model ShopShowroom {
 
   @@index([userId, status, updatedAt])
   @@index([status, publishedAt])
+}
+
+
+// Purpose-scoped, one-use email challenges. Codes are HMAC/SHA hashes only;
+// the email address is stored on User and must be verified before recovery/login.
+model EmailAuthChallenge {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose     String   // VERIFY_EMAIL | PASSWORD_RESET | PASSWORDLESS_LOGIN
+  targetEmail String   // destination snapshot; never accepted as proof until challenge succeeds
+  codeHash    String
+  expiresAt   DateTime
+  attempts    Int      @default(0)
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, purpose, consumedAt, expiresAt])
+  @@index([expiresAt])
 }

@@ -7,11 +7,7 @@ import { clear, hit, RESET_WINDOW_MS } from '@/lib/rate-limit'
 import { getClientIp } from '@/lib/client-ip'
 import { normalizeAccountEmail, emailCodeMatches, EMAIL_CODE_MAX_ATTEMPTS } from '@/lib/email-auth'
 
-const schema = z.object({
-  email: z.string().trim().email().max(254),
-  code: z.string().trim().regex(/^\\d{6}$/),
-  newPassword: z.string().min(8).max(100),
-})
+const schema = z.object({ email: z.string().trim().email().max(254), code: z.string().trim().regex(/^\d{6}$/), newPassword: z.string().min(8).max(100) })
 const FAIL = 'That code did not work or has expired. Request a new code and try again.'
 
 export async function POST(request: Request) {
