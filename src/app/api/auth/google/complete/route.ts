@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers'
+import type { User } from '@prisma/client'
 import { ApiError, jsonOk, parseBody, route } from '@/lib/api'
 import { db } from '@/lib/db'
 import { hashPassword, setSessionCookie, toPublicUser } from '@/lib/auth'
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
 
     const sessionToken = secureRandomToken()
     const expiresAt = new Date(now.getTime() + SIGNUP_SESSION_MS)
-    let createdUser
+    let createdUser: User
     try {
       createdUser = await db.$transaction(async (tx) => {
         const consumed = await tx.googleOAuthState.updateMany({
