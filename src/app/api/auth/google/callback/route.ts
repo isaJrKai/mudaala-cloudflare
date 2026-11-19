@@ -3,9 +3,9 @@ import { NextResponse } from 'next/server'
 import { ApiError, route, requireUser } from '@/lib/api'
 import { createSession, getCurrentSessionToken, getSessionUser, setSessionCookie } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { parseGoogleRedirectUri, sha256Hex, verifyGoogleIdToken } from '@/lib/google-oidc'
+import { parseGoogleRedirectUri, secureRandomToken, sha256Hex, verifyGoogleIdToken } from '@/lib/google-oidc'
 
-function returnToApp(result: 'linked' | 'signed-in' | 'error', reason?: string) {
+function returnToApp(result: 'linked' | 'signed-in' | 'complete' | 'error', reason?: string) {
   // Never derive a redirect destination from the incoming Host header. A forged
   // Host can otherwise turn an OAuth callback into an open redirect.
   // The configured redirect URI is deployment configuration, not request
@@ -14,7 +14,10 @@ function returnToApp(result: 'linked' | 'signed-in' | 'error', reason?: string) 
   const configuredRedirect = process.env.GOOGLE_REDIRECT_URI?.trim()
   const configured = configuredRedirect ? parseGoogleRedirectUri(configuredRedirect) : null
   const appOrigin = configured?.origin ?? 'https://mudaala.store'
-  const destination = new URL(result === 'error' ? '/auth/google/error' : '/', appOrigin)
+  const destination = new URL(
+    result === 'error' ? '/auth/google/error' : result === 'complete' ? '/auth/google/complete' : '/',
+    appOrigin,
+  )
   if (reason) destination.searchParams.set('reason', reason)
   return NextResponse.redirect(destination, 303)
 }
@@ -44,7 +47,10 @@ export async function GET(request: Request) {
 
     const stateRecord = await db.googleOAuthState.findUnique({
       where: { stateHash: await sha256Hex(state) },
-      select: { id: true, userId: true, purpose: true, stateHash: true, nonceHash: true, expiresAt: true, usedAt: true },
+      select: {
+        id: true, userId: true, purpose: true, stateHash: true, nonceHash: true,
+        expiresAt: true, usedAt: true, signupTokenHash: true, signupCompletedAt: true,
+      },
     })
     const now = new Date()
     if (!stateRecord || stateRecord.usedAt || stateRecord.expiresAt <= now) {
@@ -151,7 +157,44 @@ export async function GET(request: Request) {
         where: { provider_providerSub: { provider: 'google', providerSub: identity.sub } },
         include: { user: true },
       })
-      if (!linkedIdentity) return returnToApp('error', 'not-linked')
+      if (!linkedIdentity) {
+        // First-time Google users get a short-lived completion step. The Google
+        // subject and verified email are retained only until the user supplies
+        // the same phone/password/terms required by ordinary registration.
+        // No existing account is ever selected or merged by email address.
+        const signupToken = secureRandomToken()
+        // OAuth state has already been consumed, so give the user a fresh,
+        // bounded completion window rather than making the form inherit the
+        // original five-minute OAuth redirect timeout.
+        const signupExpiresAt = new Date(Date.now() + 15 * 60 * 1000)
+        const prepared = await db.googleOAuthState.updateMany({
+          where: {
+            id: stateRecord.id,
+            userId: null,
+            purpose: 'LOGIN',
+            usedAt: { not: null },
+            signupTokenHash: null,
+            signupCompletedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          data: {
+            signupTokenHash: await sha256Hex(signupToken),
+            providerSub: identity.sub,
+            googleEmail: identity.email,
+            googleEmailVerified: identity.emailVerified,
+            expiresAt: signupExpiresAt,
+          },
+        })
+        if (prepared.count !== 1) throw new ApiError(409, 'This Google sign-up attempt has already been used')
+        cookieStore.set('mudaala_google_signup', signupToken, {
+          httpOnly: true,
+          secure: redirect.protocol === 'https:',
+          sameSite: 'lax',
+          path: '/api/auth/google/complete',
+          maxAge: 15 * 60,
+        })
+        return returnToApp('complete')
+      }
       if (linkedIdentity.user.suspendedAt) return returnToApp('error', 'account-restricted')
 
       // Create the Mudaala session only for the exact immutable Google subject

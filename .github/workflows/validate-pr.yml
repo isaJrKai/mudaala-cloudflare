@@ -87,6 +87,36 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Validate additive Google signup migration on isolated PostgreSQL
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DROP TABLE IF EXISTS public."GoogleOAuthState" CASCADE;
+          CREATE TABLE public."GoogleOAuthState" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "userId" TEXT,
+            "purpose" TEXT NOT NULL DEFAULT 'LINK',
+            "stateHash" TEXT NOT NULL,
+            "nonceHash" TEXT NOT NULL,
+            "expiresAt" TIMESTAMP(3) NOT NULL,
+            "usedAt" TIMESTAMP(3),
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+          );
+          CREATE UNIQUE INDEX "GoogleOAuthState_stateHash_key" ON public."GoogleOAuthState"("stateHash");
+          CREATE INDEX "GoogleOAuthState_userId_expiresAt_idx" ON public."GoogleOAuthState"("userId", "expiresAt");
+          CREATE INDEX "GoogleOAuthState_purpose_expiresAt_idx" ON public."GoogleOAuthState"("purpose", "expiresAt");
+          SQL
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261120100000_google_assisted_signup/migration.sql
+          google_signup_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='GoogleOAuthState' AND column_name IN ('signupTokenHash','providerSub','googleEmail','googleEmailVerified','signupCompletedAt')")
+          google_signup_index=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='GoogleOAuthState' AND indexname='GoogleOAuthState_signupTokenHash_key'")
+          if [ "$google_signup_columns" != "5" ] || [ "$google_signup_index" != "1" ]; then
+            echo "Google-assisted signup migration failed: columns=$google_signup_columns token_index=$google_signup_index"
+            exit 1
+          fi
+          echo "Google-assisted signup migration passed: five columns and the one-use token unique index are present."
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
       - name: Build Cloudflare Worker bundle without production credentials
         run: npx @opennextjs/cloudflare build
         env:
@@ -339,6 +369,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261113120000_google_identity_linking_foundation/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261113123000_grandfather_existing_merchants_google_link/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261113150000_google_oauth_login_purpose/migration.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261120100000_google_assisted_signup/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261113170000_google_link_phone_verification/migration.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261113180000_session_auth_method/migration.sql
           phone_proof_consumed_column=$(psql "$DATABASE_URL" -Atc "SELECT is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='PhoneVerificationChallenge' AND column_name='proofConsumedAt'")
@@ -357,6 +388,12 @@ jobs:
           google_state_purpose_index=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='GoogleOAuthState' AND indexname='GoogleOAuthState_purpose_expiresAt_idx'")
           if [ "$google_state_user_nullable" != "YES" ] || [ "$google_state_purpose_default" != "'LINK'::text" ] || [ "$google_state_purpose_index" != "1" ]; then
             echo "Google login-state migration checks failed: user_nullable=$google_state_user_nullable purpose_default=$google_state_purpose_default purpose_index=$google_state_purpose_index"
+            exit 1
+          fi
+          google_signup_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='GoogleOAuthState' AND column_name IN ('signupTokenHash','providerSub','googleEmail','googleEmailVerified','signupCompletedAt')")
+          google_signup_index=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='GoogleOAuthState' AND indexname='GoogleOAuthState_signupTokenHash_key'")
+          if [ "$google_signup_columns" != "5" ] || [ "$google_signup_index" != "1" ]; then
+            echo "Google-assisted signup migration checks failed: columns=$google_signup_columns token_index=$google_signup_index"
             exit 1
           fi
           legacy_exempt=$(psql "$DATABASE_URL" -Atc "SELECT \"sellerGoogleExempt\" FROM public.\"User\" WHERE id='google-migration-existing'")

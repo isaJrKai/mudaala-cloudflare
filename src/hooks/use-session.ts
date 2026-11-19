@@ -10,9 +10,10 @@ export function useSession() {
   const query = useQuery({
     queryKey: ['session'],
     queryFn: () => apiGet<{ user: SessionUser | null }>('/api/auth/me'),
-    // Admin access is deployment-configured; don't keep a pre-deployment role flag cached.
-    staleTime: 0,
-    refetchOnWindowFocus: 'always',
+    // Avoid an authentication/database request every time an onboarded user
+    // switches back to the tab. Recheck after a short freshness window.
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   })
   return {
     user: query.data?.user ?? null,

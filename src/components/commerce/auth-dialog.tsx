@@ -178,7 +178,7 @@ function SignInForm({ onDone, onForgot }: { onDone: () => void; onForgot: () => 
         Continue with Google
       </Button>
       <p className="text-center text-xs text-muted-foreground">
-        For Mudaala accounts that have already linked Google in Settings.
+        New users can start with Google too. Existing accounts must still be linked from Settings.
       </p>
       <p className="text-center">
         <button
@@ -213,6 +213,18 @@ function RegisterForm({ onDone, onSwitch }: { onDone: () => void; onSwitch: () =
   const [busy, setBusy] = useState(false)
 
   const country: CountryDef = countryDef(countryKey)
+
+  async function startGoogleSignup() {
+    setErrors({})
+    setBusy(true)
+    try {
+      const res = await apiPost<{ authorizationUrl: string }>('/api/auth/google/login/start', {})
+      window.location.assign(res.authorizationUrl)
+    } catch (err) {
+      setErrors({ _: err instanceof Error ? err.message : 'Google sign-up is unavailable. Please try again.' })
+      setBusy(false)
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -342,6 +354,14 @@ function RegisterForm({ onDone, onSwitch }: { onDone: () => void; onSwitch: () =
       <Button type="submit" className="w-full" disabled={busy}>
         {busy ? 'Creating account…' : 'Create account'}
       </Button>
+      <div className="relative py-1">
+        <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+        <div className="relative flex justify-center"><span className="bg-background px-2 text-xs text-muted-foreground">or</span></div>
+      </div>
+      <Button type="button" variant="outline" className="w-full" disabled={busy} onClick={startGoogleSignup}>
+        Continue with Google
+      </Button>
+      <p className="text-center text-xs text-muted-foreground">Google confirms your email; you will still choose your phone number and password.</p>
       <p className="text-center text-xs text-muted-foreground">
         Already registered?{' '}
         <button type="button" onClick={onSwitch} className="underline underline-offset-2">
