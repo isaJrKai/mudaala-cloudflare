@@ -157,7 +157,7 @@ The Google OAuth client must allow the production origin `https://mudaala.store`
 
 - The migration has been committed but **has not been applied** to any database.
 - Prisma Client has been generated and the schema/build/typecheck/lint, OIDC unit tests, migration checks, API regression suite, browser journeys, mobile overflow check, and blocking production dependency audit passed on commit `0c0082c`. A follow-up hardening commit now adds verified-email enforcement and canonical-origin redirects; its full CI run is pending.
-- Google OAuth credentials and Cloudflare Worker secrets are not configured or verified.
+- Google OAuth client configuration is present in the production Worker, but a successful live end-to-end first-time registration has not yet been verified.
 - New sellers may begin by selecting Continue with Google. Google first verifies the external identity, then the user must supply a real unique Mudaala phone number, choose a password, and accept the 18+/Terms requirements before the account is created. Existing phone/password accounts are never merged by email: their owner must sign in first and explicitly link Google in Settings. This is Google-assisted phone/password registration, not Google-only account creation.
 - Google sign-in can recover access for an already-linked account without the Mudaala password. Existing phone/password sign-in and SMS password reset remain available. A linked Google identity can be unlinked only after a fresh password-created session and a new SMS challenge to the current registered phone.
 - Account deletion reauthentication has not yet been updated for Google-only identities.
