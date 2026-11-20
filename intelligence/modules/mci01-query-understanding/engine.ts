@@ -18,7 +18,7 @@ import {
   lookupConcept,
 } from './concepts'
 
-export const MCI01_ENGINE_VERSION = 'mci01-query-understanding-v0.1.0'
+export const MCI01_ENGINE_VERSION = 'mci01-query-understanding-v0.2.0'
 export const MCI01_WEIGHTS_REF = CONCEPT_PACK_VERSION
 
 /** Words that never carry category meaning (mirrors commerce conventions). */

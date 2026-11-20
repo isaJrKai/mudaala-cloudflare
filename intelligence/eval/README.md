@@ -21,9 +21,10 @@ bun test intelligence/eval/                                # metric unit tests +
 
 | Report | Fixtures | Engines | Headline (SYNTHETIC fixtures only) |
 |---|---|---|---|
-| `reports/2026-11-20-v0.json` | catalogue v0.1, queries v0.1 | mci01–mci08 v0.1.0 | mean nDCG@5 0.9472 (pipeline) vs 0.7816 (recency baseline); mean MRR 0.9167 vs 0.7268; zero-result rate 0; mean distinct sellers top-5 2.44 vs 2.50 |
+| `reports/2026-11-20-v0.json` (increment-1) | catalogue v0.1, queries v0.1 | mci01 v0.1.0, mci02–mci08 v0.1.0 | mean nDCG@5 0.9472 (pipeline) vs 0.7816 (recency baseline); mean MRR 0.9167 vs 0.7268; zero-result rate 0; mean distinct sellers top-5 2.44 vs 2.50 |
+| `reports/2026-11-20-v0.2-remediation.json` (remediation) | catalogue v0.1, queries v0.1 | mci01–mci08 v0.2.0 | relevance metrics IDENTICAL to increment-1 (nDCG@5 0.9472 vs 0.7816; MRR 0.9167 vs 0.7268) — the MCI-08 tail-placement fix did not weaken relevance. Mean top-seller share moved 0.6025 → 0.6112: tail-placed (cap-demoted) items now honestly appear in the returned page instead of vanishing, so the page-level concentration equals the baseline's on these fixtures. Zero-result rate 0. |
 
-**Honest trade-off recorded in that run:** on these fixtures the engagement-weighted ranker concentrates large shops slightly more than recency ordering (2.44 vs 2.50 distinct sellers in top-5). The diversity controller's page-level caps are the counterweight; real exposure fairness needs real exposure logs, which do not exist yet.
+**Honest trade-offs recorded across both runs:** (1) on these fixtures the engagement-weighted ranker concentrates large shops slightly more than recency ordering (2.44 vs 2.50 distinct sellers in top-5); (2) after the remediation's tail-placement fix, page-level top-seller share (0.6112) matches the recency baseline on the same fixtures — previously the dropped overflow items made the page look less concentrated than the full inventory actually was. The diversity controller's caps are the counterweight; real exposure fairness needs real exposure logs, which do not exist yet.
 
 ## What a run proves and does not prove
 
