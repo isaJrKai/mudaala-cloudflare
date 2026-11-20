@@ -29,7 +29,7 @@ Explain a merchant's own listing-engagement analytics in plain language: contact
 
 ## Data provenance and minimisation
 
-Input is one seller's own listing-event aggregates. `/api/my/business-analytics` authenticates the seller, computes the snapshot from its own database queries, pseudonymises the owner id with keyed HMAC, and sends only bounded aggregates to the gateway. The intelligence plane never queries the commerce database. No cross-merchant comparison data is accepted in v0; category benchmarks require valid benchmark data that does not exist yet.
+Input is one seller's own listing-event aggregates. `/api/my/business-analytics` authenticates the seller, computes the snapshot from its own database queries, pseudonymises the owner id with keyed HMAC, and sends only bounded aggregates to the gateway. The pseudonym key is a dedicated secret, independent from the gateway request-signing secret. The intelligence plane never queries the commerce database. No cross-merchant comparison data is accepted in v0; category benchmarks require valid benchmark data that does not exist yet.
 
 ## Explicitly deferred
 
