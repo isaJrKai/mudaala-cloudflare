@@ -52,10 +52,10 @@ jobs:
       - name: Test intelligence contracts, modules, gateway and eval
         run: bun test intelligence/contracts/ intelligence/modules/ intelligence/gateway/ intelligence/eval/
 
-      - name: Typecheck the MCI-27 commerce integration and its imported dependencies
+      - name: Typecheck the MCI discovery and MCI-27 commerce integrations
         run: npx tsc -p tsconfig.intelligence-commerce.json --noEmit
 
-      - name: Test the commerce-plane gateway client and MCI-27 snapshot adapter
+      - name: Test commerce-plane gateway client, discovery pipeline and MCI-27 snapshot adapter
         run: bun test src/lib/intelligence/
 
       - name: Lint the MCI-27 commerce integration
