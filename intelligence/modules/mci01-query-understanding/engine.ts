@@ -225,7 +225,7 @@ export function understandQuery(request: MCI01Request, now: Date = new Date()): 
   const priceExpression = priceGrammar.min !== null || priceGrammar.max !== null
     ? normalizeText(priceGrammar.rawExpression ?? '')
     : ''
-  const tokenText = priceExpression ? normalized.replace(priceExpression, ' ').replace(/\\s+/gu, ' ').trim() : normalized
+  const tokenText = priceExpression ? normalized.replace(priceExpression, ' ').replace(/\s+/gu, ' ').trim() : normalized
   const tokens = tokenize(tokenText)
   const notes: string[] = []
 
