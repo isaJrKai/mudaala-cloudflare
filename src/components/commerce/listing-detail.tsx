@@ -73,7 +73,7 @@ function PhotoGallery({ listing }: { listing: ListingDetailT }) {
     <section className="relative" aria-label={copy.listing.photosOfAria(listing.title)}>
       <div
         ref={galleryRef}
-        className="flex h-[min(70vh,560px)] min-h-72 snap-x snap-mandatory overflow-x-auto scroll-smooth scrollbar-slim bg-background"
+        className="flex h-[min(70vh,560px)] min-h-72 snap-x snap-mandatory overflow-x-auto scroll-smooth scrollbar-slim bg-secondary/55 p-2 sm:p-4"
         role="region"
         aria-roledescription="carousel"
         onScroll={(event) => {
@@ -84,7 +84,7 @@ function PhotoGallery({ listing }: { listing: ListingDetailT }) {
         }}
       >
         {listing.photos.map((photo, i) => (
-          <div key={photo} className="flex h-full w-full shrink-0 snap-center items-center justify-center">
+          <div key={photo} className="flex h-full w-full shrink-0 snap-center items-center justify-center overflow-hidden border border-border/70 bg-background">
             <img
               src={photo}
               alt={copy.listing.photoAlt(listing.title, i, listing.photos.length)}
