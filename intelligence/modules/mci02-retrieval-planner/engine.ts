@@ -18,9 +18,17 @@ export const MCI02_ENGINE_VERSION = 'mci02-retrieval-planner-v0.2.0'
 const DEFAULT_CANDIDATE_CAP = 200
 const MAX_CANDIDATE_CAP = 500
 
+const TOP_LEVEL_CATEGORY_IDS = new Set([
+  'textiles-clothing', 'electronics', 'beauty-personal-care', 'food-groceries',
+  'services', 'home-kitchen', 'household-essentials', 'hardware-building',
+  'farm-produce', 'home-decor', 'transport-haulage', 'livestock-feed',
+  'arts-crafts', 'scrap-recyclables', 'other',
+])
+
 function isSpecificCategory(categoryId: string): boolean {
-  // Subcategories carry a hyphen (e.g. electronics-phones); top-level ids do not.
-  return categoryId.includes('-')
+  // Category depth is data, not punctuation: several valid top-level ids
+  // contain hyphens (e.g. textiles-clothing and home-kitchen).
+  return !TOP_LEVEL_CATEGORY_IDS.has(categoryId)
 }
 
 function selectivityForPath(kind: RetrievalPath['kind'], uses: { keywords: number; categories: string[] }): RetrievalPath['expected_selectivity'] {
