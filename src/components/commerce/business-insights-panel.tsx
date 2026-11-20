@@ -11,6 +11,21 @@ import { Skeleton } from '@/components/ui/skeleton'
 type Period = '7d' | '30d' | '90d'
 
 type BusinessAnalytics = {
+  intelligence?: {
+    status: 'AVAILABLE' | 'UNAVAILABLE'
+    module?: string
+    engineVersion?: string
+    insights?: Array<{
+      id: string
+      severity: 'INFO' | 'WATCH' | 'ACTION'
+      metric: string
+      statement: string
+      suggested_action: string | null
+      evidence: Array<{ ref: string; label: string; value: number }>
+      confidence: null
+    }>
+    coverageWarnings?: string[]
+  }
   period: Period
   since: string
   sales: Array<{
@@ -176,6 +191,38 @@ export function BusinessInsightsPanel() {
                 </div>
               </div>
             </section>
+            {data.intelligence?.status === 'AVAILABLE' && ((data.intelligence.insights?.length ?? 0) > 0 || (data.intelligence.coverageWarnings?.length ?? 0) > 0) ? (
+              <section className="rounded-lg border p-4" aria-label="Mudaala business signals">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold">Business signals</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">Patterns from your recorded listing activity, not predictions of sales.</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">Rule-based · {data.intelligence.engineVersion ?? 'MCI-27'}</span>
+                </div>
+                {(data.intelligence.insights?.length ?? 0) > 0 ? (
+                  <div className="mt-3 divide-y">
+                    {data.intelligence.insights!.map((insight) => (
+                      <article key={insight.id} className="py-3 first:pt-0 last:pb-0">
+                        <div className="flex items-center gap-2">
+                          <span className={insight.severity === 'ACTION' ? 'rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300' : insight.severity === 'WATCH' ? 'rounded-full bg-muted px-2 py-0.5 text-xs font-medium' : 'rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:text-emerald-300'}>
+                            {insight.severity === 'ACTION' ? 'Action to consider' : insight.severity === 'WATCH' ? 'Worth watching' : 'Positive signal'}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm">{insight.statement}</p>
+                        {insight.suggested_action ? <p className="mt-1 text-sm text-muted-foreground"><span className="font-medium">Possible next step: </span>{insight.suggested_action}</p> : null}
+                      </article>
+                    ))}
+                  </div>
+                ) : <p className="mt-3 text-sm text-muted-foreground">There is not enough recorded activity to produce a useful signal yet.</p>}
+                {(data.intelligence.coverageWarnings?.length ?? 0) > 0 ? (
+                  <ul className="mt-3 space-y-1 border-t pt-3 text-xs text-muted-foreground">
+                    {data.intelligence.coverageWarnings!.map((warning, index) => <li key={index}>{warning}</li>)}
+                  </ul>
+                ) : null}
+              </section>
+            ) : null}
+
             <p className="text-xs text-muted-foreground">
               These figures are not unique people reached, ad impressions, confirmed enquiries or verified payments. Call and WhatsApp counts record button taps only. Audience demographics are not shown because Mudaala does not currently collect reliable, consented demographic data for this purpose.
             </p>
