@@ -46,6 +46,7 @@ export const MerchantAnalyticsSnapshot = z.object({
     .array(
       z.object({
         listing_id: z.string().min(1).max(128),
+        title: z.string().min(1).max(200),
         category_id: z.string().max(64),
         status: z.enum(['ACTIVE', 'FULFILLED', 'EXPIRED', 'ARCHIVED', 'HIDDEN']),
         days_live: z.number().int().min(0).max(3650),
