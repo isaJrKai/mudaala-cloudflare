@@ -10,7 +10,7 @@
 import { z } from 'zod'
 import { COMMERCE_CHANNELS, RECOMMENDATION_SURFACES } from './mci01'
 
-export const MCI03_CONTRACT_VERSION = '1.0'
+export const MCI03_CONTRACT_VERSION = '1.1'
 
 export const AVAILABILITY_STATUSES = ['UNKNOWN', 'IN_STOCK', 'AVAILABLE_ON_ORDER', 'OUT_OF_STOCK'] as const
 
@@ -21,7 +21,7 @@ export const RankCandidate = z.object({
   category_id: z.string().max(64),
   title: z.string().max(200),
   description: z.string().max(2000).nullable(),
-  price: z.number().int().nonnegative().nullable(),
+  price: z.number().finite().nonnegative().nullable(),
   currency: z.string().max(8),
   county: z.string().max(64).nullable(),
   area: z.string().max(64).nullable(),
