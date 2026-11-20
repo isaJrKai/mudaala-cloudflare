@@ -19,12 +19,10 @@ by intelligence/jobs/migrations/. Guarantees:
   cross-tenant admin reads — a role holding intelligence_admin membership).
   Without admin_conninfo both are the same connection (dev/tests as owner or
   superuser, where RLS is bypassed by design).
-- Lifecycle saves carry the record's own owner context (round-3 remediation),
-  so the synchronous request path works on a restricted tenant connection
-  without any admin URL; a startup capability probe verifies the
-  infrastructure connection can actually drive worker/admin operations and
-  either fails startup (require_infrastructure_role=True, e.g. worker mode)
-  or announces exactly what is unavailable.
+- Ordinary lifecycle saves use the restricted tenant connection with an
+  immutable owner predicate; cross-tenant worker/admin operations remain on
+  the infrastructure connection. A startup capability probe verifies that
+  connection can drive worker/admin operations.
 - Replay protection for service auth across replicas: hermes_nonces consumes
   nonces atomically (INSERT ... ON CONFLICT DO NOTHING) with TTL cleanup.
 - Recovery: stale RUNNING tasks requeue; retention sweeps finished tasks.
@@ -396,20 +394,19 @@ class PostgresTaskStore:
     # -- writes ------------------------------------------------------------------
 
     def save(self, record: TaskRecord) -> TaskRecord:
+        """Persist lifecycle transitions through the restricted tenant connection.
+
+        submitted_by is immutable and the UPDATE predicate checks the existing
+        owner. Cross-tenant worker/admin operations remain on infrastructure
+        connections in their dedicated methods.
+        """
         row = _record_to_row(record)
         row["payload_canonical"] = canonical_payload(record.payload)
-        with self._lock, self._infra.transaction():
-            # Lifecycle saves carry the record's own owner context
-            # (round-3 remediation): on the tenant connection the RLS owner
-            # policy WITH CHECK admits the UPDATE; on the infrastructure
-            # connection the context is redundant (the admin policy already
-            # admits it). One code path, correct under both role shapes.
-            self._infra.execute(
-                "SELECT set_config('intelligence.owner', %s, true)", (record.submitted_by,)
-            )
-            updated = self._infra.execute(
+        expected_owner = record.submitted_by
+        with self._tenant_tx(expected_owner):
+            updated = self._conn.execute(
                 f"UPDATE intelligence.hermes_tasks SET schema_version=%(schema_version)s, task_type=%(task_type)s, "
-                "skill_id=%(skill_id)s, purpose=%(purpose)s, submitted_by=%(submitted_by)s, status=%(status)s, "
+                "skill_id=%(skill_id)s, purpose=%(purpose)s, status=%(status)s, "
                 "budget=%(budget)s::jsonb, idempotency_key=%(idempotency_key)s, payload=%(payload)s::jsonb, "
                 "payload_canonical=%(payload_canonical)s, attempts=%(attempts)s, max_attempts=%(max_attempts)s, "
                 "steps_used=%(steps_used)s, tool_calls_used=%(tool_calls_used)s, created_at=%(created_at)s, "
@@ -417,8 +414,8 @@ class PostgresTaskStore:
                 "trace_id=%(trace_id)s, worker_id=%(worker_id)s, result=%(result)s::jsonb, "
                 "refusal_reason=%(refusal_reason)s, error_class=%(error_class)s, failure_class=%(failure_class)s, "
                 "cancel_requested=%(cancel_requested)s, receipts=%(receipts)s::jsonb "
-                "WHERE task_id=%(task_id)s RETURNING *",
-                row,
+                "WHERE task_id=%(task_id)s AND submitted_by=%(expected_owner)s RETURNING *",
+                {**row, "expected_owner": expected_owner},
             ).fetchone()
             if updated is None:
                 raise KeyError(f"unknown task {record.task_id}")

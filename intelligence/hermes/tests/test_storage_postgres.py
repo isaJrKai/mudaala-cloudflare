@@ -620,18 +620,50 @@ def test_admin_database_url_wires_the_infrastructure_role_separately(pg_url, rls
 
 # ============================================================================
 # Round-3 remediation tests: the connection/ownership model under restricted
-# production-like roles — lifecycle saves carry owner context, the
-# infrastructure capability is probed at startup, and worker mode without
+# production-like roles — lifecycle saves use the tenant role with an
+# immutable owner predicate, infrastructure capability is probed, and worker mode without
 # the required role fails startup instead of running silently idle.
 # ============================================================================
 
 
+def test_lifecycle_save_uses_tenant_role_and_cannot_reassign_owner(pg_url, rls_env):
+    """With both roles configured, normal lifecycle writes use the tenant
+    connection; a forged owner change cannot reassign or update the row."""
+    owner_store = PostgresTaskStore(
+        rls_env["urls"]["owner"], admin_conninfo=rls_env["urls"]["admin"], apply_migrations=False
+    )
+    try:
+        record = make_record(idempotency_key=f"idem-save-owner-{uuid4().hex[:12]}")
+        created, replay = owner_store.create(record, canonical_payload(record.payload))
+        assert replay is False
+
+        # Confirm the two configured connections really have distinct roles.
+        tenant_role = owner_store._conn.execute("SELECT current_user AS role").fetchone()["role"]
+        infra_role = owner_store._infra.execute("SELECT current_user AS role").fetchone()["role"]
+        assert tenant_role != infra_role
+
+        validated = created.transition(TaskStatus.VALIDATED) or created
+        saved = owner_store.save(validated)
+        assert saved.status is TaskStatus.VALIDATED
+
+        # submitted_by is not mutable: even if an internal caller supplies a
+        # record with another owner, the owner-scoped UPDATE must not touch it.
+        forged = saved.model_copy(update={"submitted_by": "svc-other-tenant"})
+        with pytest.raises(KeyError, match="unknown task"):
+            owner_store.save(forged)
+
+        persisted = owner_store.get_scoped(created.task_id, _Principal("svc-commerce"))
+        assert persisted is not None
+        assert persisted.submitted_by == "svc-commerce"
+        assert persisted.status is TaskStatus.VALIDATED
+    finally:
+        owner_store.close()
+
+
 def test_full_lifecycle_end_to_end_with_restricted_roles(pg_url, rls_env, monkeypatch):
-    """Reviewer round-3 requirement: create → execute → save → read with
-    restricted production-like roles. The app runs on the tenant app role
-    with the infrastructure role wired separately; the whole synchronous
-    lifecycle (create with owner context, route save, execute, success save,
-    owner read) works and is visible at the database layer."""
+    """Create → execute → save → read with separate restricted roles.
+    Ordinary lifecycle writes must succeed through the tenant role even when
+    the infrastructure/admin connection is also configured."""
     from fastapi.testclient import TestClient
 
     from hermes.server import create_app
@@ -673,11 +705,9 @@ def test_full_lifecycle_end_to_end_with_restricted_roles(pg_url, rls_env, monkey
 
 
 def test_sync_path_survives_tenant_only_restricted_wiring(pg_url, rls_env, monkeypatch):
-    """Round-3 regression: with NO admin URL, the sync execution path
-    (route save → execute → success save) runs on the RESTRICTED tenant
-    connection. Lifecycle saves carry the record's owner context, so this
-    works — against the previous behaviour it hit the RLS owner policy and
-    the submission failed. Degraded infrastructure paths stay SAFE: the
+    """With NO admin URL, the sync execution path (route save → execute →
+    success save) runs on the restricted tenant connection. Degraded
+    infrastructure paths stay SAFE: the
     admin read of a foreign task is still hidden, and the capability probe
     announces exactly what is unavailable."""
     from fastapi.testclient import TestClient
