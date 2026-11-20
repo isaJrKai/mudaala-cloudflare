@@ -131,7 +131,7 @@ export async function GET(request: Request) {
             }),
             db.listing.findMany({
               where: { userId: user.id },
-              select: { id: true, category: true, status: true, publishedAt: true },
+              select: { id: true, title: true, category: true, status: true, publishedAt: true },
               orderBy: { publishedAt: 'desc' },
               take: 200,
             }),
@@ -167,6 +167,7 @@ export async function GET(request: Request) {
               const metrics = byListing.get(listing.id)?._sum
               return [{
                 id: listing.id,
+                title: listing.title,
                 categoryId: listing.category,
                 status: status as 'ACTIVE' | 'FULFILLED' | 'EXPIRED' | 'ARCHIVED' | 'HIDDEN',
                 daysLive: Math.floor((nowMs - listing.publishedAt.getTime()) / 86_400_000),
@@ -189,7 +190,7 @@ export async function GET(request: Request) {
           if (response.ok) {
             const warnings = [...response.envelope.result.coverage_warnings]
             if (listingStats._count.id > merchantListings.length) {
-              warnings.push(`Only the newest ${merchantListings.length} of ${listingStats._count.id} listings were included in this analysis.`)
+              warnings.unshift(`Only the newest ${merchantListings.length} of ${listingStats._count.id} listings were included in this analysis.`)
             }
             intelligence = {
               status: 'AVAILABLE',
