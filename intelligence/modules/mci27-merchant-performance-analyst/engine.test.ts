@@ -17,9 +17,9 @@ function snapshot(overrides: Partial<MerchantAnalyticsSnapshot> = {}): MerchantA
       share_clicks: 1,
     })),
     listings: [
-      { listing_id: 'L-A', category_id: 'electronics-phones', status: 'ACTIVE', days_live: 30, views: 120, contact_taps: 15, share_clicks: 5 },
-      { listing_id: 'L-B', category_id: 'electronics-phones', status: 'ACTIVE', days_live: 30, views: 70, contact_taps: 8, share_clicks: 3 },
-      { listing_id: 'L-C', category_id: 'electronics-accessories', status: 'ACTIVE', days_live: 20, views: 10, contact_taps: 1, share_clicks: 0 },
+      { listing_id: 'L-A', title: 'Phone A', category_id: 'electronics-phones', status: 'ACTIVE', days_live: 30, views: 120, contact_taps: 15, share_clicks: 5 },
+      { listing_id: 'L-B', title: 'Phone B', category_id: 'electronics-phones', status: 'ACTIVE', days_live: 30, views: 70, contact_taps: 8, share_clicks: 3 },
+      { listing_id: 'L-C', title: 'Phone case', category_id: 'electronics-accessories', status: 'ACTIVE', days_live: 20, views: 10, contact_taps: 1, share_clicks: 0 },
     ],
     previous_period_totals: { views: 180, contact_taps: 20, share_clicks: 6 },
     ...overrides,
@@ -77,7 +77,7 @@ describe('MCI-27 trend and listing rules', () => {
   test('dead listings surface as ACTION', () => {
     const result = analyzeMerchantPerformance(snapshot({
       listings: [
-        { listing_id: 'L-DEAD', category_id: 'home-kitchen', status: 'ACTIVE', days_live: 40, views: 0, contact_taps: 0, share_clicks: 0 },
+        { listing_id: 'L-DEAD', title: 'Unused kettle', category_id: 'home-kitchen', status: 'ACTIVE', days_live: 40, views: 0, contact_taps: 0, share_clicks: 0 },
         { listing_id: 'L-A', category_id: 'electronics-phones', status: 'ACTIVE', days_live: 30, views: 120, contact_taps: 15, share_clicks: 5 },
       ],
     }))
@@ -87,7 +87,7 @@ describe('MCI-27 trend and listing rules', () => {
   test('fresh listings with traction are INFO', () => {
     const result = analyzeMerchantPerformance(snapshot({
       listings: [
-        { listing_id: 'L-NEW', category_id: 'home-kitchen', status: 'ACTIVE', days_live: 3, views: 25, contact_taps: 2, share_clicks: 0 },
+        { listing_id: 'L-NEW', title: 'New kitchen set', category_id: 'home-kitchen', status: 'ACTIVE', days_live: 3, views: 25, contact_taps: 2, share_clicks: 0 },
       ],
     }))
     expect(result.insights.some((i) => i.id === 'FRESH_LISTING_L-NEW')).toBe(true)
@@ -97,9 +97,9 @@ describe('MCI-27 trend and listing rules', () => {
     const result = analyzeMerchantPerformance(snapshot({
       shop_totals: { views: 200, contact_taps: 24, share_clicks: 8 },
       listings: [
-        { listing_id: 'L-TOP', category_id: 'home-kitchen', status: 'ACTIVE', days_live: 60, views: 180, contact_taps: 20, share_clicks: 6 },
-        { listing_id: 'L-2', category_id: 'home-kitchen', status: 'ACTIVE', days_live: 60, views: 12, contact_taps: 2, share_clicks: 1 },
-        { listing_id: 'L-3', category_id: 'home-kitchen', status: 'ACTIVE', days_live: 60, views: 8, contact_taps: 2, share_clicks: 1 },
+        { listing_id: 'L-TOP', title: 'Featured chair', category_id: 'home-kitchen', status: 'ACTIVE', days_live: 60, views: 180, contact_taps: 20, share_clicks: 6 },
+        { listing_id: 'L-2', title: 'Side table', category_id: 'home-kitchen', status: 'ACTIVE', days_live: 60, views: 12, contact_taps: 2, share_clicks: 1 },
+        { listing_id: 'L-3', title: 'Lamp', category_id: 'home-kitchen', status: 'ACTIVE', days_live: 60, views: 8, contact_taps: 2, share_clicks: 1 },
       ],
     }))
     const insight = result.insights.find((i) => i.id === 'VIEWS_CONCENTRATED')
