@@ -6,6 +6,7 @@
   },
   "include": [
     "src/app/api/my/business-analytics/route.ts",
+    "src/components/commerce/business-insights-panel.tsx",
     "src/lib/intelligence/env-flags.ts",
     "src/lib/intelligence/gateway-client.ts",
     "src/lib/intelligence/merchant-insights.ts",
