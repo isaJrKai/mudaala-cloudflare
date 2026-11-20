@@ -1,6 +1,6 @@
 # MCI-01 — Query understanding (deterministic v0)
 
-**Status:** IN_DEVELOPMENT (implemented + tested; not deployed, not shadowed)
+**Status:** IN_DEVELOPMENT (implemented + tested; commerce adapter wired behind flag; not staging-verified, not deployed, not shadowed)
 **Contract:** `intelligence/contracts/modules/mci01.ts` · **Engine:** `engine.ts` (`mci01-query-understanding-v0.1.0`)
 **Concept pack:** `concepts.ts` (`mci01.concepts.v0.1`) · **Gateway route:** `/v1/search/understand`
 **Latency budget:** 150 ms · **Compute:** CPU_XS · **Owner:** unassigned
