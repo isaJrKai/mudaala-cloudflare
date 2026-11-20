@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Explain a merchant's own shop analytics in plain language: contact-tap rate, views trend, inactive listings, view concentration and fresh-listing traction. Resource matrix order: MCI-27 is the first practical module because the data already exists (`ListingDailyAnalytics`/`ShopDailyAnalytics`, metric definitions in `src/lib/listing-analytics.ts`).
+Explain a merchant's own listing-engagement analytics in plain language: contact-tap rate, views trend, inactive listings, view concentration and fresh-listing traction. Resource matrix order: MCI-27 is the first practical module because the data already exists (`ListingDailyAnalytics`/`ShopDailyAnalytics`, metric definitions in `src/lib/listing-analytics.ts`).
 
 ## Rules (v0) and honesty caps
 
@@ -38,8 +38,8 @@ LLM wording (a later, separable layer behind the same insights), category benchm
 ## Fallback and kill switch
 
 - Fallback: the commerce plane's existing `my/business-analytics` numbers are shown raw — insights are additive. If the gateway is missing or fails, the existing response remains intact.
-- Kill switch: per-module disable at the gateway; route scoped `merchant:insights` with per-call merchant subject.
+- Authorisation boundary: the seller-authenticated commerce route scopes every database query to `user.id` before building the snapshot. Only the HMAC-authenticated commerce service can call the gateway; the gateway never queries merchant data directly.
 
 ## Tests
 
-`engine.test.ts` — rule, sample-size, missing-data, concentration, honesty, severity-ordering, determinism, and version cases. every rule's trigger and severity, sample-size caps, missing-data warnings, concentration arithmetic, executable honesty gate, severity ordering, determinism, version stamping.
+`engine.test.ts` covers rule triggers and severity, sample-size caps, missing-data warnings, concentration arithmetic, the executable honesty gate, severity ordering, determinism and version stamping.
