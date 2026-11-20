@@ -16,6 +16,8 @@ export interface IntelligenceClientEnv {
   INTELLIGENCE_CLIENT_DISABLED?: string
   /** Explicit opt-in for the merchant-analytics intelligence slice. Off by default. */
   INTELLIGENCE_MCI27_ENABLED?: string
+  /** Explicit opt-in for MCI-01/02/03/08 search enrichment. Off by default. */
+  INTELLIGENCE_DISCOVERY_ENABLED?: string
 }
 
 function truthy(raw: string | undefined): boolean {
@@ -25,6 +27,10 @@ function truthy(raw: string | undefined): boolean {
 
 export function mci27IntelligenceEnabled(env: IntelligenceClientEnv): boolean {
   return truthy(env.INTELLIGENCE_MCI27_ENABLED)
+}
+
+export function mciDiscoveryIntelligenceEnabled(env: IntelligenceClientEnv): boolean {
+  return truthy(env.INTELLIGENCE_DISCOVERY_ENABLED)
 }
 
 export function intelligenceClientDisabled(env: IntelligenceClientEnv): boolean {
