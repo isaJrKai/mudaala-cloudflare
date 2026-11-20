@@ -43,7 +43,7 @@ The API enforces seller ownership, active OFFER status, unique option combinatio
 
 ## Buyer behaviour
 
-The in-app listing detail lets the buyer choose an option. The selected option drives the displayed price, availability and gallery. The selected variant ID is submitted with an in-app enquiry; the server validates that it belongs to the requested listing and stores a snapshot of its effective price, currency, options, SKU and stock context.
+The in-app listing detail lets the buyer choose an option. The selected option drives the displayed price, availability and gallery. The selected variant ID is submitted with an in-app enquiry; the server validates that it belongs to the requested listing and stores a snapshot of its effective price, currency, unit, options, SKU and stock context.
 
 Variant listings intentionally do not use the existing basket action yet. Basket lines are keyed only by listing ID, so adding distinct variants would incorrectly merge them. The buyer can message the seller with the exact selected option instead.
 
