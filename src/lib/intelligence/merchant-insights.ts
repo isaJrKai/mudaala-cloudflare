@@ -20,7 +20,7 @@ export interface MCI27ListingSource {
 export interface MCI27SnapshotSource {
   /** Internal owner id. It is pseudonymised before leaving the commerce plane. */
   ownerId: string
-  /** Dedicated gateway secret, used as an HMAC key; never returned in the payload. */
+  /** Dedicated merchant-pseudonym HMAC key, independent from gateway request signing. */
   pseudonymKey: string
   days: 7 | 30 | 90
   from: string
@@ -32,10 +32,13 @@ export interface MCI27SnapshotSource {
 
 /** Stable, keyed pseudonym: raw Mudaala user ids never cross the intelligence boundary. */
 export async function pseudonymizeMerchantRef(ownerId: string, keyMaterial: string): Promise<string> {
-  if (!ownerId || !keyMaterial) throw new Error('merchant pseudonym inputs are required')
+  const normalizedKey = keyMaterial.trim()
+  if (!ownerId || normalizedKey.length < 32) {
+    throw new Error('merchant pseudonym inputs require an owner id and at least 32 characters of key material')
+  }
   const key = await crypto.subtle.importKey(
     'raw',
-    new TextEncoder().encode(keyMaterial),
+    new TextEncoder().encode(normalizedKey),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign'],
