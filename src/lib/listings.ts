@@ -312,7 +312,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     const PHOTO_BOOST_SCAN_CAP = 500
     // The intelligence plan is optional. Existing validated commerce filters
     // remain the source of truth; MCI-02 supplies the hard candidate budget.
-    const discoveryPlan = searchText && mciDiscoveryIntelligenceEnabled(process.env)
+    const discoveryPlan = searchText && includeStatuses.length === 1 && includeStatuses[0] === 'ACTIVE' && mciDiscoveryIntelligenceEnabled(process.env)
       ? await prepareMciDiscovery(query.q ?? '', {
           category_id: query.category ?? null,
           counties: query.county ? [query.county] : [],
@@ -384,7 +384,16 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     // the intelligence plane. Internal seller ids are replaced with
     // request-local labels; no user identity or buyer history leaves Mudaala.
     if (discoveryPlan && combined.length > 0) {
-      const candidates = combined.slice(0, discoveryPlan.candidateCap)
+      // Preselect the strongest local text matches into the planner's hard cap.
+      // This retains Unicode-normalized fallback candidates instead of allowing
+      // the first SQL page to crowd them out before MCI-03 sees the pool.
+      const candidates = combined
+        .map((row, index) => ({ row, index, relevance: scoreListingSearch({
+          title: row.title, description: row.description, category: row.category, area: row.area, county: row.county,
+        }, searchText) }))
+        .sort((a, b) => b.relevance - a.relevance || b.row.refreshedAt.getTime() - a.row.refreshedAt.getTime() || a.index - b.index)
+        .slice(0, discoveryPlan.candidateCap)
+        .map((entry) => entry.row)
       const candidateIds = candidates.map((row) => row.id)
       const today = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Africa/Kampala', year: 'numeric', month: '2-digit', day: '2-digit',
