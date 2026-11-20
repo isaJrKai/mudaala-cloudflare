@@ -13,7 +13,7 @@ import { MCI02Result } from '../../../intelligence/contracts/modules/mci02'
 import { MCI03Result, type RankCandidate } from '../../../intelligence/contracts/modules/mci03'
 import { MCI08Result } from '../../../intelligence/contracts/modules/mci08'
 
-type Envelope<T> = { module_id: string; result: T }
+type Envelope<T> = { module_id: string; result: T }\n\nconst DISCOVERY_CANDIDATE_CAP = 40\nconst GATEWAY_SAFE_PAYLOAD_BYTES = 28 * 1024
 
 export interface MciDiscoveryPlan {
   queryPlan: ReturnType<typeof MCI01Result.parse>
@@ -46,7 +46,7 @@ async function callModule<T>(
   parse: (value: unknown) => T,
   fetchImpl?: typeof fetch,
 ): Promise<T | null> {
-  const response = await getClient(fetchImpl).call<Envelope<unknown>>(path, body)
+  if (new TextEncoder().encode(JSON.stringify(body)).byteLength > GATEWAY_SAFE_PAYLOAD_BYTES) return null\n  const response = await getClient(fetchImpl).call<Envelope<unknown>>(path, body)
   if (!response.ok || response.envelope.module_id !== moduleId) return null
   try {
     return parse(response.envelope.result)
@@ -74,7 +74,7 @@ export async function prepareMciDiscovery(
 
   const retrievalPlan = await callModule(
     '/v1/search/plan',
-    { query_plan: queryPlan, constraints, bounds: { max_candidates: 500 } },
+    { query_plan: queryPlan, constraints, bounds: { max_candidates: DISCOVERY_CANDIDATE_CAP } },
     'MCI-02',
     (value) => MCI02Result.parse(value),
     fetchImpl,
@@ -87,7 +87,7 @@ export async function prepareMciDiscovery(
     retrievalPlan.filters.statuses.length !== 1 ||
     retrievalPlan.filters.statuses[0] !== 'ACTIVE' ||
     retrievalPlan.limits.candidate_cap < 1 ||
-    retrievalPlan.limits.candidate_cap > 500
+    retrievalPlan.limits.candidate_cap > DISCOVERY_CANDIDATE_CAP
   ) return null
 
   return { queryPlan, retrievalPlan, candidateCap: retrievalPlan.limits.candidate_cap }
@@ -101,7 +101,7 @@ export async function rankAndDiversifyMciDiscovery(input: {
   context: { county?: string | null; area?: string | null; now: string }
   rotationBucket: number
 }, fetchImpl?: typeof fetch): Promise<string[] | null> {
-  if (input.candidates.length === 0 || input.candidates.length > 500) return null
+  if (input.candidates.length === 0 || input.candidates.length > DISCOVERY_CANDIDATE_CAP) return null
   const candidateIds = new Set(input.candidates.map((candidate) => candidate.listing_id))
   if (candidateIds.size !== input.candidates.length) return null
 
