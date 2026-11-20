@@ -62,12 +62,17 @@ class TaskStore(Protocol):
     def get_scoped(self, task_id: str, principal) -> Optional[TaskRecord]: ...
     def save(self, record: TaskRecord) -> TaskRecord: ...
     def claim_next(self, worker_id: str, now: Optional[float] = None) -> Optional[TaskRecord]: ...
+    def claim_task(self, task_id: str, worker_id: str, now: Optional[float] = None, owner: Optional[str] = None) -> Optional[TaskRecord]: ...
     def request_cancel(self, task_id: str, principal) -> Optional[TaskRecord]: ...
     def list_for_owner(self, owner: str, limit: int = 50) -> list[TaskRecord]: ...
     def list_dead(self, limit: int = 50) -> list[TaskRecord]: ...
     def find_by_idempotency(self, owner: str, idempotency_key: str) -> Optional[TaskRecord]: ...
     def recover_stale_running(self, deadline_seconds: float, now: Optional[float] = None) -> int: ...
-    def sweep_retention(self, now: Optional[float] = None) -> int: ...
+    def sweep_retention(self, now: Optional[float] = None, retention_seconds: Optional[float] = None) -> int: ...
+    def append_receipt(self, record: TaskRecord, receipt, now: Optional[float] = None) -> bool: ...
+    def renew_lease(self, task_id: str, worker_id: str, now: Optional[float] = None) -> bool: ...
+    def save_execution_result(self, record: TaskRecord, now: Optional[float] = None) -> bool: ...
+    def reschedule_after_failure(self, record: TaskRecord, now: Optional[float] = None) -> bool: ...
     def ping(self) -> bool: ...
 
 
@@ -208,6 +213,59 @@ class MemoryTaskStore:
 
     # -- operations ---------------------------------------------------------
 
+    def append_receipt(self, record: TaskRecord, receipt, now: Optional[float] = None) -> bool:
+        """Idempotent receipt append for the single-process store: one receipt
+        per attempt (duplicate appends are a no-op, matching the Postgres
+        UNIQUE(task_id, attempt) semantics). Persistence rides the record —
+        the following save()/save_execution_result() writes receipts — so
+        this method validates and reports without mutating the record."""
+        with self._lock:
+            return not any(r.attempt == receipt.attempt for r in record.receipts)
+
+    def claim_task(self, task_id: str, worker_id: str, now: Optional[float] = None, owner: Optional[str] = None) -> Optional[TaskRecord]:
+        """CAS claim of one specific task (single-process: lock-guarded).
+        `owner` is accepted for protocol parity (RLS has no memory-store
+        equivalent) and deliberately unused."""
+        now = self._now() if now is None else now
+        with self._lock:
+            record = self._by_id.get(task_id)
+            if record is None or record.status is not TaskStatus.QUEUED:
+                return None
+            if record.next_attempt_at is not None and record.next_attempt_at > now:
+                return None
+            record.transition(TaskStatus.RUNNING)
+            record.started_at = now
+            record.attempts = min(record.attempts + 1, record.max_attempts)
+            record.worker_id = worker_id
+            return copy.deepcopy(record)
+
+    def renew_lease(self, task_id: str, worker_id: str, now: Optional[float] = None) -> bool:
+        """No lease in the single-process memory store: claims are guarded by
+        the store lock, so there is nothing to expire. Always True."""
+        return True
+
+    def save_execution_result(self, record: TaskRecord, now: Optional[float] = None) -> bool:
+        """Single-process finish save; the claim cannot be lost."""
+        self.save(record)
+        return True
+
+    def reschedule_after_failure(self, record: TaskRecord, now: Optional[float] = None) -> bool:
+        """FAILED → QUEUED with backoff or DEAD, decided and applied here
+        (single-process CAS: the store lock guards it), mirroring the
+        transition onto the record exactly like the legacy in-router path."""
+        now = self._now() if now is None else now
+        from .contracts import FailureClass, retry_delay_seconds
+
+        if record.attempts >= record.max_attempts or record.failure_class is FailureClass.PERMANENT:
+            record.transition(TaskStatus.DEAD)
+            if record.refusal_reason is None:
+                record.refusal_reason = f"DEAD_LETTER_{record.failure_class.value if record.failure_class else 'FAILURE'}_{record.error_class or ''}"[:200]
+        else:
+            record.transition(TaskStatus.QUEUED)
+            record.next_attempt_at = now + retry_delay_seconds(record.attempts)
+        self.save(record)
+        return True
+
     def recover_stale_running(self, deadline_seconds: float, now: Optional[float] = None) -> int:
         """Worker recovery: RUNNING tasks whose worker died (no progress past
         the deadline) are requeued for a retry attempt."""
@@ -227,15 +285,16 @@ class MemoryTaskStore:
                         recovered += 1
         return recovered
 
-    def sweep_retention(self, now: Optional[float] = None) -> int:
+    def sweep_retention(self, now: Optional[float] = None, retention_seconds: Optional[float] = None) -> int:
         now = self._now() if now is None else now
+        ttl = self._retention if retention_seconds is None else float(retention_seconds)
         swept = 0
         with self._lock:
             dead_ids = {r.task_id for r in self._by_id.values() if r.status is TaskStatus.DEAD}
             for task_id, record in list(self._by_id.items()):
                 if record.status not in TERMINAL_STATUSES or task_id in dead_ids:
                     continue
-                if record.finished_at is not None and now - record.finished_at > self._retention:
+                if record.finished_at is not None and now - record.finished_at > ttl:
                     self._by_id.pop(task_id, None)
                     swept += 1
             for key, (task_id, _canonical) in list(self._idem.items()):

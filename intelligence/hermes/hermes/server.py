@@ -65,6 +65,19 @@ MAX_BODY_BYTES = 32 * 1024
 DEFAULT_MAX_ATTEMPTS = 3
 
 
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = float(raw)
+    except ValueError as error:
+        raise RuntimeError(f"{name} must be a number, got {raw!r}") from error
+    if value <= 0:
+        raise RuntimeError(f"{name} must be positive, got {raw!r}")
+    return value
+
+
 def resolve_storage_from_env(*, worker_mode: bool = False) -> tuple[TaskStore, NonceStore, AuditSink, str]:
     """Resolve the storage stack from the environment (round-2 remediation,
     reviewer finding 1; round-3 hardening).
@@ -101,6 +114,7 @@ def resolve_storage_from_env(*, worker_mode: bool = False) -> tuple[TaskStore, N
             url,
             admin_conninfo=os.environ.get("HERMES_ADMIN_DATABASE_URL"),
             require_infrastructure_role=worker_mode,
+            lease_seconds=_env_float("HERMES_LEASE_SECONDS", 300.0),
         )
         nonces = PostgresNonceStore(url)
         audit_log = PostgresAuditLog(url)
@@ -164,7 +178,11 @@ def create_app(
     resolved_callers = callers if callers is not None else parse_caller_registry(os.environ.get("HERMES_CALLERS"))
 
     router = TaskRouter(registry, backend, audit_log, store=resolved_store)
-    worker = HermesWorker(resolved_store, router)
+    # Multi-instance deployments MUST give each instance its own worker id
+    # (HERMES_WORKER_ID): lease renewal is CAS on (task, worker_id), so two
+    # instances sharing an id could renew each other's claims.
+    worker_id = os.environ.get("HERMES_WORKER_ID") or "hermes-worker-0"
+    worker = HermesWorker(resolved_store, router, worker_id=worker_id)
 
     app.state.registry = registry
     app.state.backend = backend

@@ -153,6 +153,8 @@ class PostgresTaskStore:
         admin_conninfo: Optional[str] = None,
         apply_migrations: bool = True,
         require_infrastructure_role: bool = False,
+        lease_seconds: float = 300.0,
+        retention_seconds: float = 24 * 3600.0,
     ):
         self._conn = psycopg.connect(conninfo, row_factory=dict_row)
         self._conn.autocommit = True
@@ -161,6 +163,13 @@ class PostgresTaskStore:
             self._admin_conn = psycopg.connect(admin_conninfo, row_factory=dict_row)
             self._admin_conn.autocommit = True
         self._lock = threading.RLock()
+        # Execution lease (round-4 remediation): how long a claim may run
+        # before recovery considers its worker dead. Renewed by the worker's
+        # heartbeat during execution; claims set it atomically.
+        if lease_seconds <= 0:
+            raise ValueError("lease_seconds must be positive")
+        self._lease_seconds = float(lease_seconds)
+        self._retention_seconds = float(retention_seconds)
         if apply_migrations:
             self.apply_migrations()
         # Probe the INFRASTRUCTURE connection's real capability under the
@@ -407,6 +416,11 @@ class PostgresTaskStore:
             self._infra.execute(
                 "SELECT set_config('intelligence.owner', %s, true)", (record.submitted_by,)
             )
+            # cancel_requested is merged, never cleared (round-4 remediation):
+            # a cancel request durable-flagged by ANOTHER instance between
+            # this executor's claim and its save must survive the save.
+            # Writing the executor's stale snapshot verbatim used to reset
+            # the flag and lose the cancellation.
             updated = self._infra.execute(
                 f"UPDATE intelligence.hermes_tasks SET schema_version=%(schema_version)s, task_type=%(task_type)s, "
                 "skill_id=%(skill_id)s, purpose=%(purpose)s, submitted_by=%(submitted_by)s, status=%(status)s, "
@@ -416,7 +430,8 @@ class PostgresTaskStore:
                 "started_at=%(started_at)s, finished_at=%(finished_at)s, next_attempt_at=%(next_attempt_at)s, "
                 "trace_id=%(trace_id)s, worker_id=%(worker_id)s, result=%(result)s::jsonb, "
                 "refusal_reason=%(refusal_reason)s, error_class=%(error_class)s, failure_class=%(failure_class)s, "
-                "cancel_requested=%(cancel_requested)s, receipts=%(receipts)s::jsonb "
+                "cancel_requested = (intelligence.hermes_tasks.cancel_requested OR %(cancel_requested)s), "
+                "receipts=%(receipts)s::jsonb "
                 "WHERE task_id=%(task_id)s RETURNING *",
                 row,
             ).fetchone()
@@ -424,13 +439,83 @@ class PostgresTaskStore:
                 raise KeyError(f"unknown task {record.task_id}")
             return _row_to_record(updated)
 
+    def save_execution_result(self, record: TaskRecord, now: Optional[float] = None) -> bool:
+        """Executor finish-save, guarded against lost claims (round-4).
+
+        Writes the RUNNING → terminal transition ONLY while the row is still
+        owned by this worker's claim (same worker_id, still RUNNING). When
+        recovery has already requeued the row (lease expired — the worker was
+        presumed dead), the row moved on and this executor must NOT overwrite
+        it: overwriting a QUEUED row with a terminal status is exactly the
+        'two instances execute the same idempotent task' corruption this
+        remediation removes. Returns False when the claim was lost; the
+        receipt is durable either way (append_receipt)."""
+        row = _record_to_row(record)
+        row["payload_canonical"] = canonical_payload(record.payload)
+        with self._lock, self._infra.transaction():
+            self._infra.execute(
+                "SELECT set_config('intelligence.owner', %s, true)", (record.submitted_by,)
+            )
+            updated = self._infra.execute(
+                f"UPDATE intelligence.hermes_tasks SET schema_version=%(schema_version)s, task_type=%(task_type)s, "
+                "skill_id=%(skill_id)s, purpose=%(purpose)s, submitted_by=%(submitted_by)s, status=%(status)s, "
+                "budget=%(budget)s::jsonb, idempotency_key=%(idempotency_key)s, payload=%(payload)s::jsonb, "
+                "payload_canonical=%(payload_canonical)s, attempts=%(attempts)s, max_attempts=%(max_attempts)s, "
+                "steps_used=%(steps_used)s, tool_calls_used=%(tool_calls_used)s, created_at=%(created_at)s, "
+                "started_at=%(started_at)s, finished_at=%(finished_at)s, next_attempt_at=%(next_attempt_at)s, "
+                "trace_id=%(trace_id)s, worker_id=%(worker_id)s, result=%(result)s::jsonb, "
+                "refusal_reason=%(refusal_reason)s, error_class=%(error_class)s, failure_class=%(failure_class)s, "
+                "cancel_requested = (intelligence.hermes_tasks.cancel_requested OR %(cancel_requested)s), "
+                "lease_expires_at = NULL "
+                "WHERE task_id=%(task_id)s AND worker_id=%(worker_id)s AND status = 'RUNNING' RETURNING *",
+                row,
+            ).fetchone()
+            return updated is not None
+
+    def reschedule_after_failure(self, record: TaskRecord, now: Optional[float] = None) -> bool:
+        """CAS retry scheduling after a FAILED execution (round-4): FAILED →
+        QUEUED with bounded backoff while attempts remain (transient), or
+        FAILED → DEAD (attempts exhausted / permanent). Guarded on the row
+        still being the FAILED state this worker just wrote (worker_id match),
+        so a recovered row cannot be rescheduled twice."""
+        now = time.time() if now is None else now
+        from .contracts import retry_delay_seconds
+
+        if record.attempts >= record.max_attempts or record.failure_class is FailureClass.PERMANENT:
+            refusal = record.refusal_reason or (
+                f"DEAD_LETTER_{record.failure_class.value if record.failure_class else 'FAILURE'}_{record.error_class or ''}"[:200]
+            )
+            with self._lock, self._infra.transaction():
+                self._infra.execute(
+                    "SELECT set_config('intelligence.owner', %s, true)", (record.submitted_by,)
+                )
+                row = self._infra.execute(
+                    "UPDATE intelligence.hermes_tasks SET status = 'DEAD', finished_at = %s, "
+                    "refusal_reason = COALESCE(refusal_reason, %s) "
+                    "WHERE task_id = %s AND worker_id = %s AND status = 'FAILED' RETURNING task_id",
+                    (now, refusal, record.task_id, record.worker_id),
+                ).fetchone()
+            return row is not None
+        with self._lock, self._infra.transaction():
+            self._infra.execute(
+                "SELECT set_config('intelligence.owner', %s, true)", (record.submitted_by,)
+            )
+            row = self._infra.execute(
+                "UPDATE intelligence.hermes_tasks SET status = 'QUEUED', next_attempt_at = %s, "
+                "result = NULL, finished_at = NULL, lease_expires_at = NULL "
+                "WHERE task_id = %s AND worker_id = %s AND status = 'FAILED' RETURNING task_id",
+                (now + retry_delay_seconds(record.attempts), record.task_id, record.worker_id),
+            ).fetchone()
+        return row is not None
+
     def claim_next(self, worker_id: str, now: Optional[float] = None) -> Optional[TaskRecord]:
         now = time.time() if now is None else now
         with self._lock:
             row = self._infra.execute(
                 """
                 UPDATE intelligence.hermes_tasks SET status = 'RUNNING', started_at = %s, worker_id = %s,
-                    attempts = LEAST(attempts + 1, max_attempts)
+                    attempts = LEAST(attempts + 1, max_attempts),
+                    lease_expires_at = %s
                 WHERE task_id = (
                     SELECT task_id FROM intelligence.hermes_tasks
                     WHERE status = 'QUEUED' AND (next_attempt_at IS NULL OR next_attempt_at <= %s)
@@ -438,9 +523,50 @@ class PostgresTaskStore:
                 )
                 RETURNING *
                 """,
-                (now, worker_id, now),
+                (now, worker_id, now + self._lease_seconds, now),
             ).fetchone()
             return _row_to_record(row) if row else None
+
+    def claim_task(self, task_id: str, worker_id: str, now: Optional[float] = None, owner: Optional[str] = None) -> Optional[TaskRecord]:
+        """CAS claim of ONE specific task (the synchronous execution path):
+        QUEUED → RUNNING with the caller's worker stamp and a fresh lease,
+        atomically. Returns None when the row has moved (recovered, claimed
+        by another instance, cancelled) — the caller must not execute."""
+        now = time.time() if now is None else now
+        with self._lock, self._infra.transaction():
+            # The sync path may run on the restricted tenant connection
+            # (round-3 wiring): the claim is a lifecycle operation on the
+            # caller's own row, so it carries the VERIFIED owner context from
+            # the authenticated submission (never from a table read).
+            if owner is not None:
+                self._infra.execute(
+                    "SELECT set_config('intelligence.owner', %s, true)", (owner,)
+                )
+            claimed = self._infra.execute(
+                """
+                UPDATE intelligence.hermes_tasks SET status = 'RUNNING', started_at = %s, worker_id = %s,
+                    attempts = LEAST(attempts + 1, max_attempts),
+                    lease_expires_at = %s
+                WHERE task_id = %s AND status = 'QUEUED'
+                      AND (next_attempt_at IS NULL OR next_attempt_at <= %s)
+                RETURNING *
+                """,
+                (now, worker_id, now + self._lease_seconds, task_id, now),
+            ).fetchone()
+            return _row_to_record(claimed) if claimed else None
+
+    def renew_lease(self, task_id: str, worker_id: str, now: Optional[float] = None) -> bool:
+        """Heartbeat: extend the execution lease of a RUNNING claim owned by
+        this worker. CAS on (task_id, worker_id, status='RUNNING') so a stale
+        worker can never renew a claim that recovery has already requeued."""
+        now = time.time() if now is None else now
+        with self._lock:
+            row = self._infra.execute(
+                "UPDATE intelligence.hermes_tasks SET lease_expires_at = %s "
+                "WHERE task_id = %s AND worker_id = %s AND status = 'RUNNING' RETURNING task_id",
+                (now + self._lease_seconds, task_id, worker_id),
+            ).fetchone()
+            return row is not None
 
     def request_cancel(self, task_id: str, principal) -> Optional[TaskRecord]:
         if principal is None:
@@ -483,25 +609,86 @@ class PostgresTaskStore:
 
     # -- operations ------------------------------------------------------------------
 
+    def append_receipt(self, record: TaskRecord, receipt: "ExecutionReceipt", now: Optional[float] = None) -> bool:
+        """Durable, idempotent receipt append (round-4): the receipt becomes a
+        row in intelligence.hermes_receipts (UNIQUE task_id+attempt decides
+        across replicas — a repeated append is a no-op) and the task row's
+        JSONB read-model is extended inside the SAME transaction, so every
+        reader sees a consistent pair. The old read-modify-write of the JSONB
+        column lost receipts when two processes saved concurrently."""
+        now = time.time() if now is None else now
+        receipt_row = {
+            "receipt_id": f"rcpt-{record.task_id}-{int(receipt.attempt)}",
+            "task_id": record.task_id,
+            "submitted_by": record.submitted_by,
+            "attempt": int(receipt.attempt),
+            "worker_id": receipt.worker_id or "",
+            "trace_id": receipt.trace_id or record.trace_id or "",
+            "started_at": float(receipt.started_at),
+            "finished_at": receipt.finished_at,
+            "outcome": receipt.outcome,
+            "error_class": receipt.error_class,
+            "failure_class": receipt.failure_class.value if receipt.failure_class else None,
+            "steps_used": int(receipt.steps_used or 0),
+            "tool_calls_used": int(receipt.tool_calls_used or 0),
+            "recorded_at": now,
+        }
+        with self._lock, self._infra.transaction():
+            self._infra.execute(
+                "SELECT set_config('intelligence.owner', %s, true)", (record.submitted_by,)
+            )
+            inserted = self._infra.execute(
+                "INSERT INTO intelligence.hermes_receipts (receipt_id, task_id, submitted_by, attempt, "
+                "worker_id, trace_id, started_at, finished_at, outcome, error_class, failure_class, "
+                "steps_used, tool_calls_used, recorded_at) VALUES "
+                "(%(receipt_id)s, %(task_id)s, %(submitted_by)s, %(attempt)s, %(worker_id)s, %(trace_id)s, "
+                "%(started_at)s, %(finished_at)s, %(outcome)s, %(error_class)s, %(failure_class)s, "
+                "%(steps_used)s, %(tool_calls_used)s, %(recorded_at)s) "
+                "ON CONFLICT (task_id, attempt) DO NOTHING RETURNING receipt_id",
+                receipt_row,
+            ).fetchone()
+            if inserted is None:
+                return False  # duplicate append for this attempt — already durable
+            self._infra.execute(
+                "UPDATE intelligence.hermes_tasks SET receipts = receipts || %s::jsonb "
+                "WHERE task_id = %s",
+                (json.dumps([receipt.model_dump(mode="json")], ensure_ascii=False), record.task_id),
+            )
+            return True
+
     def recover_stale_running(self, deadline_seconds: float, now: Optional[float] = None) -> int:
+        """Requeue RUNNING tasks whose execution lease has expired (round-4).
+
+        The lease — set at claim time and renewed by the worker's heartbeat —
+        is what makes recovery safe across instances: a live long-running
+        task keeps renewing and is never stolen; a crashed worker's claims
+        expire and are recovered by whichever instance sweeps first. The
+        FAILED marking and the retry/DEAD rescheduling happen in ONE
+        transaction, so concurrent sweeps cannot interleave the two steps."""
         now = time.time() if now is None else now
         with self._lock:
-            rows = self._infra.execute(
-                """
-                UPDATE intelligence.hermes_tasks
-                SET status = 'FAILED', finished_at = %s, error_class = 'WorkerRecovery',
-                    failure_class = 'TRANSIENT'
-                WHERE status = 'RUNNING' AND started_at IS NOT NULL AND started_at < %s
-                RETURNING task_id
-                """,
-                (now, now - deadline_seconds),
-            ).fetchall()
-            for row in rows:
-                self._reschedule(row["task_id"], now)
+            with self._infra.transaction():
+                rows = self._infra.execute(
+                    """
+                    UPDATE intelligence.hermes_tasks
+                    SET status = 'FAILED', finished_at = %s, error_class = 'WorkerRecovery',
+                        failure_class = 'TRANSIENT', lease_expires_at = NULL
+                    WHERE status = 'RUNNING' AND started_at IS NOT NULL
+                      AND (
+                        (lease_expires_at IS NOT NULL AND lease_expires_at <= %s)
+                        OR (lease_expires_at IS NULL AND started_at < %s)
+                      )
+                    RETURNING task_id, submitted_by, attempts, max_attempts, failure_class
+                    """,
+                    (now, now, now - deadline_seconds),
+                ).fetchall()
+                for row in rows:
+                    self._reschedule_in_tx(row, now)
             return len(rows)
 
-    def sweep_retention(self, now: Optional[float] = None) -> int:
+    def sweep_retention(self, now: Optional[float] = None, retention_seconds: Optional[float] = None) -> int:
         now = time.time() if now is None else now
+        ttl = self._retention_seconds if retention_seconds is None else float(retention_seconds)
         with self._lock:
             rows = self._infra.execute(
                 """
@@ -510,7 +697,7 @@ class PostgresTaskStore:
                   AND finished_at IS NOT NULL AND finished_at < %s
                 RETURNING task_id
                 """,
-                (now - 24 * 3600,),
+                (now - ttl,),
             ).fetchall()
             return len(rows)
 
@@ -543,25 +730,23 @@ class PostgresTaskStore:
 
     # -- internals ---------------------------------------------------------------------
 
-    def _reschedule(self, task_id: str, now: float) -> None:
-        row = self._infra.execute(
-            "SELECT attempts, max_attempts, failure_class FROM intelligence.hermes_tasks WHERE task_id = %s",
-            (task_id,),
-        ).fetchone()
-        if row is None:
-            return
+    def _reschedule_in_tx(self, row: dict, now: float) -> None:
+        """Retry/DEAD decision for one recovered row, executed INSIDE the
+        recovery transaction (the recovery UPDATE has already committed this
+        row to FAILED within the tx). Legacy of _reschedule(): no re-read
+        between the two steps, so a concurrent sweep cannot interleave."""
         from .contracts import retry_delay_seconds
 
         if row["attempts"] >= row["max_attempts"] or row["failure_class"] == "PERMANENT":
             self._infra.execute(
                 "UPDATE intelligence.hermes_tasks SET status = 'DEAD', "
                 "refusal_reason = COALESCE(refusal_reason, %s) WHERE task_id = %s",
-                (f"DEAD_LETTER_{row['failure_class'] or 'FAILURE'}", task_id),
+                (f"DEAD_LETTER_{row['failure_class'] or 'FAILURE'}", row["task_id"]),
             )
         else:
             self._infra.execute(
                 "UPDATE intelligence.hermes_tasks SET status = 'QUEUED', next_attempt_at = %s WHERE task_id = %s",
-                (now + retry_delay_seconds(row["attempts"]), task_id),
+                (now + retry_delay_seconds(row["attempts"]), row["task_id"]),
             )
 
 

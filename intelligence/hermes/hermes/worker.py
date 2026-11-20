@@ -9,7 +9,9 @@ Reliability foundations implemented here:
   FOR UPDATE SKIP LOCKED so replicas cannot double-claim),
 - retry with bounded backoff for TRANSIENT failures, DEAD for PERMANENT
   or attempts-exhausted (dead-letter, visible to admins),
-- stale-RUNNING recovery sweep (crash of a worker re-queues its tasks),
+- stale-RUNNING recovery sweep: lease-aware (round-4) — a claim whose lease
+  expired is requeued; a live task keeps renewing its lease between budget
+  steps and is never stolen while it still runs,
 - graceful shutdown (stop() finishes the current task, then exits),
 - cooperative cancellation (the budget's cancel_check consults the store),
 - structured observability (JSON log lines, metadata only).
@@ -100,7 +102,7 @@ class HermesWorker:
         recovered = self._store.recover_stale_running(self._stale_running, now)
         if recovered:
             self._log.warning("recovered stale running tasks count=%d", recovered)
-        swept = self._store.sweep_retention(now)
+        swept = self._store.sweep_retention(now, retention_seconds=self._retention)
         if swept:
             self._log.info("retention sweep removed records count=%d", swept)
 

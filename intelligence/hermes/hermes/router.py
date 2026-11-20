@@ -30,6 +30,7 @@ from typing import Any, Optional
 
 from .backends import AgentBackend
 from .budget import AuditSink, BudgetExceeded, BudgetState
+from .errors import HermesError
 from .contracts import (
     ExecutionReceipt,
     FailureClass,
@@ -120,10 +121,35 @@ class TaskRouter:
         # (worker path — the store's atomic claim already transitioned and
         # counted the attempt). Anything else is a caller bug.
         if record.status is TaskStatus.QUEUED:
-            record.transition(TaskStatus.RUNNING)
-            record.started_at = self._now()
-            record.attempts = min(record.attempts + 1, record.max_attempts)
-            record.worker_id = self._worker_id
+            if self._store is not None and hasattr(self._store, "claim_task"):
+                # Sync path claims CAS-style, exactly like a worker: the row
+                # moves QUEUED → RUNNING under this worker id with a fresh
+                # lease, or it has already moved (recovered, claimed by
+                # another instance) and this request must NOT execute the
+                # same idempotent task again — it refuses instead.
+                claimed = self._store.claim_task(record.task_id, self._worker_id, self._now(), owner=record.submitted_by)
+                if claimed is None:
+                    # The row moved under us (recovered, claimed by another
+                    # instance, cancelled). REFUSED would lie about who made
+                    # the decision; this is a plain race conflict and the
+                    # honest response is a 409, not a fabricated status.
+                    self._audit.record({
+                        "event": "task_sync_claim_lost",
+                        "task_id": record.task_id,
+                        "trace_id": record.trace_id,
+                        "actor": record.submitted_by,
+                        "worker_id": self._worker_id,
+                    })
+                    raise HermesError(
+                        "TASK_CLAIM_LOST",
+                        "the task is no longer claimable (it moved to another worker or was recovered); fetch its current state",
+                    )
+                record = claimed
+            else:
+                record.transition(TaskStatus.RUNNING)
+                record.started_at = self._now()
+                record.attempts = min(record.attempts + 1, record.max_attempts)
+                record.worker_id = self._worker_id
         elif record.status is not TaskStatus.RUNNING:
             raise ValueError(f"execute() requires a QUEUED or RUNNING task, got {record.status.value}")
         attempt = record.attempts
@@ -242,18 +268,26 @@ class TaskRouter:
                 "reason_codes": result.reason_codes,
             }
         )
-        self._save(record)
+        self._finish_save(record)
         return record
 
     def _cancel_check_for(self, record: TaskRecord):
         """Cooperative cancellation source: the record's own flag plus, when a
         store is attached, the CURRENT stored flag (a cancel request that
-        arrived after this claim)."""
+        arrived after this claim). The same boundary doubles as the execution
+        lease heartbeat (round-4): each step extends the claim's lease, so a
+        live long-running task is never mistaken for a dead one and requeued
+        onto another instance."""
 
         def check() -> bool:
             if record.cancel_requested:
                 return True
             if self._store is not None:
+                if hasattr(self._store, "renew_lease"):
+                    try:
+                        self._store.renew_lease(record.task_id, self._worker_id)
+                    except Exception:  # noqa: BLE001 — heartbeat must not fail the task
+                        pass
                 current = self._store.get(record.task_id)
                 return bool(current and current.cancel_requested)
             return False
@@ -288,7 +322,7 @@ class TaskRouter:
         receipt.error_class = record.error_class
         receipt.failure_class = record.failure_class
         self._append_receipt(record, receipt)
-        self._save(record)
+        self._finish_save(record)
 
     # -- helpers -------------------------------------------------------------
 
@@ -310,8 +344,15 @@ class TaskRouter:
         return record
 
     def _append_receipt(self, record: TaskRecord, receipt: ExecutionReceipt) -> None:
-        receipts = [*record.receipts, receipt][-10:]
-        record.receipts = receipts
+        """Persist the receipt durably FIRST (round-4: receipts are rows with
+        a UNIQUE (task_id, attempt) constraint — a concurrent or repeated
+        append can never duplicate or lose one), then mirror it onto the
+        in-memory record. The old path only mutated the record and relied on
+        the next save()'s full-row write, which lost receipts when another
+        instance saved the same task concurrently."""
+        if self._store is not None and hasattr(self._store, "append_receipt"):
+            self._store.append_receipt(record, receipt)
+        record.receipts = [*record.receipts, receipt][-10:]
 
     def _save(self, record: TaskRecord) -> Optional[TaskRecord]:
         """Persist the current record state. Requires the record to already
@@ -321,13 +362,52 @@ class TaskRouter:
             self._store.save(record)
         return record
 
+    def _finish_save(self, record: TaskRecord) -> bool:
+        """Executor finish-save guarded against lost claims (round-4): the
+        row is updated only while it is still RUNNING under this worker's
+        claim. If recovery has already requeued it (lease expired), the row
+        is NOT overwritten — overwriting a requeued row with a terminal
+        status would hide the retry and let two instances disagree about
+        whether the idempotent task ran. The receipt is durable either way;
+        the requeued attempt re-executes with its own receipt."""
+        if self._store is None:
+            return True
+        saved = self._store.save_execution_result(record)
+        if not saved:
+            self._audit.record({
+                "event": "task_finish_save_lost",
+                "task_id": record.task_id,
+                "trace_id": record.trace_id,
+                "actor": record.submitted_by,
+                "worker_id": self._worker_id,
+                "outcome": record.status.value,
+            })
+        return saved
+
     def _schedule_retry_or_dead(self, record: TaskRecord) -> None:
         """FAILED → QUEUED with backoff (transient, attempts remain) or DEAD
         (permanent / attempts exhausted). Requires a store; without one the
-        record stays FAILED (tests assert that)."""
+        record stays FAILED (tests assert that).
+
+        Round-4: with a durable store this is a CAS on the row (guarded on
+        the FAILED state this worker just wrote), so a concurrent recovery
+        can never reschedule the same attempt twice. The record is mirrored
+        so callers/tests see the same transition."""
         if self._store is None:
             return
         now = self._now()
+        if hasattr(self._store, "reschedule_after_failure"):
+            # Round-4: the store owns the CAS decision (FAILED → QUEUED with
+            # backoff, or DEAD) and mirrors the transition onto the record.
+            if not self._store.reschedule_after_failure(record, now):
+                self._audit.record({
+                    "event": "task_reschedule_lost",
+                    "task_id": record.task_id,
+                    "trace_id": record.trace_id,
+                    "actor": record.submitted_by,
+                    "worker_id": self._worker_id,
+                })
+            return
         if record.attempts >= record.max_attempts or record.failure_class is FailureClass.PERMANENT:
             record.transition(TaskStatus.DEAD)
             if record.refusal_reason is None:

@@ -326,6 +326,8 @@ def rls_env(pg_url):
         # Exactly the migration-005 grants for an application role.
         admin.execute(f"GRANT USAGE ON SCHEMA intelligence TO {role}")
         admin.execute(f"GRANT SELECT, INSERT, UPDATE ON intelligence.hermes_tasks TO {role}")
+        # Migration 006 extends the grant model: receipts are app-appendable.
+        admin.execute(f"GRANT SELECT, INSERT ON intelligence.hermes_receipts TO {role}")
         admin.execute(f"GRANT SELECT, INSERT, DELETE ON intelligence.hermes_nonces TO {role}")
         admin.execute(f"GRANT SELECT, INSERT ON intelligence.hermes_audit TO {role}")
         admin.execute(f"GRANT SELECT ON intelligence.migrations TO {role}")
