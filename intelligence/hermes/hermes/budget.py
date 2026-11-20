@@ -15,20 +15,23 @@ import time
 from pathlib import Path
 from typing import Any, Optional, Protocol
 
-from .contracts import BudgetExceeded
+from .contracts import BudgetExceeded, TaskCancelledCooperative
 
 
 class BudgetState:
     """Mutable per-task budget tracker. The router consults it before every
-    step and every tool call."""
+    step and every tool call. `cancel_check` is an optional callable — when
+    it returns True (the store flagged the task for cancellation), the next
+    `check_cancel()` raises TaskCancelledCooperative."""
 
-    def __init__(self, max_steps: int, max_seconds: int, max_tool_calls: int):
+    def __init__(self, max_steps: int, max_seconds: int, max_tool_calls: int, cancel_check=None):
         self.max_steps = max_steps
         self.max_seconds = max_seconds
         self.max_tool_calls = max_tool_calls
         self.steps_used = 0
         self.tool_calls_used = 0
         self._started = time.monotonic()
+        self.cancel_check = cancel_check
 
     def begin_step(self) -> None:
         if self.steps_used >= self.max_steps:
@@ -44,6 +47,12 @@ class BudgetState:
         elapsed = time.monotonic() - self._started
         if elapsed > self.max_seconds:
             raise BudgetExceeded("BUDGET_TIME_EXCEEDED")
+
+    def check_cancel(self) -> None:
+        """Cooperative cancellation point for handlers. Raises
+        TaskCancelledCooperative when a cancellation has been requested."""
+        if self.cancel_check is not None and self.cancel_check():
+            raise TaskCancelledCooperative()
 
 
 class AuditSink(Protocol):

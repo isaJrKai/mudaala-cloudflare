@@ -1,8 +1,8 @@
 """Mudaala Hermes orchestration core.
 
-Governance-first orchestration: skills, budgets, audit, and a backend seam.
-The control-plane HTTP skeleton lives in `hermes.server` (FastAPI) for a
-Modal/local deployment; nothing here performs spend-bearing inference.
+Governance-first orchestration: skills, budgets, audit, durable task storage,
+a backend seam and a worker loop. The control-plane HTTP API lives in
+`hermes.server` (FastAPI); nothing here performs spend-bearing inference.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
