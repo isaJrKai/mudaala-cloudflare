@@ -69,12 +69,26 @@ export function ShowNumber({
   }
 
   const pretty = formatPhonePretty(contact.phone)
+  // A tap on Call / WhatsApp is a genuine customer action and feeds the
+  // merchant's daily analytics and the discovery engagement signal. The event
+  // is fire-and-forget: the phone action itself must never wait on the
+  // counter, and the owner/admin exclusion lives server-side in the
+  // engagement endpoint. The reveal button itself deliberately records
+  // nothing - the recorded event is the actual contact action, not curiosity.
+  function trackEngagement(event: 'CALL_CLICK' | 'WHATSAPP_CLICK') {
+    void fetch(`/api/listings/${encodeURIComponent(listingId)}/engagement`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ event }),
+      keepalive: true,
+    }).catch(() => undefined)
+  }
   return (
     <div className="mt-3">
       <p className="text-lg font-semibold tracking-wide">{pretty}</p>
       <div className="mt-2 flex flex-col gap-2 sm:flex-row">
         <Button asChild className="press h-11 flex-1 text-[15px]">
-          <a href={telLink(contact.phone)} aria-label={`Call ${pretty}`}>
+          <a href={telLink(contact.phone)} aria-label={`Call ${pretty}`} onClick={() => trackEngagement('CALL_CLICK')}>
             <Phone className="size-4" aria-hidden /> {copy.common.call}
           </a>
         </Button>
@@ -84,7 +98,7 @@ export function ShowNumber({
             variant="outline"
             className="press h-11 flex-1 border-emerald-600 text-[15px] text-emerald-800 hover:bg-emerald-50"
           >
-            <a href={whatsappLink(contact.whatsapp, listingTitle, listingType)} target="_blank" rel="noopener noreferrer">
+            <a href={whatsappLink(contact.whatsapp, listingTitle, listingType)} target="_blank" rel="noopener noreferrer" onClick={() => trackEngagement('WHATSAPP_CLICK')}>
               <WhatsAppIcon className="size-4" aria-hidden /> WhatsApp
             </a>
           </Button>

@@ -24,6 +24,7 @@ import { ShareAdRow } from './share-row'
 import { RelatedListings } from './related-listings'
 import { SafetyCard } from './safety-card'
 import { InAppEnquiryButton } from './in-app-enquiry-button'
+import { ShowNumber } from './show-number'
 import { ReportButton } from './report-button'
 import { PlaceholderTile } from './placeholder-tile'
 import { HeartButton } from './listing-card'
@@ -289,6 +290,16 @@ export function ListingDetail({ id }: { id: string }) {
             label="Message seller"
             variant="default"
             className="press mt-3 h-11 w-full gap-1.5 text-[15px]"
+          /> : null}
+          {/* Same reveal rule as the public ad page: the number is fetched on
+              tap through the rate-limited contact endpoint, and the Call /
+              WhatsApp taps record the engagement events the merchant
+              dashboards have been promising. Owners never see their own
+              number here - they already know it. */}
+          {listing.status === 'ACTIVE' && user?.id !== listing.userId ? <ShowNumber
+            listingId={listing.id}
+            listingTitle={listing.title}
+            listingType={listing.type}
           /> : null}
 
           {listing.status !== 'ACTIVE' ? (

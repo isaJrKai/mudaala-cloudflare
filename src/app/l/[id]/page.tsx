@@ -23,6 +23,7 @@ import { ShareAdRow } from '@/components/commerce/share-row'
 import { RelatedListings } from '@/components/commerce/related-listings'
 import { SafetyCard } from '@/components/commerce/safety-card'
 import { ReportButton } from '@/components/commerce/report-button'
+import { ShowNumber } from '@/components/commerce/show-number'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { db, withRequestDb } from '@/lib/db'
@@ -380,6 +381,15 @@ export default async function AdPage({ params }: Params) {
               </a>
             </Button>
           </> : <h2 className="mt-4 text-sm font-semibold">{copy.listing.contact(shopDisplayName)}</h2>}
+          {/* The phone digits are never in the server HTML - the reveal is a
+              client-side, rate-limited tap (see show-number.tsx), so scraper
+              sweeps still collect nothing while real buyers get the contact
+              the ad always promised. Live ads only; the endpoint 404s the rest. */}
+          {listing.status === 'ACTIVE' ? (
+            <div className="mt-2">
+              <ShowNumber listingId={listing.id} listingTitle={listing.title} listingType={listing.type === 'OFFER' ? 'OFFER' : 'REQUEST'} />
+            </div>
+          ) : null}
           <Button asChild variant="outline" className="press mt-2 h-11 w-full gap-1.5 text-[15px]">
             <a href={directionsUrl} target="_blank" rel="noopener noreferrer" aria-label={copy.listing.directionsAria(placeOf(listing))}>
               <Navigation className="size-4" aria-hidden /> {copy.listing.directions}
