@@ -35,6 +35,7 @@ export const MerchantAnalyticsSnapshot = z.object({
     /** ISO start date of the window, inclusive. */
     from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   }),
+  /** Aggregate of this merchant's listing events (not shop-page views). */
   shop_totals: z.object({
     views: z.number().int().nonnegative(),
     contact_taps: z.number().int().nonnegative(),
