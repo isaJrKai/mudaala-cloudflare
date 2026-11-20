@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { buildMCI27Snapshot, pseudonymizeMerchantRef } from './merchant-insights'
+import { mci27IntelligenceEnabled } from './env-flags'
 
 const base = {
   ownerId: 'internal-user-id-123',
@@ -13,6 +14,12 @@ const base = {
 }
 
 describe('MCI-27 commerce snapshot adapter', () => {
+  test('the integration flag is opt-in and off by default', () => {
+    expect(mci27IntelligenceEnabled({})).toBe(false)
+    expect(mci27IntelligenceEnabled({ INTELLIGENCE_MCI27_ENABLED: 'false' })).toBe(false)
+    expect(mci27IntelligenceEnabled({ INTELLIGENCE_MCI27_ENABLED: 'true' })).toBe(true)
+  })
+
   test('maps real merchant aggregates into the 30-day MCI-27 contract', async () => {
     const snapshot = await buildMCI27Snapshot(base)
     expect(snapshot.period.days).toBe(30)
@@ -29,7 +36,7 @@ describe('MCI-27 commerce snapshot adapter', () => {
   })
 
   test('rejects unsupported reporting windows and malformed analytics', async () => {
-    await expect(buildMCI27Snapshot({ ...base, days: 28 as 30 })).rejects.toThrow()
+    await expect(buildMCI27Snapshot({ ...base, days: 28 as unknown as 30 })).rejects.toThrow()
     await expect(buildMCI27Snapshot({ ...base, totals: { views: -1, contactTaps: 0, shareClicks: 0 } })).rejects.toThrow()
   })
 })
