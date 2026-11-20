@@ -18,6 +18,7 @@ on:
     paths:
       - "intelligence/**"
       - "src/lib/intelligence/**"
+      - "src/lib/listings.ts"
       - "src/app/api/my/business-analytics/**"
       - "src/components/commerce/business-insights-panel.tsx"
       - "tsconfig.intelligence-commerce.json"
@@ -58,8 +59,8 @@ jobs:
       - name: Test commerce-plane gateway client, discovery pipeline and MCI-27 snapshot adapter
         run: bun test src/lib/intelligence/
 
-      - name: Lint the MCI-27 commerce integration
-        run: npx eslint src/app/api/my/business-analytics/route.ts src/components/commerce/business-insights-panel.tsx src/lib/intelligence/merchant-insights.ts src/lib/intelligence/merchant-insights.test.ts
+      - name: Lint the intelligence commerce integrations
+        run: npx eslint src/app/api/my/business-analytics/route.ts src/components/commerce/business-insights-panel.tsx src/lib/listings.ts src/lib/intelligence/discovery-pipeline.ts src/lib/intelligence/merchant-insights.ts src/lib/intelligence/merchant-insights.test.ts
 
       - name: SQL gate — fresh and repeatable migrations against disposable PostgreSQL
         run: bun test intelligence/jobs/
