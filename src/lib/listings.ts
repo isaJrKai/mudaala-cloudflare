@@ -312,7 +312,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     const PHOTO_BOOST_SCAN_CAP = 500
     // The intelligence plan is optional. Existing validated commerce filters
     // remain the source of truth; MCI-02 supplies the hard candidate budget.
-    const discoveryPlan = searchText && includeStatuses.length === 1 && includeStatuses[0] === 'ACTIVE' && mciDiscoveryIntelligenceEnabled(process.env)
+    const discoveryPageStart = ((page - 1) * pageSize)\n    const discoveryPlan = searchText && discoveryPageStart < 40 && includeStatuses.length === 1 && includeStatuses[0] === 'ACTIVE' && mciDiscoveryIntelligenceEnabled(process.env)
       ? await prepareMciDiscovery(query.q ?? '', {
           category_id: query.category ?? null,
           counties: query.county ? [query.county] : [],
