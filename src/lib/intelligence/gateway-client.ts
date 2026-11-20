@@ -5,10 +5,11 @@
  * - This is the ONLY commerce-plane coupling to the intelligence plane.
  * - Bounded by construction: hard timeout, one clock-skew retry, circuit
  *   breaker, and a total-failure posture of `null`.
- * - `null` is the deterministic fallback: callers MUST keep their existing
- *   local behaviour when this client returns null. The client never throws.
- * - The client is disabled unless fully configured (see env-flags.ts) and is
- *   shipped flag-off: NO existing route is wired to it in this increment.
+ * - Every failure resolves to `ok: false`; callers MUST keep their existing
+ *   local behaviour. The client never throws.
+ * - The client is disabled unless fully configured (see env-flags.ts). MCI-27
+ *   is optionally wired to the seller analytics route, but remains OFF unless
+ *   `INTELLIGENCE_MCI27_ENABLED=true`; all other product routes stay local.
  *
  * Signing mirrors intelligence/gateway/src/auth.ts exactly; parity is pinned
  * by a golden vector test (same canonical string, same HMAC).
