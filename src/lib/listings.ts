@@ -319,7 +319,6 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
           offer_request: query.type ?? null,
         })
       : null
-    const scanCap = discoveryPlan?.candidateCap ?? PHOTO_BOOST_SCAN_CAP
     const BAND_MS = 24 * 60 * 60 * 1000
     const now = Date.now()
     const pageStart = (page - 1) * pageSize
@@ -346,7 +345,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
       db.listing.findMany({
         where,
         orderBy: [orderBy],
-        take: scanCap,
+        take: PHOTO_BOOST_SCAN_CAP,
         select: rankingSelect,
       }),
       db.listing.count({ where }),
