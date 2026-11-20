@@ -108,7 +108,8 @@ export async function GET(request: Request) {
     let intelligence: Record<string, unknown> | undefined
     if (mci27IntelligenceEnabled(process.env)) {
       const client = getMci27Client()
-      if (!client.isConfigured()) {
+      const pseudonymKey = process.env.INTELLIGENCE_MERCHANT_PSEUDONYM_SECRET?.trim()
+      if (!client.isConfigured() || !pseudonymKey) {
         intelligence = { status: 'UNAVAILABLE' }
       } else {
         try {
@@ -152,7 +153,7 @@ export async function GET(request: Request) {
           const nowMs = Date.now()
           const snapshot = await buildMCI27Snapshot({
             ownerId: user.id,
-            pseudonymKey: process.env.INTELLIGENCE_GATEWAY_SECRET ?? '',
+            pseudonymKey,
             days: days as 7 | 30 | 90,
             from: sinceDay,
             totals: {
