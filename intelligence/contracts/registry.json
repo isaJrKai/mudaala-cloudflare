@@ -4,442 +4,970 @@
   "canonical_source": "docs/COMMERCE_INTELLIGENCE_40_MODULES.md @ architecture/commerce-intelligence-foundation (tip 5a69d69)",
   "modules": [
     {
-      "module_id": "MCI-01", "name": "Query understanding", "family": "DISCOVERY_RANKING",
-      "status": "IN_DEVELOPMENT", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-01",
+      "name": "Query understanding",
+      "family": "DISCOVERY_RANKING",
+      "status": "IN_DEVELOPMENT",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Parse intent, category and local terms so search finds what Ugandan buyers mean",
-      "existing_assets": ["src/lib/search.ts (concept vocabulary reference)", "src/lib/product-taxonomy.ts (category ids)"],
+      "existing_assets": [
+        "src/lib/search.ts (concept vocabulary reference)",
+        "src/lib/product-taxonomy.ts (category ids)"
+      ],
       "depends_on": [],
-      "gateway_route": "/v1/search/understand", "latency_budget_ms": 150, "compute_profile": "CPU_XS",
-      "data_inputs": ["public query text", "locale"], "requires_consent": false, "human_gate": false,
+      "gateway_route": "/v1/search/understand",
+      "latency_budget_ms": 150,
+      "compute_profile": "CPU_XS",
+      "data_inputs": [
+        "public query text",
+        "locale"
+      ],
+      "requires_consent": false,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Deterministic v0 implemented (increment 1). Model upgrade (ADAPT) deferred until a Luganda/English/code-switch benchmark exists."
     },
     {
-      "module_id": "MCI-02", "name": "Retrieval planner", "family": "DISCOVERY_RANKING",
-      "status": "IN_DEVELOPMENT", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-02",
+      "name": "Retrieval planner",
+      "family": "DISCOVERY_RANKING",
+      "status": "IN_DEVELOPMENT",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Select bounded keyword/filter retrieval paths without private-data leakage",
-      "existing_assets": ["src/lib/search.ts (term-group precedent)"],
-      "depends_on": ["MCI-01"],
-      "gateway_route": "/v1/search/plan", "latency_budget_ms": 100, "compute_profile": "CPU_XS",
-      "data_inputs": ["query plan", "public catalogue filters"], "requires_consent": false, "human_gate": false,
+      "existing_assets": [
+        "src/lib/search.ts (term-group precedent)"
+      ],
+      "depends_on": [
+        "MCI-01"
+      ],
+      "gateway_route": "/v1/search/plan",
+      "latency_budget_ms": 100,
+      "compute_profile": "CPU_XS",
+      "data_inputs": [
+        "query plan",
+        "public catalogue filters"
+      ],
+      "requires_consent": false,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Deterministic v0 implemented (increment 1). Postgres full-text/trigram remains the retrieval substrate; semantic path explicitly unavailable in v0."
     },
     {
-      "module_id": "MCI-03", "name": "Product relevance ranker", "family": "DISCOVERY_RANKING",
-      "status": "IN_DEVELOPMENT", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-03",
+      "name": "Product relevance ranker",
+      "family": "DISCOVERY_RANKING",
+      "status": "IN_DEVELOPMENT",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Rank eligible products by explainable relevance without harming small shops",
-      "existing_assets": ["src/lib/discovery-ranking.ts (pattern reference)", "docs/AI_SEARCH_EVALUATION_PROTOCOL.md (unmerged branch)"],
-      "depends_on": ["MCI-01", "MCI-02"],
-      "gateway_route": "/v1/search/rank", "latency_budget_ms": 200, "compute_profile": "CPU_S",
-      "data_inputs": ["query plan", "candidate features (aggregates only)"], "requires_consent": false, "human_gate": false,
+      "existing_assets": [
+        "src/lib/discovery-ranking.ts (pattern reference)",
+        "docs/AI_SEARCH_EVALUATION_PROTOCOL.md (unmerged branch)"
+      ],
+      "depends_on": [
+        "MCI-01",
+        "MCI-02"
+      ],
+      "gateway_route": "/v1/search/rank",
+      "latency_budget_ms": 200,
+      "compute_profile": "CPU_S",
+      "data_inputs": [
+        "query plan",
+        "candidate features (aggregates only)"
+      ],
+      "requires_consent": false,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Deterministic v0 with versioned weights and feature contributions (increment 1). Learning-to-rank only after human-judged relevance labels exist."
     },
     {
-      "module_id": "MCI-04", "name": "Personalisation ranker", "family": "DISCOVERY_RANKING",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-04",
+      "name": "Personalisation ranker",
+      "family": "DISCOVERY_RANKING",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Adapt ranking to consented first-party interests without sensitive inference",
-      "existing_assets": ["prisma: CategoryInterest, SavedSearch"],
-      "depends_on": ["MCI-03"],
-      "gateway_route": null, "latency_budget_ms": 150, "compute_profile": "CPU_S",
-      "data_inputs": ["opt-in views/saves/searches", "declared interests"], "requires_consent": true, "human_gate": false,
+      "existing_assets": [
+        "prisma: CategoryInterest, SavedSearch"
+      ],
+      "depends_on": [
+        "MCI-03"
+      ],
+      "gateway_route": null,
+      "latency_budget_ms": 150,
+      "compute_profile": "CPU_S",
+      "data_inputs": [
+        "opt-in views/saves/searches",
+        "declared interests"
+      ],
+      "requires_consent": true,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Rules first; consent and opt-out controls must precede any model (evaluation protocol privacy gates)."
     },
     {
-      "module_id": "MCI-05", "name": "Visual product matcher", "family": "DISCOVERY_RANKING",
-      "status": "PROPOSED", "decision": "ADAPT", "owner": "unassigned",
+      "module_id": "MCI-05",
+      "name": "Visual product matcher",
+      "family": "DISCOVERY_RANKING",
+      "status": "PROPOSED",
+      "decision": "ADAPT",
+      "owner": "unassigned",
       "product_outcome": "Match user photos to catalogue items",
       "existing_assets": [],
-      "depends_on": ["MCI-03"],
-      "gateway_route": null, "latency_budget_ms": 800, "compute_profile": "GPU_BATCH",
-      "data_inputs": ["user-submitted image", "public catalogue images"], "requires_consent": true, "human_gate": false,
+      "depends_on": [
+        "MCI-03"
+      ],
+      "gateway_route": null,
+      "latency_budget_ms": 800,
+      "compute_profile": "GPU_BATCH",
+      "data_inputs": [
+        "user-submitted image",
+        "public catalogue images"
+      ],
+      "requires_consent": true,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Pretrained encoder candidates (OpenCLIP/SigLIP) to benchmark before any adoption; no training from scratch."
     },
     {
-      "module_id": "MCI-06", "name": "Similar-item discovery", "family": "DISCOVERY_RANKING",
-      "status": "PROPOSED", "decision": "REUSE", "owner": "unassigned",
+      "module_id": "MCI-06",
+      "name": "Similar-item discovery",
+      "family": "DISCOVERY_RANKING",
+      "status": "PROPOSED",
+      "decision": "REUSE",
+      "owner": "unassigned",
       "product_outcome": "Show alternatives and substitutes that are genuinely compatible",
-      "existing_assets": ["src/lib/commerce-intelligence/recommendations.ts (unmerged PR #235 core)"],
+      "existing_assets": [
+        "src/lib/commerce-intelligence/recommendations.ts (unmerged PR #235 core)"
+      ],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 200, "compute_profile": "CPU_S",
-      "data_inputs": ["product attributes", "public catalogue"], "requires_consent": false, "human_gate": false,
+      "gateway_route": null,
+      "latency_budget_ms": 200,
+      "compute_profile": "CPU_S",
+      "data_inputs": [
+        "product attributes",
+        "public catalogue"
+      ],
+      "requires_consent": false,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Owned by PR #235 deterministic related-products core in the commerce plane; do not fork while that PR is open."
     },
     {
-      "module_id": "MCI-07", "name": "Local availability ranker", "family": "DISCOVERY_RANKING",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-07",
+      "name": "Local availability ranker",
+      "family": "DISCOVERY_RANKING",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Prioritise realistically reachable nearby sellers",
-      "existing_assets": ["src/lib/discovery-ranking.ts (locality feature)", "src/lib/geo.ts"],
-      "depends_on": ["MCI-03"],
-      "gateway_route": null, "latency_budget_ms": 100, "compute_profile": "CPU_XS",
-      "data_inputs": ["seller-declared area", "coarse locality"], "requires_consent": false, "human_gate": false,
+      "existing_assets": [
+        "src/lib/discovery-ranking.ts (locality feature)",
+        "src/lib/geo.ts"
+      ],
+      "depends_on": [
+        "MCI-03"
+      ],
+      "gateway_route": null,
+      "latency_budget_ms": 100,
+      "compute_profile": "CPU_XS",
+      "data_inputs": [
+        "seller-declared area",
+        "coarse locality"
+      ],
+      "requires_consent": false,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Deterministic; unknown stock must never be treated as available (location minimisation preserved)."
     },
     {
-      "module_id": "MCI-08", "name": "Discovery diversity controller", "family": "DISCOVERY_RANKING",
-      "status": "IN_DEVELOPMENT", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-08",
+      "name": "Discovery diversity controller",
+      "family": "DISCOVERY_RANKING",
+      "status": "IN_DEVELOPMENT",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Reduce repetitive exposure and give new shops fair opportunity",
-      "existing_assets": ["src/lib/discovery-ranking.ts (exposure-balance precedent)"],
-      "depends_on": ["MCI-03"],
-      "gateway_route": "/v1/search/diversify", "latency_budget_ms": 50, "compute_profile": "CPU_XS",
-      "data_inputs": ["candidate scores", "seller/category metadata"], "requires_consent": false, "human_gate": false,
+      "existing_assets": [
+        "src/lib/discovery-ranking.ts (exposure-balance precedent)"
+      ],
+      "depends_on": [
+        "MCI-03"
+      ],
+      "gateway_route": "/v1/search/diversify",
+      "latency_budget_ms": 50,
+      "compute_profile": "CPU_XS",
+      "data_inputs": [
+        "candidate scores",
+        "seller/category metadata"
+      ],
+      "requires_consent": false,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Deterministic slate controller with fairness report (increment 1); monitoring of real exposure distribution is the follow-up."
     },
     {
-      "module_id": "MCI-09", "name": "Business identity verifier", "family": "TRUST_SAFETY_COMPLIANCE",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-09",
+      "name": "Business identity verifier",
+      "family": "TRUST_SAFETY_COMPLIANCE",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Coordinate evidence checks for merchant identity",
-      "existing_assets": ["prisma: PhoneVerificationChallenge, GoogleIdentity", "docs/security/priority-1-identity-abuse-resistance.md"],
+      "existing_assets": [
+        "prisma: PhoneVerificationChallenge, GoogleIdentity",
+        "docs/security/priority-1-identity-abuse-resistance.md"
+      ],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 500, "compute_profile": "CPU_XS",
-      "data_inputs": ["merchant-submitted evidence"], "requires_consent": true, "human_gate": true,
+      "gateway_route": null,
+      "latency_budget_ms": 500,
+      "compute_profile": "CPU_XS",
+      "data_inputs": [
+        "merchant-submitted evidence"
+      ],
+      "requires_consent": true,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Never infer verification from a phone number or LLM; human sign-off mandatory."
     },
     {
-      "module_id": "MCI-10", "name": "Supplier due-diligence assessor", "family": "TRUST_SAFETY_COMPLIANCE",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-10",
+      "name": "Supplier due-diligence assessor",
+      "family": "TRUST_SAFETY_COMPLIANCE",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Assess supplier evidence and provenance",
       "existing_assets": [],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 500, "compute_profile": "CPU_XS",
-      "data_inputs": ["supplier-provided documents"], "requires_consent": true, "human_gate": true,
+      "gateway_route": null,
+      "latency_budget_ms": 500,
+      "compute_profile": "CPU_XS",
+      "data_inputs": [
+        "supplier-provided documents"
+      ],
+      "requires_consent": true,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Checklist workflow; missing evidence = unknown; no verified badge without human approval."
     },
     {
-      "module_id": "MCI-11", "name": "Listing policy classifier", "family": "TRUST_SAFETY_COMPLIANCE",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-11",
+      "name": "Listing policy classifier",
+      "family": "TRUST_SAFETY_COMPLIANCE",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Detect likely prohibited/restricted listings for review",
-      "existing_assets": ["src/lib/policy-violations.ts", "src/lib/validation.ts content-policy tests"],
+      "existing_assets": [
+        "src/lib/policy-violations.ts",
+        "src/lib/validation.ts content-policy tests"
+      ],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 150, "compute_profile": "CPU_S",
-      "data_inputs": ["listing text/category"], "requires_consent": false, "human_gate": true,
+      "gateway_route": null,
+      "latency_budget_ms": 150,
+      "compute_profile": "CPU_S",
+      "data_inputs": [
+        "listing text/category"
+      ],
+      "requires_consent": false,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Versioned policy engine decides; classifier only triages; ambiguous cases route to human review."
     },
     {
-      "module_id": "MCI-12", "name": "Image safety moderator", "family": "TRUST_SAFETY_COMPLIANCE",
-      "status": "PROPOSED", "decision": "ADOPT", "owner": "unassigned",
+      "module_id": "MCI-12",
+      "name": "Image safety moderator",
+      "family": "TRUST_SAFETY_COMPLIANCE",
+      "status": "PROPOSED",
+      "decision": "ADOPT",
+      "owner": "unassigned",
       "product_outcome": "Block unsafe product imagery reliably",
-      "existing_assets": ["src/lib/image-moderation.ts (existing provider gate, fail-closed)"],
+      "existing_assets": [
+        "src/lib/image-moderation.ts (existing provider gate, fail-closed)"
+      ],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 1000, "compute_profile": "EXTERNAL_API",
-      "data_inputs": ["image bytes (server-side only)"], "requires_consent": true, "human_gate": true,
+      "gateway_route": null,
+      "latency_budget_ms": 1000,
+      "compute_profile": "EXTERNAL_API",
+      "data_inputs": [
+        "image bytes (server-side only)"
+      ],
+      "requires_consent": true,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Provider already integrated fail-closed in commerce plane; intelligence plane adds no second moderator without review."
     },
     {
-      "module_id": "MCI-13", "name": "Fraud/anomaly detector", "family": "TRUST_SAFETY_COMPLIANCE",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-13",
+      "name": "Fraud/anomaly detector",
+      "family": "TRUST_SAFETY_COMPLIANCE",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Surface suspicious patterns as review signals only",
-      "existing_assets": ["prisma: AuditLog, PolicyViolation"],
+      "existing_assets": [
+        "prisma: AuditLog, PolicyViolation"
+      ],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 1000, "compute_profile": "CPU_M",
-      "data_inputs": ["minimised security/listing events"], "requires_consent": false, "human_gate": true,
+      "gateway_route": null,
+      "latency_budget_ms": 1000,
+      "compute_profile": "CPU_M",
+      "data_inputs": [
+        "minimised security/listing events"
+      ],
+      "requires_consent": false,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Risk signals only; no automatic accusation, suspension or irreversible action."
     },
     {
-      "module_id": "MCI-14", "name": "Reputation integrity monitor", "family": "TRUST_SAFETY_COMPLIANCE",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-14",
+      "name": "Reputation integrity monitor",
+      "family": "TRUST_SAFETY_COMPLIANCE",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Detect review manipulation and coordinated abuse",
       "existing_assets": [],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 1000, "compute_profile": "CPU_M",
-      "data_inputs": ["public review/report metadata"], "requires_consent": false, "human_gate": true,
+      "gateway_route": null,
+      "latency_budget_ms": 1000,
+      "compute_profile": "CPU_M",
+      "data_inputs": [
+        "public review/report metadata"
+      ],
+      "requires_consent": false,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Heuristics with reviewer queue; no automatic reputation penalty."
     },
     {
-      "module_id": "MCI-15", "name": "Transaction risk assessor", "family": "TRUST_SAFETY_COMPLIANCE",
-      "status": "PROPOSED", "decision": "DEFER", "owner": "unassigned",
+      "module_id": "MCI-15",
+      "name": "Transaction risk assessor",
+      "family": "TRUST_SAFETY_COMPLIANCE",
+      "status": "PROPOSED",
+      "decision": "DEFER",
+      "owner": "unassigned",
       "product_outcome": "Evaluate order/payment risk when that domain exists",
       "existing_assets": [],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 0, "compute_profile": "NONE_YET",
-      "data_inputs": ["verified order/payment events (do not exist)"], "requires_consent": true, "human_gate": true,
+      "gateway_route": null,
+      "latency_budget_ms": 0,
+      "compute_profile": "NONE_YET",
+      "data_inputs": [
+        "verified order/payment events (do not exist)"
+      ],
+      "requires_consent": true,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Mudaala is contact-first, not checkout-first; nothing to assess until an order/payment domain is built and approved."
     },
     {
-      "module_id": "MCI-16", "name": "Case triage assistant", "family": "TRUST_SAFETY_COMPLIANCE",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-16",
+      "name": "Case triage assistant",
+      "family": "TRUST_SAFETY_COMPLIANCE",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Prioritise moderator queues with grounded summaries",
-      "existing_assets": ["prisma: AppealCase, Report, Feedback"],
-      "depends_on": ["MCI-11"],
-      "gateway_route": null, "latency_budget_ms": 800, "compute_profile": "EXTERNAL_API",
-      "data_inputs": ["authorised/redacted case records"], "requires_consent": true, "human_gate": true,
+      "existing_assets": [
+        "prisma: AppealCase, Report, Feedback"
+      ],
+      "depends_on": [
+        "MCI-11"
+      ],
+      "gateway_route": null,
+      "latency_budget_ms": 800,
+      "compute_profile": "EXTERNAL_API",
+      "data_inputs": [
+        "authorised/redacted case records"
+      ],
+      "requires_consent": true,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Triage and draft only; moderators decide; strict redaction before any LLM involvement."
     },
     {
-      "module_id": "MCI-17", "name": "Preference learner", "family": "BUYER_EXPERIENCE",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-17",
+      "name": "Preference learner",
+      "family": "BUYER_EXPERIENCE",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Learn shopping interests from consented signals",
-      "existing_assets": ["prisma: CategoryInterest"],
+      "existing_assets": [
+        "prisma: CategoryInterest"
+      ],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 100, "compute_profile": "CPU_S",
-      "data_inputs": ["opt-in events"], "requires_consent": true, "human_gate": false,
+      "gateway_route": null,
+      "latency_budget_ms": 100,
+      "compute_profile": "CPU_S",
+      "data_inputs": [
+        "opt-in events"
+      ],
+      "requires_consent": true,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Aggregate counters first; buyer preference data never merchant-visible."
     },
     {
-      "module_id": "MCI-18", "name": "Shopping intent predictor", "family": "BUYER_EXPERIENCE",
-      "status": "PROPOSED", "decision": "DEFER", "owner": "unassigned",
+      "module_id": "MCI-18",
+      "name": "Shopping intent predictor",
+      "family": "BUYER_EXPERIENCE",
+      "status": "PROPOSED",
+      "decision": "DEFER",
+      "owner": "unassigned",
       "product_outcome": "Estimate near-term shopping intent when actionable",
       "existing_assets": [],
-      "depends_on": ["MCI-17"],
-      "gateway_route": null, "latency_budget_ms": 100, "compute_profile": "CPU_S",
-      "data_inputs": ["consented interactions"], "requires_consent": true, "human_gate": false,
+      "depends_on": [
+        "MCI-17"
+      ],
+      "gateway_route": null,
+      "latency_budget_ms": 100,
+      "compute_profile": "CPU_S",
+      "data_inputs": [
+        "consented interactions"
+      ],
+      "requires_consent": true,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "No product decision currently needs this; build only if a use case is justified and calibrated."
     },
     {
-      "module_id": "MCI-19", "name": "Budget-fit estimator", "family": "BUYER_EXPERIENCE",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-19",
+      "name": "Budget-fit estimator",
+      "family": "BUYER_EXPERIENCE",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Match products to declared budgets without income inference",
-      "existing_assets": ["src/lib/search.ts (price grammar)"],
-      "depends_on": ["MCI-01"],
-      "gateway_route": null, "latency_budget_ms": 50, "compute_profile": "CPU_XS",
-      "data_inputs": ["declared budget", "public prices"], "requires_consent": true, "human_gate": false,
+      "existing_assets": [
+        "src/lib/search.ts (price grammar)"
+      ],
+      "depends_on": [
+        "MCI-01"
+      ],
+      "gateway_route": null,
+      "latency_budget_ms": 50,
+      "compute_profile": "CPU_XS",
+      "data_inputs": [
+        "declared budget",
+        "public prices"
+      ],
+      "requires_consent": true,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Deterministic bands; user corrects preferences; never infer income/class."
     },
     {
-      "module_id": "MCI-20", "name": "Buyer journey assistant", "family": "BUYER_EXPERIENCE",
-      "status": "PROPOSED", "decision": "ADAPT", "owner": "unassigned",
+      "module_id": "MCI-20",
+      "name": "Buyer journey assistant",
+      "family": "BUYER_EXPERIENCE",
+      "status": "PROPOSED",
+      "decision": "ADAPT",
+      "owner": "unassigned",
       "product_outcome": "Grounded comparison and navigation help using public facts",
-      "existing_assets": ["src/lib/merchant-kb/ (grounding precedent)", "src/lib/telegram-assistant.ts (adapter precedent)"],
-      "depends_on": ["MCI-01", "MCI-02"],
-      "gateway_route": null, "latency_budget_ms": 2000, "compute_profile": "EXTERNAL_API",
-      "data_inputs": ["public product/shop facts", "user question"], "requires_consent": true, "human_gate": false,
+      "existing_assets": [
+        "src/lib/merchant-kb/ (grounding precedent)",
+        "src/lib/telegram-assistant.ts (adapter precedent)"
+      ],
+      "depends_on": [
+        "MCI-01",
+        "MCI-02"
+      ],
+      "gateway_route": null,
+      "latency_budget_ms": 2000,
+      "compute_profile": "EXTERNAL_API",
+      "data_inputs": [
+        "public product/shop facts",
+        "user question"
+      ],
+      "requires_consent": true,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Retrieval-grounded with citations and uncertainty disclosure; no invented claims."
     },
     {
-      "module_id": "MCI-21", "name": "Customer support router", "family": "BUYER_EXPERIENCE",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-21",
+      "name": "Customer support router",
+      "family": "BUYER_EXPERIENCE",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Route questions and disputes to the right human queue",
-      "existing_assets": ["prisma: Feedback, Report, Enquiry"],
+      "existing_assets": [
+        "prisma: Feedback, Report, Enquiry"
+      ],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 100, "compute_profile": "CPU_XS",
-      "data_inputs": ["support message metadata"], "requires_consent": true, "human_gate": true,
+      "gateway_route": null,
+      "latency_budget_ms": 100,
+      "compute_profile": "CPU_XS",
+      "data_inputs": [
+        "support message metadata"
+      ],
+      "requires_consent": true,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Deterministic routing first; generative replies deferred until privacy review."
     },
     {
-      "module_id": "MCI-22", "name": "Retention/churn signal", "family": "BUYER_EXPERIENCE",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-22",
+      "name": "Retention/churn signal",
+      "family": "BUYER_EXPERIENCE",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Identify useful, opt-in re-engagement opportunities",
-      "existing_assets": ["growth-coach notification controls (frequency caps, quiet hours)"],
+      "existing_assets": [
+        "growth-coach notification controls (frequency caps, quiet hours)"
+      ],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 500, "compute_profile": "CPU_S",
-      "data_inputs": ["aggregated usage cohorts"], "requires_consent": true, "human_gate": false,
+      "gateway_route": null,
+      "latency_budget_ms": 500,
+      "compute_profile": "CPU_S",
+      "data_inputs": [
+        "aggregated usage cohorts"
+      ],
+      "requires_consent": true,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Suppression-aware cohort rules only; no manipulative urgency."
     },
     {
-      "module_id": "MCI-23", "name": "Listing enrichment assistant", "family": "MERCHANT_SUPPLIER_OPS",
-      "status": "PROPOSED", "decision": "ADAPT", "owner": "unassigned",
+      "module_id": "MCI-23",
+      "name": "Listing enrichment assistant",
+      "family": "MERCHANT_SUPPLIER_OPS",
+      "status": "PROPOSED",
+      "decision": "ADAPT",
+      "owner": "unassigned",
       "product_outcome": "Draft titles/descriptions the merchant reviews and approves",
-      "existing_assets": ["src/lib/product-taxonomy.ts (attribute schema)"],
-      "depends_on": ["MCI-01"],
-      "gateway_route": null, "latency_budget_ms": 3000, "compute_profile": "EXTERNAL_API",
-      "data_inputs": ["merchant-supplied text/images"], "requires_consent": true, "human_gate": true,
+      "existing_assets": [
+        "src/lib/product-taxonomy.ts (attribute schema)"
+      ],
+      "depends_on": [
+        "MCI-01"
+      ],
+      "gateway_route": null,
+      "latency_budget_ms": 3000,
+      "compute_profile": "EXTERNAL_API",
+      "data_inputs": [
+        "merchant-supplied text/images"
+      ],
+      "requires_consent": true,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Merchant reviews everything; never invent price, stock, origin, certification or claims."
     },
     {
-      "module_id": "MCI-24", "name": "Inventory signal engine", "family": "MERCHANT_SUPPLIER_OPS",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-24",
+      "name": "Inventory signal engine",
+      "family": "MERCHANT_SUPPLIER_OPS",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Reconcile declared stock and listing status",
-      "existing_assets": ["prisma: BusinessProduct, StockMovement, Sale, SaleItem", "Listing.availabilityStatus"],
+      "existing_assets": [
+        "prisma: BusinessProduct, StockMovement, Sale, SaleItem",
+        "Listing.availabilityStatus"
+      ],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 100, "compute_profile": "CPU_XS",
-      "data_inputs": ["merchant stock edits", "declared sales"], "requires_consent": false, "human_gate": false,
+      "gateway_route": null,
+      "latency_budget_ms": 100,
+      "compute_profile": "CPU_XS",
+      "data_inputs": [
+        "merchant stock edits",
+        "declared sales"
+      ],
+      "requires_consent": false,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Deterministic reconciliation; unknown vs zero must stay distinct; no inferred stock truth."
     },
     {
-      "module_id": "MCI-25", "name": "Demand forecaster", "family": "MERCHANT_SUPPLIER_OPS",
-      "status": "PROPOSED", "decision": "ADAPT", "owner": "unassigned",
+      "module_id": "MCI-25",
+      "name": "Demand forecaster",
+      "family": "MERCHANT_SUPPLIER_OPS",
+      "status": "PROPOSED",
+      "decision": "ADAPT",
+      "owner": "unassigned",
       "product_outcome": "Forecast category/shop demand with honest intervals",
-      "existing_assets": ["ListingDailyAnalytics/ShopDailyAnalytics history", "src/lib/price-trends.ts (series precedent)"],
-      "depends_on": ["MCI-27"],
-      "gateway_route": null, "latency_budget_ms": 2000, "compute_profile": "CPU_M",
-      "data_inputs": ["aggregated event time series"], "requires_consent": false, "human_gate": false,
+      "existing_assets": [
+        "ListingDailyAnalytics/ShopDailyAnalytics history",
+        "src/lib/price-trends.ts (series precedent)"
+      ],
+      "depends_on": [
+        "MCI-27"
+      ],
+      "gateway_route": null,
+      "latency_budget_ms": 2000,
+      "compute_profile": "CPU_M",
+      "data_inputs": [
+        "aggregated event time series"
+      ],
+      "requires_consent": false,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Statistical baseline first; taps are demand proxies at best, never sales; sparse-series honesty caps required."
     },
     {
-      "module_id": "MCI-26", "name": "Pricing assistant", "family": "MERCHANT_SUPPLIER_OPS",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-26",
+      "name": "Pricing assistant",
+      "family": "MERCHANT_SUPPLIER_OPS",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Suggest price ranges from comparable evidence",
-      "existing_assets": ["src/lib/price-trends.ts", "src/lib/price-movers.ts", "prisma: PriceSnapshot"],
+      "existing_assets": [
+        "src/lib/price-trends.ts",
+        "src/lib/price-movers.ts",
+        "prisma: PriceSnapshot"
+      ],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 300, "compute_profile": "CPU_S",
-      "data_inputs": ["public active listing prices"], "requires_consent": false, "human_gate": false,
+      "gateway_route": null,
+      "latency_budget_ms": 300,
+      "compute_profile": "CPU_S",
+      "data_inputs": [
+        "public active listing prices"
+      ],
+      "requires_consent": false,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Extend existing medians/movers with sample-size and coverage disclosure; asking prices are not transaction prices."
     },
     {
-      "module_id": "MCI-27", "name": "Merchant performance analyst", "family": "MERCHANT_SUPPLIER_OPS",
-      "status": "IN_DEVELOPMENT", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-27",
+      "name": "Merchant performance analyst",
+      "family": "MERCHANT_SUPPLIER_OPS",
+      "status": "IN_DEVELOPMENT",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Explain shop views, contact taps and listing engagement in plain language",
-      "existing_assets": ["src/lib/listing-analytics.ts (metric definitions)", "prisma: ListingDailyAnalytics, ShopDailyAnalytics", "src/app/api/my/business-analytics/route.ts"],
+      "existing_assets": [
+        "src/lib/listing-analytics.ts (metric definitions)",
+        "prisma: ListingDailyAnalytics, ShopDailyAnalytics",
+        "src/app/api/my/business-analytics/route.ts"
+      ],
       "depends_on": [],
-      "gateway_route": "/v1/merchant/insights", "latency_budget_ms": 250, "compute_profile": "CPU_XS",
-      "data_inputs": ["merchant's own daily aggregates"], "requires_consent": false, "human_gate": false,
+      "gateway_route": "/v1/merchant/insights",
+      "latency_budget_ms": 250,
+      "compute_profile": "CPU_XS",
+      "data_inputs": [
+        "merchant's own daily aggregates"
+      ],
+      "requires_consent": false,
+      "human_gate": false,
       "evidence_links": [],
-      "notes": "Deterministic v0 implemented (increment 1); tap≠sales rule is executable in the contract; LLM wording deferred."
+      "notes": "Deterministic v0 implemented with sample-size and tap≠sales honesty gates. An opt-in adapter now builds snapshots from seller-scoped listing analytics and exposes grounded signals in My Business; INTELLIGENCE_MCI27_ENABLED remains false by default. Staging network verification is still required."
     },
     {
-      "module_id": "MCI-28", "name": "Restock/sourcing recommender", "family": "MERCHANT_SUPPLIER_OPS",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-28",
+      "name": "Restock/sourcing recommender",
+      "family": "MERCHANT_SUPPLIER_OPS",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Suggest replenishment opportunities from confirmed signals",
-      "existing_assets": ["prisma: StockMovement, Sale"],
-      "depends_on": ["MCI-25"],
-      "gateway_route": null, "latency_budget_ms": 300, "compute_profile": "CPU_S",
-      "data_inputs": ["declared stock changes", "declared sales"], "requires_consent": false, "human_gate": true,
+      "existing_assets": [
+        "prisma: StockMovement, Sale"
+      ],
+      "depends_on": [
+        "MCI-25"
+      ],
+      "gateway_route": null,
+      "latency_budget_ms": 300,
+      "compute_profile": "CPU_S",
+      "data_inputs": [
+        "declared stock changes",
+        "declared sales"
+      ],
+      "requires_consent": false,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Suggestion-only workflow; no auto-order; defer predictive modelling until outcomes data is reliable."
     },
     {
-      "module_id": "MCI-29", "name": "Global supplier discovery", "family": "TRADE_FULFILMENT",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-29",
+      "name": "Global supplier discovery",
+      "family": "TRADE_FULFILMENT",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Discover manufacturers/wholesalers with provenance",
       "existing_assets": [],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 5000, "compute_profile": "EXTERNAL_API",
-      "data_inputs": ["public/licensed supplier directories"], "requires_consent": false, "human_gate": true,
+      "gateway_route": null,
+      "latency_budget_ms": 5000,
+      "compute_profile": "EXTERNAL_API",
+      "data_inputs": [
+        "public/licensed supplier directories"
+      ],
+      "requires_consent": false,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Connector layer; each source reviewed for access terms; anti-scam checks mandatory."
     },
     {
-      "module_id": "MCI-30", "name": "Manufacturer authenticity assessor", "family": "TRADE_FULFILMENT",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-30",
+      "name": "Manufacturer authenticity assessor",
+      "family": "TRADE_FULFILMENT",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Evaluate factory/trader claims with evidence",
       "existing_assets": [],
-      "depends_on": ["MCI-29"],
-      "gateway_route": null, "latency_budget_ms": 5000, "compute_profile": "CPU_M",
-      "data_inputs": ["supplier documents", "official registries"], "requires_consent": true, "human_gate": true,
+      "depends_on": [
+        "MCI-29"
+      ],
+      "gateway_route": null,
+      "latency_budget_ms": 5000,
+      "compute_profile": "CPU_M",
+      "data_inputs": [
+        "supplier documents",
+        "official registries"
+      ],
+      "requires_consent": true,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Never label factory-direct without verified proof; human verification mandatory."
     },
     {
-      "module_id": "MCI-31", "name": "Wholesale comparison engine", "family": "TRADE_FULFILMENT",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-31",
+      "name": "Wholesale comparison engine",
+      "family": "TRADE_FULFILMENT",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Compare MOQ, unit price and terms apples-to-apples",
       "existing_assets": [],
-      "depends_on": ["MCI-29"],
-      "gateway_route": null, "latency_budget_ms": 200, "compute_profile": "CPU_XS",
-      "data_inputs": ["supplier quotes"], "requires_consent": true, "human_gate": false,
+      "depends_on": [
+        "MCI-29"
+      ],
+      "gateway_route": null,
+      "latency_budget_ms": 200,
+      "compute_profile": "CPU_XS",
+      "data_inputs": [
+        "supplier quotes"
+      ],
+      "requires_consent": true,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Typed quote normalisation; quote date and exclusions always visible; no ML needed."
     },
     {
-      "module_id": "MCI-32", "name": "Landed-cost calculator", "family": "TRADE_FULFILMENT",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-32",
+      "name": "Landed-cost calculator",
+      "family": "TRADE_FULFILMENT",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Estimate total import cost with uncertainty",
       "existing_assets": [],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 200, "compute_profile": "CPU_XS",
-      "data_inputs": ["official tariff/tax schedules", "freight quotes"], "requires_consent": false, "human_gate": true,
+      "gateway_route": null,
+      "latency_budget_ms": 200,
+      "compute_profile": "CPU_XS",
+      "data_inputs": [
+        "official tariff/tax schedules",
+        "freight quotes"
+      ],
+      "requires_consent": false,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Versioned rate tables with freshness checks; estimates are not customs determinations."
     },
     {
-      "module_id": "MCI-33", "name": "Trade compliance checker", "family": "TRADE_FULFILMENT",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-33",
+      "name": "Trade compliance checker",
+      "family": "TRADE_FULFILMENT",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Flag product/corridor restrictions and permits",
       "existing_assets": [],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 1000, "compute_profile": "CPU_S",
-      "data_inputs": ["current official import/export rules"], "requires_consent": false, "human_gate": true,
+      "gateway_route": null,
+      "latency_budget_ms": 1000,
+      "compute_profile": "CPU_S",
+      "data_inputs": [
+        "current official import/export rules"
+      ],
+      "requires_consent": false,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Source-backed checklist; qualified clearing agent validates; no legal guarantee."
     },
     {
-      "module_id": "MCI-34", "name": "Shipment visibility predictor", "family": "TRADE_FULFILMENT",
-      "status": "PROPOSED", "decision": "DEFER", "owner": "unassigned",
+      "module_id": "MCI-34",
+      "name": "Shipment visibility predictor",
+      "family": "TRADE_FULFILMENT",
+      "status": "PROPOSED",
+      "decision": "DEFER",
+      "owner": "unassigned",
       "product_outcome": "Track milestones and estimate delivery windows",
       "existing_assets": [],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 0, "compute_profile": "NONE_YET",
-      "data_inputs": ["carrier-confirmed milestones (no integrations exist)"], "requires_consent": true, "human_gate": false,
+      "gateway_route": null,
+      "latency_budget_ms": 0,
+      "compute_profile": "NONE_YET",
+      "data_inputs": [
+        "carrier-confirmed milestones (no integrations exist)"
+      ],
+      "requires_consent": true,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Defer until carrier integrations exist; never invent tracking events."
     },
     {
-      "module_id": "MCI-35", "name": "Sponsored-campaign eligibility", "family": "GROWTH_ADVERTISING_NETWORK",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-35",
+      "name": "Sponsored-campaign eligibility",
+      "family": "GROWTH_ADVERTISING_NETWORK",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Decide whether a listing/shop may enter ad inventory",
-      "existing_assets": ["prisma: moderationStatus, PolicyViolation"],
+      "existing_assets": [
+        "prisma: moderationStatus, PolicyViolation"
+      ],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 50, "compute_profile": "CPU_XS",
-      "data_inputs": ["trust/policy state"], "requires_consent": false, "human_gate": true,
+      "gateway_route": null,
+      "latency_budget_ms": 50,
+      "compute_profile": "CPU_XS",
+      "data_inputs": [
+        "trust/policy state"
+      ],
+      "requires_consent": false,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Deterministic truth table; safety and trust gates precede payment; no ads domain exists yet."
     },
     {
-      "module_id": "MCI-36", "name": "Sponsored placement ranker", "family": "GROWTH_ADVERTISING_NETWORK",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-36",
+      "name": "Sponsored placement ranker",
+      "family": "GROWTH_ADVERTISING_NETWORK",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Rank clearly labelled paid placements without touching organic trust",
       "existing_assets": [],
-      "depends_on": ["MCI-35", "MCI-03"],
-      "gateway_route": null, "latency_budget_ms": 100, "compute_profile": "CPU_XS",
-      "data_inputs": ["campaign bids/budgets", "listing relevance features"], "requires_consent": false, "human_gate": true,
+      "depends_on": [
+        "MCI-35",
+        "MCI-03"
+      ],
+      "gateway_route": null,
+      "latency_budget_ms": 100,
+      "compute_profile": "CPU_XS",
+      "data_inputs": [
+        "campaign bids/budgets",
+        "listing relevance features"
+      ],
+      "requires_consent": false,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Separate auction with relevance floor; ads never rewrite organic ranking or trust."
     },
     {
-      "module_id": "MCI-37", "name": "Campaign audience matcher", "family": "GROWTH_ADVERTISING_NETWORK",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-37",
+      "name": "Campaign audience matcher",
+      "family": "GROWTH_ADVERTISING_NETWORK",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Match campaigns to permitted consented cohorts",
-      "existing_assets": ["prisma: CategoryInterest"],
-      "depends_on": ["MCI-17"],
-      "gateway_route": null, "latency_budget_ms": 200, "compute_profile": "CPU_S",
-      "data_inputs": ["opt-in declared interests"], "requires_consent": true, "human_gate": true,
+      "existing_assets": [
+        "prisma: CategoryInterest"
+      ],
+      "depends_on": [
+        "MCI-17"
+      ],
+      "gateway_route": null,
+      "latency_budget_ms": 200,
+      "compute_profile": "CPU_S",
+      "data_inputs": [
+        "opt-in declared interests"
+      ],
+      "requires_consent": true,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Minimum cohort sizes; no sensitive targeting; opt-out enforcement tested."
     },
     {
-      "module_id": "MCI-38", "name": "Merchant growth coach", "family": "GROWTH_ADVERTISING_NETWORK",
-      "status": "PROPOSED", "decision": "REUSE", "owner": "unassigned",
+      "module_id": "MCI-38",
+      "name": "Merchant growth coach",
+      "family": "GROWTH_ADVERTISING_NETWORK",
+      "status": "PROPOSED",
+      "decision": "REUSE",
+      "owner": "unassigned",
       "product_outcome": "Suggest practical actions to improve shop outcomes",
-      "existing_assets": ["src/lib/merchant-growth.ts (live, deterministic, tested)", "src/app/api/growth/*", "src/app/api/cron/growth-coach/route.ts", "docs/MUDAALA_GROWTH_COACH.md"],
-      "depends_on": ["MCI-27"],
-      "gateway_route": null, "latency_budget_ms": 250, "compute_profile": "CPU_XS",
-      "data_inputs": ["shop facts", "merchant events"], "requires_consent": true, "human_gate": false,
+      "existing_assets": [
+        "src/lib/merchant-growth.ts (live, deterministic, tested)",
+        "src/app/api/growth/*",
+        "src/app/api/cron/growth-coach/route.ts",
+        "docs/MUDAALA_GROWTH_COACH.md"
+      ],
+      "depends_on": [
+        "MCI-27"
+      ],
+      "gateway_route": null,
+      "latency_budget_ms": 250,
+      "compute_profile": "CPU_XS",
+      "data_inputs": [
+        "shop facts",
+        "merchant events"
+      ],
+      "requires_consent": true,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Commerce-plane implementation is live and audited; intelligence plane registers it as REUSE and does not fork it."
     },
     {
-      "module_id": "MCI-39", "name": "Marketplace liquidity monitor", "family": "GROWTH_ADVERTISING_NETWORK",
-      "status": "PROPOSED", "decision": "BUILD", "owner": "unassigned",
+      "module_id": "MCI-39",
+      "name": "Marketplace liquidity monitor",
+      "family": "GROWTH_ADVERTISING_NETWORK",
+      "status": "PROPOSED",
+      "decision": "BUILD",
+      "owner": "unassigned",
       "product_outcome": "Detect category/area supply-demand gaps",
-      "existing_assets": ["SavedSearch (demand proxy)", "category taxonomy"],
+      "existing_assets": [
+        "SavedSearch (demand proxy)",
+        "category taxonomy"
+      ],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 1000, "compute_profile": "CPU_M",
-      "data_inputs": ["aggregated listings/searches/views"], "requires_consent": false, "human_gate": false,
+      "gateway_route": null,
+      "latency_budget_ms": 1000,
+      "compute_profile": "CPU_M",
+      "data_inputs": [
+        "aggregated listings/searches/views"
+      ],
+      "requires_consent": false,
+      "human_gate": false,
       "evidence_links": [],
       "notes": "Aggregate thresholds protect individuals; no personal profiling."
     },
     {
-      "module_id": "MCI-40", "name": "Network abuse monitor", "family": "GROWTH_ADVERTISING_NETWORK",
-      "status": "PROPOSED", "decision": "REUSE", "owner": "unassigned",
+      "module_id": "MCI-40",
+      "name": "Network abuse monitor",
+      "family": "GROWTH_ADVERTISING_NETWORK",
+      "status": "PROPOSED",
+      "decision": "REUSE",
+      "owner": "unassigned",
       "product_outcome": "Detect coordinated spam, scraping and platform attacks",
-      "existing_assets": ["src/lib/rate-limit.ts + RateLimitShard DO", "Cloudflare WAF/rate limiting"],
+      "existing_assets": [
+        "src/lib/rate-limit.ts + RateLimitShard DO",
+        "Cloudflare WAF/rate limiting"
+      ],
       "depends_on": [],
-      "gateway_route": null, "latency_budget_ms": 50, "compute_profile": "CPU_S",
-      "data_inputs": ["minimised security telemetry"], "requires_consent": false, "human_gate": true,
+      "gateway_route": null,
+      "latency_budget_ms": 50,
+      "compute_profile": "CPU_S",
+      "data_inputs": [
+        "minimised security telemetry"
+      ],
+      "requires_consent": false,
+      "human_gate": true,
       "evidence_links": [],
       "notes": "Reuse existing edge controls; build observability and triage workflow on top; human review before account impact."
     }
