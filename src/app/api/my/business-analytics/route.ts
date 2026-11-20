@@ -140,7 +140,10 @@ export async function GET(request: Request) {
               _sum: { views: true, callClicks: true, whatsappClicks: true, shareClicks: true },
             }),
           ])
-          const byListing = new Map(perListingRows.flatMap((row) => row.listingId ? [[row.listingId, row] as const] : []))
+          const byListing = new Map<string, (typeof perListingRows)[number]>()
+          for (const row of perListingRows) {
+            if (row.listingId) byListing.set(row.listingId, row)
+          }
           const nowMs = Date.now()
           const snapshot = await buildMCI27Snapshot({
             ownerId: user.id,
@@ -193,7 +196,7 @@ export async function GET(request: Request) {
               module: response.envelope.module_id,
               engineVersion: response.envelope.engine_version,
               insights: response.envelope.result.insights,
-              coverageWarnings: warnings.slice(0, 7),
+              coverageWarnings: warnings.slice(0, 6),
               metricDefinitionsRef: response.envelope.result.metric_definitions_ref,
             }
           } else {
