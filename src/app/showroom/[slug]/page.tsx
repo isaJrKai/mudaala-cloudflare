@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
 import { StandaloneShowroom } from '@/components/showroom/standalone-showroom'
+import { loadPublicShowroom } from '@/lib/showroom/public-showroom'
 import { db, withRequestDb } from '@/lib/db'
 
 type Props = { params: Promise<{ slug: string }> }
@@ -40,7 +42,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
+// The full public payload is loaded ON THE SERVER and handed to the client
+// component as initial data: crawlers see the whole showroom body (hero,
+// story, products) in the HTML, buyers see it without the extra roundtrip,
+// and the API route stays the only fetch path for previews and refreshes.
 export default async function ShowroomPage({ params }: Props) {
   const { slug } = await params
-  return <StandaloneShowroom slug={slug} />
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 80) notFound()
+  const payload = await withRequestDb(() => loadPublicShowroom(slug))
+  // An unpublished, unmoderated or missing showroom is honestly a 404 for
+  // crawlers and visitors alike; the soft "unavailable" state stays for
+  // preview failures inside the client component.
+  if (!payload) notFound()
+  return <StandaloneShowroom slug={slug} initial={payload} />
 }

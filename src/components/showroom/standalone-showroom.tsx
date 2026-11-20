@@ -3,28 +3,12 @@
 import Image from 'next/image'
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { getShowroomTemplate } from '@/lib/showroom/templates'
+import type { PublicShowroomPayload, PublicShowroomProduct } from '@/lib/showroom/public-showroom'
 
-type Product = {
-  id: string; title: string; description: string; category: string; brand: string | null
-  model: string | null; price: number | null; compareAtPrice: number | null; currency: string
-  priceNegotiable: boolean; availabilityStatus: string; photos: string[]
-}
-type Section = { heading?: string; body?: string; photoUrl?: string | null }
-type Payload = {
-  showroom: {
-    id: string; slug: string; templateId: string; templateVersion: number; title: string
-    headline: string | null; introduction: string | null; story: string | null
-    logoUrl: string | null; primaryColor: string | null; accentColor: string | null
-    coverPhotoUrl: string | null; photos: string[]; sections: Section[]
-  }
-  shop: {
-    id: string; name: string; logoUrl: string | null; category: string | null
-    description: string | null; area: string | null; county: string | null
-    hours: string | null
-    shopCode: string | null; websiteUrl: string | null
-  }
-  products: Product[]
-}
+// The payload shape is owned by the shared public-showroom loader (used by
+// both the API route and the SSR page); this component renders it.
+type Payload = PublicShowroomPayload
+type Product = PublicShowroomProduct
 
 const surfaces: Record<string, string> = {
   paper: 'bg-[#f5f0e7] text-[#292820]', chalk: 'bg-[#f8f8f5] text-[#20221e]',
@@ -128,11 +112,23 @@ function ProductCard({ product, layout, accent, templateId }: { product: Product
   )
 }
 
-export function StandaloneShowroom({ slug, preview = false }: { slug: string; preview?: boolean }) {
-  const [payload, setPayload] = useState<Payload | null>(null)
-  const [error, setError] = useState(false)
-  const [loading, setLoading] = useState(true)
+export function StandaloneShowroom({
+  slug,
+  preview = false,
+  initial = undefined,
+}: {
+  slug: string
+  preview?: boolean
+  /** Server-loaded public payload (the /showroom/[slug] page passes it); `null`
+   *  means the server already proved the showroom unavailable. `undefined`
+   *  (preview flows) keeps the client fetch. */
+  initial?: Payload | null
+}) {
+  const [payload, setPayload] = useState<Payload | null>(initial ?? null)
+  const [error, setError] = useState(initial === null)
+  const [loading, setLoading] = useState(initial === undefined)
   useEffect(() => {
+    if (initial !== undefined) return
     let active = true
     fetch(`/api/showrooms/public/${encodeURIComponent(slug)}${preview ? '?preview=1' : ''}`, { cache: 'no-store' })
       .then(async (response) => {
@@ -143,7 +139,7 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
       .catch(() => { if (active) setError(true) })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [slug])
+  }, [slug, preview, initial])
 
   const template = useMemo(() => payload ? getShowroomTemplate(payload.showroom.templateId, payload.showroom.templateVersion) : undefined, [payload])
   if (loading) return <main className="min-h-screen animate-pulse bg-[#f5f0e7] p-6"><div className="mx-auto max-w-6xl"><div className="h-5 w-32 bg-black/10" /><div className="mt-16 h-[42vh] bg-black/10" /><div className="mt-10 h-5 w-1/3 bg-black/10" /></div></main>
@@ -240,9 +236,11 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
           </div>
           <nav aria-label="Showroom navigation" className="flex shrink-0 items-center gap-3 text-[10px] font-semibold sm:gap-6 sm:text-xs">
             <a href="/" className="hidden rounded-sm border border-current/25 px-3 py-2 transition-colors hover:bg-current/5 sm:inline-flex">Back to Mudaala</a>
-            <a href="#collection" className="rounded-sm py-2 underline-offset-4 hover:underline">Products</a>
-            <a href="#about" className="hidden rounded-sm py-2 underline-offset-4 hover:underline sm:inline">About</a>
-            <a href="#contact" className="rounded-sm bg-[#0F3D2E] px-3 py-2 text-white transition-colors hover:bg-[#18543F] sm:px-4">Contact</a>
+            <a href="#collection" className="rounded-sm py-2 underline-offset-4 hover:underline">Products</a>            <a href="#about" className="hidden rounded-sm py-2 underline-offset-4 hover:underline sm:inline">About</a>
+            {/* Contact goes to the shop's real identity page (/s/{shopCode}),
+                where phone/enquiry/history live - previously it anchored to
+                #contact, a section that does not exist on this page. */}
+            {shop.shopCode ? <a href={`/s/${encodeURIComponent(shop.shopCode)}`} className="rounded-sm bg-[#0F3D2E] px-3 py-2 text-white transition-colors hover:bg-[#18543F] sm:px-4">Contact</a> : <a href="#collection" className="rounded-sm bg-[#0F3D2E] px-3 py-2 text-white transition-colors hover:bg-[#18543F] sm:px-4">Contact</a>}
           </nav>
         </div>
         <div className="flex items-center justify-center border-t border-current/10 px-4 py-1.5 sm:hidden">
@@ -289,7 +287,7 @@ export function StandaloneShowroom({ slug, preview = false }: { slug: string; pr
       <footer id="contact" className="mx-auto max-w-[1440px] px-5 py-12 sm:px-10 sm:py-16">
         <div className="grid gap-10 sm:grid-cols-2 sm:items-end">
           <div><p className="text-[10px] uppercase tracking-[.2em] opacity-85">Continue on Mudaala</p><h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{shop.name}</h2><p className="mt-3 text-sm opacity-80">{[shop.area, shop.county].filter(Boolean).join(', ')}</p>{shop.hours && <p className="mt-2 text-xs opacity-85">{shop.hours}</p>}{shop.shopCode && <p className="mt-4 text-[10px] uppercase tracking-[.18em] opacity-85">Mudaala shop code · {shop.shopCode}</p>}</div>
-          <div className="flex flex-wrap gap-3 sm:justify-end">{shop.websiteUrl && <a href={shop.websiteUrl} target="_blank" rel="noreferrer" className="border border-current/30 px-5 py-3 text-xs font-semibold">Website ↗</a>}<a href="#collection" className="border border-current/30 px-5 py-3 text-xs font-semibold">Choose a product to message the shop</a><a href="#collection" className="px-5 py-3 text-xs font-semibold" style={{ backgroundColor: primary, color: '#fff' }}>Explore products</a></div>
+          <div className="flex flex-wrap gap-3 sm:justify-end">{shop.websiteUrl && <a href={shop.websiteUrl} target="_blank" rel="noreferrer" className="border border-current/30 px-5 py-3 text-xs font-semibold">Website ↗</a>}{shop.shopCode && <a href={`/s/${encodeURIComponent(shop.shopCode)}`} className="border border-current/30 px-5 py-3 text-xs font-semibold">Visit the shop page</a>}<a href="#collection" className="border border-current/30 px-5 py-3 text-xs font-semibold">Choose a product to message the shop</a><a href="#collection" className="px-5 py-3 text-xs font-semibold" style={{ backgroundColor: primary, color: '#fff' }}>Explore products</a></div>
         </div>
         <div className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-current/15 pt-5 text-[10px] opacity-85"><span>{shop.name} · {template.name}</span><span>Independent shop on Mudaala</span></div>
       </footer>

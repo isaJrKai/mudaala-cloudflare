@@ -30,12 +30,14 @@ type Params = { params: Promise<{ code: string }> }
 
 // Request-scoped loader (React.cache dedupes the generateMetadata + page
 // pair). Null for malformed or unknown codes; the page turns that into a
-// friendly 404.
+// friendly 404. The public catalogue renders at most 200 listings; the
+// true ACTIVE count travels alongside so the page can say so honestly
+// instead of silently truncating a big shop.
 const loadShop = cache(async (raw: string) => {
   const code = normalizeShopCode(raw)
   if (!code) return null
 
-  return db.businessProfile.findUnique({
+  const profile = await db.businessProfile.findUnique({
     where: { shopCode: code },
     include: {
       user: {
@@ -48,6 +50,11 @@ const loadShop = cache(async (raw: string) => {
       },
     },
   })
+  if (!profile) return null
+  const activeListingCount = await db.listing.count({
+    where: { userId: profile.user.id, status: 'ACTIVE', ...activeListingExpiryFilter() },
+  })
+  return { ...profile, activeListingCount }
 })
 
 type ShopRow = NonNullable<Awaited<ReturnType<typeof loadShop>>>
@@ -81,7 +88,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
   const name = shopName(shop)
   const place = shopPlace(shop)
-  const count = shop.user.listings.length
+  const count = shop.activeListingCount
   const blurb = shop.description?.replace(/\s+/g, ' ').trim().slice(0, 120) ?? ''
   const description = `${count} live ad${count === 1 ? '' : 's'}${place ? ` in ${place}` : ''} on Mudaala.${blurb ? ` ${blurb}` : ''}`
   const image = shopImage(shop)
@@ -228,9 +235,14 @@ export default async function ShopPage({ params }: Params) {
                 {/* Search, filter and browse this shop's catalogue without leaving its page. */}
         <section aria-label="Shop products" className="space-y-4">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-sm font-semibold">Products ({listings.length})</h2>
+            <h2 className="text-sm font-semibold">Products ({shop.activeListingCount})</h2>
             <span className="text-xs text-muted-foreground">{groupedListings.length} product types</span>
           </div>
+          {shop.activeListingCount > listings.length ? (
+            <p className="rounded-md border bg-card px-3 py-2 text-xs text-muted-foreground">
+              Showing the newest {listings.length} of {shop.activeListingCount} active ads. Open one in the app or message the shop for anything you cannot see here.
+            </p>
+          ) : null}
           <ShopProductBrowser products={listings.map((ad): ShopBrowserProduct => {
             const node = ad.taxonomyId ? findTaxonomyNode(ad.taxonomyId) : undefined
             const photo = photosOf(ad.photos).find((p) => !p.includes('/uploads/seed/'))
