@@ -131,3 +131,11 @@ describe('MCI-03 contract and determinism', () => {
     expect(r1.ranked.map((r) => r.listing_id)).toEqual(['a', 'b'])
   })
 })
+
+describe('MCI-03 remediation — runtime validation', () => {
+  test('malformed query plans and candidates are rejected at the engine boundary', () => {
+    const good = candidate({ listing_id: 'g1', title: 'rice' })
+    expect(() => rankCandidates({ tokens: 42 } as never, [good])).toThrow()
+    expect(() => rankCandidates(plan('rice'), [{ listing_id: 'bad' } as never])).toThrow()
+  })
+})

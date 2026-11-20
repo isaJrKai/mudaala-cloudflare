@@ -10,7 +10,7 @@
  * - Ambiguity is surfaced (LOW/MEDIUM/HIGH + notes), never hidden.
  * - The concept pack is data (concepts.ts); grammar and weights live here.
  */
-import { MCI01Result, type MCI01Request } from '../../contracts/modules/mci01'
+import { MCI01Result, MCI01Request } from '../../contracts/modules/mci01'
 import {
   CONCEPT_PACK_VERSION,
   ENGLISH_HINT_TOKENS,
@@ -214,7 +214,9 @@ function languageHints(tokens: string[]): MCI01Result['language_hints'] {
  */
 export function understandQuery(request: MCI01Request, now: Date = new Date()): MCI01Result {
   void now
-  const original = request.query
+  // Runtime validation — direct callers cannot bypass the contract.
+  const validated = MCI01Request.parse(request)
+  const original = validated.query
   const normalized = normalizeText(original)
   const tokens = tokenize(normalized)
   const notes: string[] = []

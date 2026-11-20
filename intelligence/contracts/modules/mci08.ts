@@ -6,30 +6,38 @@
  * plus the metadata needed for fairness maths only.
  */
 import { z } from 'zod'
-import type { RankedItem } from './mci03'
+import { RankedItem } from './mci03'
 
 export const MCI08_CONTRACT_VERSION = '1.0'
 
-export const MCI08Request = z.object({
-  /** MCI-03 ranked output, in order. */
-  ranked: z.array(z.unknown()).max(500), // RankedItem[]; validated by engine
-  metadata: z.record(
-    z.string(),
-    z.object({
-      seller_ref: z.string().min(1).max(128),
-      category_id: z.string().max(64),
-      published_at: z.string(),
-    }),
-  ),
-  settings: z
-    .object({
-      max_per_seller: z.number().int().min(1).max(10).optional(),
-      /** Deterministic rotation bucket for stable page-level fairness. */
-      rotation_bucket: z.number().int().min(0).max(9).optional(),
-      exploration_slots: z.number().int().min(0).max(3).optional(),
-    })
-    .optional(),
-})
+/** Metadata keys are bounded: fairness maths only needs entries for slate ids. */
+export const MCI08_METADATA_MAX_KEYS = 1000
+
+export const MCI08Request = z
+  .object({
+    /** MCI-03 ranked output, in order — items validated here, not trusted. */
+    ranked: z.array(RankedItem).max(500),
+    metadata: z
+      .record(
+        z.string(),
+        z.object({
+          seller_ref: z.string().min(1).max(128),
+          category_id: z.string().max(64),
+          published_at: z.string(),
+        }),
+      )
+      .refine((meta) => Object.keys(meta).length <= MCI08_METADATA_MAX_KEYS, {
+        message: `metadata is limited to ${MCI08_METADATA_MAX_KEYS} entries`,
+      }),
+    settings: z
+      .object({
+        max_per_seller: z.number().int().min(1).max(10).optional(),
+        /** Deterministic rotation bucket for stable page-level fairness. */
+        rotation_bucket: z.number().int().min(0).max(9).optional(),
+        exploration_slots: z.number().int().min(0).max(3).optional(),
+      })
+      .optional(),
+  })
 export type MCI08Request = z.infer<typeof MCI08Request>
 
 export const MCI08Result = z.object({

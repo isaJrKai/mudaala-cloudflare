@@ -7,7 +7,7 @@
  * intelligence plane can later execute the same plan against its own stores.
  */
 import { z } from 'zod'
-import type { MCI01Result } from './mci01'
+import { MCI01Result } from './mci01'
 
 export const MCI02_CONTRACT_VERSION = '1.0'
 
@@ -76,10 +76,9 @@ export type MCI02Result = z.infer<typeof MCI02Result>
 /** Runtime validator that ties the plan to the upstream query-plan type. */
 export function validateMCI02Request(raw: unknown): { queryPlan: MCI01Result; request: z.infer<typeof MCI02Request> } {
   const parsed = MCI02Request.parse(raw)
-  // Minimal structural check here; full validation happens in the engine via
-  // the MCI-01 contract, keeping this file free of a circular import.
-  if (typeof parsed.query_plan !== 'object' || parsed.query_plan === null) {
-    throw new Error('query_plan must be an MCI01Result')
-  }
-  return { queryPlan: parsed.query_plan as MCI01Result, request: parsed }
+  // Strict validation: the plan must satisfy the full MCI-01 contract at
+  // runtime (increment-1 only checked `typeof === object`, which let
+  // malformed plans through to the engine).
+  const queryPlan = MCI01Result.parse(parsed.query_plan)
+  return { queryPlan, request: parsed }
 }

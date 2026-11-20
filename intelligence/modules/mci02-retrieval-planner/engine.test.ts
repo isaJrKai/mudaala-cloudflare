@@ -93,3 +93,10 @@ describe('MCI-02 guardrails', () => {
     expect(MCI02_ENGINE_VERSION).toMatch(/^mci02-retrieval-planner-v/)
   })
 })
+
+describe('MCI-02 remediation — runtime validation', () => {
+  test('a malformed query_plan is rejected at the engine boundary', () => {
+    // planRetrieval now re-validates its input; TS types alone are not trust.
+    expect(() => planRetrieval({ tokens: 'not-a-list' } as never)).toThrow()
+  })
+})

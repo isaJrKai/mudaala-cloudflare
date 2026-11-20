@@ -17,8 +17,9 @@
  */
 import { MCI01Result } from '../../contracts/modules/mci01'
 import { MCI03Result, RankCandidate, type RankedItem } from '../../contracts/modules/mci03'
+import { z } from 'zod'
 
-export const MCI03_ENGINE_VERSION = 'mci03-ranker-v0.1.0'
+export const MCI03_ENGINE_VERSION = 'mci03-ranker-v0.2.0'
 export const MCI03_WEIGHTS_REF = 'mci03.weights.v0'
 
 export const MCI03_WEIGHTS = {
@@ -102,13 +103,17 @@ export function rankCandidates(
   candidates: RankCandidate[],
   context: { county?: string | null; area?: string | null; now?: string } = {},
 ): MCI03Result {
+  // Runtime validation — direct engine callers get the same boundary as the
+  // gateway; TypeScript types are not runtime validation.
+  const validatedPlan = MCI01Result.parse(queryPlan)
+  const validatedCandidates = z.array(RankCandidate).max(500).parse(candidates)
   const nowMs = context.now ? Date.parse(context.now) : Date.now()
-  const queryTokens = queryPlan.tokens
+  const queryTokens = validatedPlan.tokens
   const hasQuery = queryTokens.length > 0
-  const hintCategories = new Set(queryPlan.category_hints.map((h) => h.category_id))
+  const hintCategories = new Set(validatedPlan.category_hints.map((h) => h.category_id))
   const ranked: RankedItem[] = []
 
-  for (const candidate of candidates) {
+  for (const candidate of validatedCandidates) {
     const contributions: Record<string, number> = {}
     const reasons: string[] = []
 

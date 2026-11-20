@@ -83,7 +83,7 @@ describe('benchmark on synthetic fixtures', () => {
   test('report carries full provenance', () => {
     expect(report.fixture_catalogue_version).toMatch(/^eval\.fixtures\.catalogue\.v/)
     expect(report.fixture_queries_version).toMatch(/^eval\.fixtures\.queries\.v/)
-    expect(report.engine_versions.mci03).toMatch(/v0\.1\.0$/)
+    expect(report.engine_versions.mci03).toMatch(/v0\.2\.0$/)
     expect(report.synthetic_data_notice).toContain('Synthetic')
   })
 

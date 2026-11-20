@@ -14,13 +14,13 @@
  * LLM wording is deliberately out of scope for v0 (see README).
  */
 import {
-  MerchantInsight,
+  MerchantAnalyticsSnapshot,
   MCI27Result,
   assertNoUnsubstantiatedClaims,
-  type MerchantAnalyticsSnapshot,
+  type MerchantInsight,
 } from '../../contracts/modules/mci27'
 
-export const MCI27_ENGINE_VERSION = 'mci27-merchant-performance-analyst-v0.1.0'
+export const MCI27_ENGINE_VERSION = 'mci27-merchant-performance-analyst-v0.2.0'
 
 /** Sample-size honesty caps — below these, insights are withheld and a
  * coverage warning is emitted instead (mirrors price-trends MIN_SAMPLE). */
@@ -46,9 +46,12 @@ function pct(value: number): string {
 }
 
 export function analyzeMerchantPerformance(snapshot: MerchantAnalyticsSnapshot): MCI27Result {
+  // Runtime validation — the engine re-validates its own input so direct
+  // callers cannot bypass the contract.
+  const validated = MerchantAnalyticsSnapshot.parse(snapshot)
   const insights: MerchantInsight[] = []
   const coverageWarnings: string[] = []
-  const { shop_totals, listings, previous_period_totals, period } = snapshot
+  const { shop_totals, listings, previous_period_totals, period } = validated
 
   // 1. Contact-tap rate (interest rate), gated on a minimum sample.
   if (shop_totals.views < MCI27_THRESHOLDS.MIN_VIEWS_FOR_RATE) {

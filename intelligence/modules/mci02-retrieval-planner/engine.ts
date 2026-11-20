@@ -13,7 +13,7 @@
 import { MCI01Result } from '../../contracts/modules/mci01'
 import { MCI02Result, type RetrievalPath } from '../../contracts/modules/mci02'
 
-export const MCI02_ENGINE_VERSION = 'mci02-retrieval-planner-v0.1.0'
+export const MCI02_ENGINE_VERSION = 'mci02-retrieval-planner-v0.2.0'
 
 const DEFAULT_CANDIDATE_CAP = 200
 const MAX_CANDIDATE_CAP = 500
@@ -42,6 +42,11 @@ export function planRetrieval(
   },
   bounds?: { max_candidates?: number },
 ): MCI02Result {
+  // Runtime validation: the plan is re-validated here so direct engine
+  // callers (eval harness, Hermes handlers) get the same boundary as the
+  // gateway. TypeScript types are not runtime validation.
+  const validatedPlan = MCI01Result.parse(queryPlan)
+  queryPlan = validatedPlan
   // Categories: explicit constraint wins, then query hints (max 4).
   const categories: string[] = []
   if (constraints?.category_id) categories.push(constraints.category_id)
