@@ -134,7 +134,7 @@ describe('MCI-01 category hints and intent', () => {
 
 describe('MCI-01 versioning', () => {
   test('engine version is stable and semantically named', () => {
-    expect(MCI01_ENGINE_VERSION).toMatch(/^mci01-query-understanding-v0\.2\.0$/)
+    expect(MCI01_ENGINE_VERSION).toMatch(/^mci01-query-understanding-v0\.3\.0$/)
     expect(CONCEPT_PACK_VERSION).toMatch(/^mci01\.concepts\.v/)
   })
 
