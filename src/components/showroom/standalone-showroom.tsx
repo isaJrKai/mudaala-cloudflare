@@ -112,17 +112,33 @@ function ProductCard({ product, layout, accent, templateId }: { product: Product
   }
   const imageRatio = imageRatios[templateId] || 'aspect-[4/5]'
   const titleStyle = templateId === 'tech-index' ? 'font-mono' : ['atelier-edit','the-collection','maison-noir','skin-notes','living-spaces','small-treasures','home-rituals','the-pantry','made-by-hand','the-footnote'].includes(templateId) ? 'font-serif' : 'font-medium'
+  const eyebrow = [product.brand, product.category].filter(Boolean).join(' · ')
   return (
-    <a href={`/l/${encodeURIComponent(product.id)}`} className={`group block min-w-0 ${wide ? 'grid grid-cols-[minmax(104px,34%)_1fr] gap-4 border-b border-current/15 py-4' : ''} ${templateId === 'market-day' ? 'rounded-xl border border-current/15 p-2 sm:p-3' : ''} ${templateId === 'object-study' ? 'border-b border-current/20 pb-5' : ''}`}>
-      <div className={`relative overflow-hidden bg-black/5 ${wide ? 'aspect-square' : imageRatio} ${templateId === 'small-treasures' ? 'rounded-full' : templateId === 'skin-notes' ? 'rounded-[42%_42%_8px_8px]' : templateId === 'daily-goods' || templateId === 'open-shelf' ? 'rounded-md' : ''}`}>
-        {image ? <Image src={image} alt={product.title} fill unoptimized sizes="(max-width: 640px) 48vw, 25vw" className="object-cover transition-transform duration-700 group-hover:scale-[1.035]" /> : <div className="absolute inset-0 grid place-items-center text-xs opacity-85">Photo not supplied</div>}
+    <a
+      href={`/l/${encodeURIComponent(product.id)}`}
+      className={`group block min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-4 focus-visible:ring-current ${wide ? 'grid grid-cols-[minmax(104px,34%)_1fr] items-center gap-4 border-b border-current/15 py-5' : ''}`}
+    >
+      <div className={`relative ${wide ? 'p-2' : 'p-2 sm:p-3'} border border-current/15 bg-white/[0.18] transition-colors duration-300 group-hover:border-current/35 ${templateId === 'market-day' ? 'rounded-xl' : ''}`}>
+        <div className={`relative overflow-hidden border border-current/10 bg-black/[0.035] ${wide ? 'aspect-square' : imageRatio} ${templateId === 'small-treasures' ? 'rounded-full' : templateId === 'skin-notes' ? 'rounded-[42%_42%_8px_8px]' : templateId === 'daily-goods' || templateId === 'open-shelf' ? 'rounded-md' : ''}`}>
+          {image ? (
+            <Image src={image} alt={product.title} fill unoptimized sizes="(max-width: 640px) 48vw, 25vw" className="object-cover transition-transform duration-700 group-hover:scale-[1.04]" />
+          ) : (
+            <div className="absolute inset-0 grid place-items-center px-3 text-center text-xs opacity-70">Product photo not supplied</div>
+          )}
+          {product.availabilityStatus === 'OUT_OF_STOCK' && (
+            <span className="absolute bottom-2 left-2 border border-current/20 bg-black/65 px-2 py-1 text-[9px] font-semibold uppercase tracking-[.14em] text-white">Unavailable</span>
+          )}
+        </div>
       </div>
-      <div className={wide ? 'self-center py-2' : 'pt-3'}>
-        <p className="text-[10px] uppercase tracking-[.18em] opacity-85">{product.brand || product.category}</p>
-        <h3 className={`mt-1 text-sm leading-snug ${titleStyle}`}>{product.title}</h3>
-        {product.description && <p className="mt-2 line-clamp-3 text-xs leading-5 opacity-80">{product.description}</p>}
-        <p className="mt-2 text-xs font-semibold" style={{ color: accent }}>{money(product.price, product.currency, product.priceNegotiable)}</p>
-        {product.availabilityStatus === 'OUT_OF_STOCK' && <p className="mt-1 text-[10px] uppercase tracking-wider opacity-85">Currently unavailable</p>}
+      <div className={wide ? 'self-center py-2' : 'px-1 pt-3 sm:px-2 sm:pt-4'}>
+        {eyebrow && <p className="text-[9px] font-semibold uppercase tracking-[.18em] opacity-70">{eyebrow}</p>}
+        <h3 className={`mt-1.5 text-sm leading-snug sm:text-[15px] ${titleStyle}`}>{product.title}</h3>
+        {product.model && <p className="mt-1 text-[11px] tracking-wide opacity-70">{product.model}</p>}
+        {product.description && <p className="mt-2 line-clamp-3 text-xs leading-5 opacity-75">{product.description}</p>}
+        <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-t border-current/15 pt-2.5">
+          <p className="text-sm font-semibold tabular-nums" style={{ color: accent }}>{money(product.price, product.currency, product.priceNegotiable)}</p>
+          <span className="text-[9px] font-semibold uppercase tracking-[.14em] opacity-65 transition-opacity group-hover:opacity-100">View details ↗</span>
+        </div>
       </div>
     </a>
   )

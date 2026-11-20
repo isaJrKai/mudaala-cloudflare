@@ -203,22 +203,32 @@ export default async function AdPage({ params }: Params) {
 
   return (
     <div className="mx-auto min-h-dvh max-w-2xl bg-background">
-      <header className="flex items-center justify-between border-b bg-card px-4 py-3">
-        <a href="/" className="font-display text-xl font-semibold tracking-tight text-primary">
-          Mudaala
+      <header className="flex items-center justify-between gap-3 border-b bg-card px-4 py-3">
+        <a href={`/#/shop/${owner.id}`} className="flex min-w-0 items-center gap-2.5" aria-label={`Visit ${shopDisplayName}`}>
+          {shopPhoto ? (
+            <img src={shopPhoto} alt="" className="size-9 shrink-0 rounded-md border object-cover" />
+          ) : (
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md border bg-secondary text-sm font-semibold">{shopDisplayName.charAt(0).toUpperCase()}</span>
+          )}
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold tracking-tight">{shopDisplayName}</span>
+            <span className="block text-[10px] uppercase tracking-[.14em] text-muted-foreground">Shop on Mudaala</span>
+          </span>
         </a>
         <a
           href={`/#/listing/${listing.id}`}
-          className="text-sm font-medium text-primary underline-offset-2 hover:underline"
+          className="shrink-0 border border-border px-3 py-2 text-xs font-semibold transition-colors hover:bg-secondary"
         >
-          Open in the app
+          Open in Mudaala
         </a>
       </header>
 
       <main className="space-y-4 px-4 py-4">
         {/* Large, uncropped product images with the same arrow-based viewer as the in-app detail page. */}
         {photos.length > 0 ? (
-          <PublicPhotoGallery photos={photos} title={listing.title} />
+          <div className="overflow-hidden rounded-lg border border-border/80 bg-secondary/55 p-2 sm:p-3">
+            <PublicPhotoGallery photos={photos} title={listing.title} />
+          </div>
         ) : (
           // PLACEHOLDER RULE - neutral tile: flat grey, category name, a
           // small camera icon. Inline markup keeps the page JS-free.
@@ -276,6 +286,18 @@ export default async function AdPage({ params }: Params) {
 
           <h2 className="text-sm font-semibold">Details</h2>
           <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+            {listing.brand ? (
+              <div className="flex items-center gap-2">
+                <dt className="text-muted-foreground">Brand:</dt>
+                <dd className="font-medium">{listing.brand}</dd>
+              </div>
+            ) : null}
+            {listing.model ? (
+              <div className="flex items-center gap-2">
+                <dt className="text-muted-foreground">Model:</dt>
+                <dd className="font-medium">{listing.model}</dd>
+              </div>
+            ) : null}
             {quantity ? (
               <div className="flex items-center gap-2">
                 <Package className="size-4 text-muted-foreground" aria-hidden />
