@@ -192,7 +192,10 @@ describe('authenticated module dispatch', () => {
     expect(diversifyResponse.status).toBe(200)
     const diversifyEnvelope = await diversifyResponse.json() as { module_id: string; result: { slate: string[]; fairness_report: { distinct_sellers_top5: number } } }
     expect(diversifyEnvelope.module_id).toBe('MCI-08')
-    expect(diversifyEnvelope.result.slate).toHaveLength(2)
+    expect(diversifyEnvelope.result.slate).toHaveLength(retrieved.length)
+    expect(new Set(diversifyEnvelope.result.slate)).toEqual(new Set(['L1', 'L2', 'L3']))
+    const sellerByListingId = new Map(retrieved.map((candidate) => [candidate.listing_id, candidate.seller_ref]))
+    expect(sellerByListingId.get(diversifyEnvelope.result.slate[0])).not.toBe(sellerByListingId.get(diversifyEnvelope.result.slate[1]))
     expect(diversifyEnvelope.result.fairness_report.distinct_sellers_top5).toBe(2)
   })
 
