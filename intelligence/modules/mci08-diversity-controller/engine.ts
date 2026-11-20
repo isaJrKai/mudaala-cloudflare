@@ -10,7 +10,7 @@
  *    fix: increment-1 dropped them from the returned slate entirely, which
  *    both contradicted the documented tail-placement behaviour and made
  *    `demoted` the only trace of live inventory.
- * 2. Adjacency pass — no two consecutive slate items from the same seller
+ * 2. Adjacency repair — no two consecutive slate items from the same seller
  *    where an alternative exists.
  * 3. Rotation bucket (remediation: IMPLEMENTED, was declared but inert in
  *    increment-1): when `rotation_bucket > 0`, the top window
@@ -21,11 +21,20 @@
  * 4. Exploration promotion — up to `exploration_slots` promotions of the
  *    first item of sellers not yet represented inside the top window
  *    (default 1). Promotion never breaks the per-seller cap (the promoted
- *    seller is unrepresented in the window) and never creates same-seller
- *    adjacency (its neighbours are, by construction, different sellers).
+ *    seller is unrepresented in the window).
+ * 5. Adjacency is re-checked AFTER rotation and AGAIN after promotion
+ *    (round-2 remediation, reviewer finding 4): rotating `A,B,C,A` left once
+ *    yields `B,C,A,A`, and a promotion vacates an interior position — both
+ *    can (re)introduce same-seller neighbours. Each violating pair is fixed
+ *    by moving the nearest alternative BETWEEN the two (forward candidates
+ *    first, then backward), only when the move creates no new violation at
+ *    the vacated spot; where no safe alternative exists the pair may remain
+ *    (the guardrail promises separation only where alternatives exist).
  *
  * Remediation hardening:
- * - Input is validated at runtime (zod), not trusted from TypeScript types.
+ * - Input is validated at runtime (zod), not trusted from TypeScript types —
+ *   including the SETTINGS object itself (round-2: integers within bounds,
+ *   never NaN or negative).
  * - Duplicate listing ids are deduplicated (first occurrence wins); a
  *   duplicated id can never occupy two slate positions.
  * - Missing seller metadata degrades to the shared 'unknown' seller bucket
@@ -34,15 +43,16 @@
  *   tail placements), so the report always describes what the caller gets.
  *
  * Relevance preservation is measurable: apart from the rotation window
- * (bucket > 0), the slate order is a permutation of the input ranking
- * restricted by the cap; the top-1 item never moves unless the cap itself
- * requires it or an explicit rotation bucket is requested.
+ * (bucket > 0) and safety repairs, the slate order is a permutation of the
+ * input ranking restricted by the cap; the top-1 item never moves unless the
+ * cap itself requires it, an explicit rotation bucket is requested, or no
+ * safe alternative exists for a same-seller pair.
  */
 import { z } from 'zod'
 import type { MCI08Result } from '../../contracts/modules/mci08'
 import type { RankedItem } from '../../contracts/modules/mci03'
 
-export const MCI08_ENGINE_VERSION = 'mci08-diversity-controller-v0.2.0'
+export const MCI08_ENGINE_VERSION = 'mci08-diversity-controller-v0.2.1'
 
 export const MCI08_ITEM_SHAPE = z.object({
   listing_id: z.string().min(1).max(128),
@@ -72,6 +82,20 @@ export interface MCI08Settings {
   explorationWindow: number
 }
 
+/**
+ * Runtime validation for the settings object itself (round-2 remediation,
+ * reviewer finding 4): direct callers — not just the gateway contract — get
+ * integer-bounded, NaN-rejecting validation. A negative cap would demote
+ * every item, a negative bucket would silently disable rotation, and a zero
+ * window would misplace exploration promotions.
+ */
+export const MCI08_SETTINGS_SHAPE = z.object({
+  maxPerSeller: z.number().int().min(1).max(50).default(2),
+  rotationBucket: z.number().int().min(0).max(500).default(0),
+  explorationSlots: z.number().int().min(0).max(50).default(1),
+  explorationWindow: z.number().int().min(1).max(500).default(10),
+})
+
 export const MCI08_DEFAULT_SETTINGS: MCI08Settings = {
   maxPerSeller: 2,
   rotationBucket: 0,
@@ -86,9 +110,10 @@ export function diversifySlate(
   metadata: Record<string, { seller_ref: string; category_id: string; published_at: string }>,
   settings?: Partial<MCI08Settings>,
 ): MCI08Result {
-  // Runtime validation — the contract boundary holds for direct callers too.
+  // Runtime validation — the contract boundary holds for direct callers too,
+  // including the settings object (never NaN, negative, or unbounded).
   const parsed = MCI08_INPUT_SHAPE.parse({ ranked, metadata })
-  const s: MCI08Settings = { ...MCI08_DEFAULT_SETTINGS, ...settings }
+  const s: MCI08Settings = MCI08_SETTINGS_SHAPE.parse({ ...MCI08_DEFAULT_SETTINGS, ...settings })
   const appliedCaps: string[] = []
   const demoted: Array<{ listing_id: string; rule: string }> = []
 
@@ -125,18 +150,48 @@ export function diversifySlate(
   // demoted items remain IN the slate, after every within-cap item.
   const slate = [...kept, ...overflow]
 
-  // 2. Adjacency pass: swap same-seller neighbours with the next eligible item.
-  for (let i = 1; i < slate.length; i++) {
-    if (sellerOf(slate[i].listing_id) !== sellerOf(slate[i - 1].listing_id)) continue
-    for (let j = i + 1; j < slate.length; j++) {
-      if (sellerOf(slate[j].listing_id) !== sellerOf(slate[i - 1].listing_id)) {
-        const moved = slate.splice(j, 1)[0]
-        slate.splice(i, 0, moved)
-        demoted.push({ listing_id: moved.listing_id, rule: 'ADJACENCY_SWAP' })
-        break
+  // 2. Adjacency repair (reused after rotation and promotion below). For
+  //    each same-seller neighbour pair, the nearest alternative item is
+  //    moved BETWEEN the two. The INITIAL pass is forward-only and
+  //    guard-free — byte-identical to the increment-1 behaviour (top-1
+  //    stability). The POST-ROTATION and POST-PROMOTION passes may also
+  //    look BACKWARD (after a rotation the only alternative can sit ABOVE
+  //    the pair) and reject a candidate whose removal would join two
+  //    same-seller items at the vacated spot. Where no safe alternative
+  //    exists the pair may remain.
+  const repairAdjacency = (allowBackward: boolean, guardVacated: boolean) => {
+    for (let sweep = 0; sweep <= slate.length; sweep++) {
+      let changed = false
+      for (let i = 1; i < slate.length; i++) {
+        const seller = sellerOf(slate[i].listing_id)
+        if (seller !== sellerOf(slate[i - 1].listing_id)) continue
+        const candidates: Array<{ j: number; backward: boolean }> = []
+        for (let k = i + 1; k < slate.length; k++) {
+          if (sellerOf(slate[k].listing_id) !== seller) candidates.push({ j: k, backward: false })
+        }
+        if (allowBackward) {
+          for (let k = i - 2; k >= 0; k--) {
+            if (sellerOf(slate[k].listing_id) !== seller) candidates.push({ j: k, backward: true })
+          }
+        }
+        for (const { j, backward } of candidates) {
+          if (guardVacated && j > 0 && j < slate.length - 1) {
+            const vacatesIntoViolation =
+              sellerOf(slate[j - 1].listing_id) === sellerOf(slate[j + 1].listing_id)
+            if (vacatesIntoViolation) continue
+          }
+          const moved = slate.splice(j, 1)[0]
+          slate.splice(backward ? i - 1 : i, 0, moved)
+          demoted.push({ listing_id: moved.listing_id, rule: 'ADJACENCY_SWAP' })
+          changed = true
+          i-- // re-scan this index: the boundary changed under the cursor
+          break
+        }
       }
+      if (!changed) break
     }
   }
+  repairAdjacency(false, false)
 
   // 3. Rotation bucket: deterministic left-rotation of the top window.
   const windowSize = Math.min(s.explorationWindow, slate.length)
@@ -147,6 +202,10 @@ export function diversifySlate(
       const rotated = [...window.slice(bucket), ...window.slice(0, bucket)]
       slate.splice(0, windowSize, ...rotated)
       appliedCaps.push(`rotation_bucket=${s.rotationBucket}`)
+      // Rotation can (re)introduce same-seller adjacency (`A,B,C,A` rotated
+      // once is `B,C,A,A`) — the diversity controller's invariant wins over
+      // the raw rotation outcome (reviewer finding 4).
+      repairAdjacency(true, true)
     }
   }
 
@@ -169,6 +228,10 @@ export function diversifySlate(
         promotions++
       }
     }
+    // A promotion vacated an interior position, which can join two
+    // same-seller tail items — repair ONLY then (with no promotion, the
+    // initial pass result stands untouched).
+    if (promotions > 0) repairAdjacency(true, true)
   }
 
   // Fairness report — computed from the FINAL returned slate.

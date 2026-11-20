@@ -158,6 +158,115 @@ describe('MCI-08 remediation — rotation bucket (implemented, deterministic)', 
   })
 })
 
+describe('MCI-08 round 2 — adjacency survives rotation and promotion', () => {
+  test('rotation does not reintroduce same-seller adjacency (reviewer example)', () => {
+    // `A,B,C,A` rotated left once would be `B,C,A,A` — the post-rotation
+    // repair must break that pair where an alternative exists.
+    const ranked = [item('a1', 90), item('b1', 80), item('c1', 70), item('a2', 60)]
+    const meta = metaFor([['a1', 'A'], ['b1', 'B'], ['c1', 'C'], ['a2', 'A']])
+    const result = diversifySlate(ranked, meta, {
+      rotationBucket: 1,
+      explorationWindow: 4,
+      explorationSlots: 0,
+      maxPerSeller: 10,
+    })
+    expect(result.fairness_report.applied_caps).toContain('rotation_bucket=1')
+    for (let i = 1; i < result.slate.length; i++) {
+      expect(meta[result.slate[i]].seller_ref).not.toBe(meta[result.slate[i - 1]].seller_ref)
+    }
+    // The window is a permutation — rotation moved items, nothing vanished.
+    expect(new Set(result.slate)).toEqual(new Set(['a1', 'b1', 'c1', 'a2']))
+    expect(result.demoted.some((d) => d.rule === 'ADJACENCY_SWAP')).toBe(true)
+  })
+
+  test('rotation, seller cap and exploration combined keep all invariants', () => {
+    const ranked = [
+      item('a1', 95), item('a2', 90), item('b1', 85), item('c1', 80),
+      item('a3', 75), item('k1', 10), item('a4', 5),
+    ]
+    const meta = metaFor([
+      ['a1', 'A'], ['a2', 'A'], ['b1', 'B'], ['c1', 'C'],
+      ['a3', 'A'], ['k1', 'K'], ['a4', 'A'],
+    ])
+    const result = diversifySlate(ranked, meta, {
+      maxPerSeller: 2,
+      rotationBucket: 2,
+      explorationSlots: 1,
+      explorationWindow: 5,
+    })
+    // Full permutation of the input (nothing lost, nothing duplicated).
+    expect(result.slate.length).toBe(7)
+    expect(new Set(result.slate)).toEqual(new Set(['a1', 'a2', 'a3', 'a4', 'b1', 'c1', 'k1']))
+    // The adjacency invariant holds on the FINAL slate.
+    for (let i = 1; i < result.slate.length; i++) {
+      expect(meta[result.slate[i]].seller_ref).not.toBe(meta[result.slate[i - 1]].seller_ref)
+    }
+    expect(result.fairness_report.applied_caps).toContain('rotation_bucket=2')
+  })
+
+  test('exploration promotion cannot leave same-seller tail neighbours behind', () => {
+    // K promotes out of a tail slot flanked by two beyond-cap items of the
+    // SAME seller (cap 1): the vacated join `A,A` must be repaired.
+    const ranked = [item('c1', 95), item('d1', 90), item('e1', 85), item('a1', 80), item('a2', 75), item('k1', 10)]
+    const meta = metaFor([
+      ['c1', 'C'], ['d1', 'D'], ['e1', 'E'], ['a1', 'A'], ['a2', 'A'], ['k1', 'K'],
+    ])
+    const result = diversifySlate(ranked, meta, {
+      maxPerSeller: 1,
+      explorationSlots: 1,
+      explorationWindow: 4,
+      rotationBucket: 0,
+    })
+    expect(result.fairness_report.new_shop_slots_used).toBe(1)
+    expect(result.demoted.some((d) => d.rule === 'EXPLORATION_PROMOTION' && d.listing_id === 'k1')).toBe(true)
+    for (let i = 1; i < result.slate.length; i++) {
+      expect(meta[result.slate[i]].seller_ref).not.toBe(meta[result.slate[i - 1]].seller_ref)
+    }
+    expect(new Set(result.slate)).toEqual(new Set(['c1', 'd1', 'e1', 'a1', 'a2', 'k1']))
+  })
+
+  test('invariants hold across every rotation bucket for a mixed catalogue', () => {
+    const pairs: Array<[string, string]> = []
+    const ranked: RankedItem[] = []
+    let score = 100
+    for (let s = 0; s < 6; s++) {
+      for (let n = 0; n < 2; n++) {
+        const id = `s${s}i${n}`
+        ranked.push(item(id, score--))
+        pairs.push([id, `SELLER-${s}`])
+      }
+    }
+    const meta = metaFor(pairs)
+    for (const bucket of [0, 1, 2, 3, 4]) {
+      const result = diversifySlate(ranked, meta, {
+        rotationBucket: bucket,
+        maxPerSeller: 2,
+        explorationSlots: 1,
+      })
+      expect(result.slate.length).toBe(12)
+      expect(new Set(result.slate).size).toBe(12)
+      for (let i = 1; i < result.slate.length; i++) {
+        expect(meta[result.slate[i]].seller_ref).not.toBe(meta[result.slate[i - 1]].seller_ref)
+      }
+    }
+  })
+
+  test('settings themselves are runtime-validated (round 2)', () => {
+    // A zero/negative cap would demote everything; a negative bucket would
+    // silently disable rotation; a zero window would misplace promotions;
+    // NaN is not a number. All rejected at the engine boundary.
+    expect(() => diversifySlate([], {}, { maxPerSeller: 0 })).toThrow()
+    expect(() => diversifySlate([], {}, { maxPerSeller: -2 })).toThrow()
+    expect(() => diversifySlate([], {}, { rotationBucket: -1 })).toThrow()
+    expect(() => diversifySlate([], {}, { explorationWindow: 0 })).toThrow()
+    expect(() => diversifySlate([], {}, { explorationSlots: 1.5 })).toThrow()
+    expect(() => diversifySlate([], {}, { maxPerSeller: Number.NaN })).toThrow()
+    // Valid partial settings parse fine (defaults fill the rest).
+    const result = diversifySlate([], {}, { rotationBucket: 3 })
+    expect(result.slate).toEqual([])
+  })
+})
+
 describe('MCI-08 remediation — adversarial inputs', () => {
   test('missing seller metadata degrades to the unknown bucket without crashing', () => {
     const ranked = [item('a1', 90), item('mystery', 80)]

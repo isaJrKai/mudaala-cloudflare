@@ -24,12 +24,17 @@ Errors use the stable envelope in hermes/errors.py; internal details never
 reach a response. Structured JSON logs carry metadata only.
 
 DEPLOYMENT HONESTY: this server is the shape of the always-on control plane.
-Continuous availability (supervision, restart recovery under real hosting,
-alerting) still requires owner provisioning and testing — see README.
+Storage: with HERMES_DATABASE_URL the app runs the durable stack (Postgres
+task store + nonce store + append-only audit log, migrations 002–005);
+without it Hermes still starts, but with EPHEMERAL memory state (announced
+on /version). Continuous availability (supervision, restart recovery under
+real hosting, alerting) still requires owner provisioning and testing — see
+README.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 import uuid
@@ -43,11 +48,12 @@ from pydantic import BaseModel, ValidationError
 from . import __version__
 from .auth import CallerPrincipal, InMemoryNonceStore, NonceStore, parse_caller_registry, verify_service_auth
 from .backends import ScriptedBackend
-from .budget import InMemoryAuditLog
+from .budget import AuditSink, InMemoryAuditLog
 from .contracts import TaskRecord, TaskStatus, TaskSubmission, TERMINAL_STATUSES
 from .errors import HermesError, error_response, install_error_handlers
 from .handlers import register_increment_one_skills
 from .logging_setup import configure_logging
+from .postgres_store import PostgresAuditLog, PostgresNonceStore, PostgresTaskStore
 from .router import TaskRouter
 from .skills import SkillRegistry
 from .storage import IdempotencyConflict, MemoryTaskStore, TaskStore, canonical_payload
@@ -57,6 +63,48 @@ from .worker import HermesWorker
 DEFAULT_SKILLS_DIR = Path(__file__).resolve().parent.parent / "skills"
 MAX_BODY_BYTES = 32 * 1024
 DEFAULT_MAX_ATTEMPTS = 3
+
+
+def resolve_storage_from_env() -> tuple[TaskStore, NonceStore, AuditSink, str]:
+    """Resolve the storage stack from the environment (round-2 remediation,
+    reviewer finding 1).
+
+    - HERMES_DATABASE_URL set → the DURABLE stack: PostgresTaskStore,
+      PostgresNonceStore and PostgresAuditLog. Configuration is validated
+      EXPLICITLY: a malformed URL or an unreachable database FAILS STARTUP
+      (never a silent degradation into memory state). The optional
+      HERMES_ADMIN_DATABASE_URL wires the infrastructure role (worker claims,
+      retention, admin reads) separately from the tenant app role — migration
+      005 documents the role model.
+    - Not set → Hermes STILL STARTS with in-process memory stores. That is a
+      deliberate availability decision (the commerce plane must keep working
+      with or without the intelligence infrastructure), but it is announced
+      loudly and surfaced on /version: tasks, nonces and audit records are
+      EPHEMERAL and lost on restart.
+    """
+    log = logging.getLogger("hermes.server")
+    url = os.environ.get("HERMES_DATABASE_URL")
+    if not url:
+        log.warning(
+            "HERMES_DATABASE_URL is not set — running with EPHEMERAL in-process "
+            "storage: tasks, nonces and audit records are lost on restart. Set "
+            "HERMES_DATABASE_URL to enable the durable stack."
+        )
+        return MemoryTaskStore(), InMemoryNonceStore(), InMemoryAuditLog(), "memory-ephemeral"
+    for name, value in (("HERMES_DATABASE_URL", url), ("HERMES_ADMIN_DATABASE_URL", os.environ.get("HERMES_ADMIN_DATABASE_URL"))):
+        if value is not None and not (value.startswith("postgres://") or value.startswith("postgresql://")):
+            raise RuntimeError(f"{name} must be a postgres:// or postgresql:// connection URL")
+    try:
+        store = PostgresTaskStore(url, admin_conninfo=os.environ.get("HERMES_ADMIN_DATABASE_URL"))
+        nonces = PostgresNonceStore(url)
+        audit_log = PostgresAuditLog(url)
+    except Exception as error:  # noqa: BLE001 — fail fast, leak nothing
+        raise RuntimeError(
+            f"failed to initialise the durable Hermes storage stack: {type(error).__name__} "
+            "(check the database URL, role grants and that migrations are applied — "
+            "see intelligence/jobs/README.md)"
+        ) from error
+    return store, nonces, audit_log, "postgres"
 
 
 class TaskResponse(BaseModel):
@@ -88,10 +136,17 @@ def create_app(
         # fail-closed default (register_default_skills=False) exists for
         # tests and for operators who want an empty registry.
         register_increment_one_skills(backend)
-    audit_log = audit if audit is not None else InMemoryAuditLog()
-    resolved_store = store if store is not None else MemoryTaskStore()
+    if store is not None:
+        # Explicit injection (tests, custom wiring) wins over the environment.
+        audit_log = audit if audit is not None else InMemoryAuditLog()
+        resolved_store = store
+        resolved_nonces = nonces if nonces is not None else InMemoryNonceStore()
+        storage_mode = "injected"
+    else:
+        resolved_store, env_nonces, env_audit, storage_mode = resolve_storage_from_env()
+        audit_log = audit if audit is not None else env_audit
+        resolved_nonces = nonces if nonces is not None else env_nonces
     resolved_callers = callers if callers is not None else parse_caller_registry(os.environ.get("HERMES_CALLERS"))
-    resolved_nonces = nonces if nonces is not None else InMemoryNonceStore()
 
     router = TaskRouter(registry, backend, audit_log, store=resolved_store)
     worker = HermesWorker(resolved_store, router)
@@ -104,6 +159,7 @@ def create_app(
     app.state.worker = worker
     app.state.nonces = resolved_nonces
     app.state.callers = resolved_callers
+    app.state.storage_mode = storage_mode
     app.state.run_worker = bool(os.environ.get("HERMES_WORKER_MODE") == "1") if run_worker is None else run_worker
 
     # -- auth ---------------------------------------------------------------
@@ -171,6 +227,7 @@ def create_app(
             "backend": backend.name,
             "registered_task_types": backend.registered_types(),
             "worker_running": worker.is_running(),
+            "storage": app.state.storage_mode,
         }
 
     # -- authenticated task API ----------------------------------------------

@@ -136,3 +136,47 @@ CREATE TABLE IF NOT EXISTS intelligence.hermes_nonces (
 
 CREATE INDEX IF NOT EXISTS hermes_nonces_expiry_idx
     ON intelligence.hermes_nonces (expires_at);
+
+-- ============================================================================
+-- migration 004: durable Hermes audit log (append-only by grant; see 005).
+-- Entries carry who/what/outcome metadata only — never payload contents.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS intelligence.hermes_audit (
+    id      BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ts      DOUBLE PRECISION NOT NULL,
+    event   TEXT NOT NULL,
+    actor   TEXT,
+    details JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS hermes_audit_ts_idx ON intelligence.hermes_audit (ts DESC);
+CREATE INDEX IF NOT EXISTS hermes_audit_event_idx ON intelligence.hermes_audit (event);
+
+-- ============================================================================
+-- migration 005: scoped roles, least-privilege grants, enforced RLS
+--   intelligence_app    tenant path (owner-scoped via intelligence.owner)
+--   intelligence_worker infrastructure path (needs intelligence_admin membership,
+--                       granted by the OPERATOR — migrations never grant it)
+-- Roles are NOLOGIN: the operator creates login users and grants these roles.
+-- ============================================================================
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'intelligence_app') THEN
+        CREATE ROLE intelligence_app NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'intelligence_worker') THEN
+        CREATE ROLE intelligence_worker NOLOGIN;
+    END IF;
+END
+$$;
+
+GRANT USAGE ON SCHEMA intelligence TO intelligence_app, intelligence_worker;
+GRANT SELECT, INSERT, UPDATE ON intelligence.hermes_tasks TO intelligence_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON intelligence.hermes_tasks TO intelligence_worker;
+GRANT SELECT, INSERT, DELETE ON intelligence.hermes_nonces TO intelligence_app, intelligence_worker;
+GRANT SELECT, INSERT ON intelligence.hermes_audit TO intelligence_app, intelligence_worker;
+GRANT SELECT ON intelligence.migrations TO intelligence_app, intelligence_worker;
+
+ALTER TABLE intelligence.hermes_tasks FORCE ROW LEVEL SECURITY;

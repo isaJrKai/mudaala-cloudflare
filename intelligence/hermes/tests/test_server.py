@@ -203,3 +203,50 @@ def test_owner_task_listing_is_scoped():
     mine = signed_json_request(client, COMMERCE, "GET", "/v1/tasks", None).json()
     assert len(mine) == 1
     assert mine[0]["submitted_by"] == "svc-commerce"
+
+
+# ---------------------------------------------------------------------------
+# Round-2 remediation (reviewer finding 1): the durable stack is wired from
+# the environment, with EXPLICIT configuration validation. Injection (used
+# by the tests above) always wins over the environment.
+# ---------------------------------------------------------------------------
+
+
+def test_injected_store_reports_injected_storage_mode():
+    client, _ = client_and_store()
+    assert client.get("/version").json()["storage"] == "injected"
+
+
+def test_missing_database_url_starts_ephemeral_and_announces_it(monkeypatch):
+    """No HERMES_DATABASE_URL → Hermes still starts (the commerce plane must
+    keep working without the intelligence infrastructure) — but honestly:
+    memory-ephemeral mode, announced on /version."""
+    monkeypatch.delenv("HERMES_DATABASE_URL", raising=False)
+    app = create_app(callers=test_callers(), run_worker=False)
+    client = TestClient(app)
+    assert client.get("/version").json()["storage"] == "memory-ephemeral"
+    response = submit(client)
+    assert response.status_code == 200  # fully functional, state is ephemeral
+
+
+def test_malformed_database_url_fails_startup(monkeypatch):
+    """A malformed URL is a configuration error — never a silent degradation
+    into memory state."""
+    monkeypatch.setenv("HERMES_DATABASE_URL", "mysql://user:pass@localhost/db")
+    with pytest.raises(RuntimeError, match="postgres://"):
+        create_app(callers=test_callers(), run_worker=False)
+
+
+def test_malformed_admin_database_url_fails_startup(monkeypatch):
+    monkeypatch.setenv("HERMES_DATABASE_URL", "postgres://user:pass@127.0.0.1:9/db")
+    monkeypatch.setenv("HERMES_ADMIN_DATABASE_URL", "not-a-database-url")
+    with pytest.raises(RuntimeError, match="HERMES_ADMIN_DATABASE_URL"):
+        create_app(callers=test_callers(), run_worker=False)
+
+
+def test_unreachable_database_url_fails_startup_fast(monkeypatch):
+    """A valid-looking URL pointing at a dead database also fails startup —
+    the app must never come up believing it is durable when it is not."""
+    monkeypatch.setenv("HERMES_DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:9/hermes_test")
+    with pytest.raises(RuntimeError, match="durable Hermes storage stack"):
+        create_app(callers=test_callers(), run_worker=False)
