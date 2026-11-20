@@ -171,17 +171,36 @@ export function ShopProductBrowser({ products }: Props) {
             {[...brandGroups.entries()].map(([brandName, items]) => (
               <div key={brandName} className="space-y-2">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{brandName}{brandName !== 'Other products' && items.some((item) => item.model) ? ' · ' + [...new Set(items.map((item) => item.model).filter(Boolean))].join(', ') : ''}</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {items.map((product) => (
-                    <Link key={product.id} href={product.href} className="group overflow-hidden rounded-lg border bg-card transition-colors hover:bg-accent/40">
-                      {product.photo ? <img src={product.photo} alt="" className="h-28 w-full object-cover" loading="lazy" /> : <div className="flex h-28 items-center justify-center bg-muted text-xs text-muted-foreground">{type}</div>}
-                      <div className="space-y-1 p-2.5">
-                        <p className="line-clamp-2 text-sm font-medium leading-snug">{product.title}</p>
-                        <p className="text-sm font-semibold text-primary">{product.priceLabel}</p>
-                        <p className="text-xs text-muted-foreground">{product.place}</p>
-                      </div>
-                    </Link>
-                  ))}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  {items.map((product) => {
+                    const highlights = Object.entries(product.attributes ?? {})
+                      .filter(([key, value]) => key !== 'brand' && key !== 'model' && value !== '' && value !== null && value !== undefined)
+                      .slice(0, 2)
+                    return (
+                      <Link key={product.id} href={product.href} className="group min-w-0 overflow-hidden border border-border/80 bg-card transition-colors hover:border-primary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        <div className="p-2 sm:p-2.5">
+                          <div className="relative aspect-[4/5] overflow-hidden border border-border/70 bg-secondary/60">
+                            {product.photo ? (
+                              <img src={product.photo} alt={product.title} className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.035]" loading="lazy" />
+                            ) : (
+                              <div className="flex size-full items-center justify-center px-3 text-center text-xs text-muted-foreground">{type} · photo not supplied</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-1.5 px-3 pb-3 pt-1">
+                          <p className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug">{product.title}</p>
+                          {product.model ? <p className="truncate text-[11px] text-muted-foreground">{product.model}</p> : null}
+                          {highlights.length ? (
+                            <p className="line-clamp-1 text-[10px] text-muted-foreground">
+                              {highlights.map(([key, value]) => `${key.replace(/([A-Z])/g, ' $1')}: ${String(value)}`).join(' · ')}
+                            </p>
+                          ) : null}
+                          <p className="border-t border-border/70 pt-2 text-sm font-semibold tabular-nums text-foreground">{product.priceLabel}</p>
+                          <p className="truncate text-[11px] text-muted-foreground">{product.place}</p>
+                        </div>
+                      </Link>
+                    )
+                  })}
                 </div>
               </div>
             ))}
