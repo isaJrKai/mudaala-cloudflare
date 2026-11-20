@@ -11,6 +11,8 @@ export interface IntelligenceClientEnv {
   INTELLIGENCE_GATEWAY_CALLER_ID?: string
   INTELLIGENCE_GATEWAY_SECRET_ID?: string
   INTELLIGENCE_GATEWAY_SECRET?: string
+  /** Independent HMAC key for merchant pseudonyms; never reuse the gateway signing secret. */
+  INTELLIGENCE_MERCHANT_PSEUDONYM_SECRET?: string
   INTELLIGENCE_CLIENT_DISABLED?: string
   /** Explicit opt-in for the merchant-analytics intelligence slice. Off by default. */
   INTELLIGENCE_MCI27_ENABLED?: string
