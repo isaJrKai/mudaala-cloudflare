@@ -51,7 +51,7 @@ const retrievalPlan = {
   },
   paths: [{ kind: 'KEYWORD', uses: ['keywords'], expected_selectivity: 'MEDIUM' }],
   ordering: 'RELEVANCE',
-  limits: { candidate_cap: 200 },
+  limits: { candidate_cap: 40 },
   exclusion_rules: ['NO_PRIVATE_OR_DRAFT', 'NO_EXPIRED', 'NO_HIDDEN', 'NO_SEED_LISTINGS'],
   semantic_path_available: false,
 }
@@ -106,7 +106,7 @@ describe('MCI discovery commerce adapter', () => {
     )
     expect(plan?.queryPlan.original_query).toBe('black sneakers under 100k')
     expect(plan?.retrievalPlan.filters.statuses).toEqual(['ACTIVE'])
-    expect(plan?.candidateCap).toBe(200)
+    expect(plan?.candidateCap).toBe(40)
     expect(calls).toEqual(['/v1/search/understand', '/v1/search/plan'])
   })
 
@@ -138,6 +138,30 @@ describe('MCI discovery commerce adapter', () => {
     }) as typeof fetch
     const plan = await prepareMciDiscovery('black sneakers', {}, new Date(), unsafeFetch)
     expect(plan).toBeNull()
+  })
+
+  test('fails open before sending a candidate payload above the gateway byte budget', async () => {
+    configureGateway()
+    const calls: string[] = []
+    const manyCandidates = Array.from({ length: 40 }, (_, index) => ({
+      ...candidate,
+      listing_id: `listing-${index}`,
+      description: 'x'.repeat(2000),
+    }))
+    const metadata = Object.fromEntries(manyCandidates.map((item) => [item.listing_id, {
+      seller_ref: item.seller_ref,
+      category_id: item.category_id,
+      published_at: item.published_at,
+    }]))
+    const slate = await rankAndDiversifyMciDiscovery({
+      queryPlan: queryPlan as never,
+      candidates: manyCandidates,
+      metadata,
+      context: { now: new Date().toISOString() },
+      rotationBucket: 0,
+    }, gatewayFetch(calls))
+    expect(slate).toBeNull()
+    expect(calls).toEqual([])
   })
 
   test('rejects a diversity result that invents or drops candidate ids', async () => {
