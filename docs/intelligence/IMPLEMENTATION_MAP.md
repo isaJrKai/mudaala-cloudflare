@@ -41,7 +41,7 @@
 
 Non-negotiables carried into placement decisions:
 
-- The commerce plane never imports intelligence-plane code; the only coupling is the gateway client and shared contract types.
+- The commerce plane never imports intelligence engines; the only coupling is the gateway client, shared contract types and small validated payload adapters.
 - The gateway never holds production database credentials and never executes arbitrary queries.
 - Hermes never mutates commerce state; every output is a typed recommendation needing an authorised consumer.
 - Every module returns the common envelope with `module_id`, `contract_version`, `trace_id`, `reason_codes`, `provenance`, `model_version`.
@@ -56,7 +56,7 @@ Non-negotiables carried into placement decisions:
 | `intelligence/hermes/` | intelligence | Python orchestration core: skill registry, task router, budget caps, append-only audit log, `AgentBackend` adapter interface (pinned-release integration deferred), FastAPI control-plane skeleton for Modal, first two Mudaala-owned skills (MSK-001, MSK-006) |
 | `intelligence/eval/` | intelligence | Synthetic fixture catalogue + graded query set, metrics (nDCG@K, Recall@K, MRR, Precision@5, exposure concentration, zero-result rate), `run-benchmark.ts` producing versioned JSON reports |
 | `intelligence/jobs/` | intelligence | Async job state machine contract + Postgres outbox/job **draft SQL** (explicitly NOT applied — schema changes require owner approval) |
-| `src/lib/intelligence/gateway-client.ts` | commerce | Thin typed client: env-gated, HMAC-signed, timeout + circuit breaker, deterministic fallback (returns null → callers keep local behaviour). **No existing route is rewired in this increment.** |
+| `src/lib/intelligence/gateway-client.ts` | commerce | Thin typed client: env-gated, HMAC-signed, timeout + circuit breaker, deterministic fallback (`ok: false` → callers keep local behaviour). MCI-27 is optionally wired to `/api/my/business-analytics` behind `INTELLIGENCE_MCI27_ENABLED`; default remains OFF. |
 | `src/lib/intelligence/env-flags.ts` | commerce | Follows the existing `env-flags.ts` pure-function pattern |
 | `docs/intelligence/` | docs | This map, investigation report, ADRs, operations/cost, deployment/rollback, completion report |
 
@@ -120,6 +120,6 @@ ADR-0004: v1 uses a **Postgres-backed outbox draft** (`intelligence/jobs/schema.
 ## 8. What increment 1 deliberately does NOT do
 
 - No production deployment, no secrets creation, no schema migration, no merge to `main`, no customer-facing activation of any intelligence feature (master plan §16 "explicitly not authorised" list respected).
-- No integration of any existing route with the gateway — the client ships flag-off with tests; route wiring is the next increment after the gateway exists in a staging environment.
+- Increment 1 did not activate any existing route. A later refinement (PR #344) adds an optional MCI-27 call from `/api/my/business-analytics`; it remains disabled unless `INTELLIGENCE_MCI27_ENABLED=true`, and still requires a staging gateway before end-to-end network verification.
 - No LLM inside any latency-sensitive path; no vector database; no Redis dependency; no training run of any kind.
 - No claimed benchmark results: the eval harness ships with fixtures and a results log that starts empty.
