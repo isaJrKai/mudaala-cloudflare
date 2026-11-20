@@ -9,7 +9,7 @@ const base = {
   from: '2026-10-21',
   totals: { views: 42, contactTaps: 7, shareClicks: 3 },
   daily: [{ day: '2026-11-19', views: 42, contactTaps: 7, shareClicks: 3 }],
-  listings: [{ id: 'listing-1', title: 'Rice bag', categoryId: 'food-staples', status: 'ACTIVE' as const, daysLive: 12, views: 42, contactTaps: 7, shareClicks: 3 }],
+  listings: [{ id: 'listing-1', categoryId: 'food-staples', status: 'ACTIVE' as const, daysLive: 12, views: 42, contactTaps: 7, shareClicks: 3 }],
   previousPeriodTotals: { views: 30, contactTaps: 4, shareClicks: 1 },
 }
 
