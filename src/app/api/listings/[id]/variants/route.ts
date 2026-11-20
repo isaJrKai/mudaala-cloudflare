@@ -29,6 +29,7 @@ export async function PUT(_request: Request, { params }: Params) {
     }
     const body = await parseBody(_request, bodySchema)
     const seen = new Set<string>()
+    const seenSkus = new Set<string>()
     for (const variant of body.variants) {
       if (variant.trackInventory && (variant.stockQuantity === undefined || variant.stockQuantity === null)) {
         throw new ApiError(400, 'Enter a stock quantity when inventory tracking is enabled.')
@@ -38,6 +39,9 @@ export async function PUT(_request: Request, { params }: Params) {
         .sort(([a], [b]) => String(a).localeCompare(String(b))))
       if (seen.has(key)) throw new ApiError(400, 'Each variant must have a unique option combination.')
       seen.add(key)
+      const normalizedSku = variant.sku?.trim().toLowerCase()
+      if (normalizedSku && seenSkus.has(normalizedSku)) throw new ApiError(400, 'Each SKU must be unique within this product.')
+      if (normalizedSku) seenSkus.add(normalizedSku)
     }
 
     await db.$transaction(async (tx) => {
