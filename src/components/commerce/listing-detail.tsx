@@ -73,7 +73,7 @@ function PhotoGallery({ listing }: { listing: ListingDetailT }) {
     <section className="relative" aria-label={copy.listing.photosOfAria(listing.title)}>
       <div
         ref={galleryRef}
-        className="flex h-[min(70vh,560px)] min-h-72 snap-x snap-mandatory overflow-x-auto scroll-smooth scrollbar-slim bg-background"
+        className="flex h-[min(70vh,560px)] min-h-72 snap-x snap-mandatory overflow-x-auto scroll-smooth scrollbar-slim bg-secondary/55 p-2 sm:p-4"
         role="region"
         aria-roledescription="carousel"
         onScroll={(event) => {
@@ -84,7 +84,7 @@ function PhotoGallery({ listing }: { listing: ListingDetailT }) {
         }}
       >
         {listing.photos.map((photo, i) => (
-          <div key={photo} className="flex h-full w-full shrink-0 snap-center items-center justify-center">
+          <div key={photo} className="flex h-full w-full shrink-0 snap-center items-center justify-center overflow-hidden border border-border/70 bg-background">
             <img
               src={photo}
               alt={copy.listing.photoAlt(listing.title, i, listing.photos.length)}
@@ -133,6 +133,7 @@ export function ListingDetail({ id }: { id: string }) {
   const addToBasket = useAddToBasket()
   const [added, flashAdded] = useAddedFlash()
   const { user } = useSession()
+  const [selectedVariantId, setSelectedVariantId] = useState('')
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['listing', id],
@@ -144,6 +145,9 @@ export function ListingDetail({ id }: { id: string }) {
   // the page, and only the browser ever has a listing to share (the query
   // only runs client-side), so no SSR guard is needed in practice.
   const listing = data?.listing
+  const variants = listing?.variants ?? []
+  const selectedVariant = variants.find((variant) => variant.id === selectedVariantId) ?? variants[0] ?? null
+  const displayedPrice = selectedVariant?.price ?? listing?.price ?? null
   const shareUrl = listing ? `${window.location.origin}/l/${listing.id}` : null
   const trackEngagement = (event: 'SHARE_CLICK') => {
     if (!listing) return
@@ -193,26 +197,66 @@ export function ListingDetail({ id }: { id: string }) {
       </Button>
 
       <article className="overflow-hidden rounded-lg border bg-card">
-        <PhotoGallery listing={listing} />
+        <PhotoGallery listing={selectedVariant?.photos.length ? { ...listing, photos: selectedVariant.photos } : listing} />
 
         <div className="p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-2">
             <TypeBadge type={listing.type} />
             <StatusBadge status={listing.status} />
-            {listing.availabilityStatus && listing.availabilityStatus !== 'UNKNOWN' ? <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">{({ IN_STOCK: 'In stock', AVAILABLE_ON_ORDER: 'Available on order', OUT_OF_STOCK: 'Out of stock' } as const)[listing.availabilityStatus]} · seller-reported{listing.availabilityUpdatedAt ? ' · updated ' + timeAgo(listing.availabilityUpdatedAt) : ''}</span> : <span className="text-xs text-muted-foreground">Availability not confirmed</span>}
+            {selectedVariant ? (
+              <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+                {selectedVariant.availabilityStatus === 'UNKNOWN' ? 'Availability not confirmed' : ({ IN_STOCK: 'In stock', AVAILABLE_ON_ORDER: 'Available on order', OUT_OF_STOCK: 'Out of stock' } as const)[selectedVariant.availabilityStatus]}
+                {selectedVariant.trackInventory ? ` · ${selectedVariant.stockQuantity ?? 0} in stock` : ' · seller-reported'}
+              </span>
+            ) : listing.availabilityStatus && listing.availabilityStatus !== 'UNKNOWN' ? <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">{({ IN_STOCK: 'In stock', AVAILABLE_ON_ORDER: 'Available on order', OUT_OF_STOCK: 'Out of stock' } as const)[listing.availabilityStatus]} · seller-reported{listing.availabilityUpdatedAt ? ' · updated ' + timeAgo(listing.availabilityUpdatedAt) : ''}</span> : <span className="text-xs text-muted-foreground">Availability not confirmed</span>}
             <span className="text-xs text-muted-foreground">{categoryLabel(listing.category)}</span>
           </div>
 
           <h1 className="mt-2.5 text-xl font-bold tracking-tight">{listing.title}</h1>
 
+          {variants.length > 0 ? (
+            <section className="mt-4 rounded-md border bg-secondary/25 p-3" aria-label="Choose product option">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold">Choose an option</p>
+                <span className="text-xs text-muted-foreground">{variants.length} options</span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {variants.map((variant) => (
+                  <button
+                    key={variant.id}
+                    type="button"
+                    aria-pressed={selectedVariant?.id === variant.id}
+                    onClick={() => setSelectedVariantId(variant.id)}
+                    disabled={variant.availabilityStatus === 'OUT_OF_STOCK' || (variant.trackInventory && (variant.stockQuantity ?? 0) <= 0)}
+                    className={cn(
+                      'rounded-md border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                      selectedVariant?.id === variant.id ? 'border-primary bg-primary/10 text-foreground' : 'bg-card hover:bg-accent',
+                    )}
+                  >
+                    {variant.label}
+                    {variant.availabilityStatus === 'OUT_OF_STOCK' || (variant.trackInventory && (variant.stockQuantity ?? 0) <= 0) ? ' · Out of stock' : ''}
+                  </button>
+                ))}
+              </div>
+              {selectedVariant ? (
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  {Object.entries(selectedVariant.options).map(([name, value]) => (
+                    <span key={name}>{name}: <strong className="font-medium text-foreground">{value}</strong></span>
+                  ))}
+                  {selectedVariant.sku ? <span>SKU: {selectedVariant.sku}</span> : null}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
           <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <p className="text-2xl font-bold text-primary tabular-nums">
-              {formatPrice(listing.price, listing.unit ? unitLabel(listing.unit) : null, listing.currency)}
+              {formatPrice(displayedPrice, listing.unit ? unitLabel(listing.unit) : null, listing.currency)}
             </p>
             {/* A real discount: the struck-through "was" price says exactly what
                 it is - no fake crossed-out prices can render here, because the
                 API rejects old prices that are not higher than the current one. */}
-            {listing.price !== null && listing.compareAtPrice !== null && listing.compareAtPrice > listing.price ? (
+            {!selectedVariant && listing.price !== null && listing.compareAtPrice !== null && listing.compareAtPrice > listing.price ? (
               <>
                 <span className="text-sm text-muted-foreground line-through tabular-nums">
                   {copy.common.was} {formatPrice(listing.compareAtPrice, null, listing.currency)}
@@ -239,7 +283,7 @@ export function ListingDetail({ id }: { id: string }) {
               OFFERs only: a REQUEST is someone offering to sell to YOU.
               The flash only plays when the basket really took the item -
               addToBasket reports back. */}
-          {listing.type === 'OFFER' ? (
+          {listing.type === 'OFFER' && variants.length === 0 ? (
             <Button
               variant="secondary"
               className="press mt-3 h-10 w-full gap-1.5 text-[15px]"
@@ -284,8 +328,11 @@ export function ListingDetail({ id }: { id: string }) {
           </div>
           {listing.type === 'OFFER' && listing.status === 'ACTIVE' && user?.id !== listing.userId ? <InAppEnquiryButton
             listingId={listing.id}
+            variantId={selectedVariant?.id}
             shopName={shopDisplayName}
-            initialMessage={`Hello, I'm interested in ${listing.title}. Is it available?`}
+            initialMessage={selectedVariant
+              ? `Hello, I'm interested in ${listing.title} — ${selectedVariant.label}. Is this option available?`
+              : `Hello, I'm interested in ${listing.title}. Is it available?`}
             label="Message seller"
             variant="default"
             className="press mt-3 h-11 w-full gap-1.5 text-[15px]"
