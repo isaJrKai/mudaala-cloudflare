@@ -228,6 +228,7 @@ model Listing {
   collectionItems ProductCollectionItem[]
   savedProducts SavedProduct[]
   enquiries Enquiry[]
+  variants ListingVariant[]
   telegramContactTokens EnquiryContactToken[]
 }
 
@@ -806,6 +807,29 @@ model SavedProduct {
   @@index([listingId])
 }
 
+// Seller-defined options for one public listing. Inventory is optional: when
+// trackInventory is false, stockQuantity is deliberately not interpreted.
+model ListingVariant {
+  id              String   @id @default(cuid())
+  listingId       String
+  listing         Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  label           String
+  options         Json
+  sku             String?
+  price           Float?
+  stockQuantity   Float?
+  trackInventory  Boolean  @default(false)
+  availabilityStatus String @default("UNKNOWN")
+  photos          String   @default("[]")
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  enquiries       Enquiry[]
+
+  @@unique([listingId, sku])
+  @@index([listingId, sortOrder])
+}
+
 // A buyer-initiated conversation about one exact listing and one merchant.
 // Guest Telegram buyers are identified by a keyed Telegram identity hash;
 // their raw Telegram ID/chat ID is never stored in this row.
@@ -822,6 +846,9 @@ model Enquiry {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   listing            Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  variantId          String?
+  variant            ListingVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  variantSnapshot    Json?
   merchant           User     @relation("EnquiryMerchant", fields: [merchantId], references: [id], onDelete: Cascade)
   shopper            User?    @relation("EnquiryShopper", fields: [shopperId], references: [id], onDelete: SetNull)
   messages           EnquiryMessage[]
@@ -830,6 +857,7 @@ model Enquiry {
   @@index([shopperId, status, lastMessageAt])
   @@index([buyerTelegramHash, status, lastMessageAt])
   @@index([listingId, createdAt])
+  @@index([variantId])
 }
 
 // Message bodies are visible only to the two participants. Delivery state is
