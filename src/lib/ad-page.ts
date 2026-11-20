@@ -89,7 +89,7 @@ export const loadAdRow = cache(async (param: string) =>
       if (tail) {
         listing = await db.listing.findUnique({
           where: { id: tail },
-          include: { user: { include: { profile: true } } },
+          include: { user: { include: { profile: true } }, variants: { orderBy: { sortOrder: 'asc' } } },
         })
       }
     }
