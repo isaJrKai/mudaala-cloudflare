@@ -477,3 +477,84 @@ describe('streaming payload limits (remediation: cap enforced while reading)', (
     expect(body.error.code).toBe('PAYLOAD_INVALID')
   })
 })
+
+describe('idempotency correctness (remediation)', () => {
+  const submission = {
+    schema_version: '1.0' as const,
+    kind: 'EVAL_BENCHMARK_RUN' as const,
+    idempotency_key: 'idem-correct-0001',
+    payload: { suite: 'fixtures', threshold: 0.5 },
+    budget: { max_attempts: 2, deadline_seconds: 600, compute_profile: 'CPU_XS' as const },
+  }
+
+  test('same key + content-equal payload (different key order) replays the original job', async () => {
+    let counter = 0
+    const store = new MemoryJobStore(() => `job-idem-${++counter}`, () => '2026-11-20T12:00:00Z')
+    const first = store.submit({ ...submission, submitter: 'mudaala-commerce' }, 'mudaala-commerce')
+    // Same content, reordered keys — identical by content, NOT a conflict.
+    const reordered = store.submit({
+      ...submission,
+      submitter: 'mudaala-commerce',
+      payload: { threshold: 0.5, suite: 'fixtures' },
+    }, 'mudaala-commerce')
+    expect(reordered.job_id).toBe(first.job_id)
+    expect(store.wasReplay(first.job_id)).toBe(true)
+  })
+
+  test('same key + different payload conflicts (409 IDEMPOTENCY_CONFLICT)', async () => {
+    let counter = 0
+    const { env, overrides } = testEnv()
+    overrides.jobStore = new MemoryJobStore(() => `job-conf-${++counter}`, () => '2026-11-20T12:00:00Z')
+    const first = await post('/v1/jobs', submission, { env: { env, overrides }, nonce: 'nonce-idem-1' })
+    expect(first.status).toBe(200)
+    const conflict = await post('/v1/jobs', { ...submission, payload: { suite: 'OTHER', threshold: 0.5 } }, { env: { env, overrides }, nonce: 'nonce-idem-2' })
+    expect(conflict.status).toBe(409)
+    const body = (await conflict.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('IDEMPOTENCY_CONFLICT')
+  })
+
+  test('concurrent submissions cannot create duplicate jobs', async () => {
+    let counter = 0
+    const { env, overrides } = testEnv()
+    overrides.jobStore = new MemoryJobStore(() => `job-conc-${++counter}`, () => '2026-11-20T12:00:00Z')
+    const [a, b] = await Promise.all([
+      post('/v1/jobs', submission, { env: { env, overrides }, nonce: 'nonce-idem-3a' }),
+      post('/v1/jobs', submission, { env: { env, overrides }, nonce: 'nonce-idem-3b' }),
+    ])
+    expect(a.status).toBe(200)
+    expect(b.status).toBe(200)
+    const bodyA = (await a.json()) as { result: { job_id: string } }
+    const bodyB = (await b.json()) as { result: { job_id: string } }
+    expect(bodyB.result.job_id).toBe(bodyA.result.job_id)
+  })
+
+  test('retention: swept finished records free the key; reuse creates a new job', async () => {
+    let counter = 0
+    const clock = { iso: '2026-11-20T12:00:00Z' }
+    const store = new MemoryJobStore(() => `job-ret-${++counter}`, () => clock.iso, { retentionMs: 1000 })
+    const first = store.submit({ ...submission, submitter: 'mudaala-commerce' }, 'mudaala-commerce')
+    store.finish(first.job_id!)
+    clock.iso = '2026-11-21T12:00:01Z' // > retentionMs past finish
+    const resubmitted = store.submit({ ...submission, submitter: 'mudaala-commerce' }, 'mudaala-commerce')
+    expect(resubmitted.job_id).not.toBe(first.job_id)
+    expect(store.read(first.job_id)).toBeUndefined()
+  })
+
+  test('size bound: oldest finished records are evicted beyond maxEntries', () => {
+    let counter = 0
+    const store = new MemoryJobStore(() => `job-cap-${++counter}`, () => '2026-11-20T12:00:00Z', { maxEntries: 2 })
+    const ids: string[] = []
+    for (let i = 0; i < 3; i++) {
+      const record = store.submit({
+        ...submission,
+        submitter: 'mudaala-commerce',
+        idempotency_key: `idem-cap-${String(i).padStart(4, '0')}`,
+      }, 'mudaala-commerce')
+      ids.push(record.job_id)
+      store.finish(record.job_id)
+    }
+    expect(store.read(ids[0])).toBeUndefined()
+    expect(store.read(ids[1])).toBeDefined()
+    expect(store.read(ids[2])).toBeDefined()
+  })
+})

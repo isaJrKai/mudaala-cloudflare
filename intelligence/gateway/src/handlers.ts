@@ -54,33 +54,102 @@ export interface JobStore {
   wasReplay(jobId: string): boolean
 }
 
+/**
+ * Thrown when an idempotency key is reused with a DIFFERENT payload. The
+ * gateway maps this to 409 IDEMPOTENCY_CONFLICT. Key + identical payload
+ * returns the original job instead.
+ */
+export class IdempotencyConflictError extends Error {
+  constructor() {
+    super('IDEMPOTENCY_CONFLICT')
+    this.name = 'IDEMPOTENCY_CONFLICT'
+  }
+}
+
+/**
+ * Deterministic JSON canonicalisation (sorted object keys, fixed scalar
+ * formatting). Two payloads that are equal by content — regardless of key
+ * order — produce the same canonical string, which is what idempotency
+ * compares. Values are JSON-representable only (the submission contract is
+ * parsed JSON).
+ */
+export function canonicalJson(value: unknown): string {
+  if (value === null || value === undefined) return 'null'
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'null'
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (typeof value === 'string') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`)
+    return `{${entries.join(',')}}`
+  }
+  return 'null'
+}
+
 interface JobStoreEntry extends JobRecord {
   payloadBytes: number
+  /** Canonical payload string — the idempotency comparison basis. */
+  payloadCanonical: string
 }
 
 /**
  * v0 job store: in-isolate memory, staging-only (ADR-0004). Durability
  * requires the approved Postgres/queue store; the interface is the seam.
+ *
+ * Idempotency semantics (remediation of the increment-1 behaviour, which
+ * returned the original job for ANY reuse of a key):
+ *   same caller + kind + key + content-equal payload → original job (replay)
+ *   same caller + kind + key + different payload     → IDEMPOTENCY_CONFLICT
+ * Submission is synchronous, so concurrent submissions within an isolate
+ * cannot create duplicates; the durable store enforces the same guarantee
+ * across isolates with a UNIQUE constraint (intelligence.jobs schema).
+ *
+ * Retention: finished records older than `retentionMs` are swept on submit;
+ * when the store exceeds `maxEntries`, oldest finished records are evicted
+ * first (then oldest overall — staging semantics, documented). A durable
+ * store uses the 180-day retention policy in the SQL schema instead.
  */
 export class MemoryJobStore implements JobStore {
   private jobs = new Map<string, JobStoreEntry>()
   private idemIndex = new Map<string, string>()
   private replays = new Set<string>()
+  private readonly retentionMs: number
+  private readonly maxEntries: number
 
-  constructor(private idFactory: () => string, private nowIso: () => string) {}
+  constructor(
+    private idFactory: () => string,
+    private nowIso: () => string,
+    options?: { retentionMs?: number; maxEntries?: number },
+  ) {
+    this.retentionMs = options?.retentionMs ?? 24 * 60 * 60 * 1000
+    this.maxEntries = options?.maxEntries ?? 1_000
+  }
 
   submit(submission: JobSubmission, callerId: string): JobRecord {
-    const payloadSize = JSON.stringify(submission.payload ?? null).length
-    if (payloadSize > JOB_BUDGET_CAPS.payloadBytes) {
+    const payloadCanonical = canonicalJson(submission.payload ?? null)
+    const payloadBytes = new TextEncoder().encode(payloadCanonical).length
+    if (payloadBytes > JOB_BUDGET_CAPS.payloadBytes) {
       throw new Error('PAYLOAD_TOO_LARGE')
     }
+    // Sweep BEFORE the idempotency lookup: a key whose record was retained
+    // past its TTL (or evicted) must be reusable, not replayed from a stale
+    // index entry.
+    this.sweep()
     const idemKey = `${callerId}:${submission.kind}:${submission.idempotency_key}`
     const existing = this.idemIndex.get(idemKey)
     if (existing) {
+      const record = this.jobs.get(existing)
+      if (!record) throw new Error('JOB_STORE_UNAVAILABLE')
+      if (record.payloadCanonical !== payloadCanonical) {
+        throw new IdempotencyConflictError()
+      }
       this.replays.add(existing)
-      return this.jobs.get(existing)!
+      if (this.replays.size > 500) this.replays = new Set([...this.replays].slice(-250))
+      return { ...record }
     }
-    this.replays.delete('')
     const jobId = this.idFactory()
     const record: JobStoreEntry = {
       job_id: jobId,
@@ -97,10 +166,13 @@ export class MemoryJobStore implements JobStore {
       finished_at: null,
       result_ref: null,
       error: null,
-      payloadBytes: payloadSize,
+      payloadBytes,
+      payloadCanonical,
     }
     this.jobs.set(jobId, record)
     this.idemIndex.set(idemKey, jobId)
+    // Enforce the size bound with the new record included.
+    this.sweep()
     return { ...record }
   }
 
@@ -111,6 +183,52 @@ export class MemoryJobStore implements JobStore {
 
   wasReplay(jobId: string): boolean {
     return this.replays.has(jobId)
+  }
+
+  /** Mark a job succeeded (worker path); enables retention sweep tests. */
+  finish(jobId: string, resultRef?: string): JobRecord | undefined {
+    const record = this.jobs.get(jobId)
+    if (!record) return undefined
+    record.status = 'SUCCEEDED'
+    record.finished_at = this.nowIso()
+    if (resultRef) record.result_ref = resultRef
+    return { ...record }
+  }
+
+  private sweep(): void {
+    const nowMs = Date.parse(this.nowIso())
+    if (!Number.isFinite(nowMs)) return
+    const victims = new Set<string>()
+    // 1. Retention: finished records past their TTL are removed.
+    for (const [id, record] of this.jobs) {
+      if (record.finished_at !== null) {
+        const finishedMs = Date.parse(record.finished_at)
+        if (Number.isFinite(finishedMs) && nowMs - finishedMs > this.retentionMs) {
+          victims.add(id)
+        }
+      }
+    }
+    // 2. Size bound: evict oldest finished first, then oldest overall.
+    while (this.jobs.size - victims.size > this.maxEntries) {
+      let oldestFinished: string | null = null
+      let oldestAny: string | null = null
+      for (const [id, record] of this.jobs) {
+        if (victims.has(id)) continue
+        if (record.finished_at !== null && (oldestFinished === null || id < oldestFinished)) oldestFinished = id
+        if (oldestAny === null || id < oldestAny) oldestAny = id
+      }
+      const victim = oldestFinished ?? oldestAny
+      if (victim === null) break
+      victims.add(victim)
+    }
+    if (victims.size === 0) return
+    for (const id of victims) {
+      this.jobs.delete(id)
+      this.replays.delete(id)
+    }
+    for (const [key, jobId] of [...this.idemIndex]) {
+      if (victims.has(jobId)) this.idemIndex.delete(key)
+    }
   }
 }
 
