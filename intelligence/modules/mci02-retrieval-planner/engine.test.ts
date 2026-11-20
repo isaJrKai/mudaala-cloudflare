@@ -37,9 +37,11 @@ describe('MCI-02 plan construction', () => {
     expect(plan.paths.some((p) => p.kind === 'AREA')).toBe(true)
   })
 
-  test('offer/request intent from MCI-01 narrows types', () => {
+  test('buyer phrasing does not narrow listing types (search wants OFFER results)', () => {
     const plan = planRetrieval(understandQuery({ query: 'anyone selling chicken' }))
-    expect(plan.filters.types).toEqual(['REQUEST'])
+    expect(plan.filters.types).toEqual(['OFFER', 'REQUEST'])
+    const constrained = planRetrieval(understandQuery({ query: 'chicken' }), { offer_request: 'REQUEST' })
+    expect(constrained.filters.types).toEqual(['REQUEST'])
   })
 
   test('sort preference flows through to ordering', () => {

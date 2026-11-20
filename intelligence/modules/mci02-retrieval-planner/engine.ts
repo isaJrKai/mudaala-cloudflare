@@ -49,11 +49,13 @@ export function planRetrieval(
     if (!categories.includes(hint.category_id) && categories.length < 4) categories.push(hint.category_id)
   }
 
-  // Types: explicit constraint wins, then query intent, else both (broadest
-  // public surface; the ranker scores relevance either way).
-  let types: Array<'OFFER' | 'REQUEST'> = ['OFFER', 'REQUEST']
-  const intentType = constraints?.offer_request ?? queryPlan.offer_request
-  if (intentType) types = [intentType]
+  // Types: explicit constraints narrow; query language does NOT. Buyer
+  // phrasing like "looking for a fridge" is a search for OFFER listings, not
+  // a request to see REQUEST posts — MCI-01's offer_request is a language
+  // signal for other consumers, not a retrieval-intent signal.
+  const types: Array<'OFFER' | 'REQUEST'> = constraints?.offer_request
+    ? [constraints.offer_request]
+    : ['OFFER', 'REQUEST']
 
   const keywords = queryPlan.tokens.slice(0, 16)
   const counties = (constraints?.counties ?? []).slice(0, 8)
