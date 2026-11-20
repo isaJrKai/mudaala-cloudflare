@@ -48,6 +48,7 @@ export function EnquiriesView({ shopperOnly = false }: { shopperOnly?: boolean }
   const [draft, setDraft] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [sending, setSending] = useState(false)
+  const [statusBusy, setStatusBusy] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   // Load the current account inbox. State updates happen in the asynchronous
@@ -148,6 +149,26 @@ export function EnquiriesView({ shopperOnly = false }: { shopperOnly?: boolean }
   const messagesLoading = Boolean(selectedId && (messagesFor?.userId !== userId || messagesFor?.enquiryId !== selectedId))
   const visibleMessages = messagesLoading ? [] : messages
 
+  // Lifecycle actions: merchants resolve or close threads; either participant
+  // closes an OPEN enquiry or reopens a resolved one (CANCELLED is terminal).
+  // The inbox previously could never move a status, so threads stayed OPEN forever.
+  async function updateEnquiryStatus(enquiryId: string, status: Enquiry['status']) {
+    if (!userId || statusBusy) return
+    setStatusBusy(enquiryId)
+    setError('')
+    try {
+      const result = await apiFetch<{ id: string; status: Enquiry['status'] }>(`/api/enquiries/${encodeURIComponent(enquiryId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      })
+      setItems((current) => current.map((item) => item.id === result.id ? { ...item, status: result.status } : item))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update the enquiry.')
+    } finally {
+      setStatusBusy(null)
+    }
+  }
+
   async function sendMessage(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const message = draft.trim()
@@ -198,6 +219,7 @@ export function EnquiriesView({ shopperOnly = false }: { shopperOnly?: boolean }
               <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`block w-full border-b px-4 py-3 text-left transition-colors hover:bg-secondary/60 ${selectedId === item.id ? 'bg-secondary' : ''}`}>
                 <span className="flex items-center justify-between gap-2"><span className="truncate text-sm font-medium">{item.listing.title}</span><span className="shrink-0 text-[10px] text-muted-foreground">{timeLabel(item.lastMessageAt)}</span></span>
                 <span className="mt-1 block truncate text-xs text-muted-foreground">{item.role === 'MERCHANT' ? 'Customer' : item.shopName} · {item.lastMessage?.body ?? 'New enquiry'}</span>
+                {item.status !== 'OPEN' ? <span className="mt-1 inline-block rounded bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">{item.status.toLowerCase()}</span> : null}
                 {item.role === 'SHOPPER' ? <span className="mt-1 block text-[11px] text-muted-foreground">Seller follow-up: {item.followUpConsentAt ? 'Allowed' : 'Not allowed'}</span> : null}
               </button>
             ))}
@@ -210,6 +232,16 @@ export function EnquiriesView({ shopperOnly = false }: { shopperOnly?: boolean }
               <p className="text-sm font-semibold">{selected.listing.title}</p>
               <div className="mt-1 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{selected.role === 'MERCHANT' ? 'Customer enquiry' : 'Chat with ' + selected.shopName} · {selected.status.toLowerCase()}</p>{selected.role === 'SHOPPER' && selected.sellerPhone ? <Button asChild size="sm" variant="outline" className="h-8 gap-1.5"><a href={telLink(selected.sellerPhone)} aria-label={`Call ${selected.shopName} at ${formatPhonePretty(selected.sellerPhone)}`}><Phone className="size-3.5" aria-hidden /> Call shop</a></Button> : null}</div>
               {selected.role === 'SHOPPER' ? <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-xs text-muted-foreground">Allow seller to send a later follow-up?</span><Button size="sm" variant={selected.followUpConsentAt ? 'outline' : 'secondary'} onClick={async () => { try { const result = await apiFetch<{ followUpConsentAt: string | null }>(`/api/enquiries/${encodeURIComponent(selected.id)}/follow-up-consent`, { method: 'PATCH', body: JSON.stringify({ consent: !selected.followUpConsentAt }) }); setItems((current) => current.map((item) => item.id === selected.id ? { ...item, followUpConsentAt: result.followUpConsentAt } : item)) } catch (err) { setError(err instanceof Error ? err.message : 'Could not update consent.') } }}>{selected.followUpConsentAt ? 'Turn off follow-ups' : 'Allow follow-up'}</Button></div> : null}
+              {selected.status !== 'CANCELLED' ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {selected.status === 'OPEN' ? (
+                    <>
+                      {selected.role === 'MERCHANT' ? <Button size="sm" variant="secondary" disabled={statusBusy === selected.id} onClick={() => void updateEnquiryStatus(selected.id, 'RESOLVED')}>Mark resolved</Button> : null}
+                      <Button size="sm" variant="outline" disabled={statusBusy === selected.id} onClick={() => void updateEnquiryStatus(selected.id, 'CANCELLED')}>Close enquiry</Button>
+                    </>
+                  ) : <Button size="sm" variant="outline" disabled={statusBusy === selected.id} onClick={() => void updateEnquiryStatus(selected.id, 'OPEN')}>Reopen</Button>}
+                </div>
+              ) : null}
             </header>
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
               {messagesLoading ? <p className="text-sm text-muted-foreground">Loading conversation…</p> : null}

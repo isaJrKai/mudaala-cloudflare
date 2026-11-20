@@ -130,15 +130,21 @@ export function ShopView({ id }: { id: string }) {
     () => window.location.origin,
     () => '',
   )
-  const shopUrl = useMemo(
-    () => (origin ? `${origin}/#/shop/${id}` : ''),
-    [origin, id],
-  )
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['shop', id],
     queryFn: () => apiGet<ShopPageT>(`/api/shops/${id}`),
   })
+
+  // The printed poster and every share promise buyers can always find the shop
+  // at its till code, so the QR encodes the canonical public surface
+  // /s/{shopCode} (SSR, crawlable, in the sitemap) rather than the in-app
+  // hash route. The code is minted once and never re-rolled, so posters
+  // never break; empty until the profile (and code) has loaded.
+  const shopUrl = useMemo(
+    () => (origin && data?.shop.shopCode ? `${origin}/s/${encodeURIComponent(data.shop.shopCode)}` : ''),
+    [origin, data?.shop.shopCode],
+  )
 
   useEffect(() => {
     const currentShop = data?.shop
