@@ -291,6 +291,11 @@ describe('MCI-08 remediation — adversarial inputs', () => {
     expect(result.fairness_report.new_shop_slots_used).toBe(0)
   })
 
+  test('oversized metadata is rejected by the direct engine boundary', () => {
+    const metadata = Object.fromEntries(Array.from({ length: 1001 }, (_, i) => [`listing-${i}`, { seller_ref: `seller-${i}`, category_id: 'electronics', published_at: '2026-11-20T00:00:00Z' }]))
+    expect(() => diversifySlate([], metadata)).toThrow()
+  })
+
   test('large input (500 items, one seller) stays within contract bounds', () => {
     const ranked: RankedItem[] = []
     const meta: Record<string, { seller_ref: string; category_id: string; published_at: string }> = {}
