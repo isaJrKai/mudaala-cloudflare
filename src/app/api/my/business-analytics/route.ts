@@ -185,18 +185,37 @@ export async function GET(request: Request) {
           const response = await client.call<{
             module_id: string
             engine_version: string
-            result: { insights: unknown[]; coverage_warnings: string[]; metric_definitions_ref: string }
+            result: {
+              insights: Array<{
+                id: string
+                severity: 'INFO' | 'WATCH' | 'ACTION'
+                metric: string
+                statement: string
+                suggested_action: string | null
+                evidence: Array<{ ref: string; label: string; value: number }>
+                confidence: null
+              }>
+              coverage_warnings: string[]
+              metric_definitions_ref: string
+            }
           }>('/v1/merchant/insights', snapshot)
           if (response.ok) {
             const warnings = [...response.envelope.result.coverage_warnings]
             if (listingStats._count.id > merchantListings.length) {
               warnings.unshift(`Only the newest ${merchantListings.length} of ${listingStats._count.id} listings were included in this analysis.`)
             }
+            const titleByListingId = new Map(merchantListings.map((listing) => [listing.id, listing.title]))
+            const insights = response.envelope.result.insights.map((insight) => {
+              const listingEvidence = insight.evidence.find((item) => item.ref.startsWith('listings.'))
+              const listingId = listingEvidence?.ref.split('.')[1]
+              const relatedListingTitle = listingId ? titleByListingId.get(listingId) : undefined
+              return relatedListingTitle ? { ...insight, relatedListingTitle } : insight
+            })
             intelligence = {
               status: 'AVAILABLE',
               module: response.envelope.module_id,
               engineVersion: response.envelope.engine_version,
-              insights: response.envelope.result.insights,
+              insights,
               coverageWarnings: warnings.slice(0, 6),
               metricDefinitionsRef: response.envelope.result.metric_definitions_ref,
             }
