@@ -4,7 +4,9 @@
 **Date:** 2026-11-20
 **Mandate:** Build the intelligence infrastructure described in the committed architecture documents, foundation first, in controlled increments, with honesty about limitations.
 
-**Headline:** The shared foundation, the secure gateway, the Hermes governance core, the offline evaluation harness and five deterministic module engines are implemented and tested (135 TypeScript + 23 Python tests, strict typecheck, lint clean). **Nothing is deployed, nothing is customer-facing, no benchmark claim is made beyond synthetic fixtures, and no spend-bearing component is wired.** A passing build is not production readiness.
+**Headline:** The shared foundation, the secure gateway, the Hermes governance core, the offline evaluation harness and five deterministic module engines are implemented and tested (135 TypeScript + 23 Python tests, strict typecheck, lint clean). **Nothing is deployed, no intelligence capability is active for customers, no benchmark claim is made beyond synthetic fixtures, and no spend-bearing component is wired.** A passing build is not production readiness.
+
+**Subsequent refinement note (2026-11-20):** PR #344 adds a flag-off MCI-27 adapter to the existing seller-owned `/api/my/business-analytics` endpoint. It builds the snapshot from Mudaala's own listing-analytics aggregates and sends only a keyed pseudonym plus bounded aggregate data to the gateway. This does not supersede the end-to-end gaps below: no staging gateway has been deployed, no real network request has been verified, and the flag remains off by default.
 
 ---
 
