@@ -114,6 +114,7 @@ export async function POST(request: Request) {
         userId: true,
         currency: true,
         price: true,
+        unit: true,
         variants: { select: { id: true, label: true, options: true, sku: true, price: true, availabilityStatus: true, trackInventory: true, stockQuantity: true } },
         user: { select: { profile: { select: { businessName: true } } } },
       },
@@ -135,6 +136,7 @@ export async function POST(request: Request) {
       sku: selectedVariant.sku,
       price: selectedVariant.price ?? listing.price ?? null,
       currency: listing.currency,
+      unit: listing.unit,
       trackInventory: selectedVariant.trackInventory,
       stockQuantity: selectedVariant.stockQuantity,
       availabilityStatus: selectedVariant.availabilityStatus,
@@ -170,7 +172,7 @@ export async function POST(request: Request) {
           senderType: 'SHOPPER',
           senderUserId: shopper.id,
           body: body.message + (selectedVariant
-            ? '\n\nSelected option: ' + selectedVariant.label + (selectedVariant.sku ? ' · SKU ' + selectedVariant.sku : '') + ' · Price: ' + (selectedVariant.price ?? listing.price ?? 'Ask seller') + ' ' + listing.currency
+            ? '\n\nSelected option: ' + selectedVariant.label + (selectedVariant.sku ? ' · SKU ' + selectedVariant.sku : '') + ' · Price: ' + (selectedVariant.price ?? listing.price ?? 'Ask seller') + ' ' + listing.currency + (listing.unit ? ' per ' + listing.unit : '')
             : ''),
           // For WEB, SENT means durably accepted into the Mudaala thread;
           // it does not claim that the merchant has read the message.
