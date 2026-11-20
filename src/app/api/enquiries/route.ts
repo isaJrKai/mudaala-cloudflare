@@ -133,7 +133,10 @@ export async function POST(request: Request) {
       label: selectedVariant.label,
       options: selectedVariant.options,
       sku: selectedVariant.sku,
-      price: selectedVariant.price,
+      price: selectedVariant.price ?? listing.price ?? null,
+      currency: listing.currency,
+      trackInventory: selectedVariant.trackInventory,
+      stockQuantity: selectedVariant.stockQuantity,
       availabilityStatus: selectedVariant.availabilityStatus,
     } : undefined
 
