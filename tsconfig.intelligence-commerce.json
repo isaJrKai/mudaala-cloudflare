@@ -5,6 +5,7 @@
     "noEmit": true
   },
   "include": [
+    "cloudflare-env.d.ts",
     "src/app/api/my/business-analytics/route.ts",
     "src/components/commerce/business-insights-panel.tsx",
     "src/lib/intelligence/env-flags.ts",
