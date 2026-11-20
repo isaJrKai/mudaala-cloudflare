@@ -9,6 +9,7 @@ export interface MCI27DailySource {
 
 export interface MCI27ListingSource {
   id: string
+  title: string
   categoryId: string
   status: 'ACTIVE' | 'FULFILLED' | 'EXPIRED' | 'ARCHIVED' | 'HIDDEN'
   daysLive: number
@@ -64,6 +65,7 @@ export async function buildMCI27Snapshot(source: MCI27SnapshotSource): Promise<M
     })),
     listings: source.listings.map((listing) => ({
       listing_id: listing.id,
+      title: listing.title,
       category_id: listing.categoryId,
       status: listing.status,
       days_live: Math.max(0, Math.min(3650, Math.trunc(listing.daysLive))),
