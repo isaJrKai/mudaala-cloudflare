@@ -65,7 +65,7 @@ export function analyzeMerchantPerformance(snapshot: MerchantAnalyticsSnapshot):
         id: 'ZERO_CONTACT',
         severity: 'ACTION',
         metric: 'CONTACT_TAPS',
-        statement: `Your shop received ${shop_totals.views} views but no contact taps in the last ${period.days} days.`,
+        statement: `Your listings received ${shop_totals.views} views but no contact taps in the last ${period.days} days.`,
         evidence: [
           { ref: 'shop_totals.views', label: 'views', value: shop_totals.views },
           { ref: 'shop_totals.contact_taps', label: 'contact taps', value: 0 },
@@ -123,7 +123,7 @@ export function analyzeMerchantPerformance(snapshot: MerchantAnalyticsSnapshot):
           { ref: 'shop_totals.views', label: 'current views', value: shop_totals.views },
           { ref: 'previous_period_totals.views', label: 'previous views', value: previous_period_totals.views },
         ],
-        suggested_action: 'Refresh your listings and add photos to appear higher in Browse.',
+        suggested_action: 'Improve listing photos and descriptions, then check whether customer interest changes.',
         confidence: null,
       })
     } else if (delta >= MCI27_THRESHOLDS.TREND_RISE_PCT) {
