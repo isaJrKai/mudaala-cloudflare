@@ -1,7 +1,7 @@
 # MCI-27 — Merchant performance analyst (deterministic v0)
 
-**Status:** IN_DEVELOPMENT (implemented + tested; not deployed, not shadowed)
-**Contract:** `intelligence/contracts/modules/mci27.ts` · **Engine:** `engine.ts` (`mci27-merchant-performance-analyst-v0.1.0`)
+**Status:** IN_DEVELOPMENT (implemented + tested; wired behind an opt-in flag; not deployed or shadow-verified)
+**Contract:** `intelligence/contracts/modules/mci27.ts` · **Engine:** `engine.ts` (`mci27-merchant-performance-analyst-v0.3.0`)
 **Gateway route:** `/v1/merchant/insights` · **Latency budget:** 250 ms · **Compute:** CPU_XS · **Owner:** unassigned
 
 ## Purpose
@@ -29,7 +29,7 @@ Explain a merchant's own shop analytics in plain language: contact-tap rate, vie
 
 ## Data provenance and minimisation
 
-Input is one merchant's own aggregates, supplied by the authorised caller (the commerce plane computes the snapshot from its tables; the intelligence plane never queries the database). No cross-merchant comparison data is accepted in v0; category benchmarks require valid benchmark data that does not exist yet.
+Input is one seller's own listing-event aggregates. `/api/my/business-analytics` authenticates the seller, computes the snapshot from its own database queries, pseudonymises the owner id with keyed HMAC, and sends only bounded aggregates to the gateway. The intelligence plane never queries the commerce database. No cross-merchant comparison data is accepted in v0; category benchmarks require valid benchmark data that does not exist yet.
 
 ## Explicitly deferred
 
@@ -37,9 +37,9 @@ LLM wording (a later, separable layer behind the same insights), category benchm
 
 ## Fallback and kill switch
 
-- Fallback: the commerce plane's existing `my/business-analytics` numbers are shown raw — insights are additive.
+- Fallback: the commerce plane's existing `my/business-analytics` numbers are shown raw — insights are additive. If the gateway is missing or fails, the existing response remains intact.
 - Kill switch: per-module disable at the gateway; route scoped `merchant:insights` with per-call merchant subject.
 
 ## Tests
 
-`engine.test.ts` — 12 cases: every rule's trigger and severity, sample-size caps, missing-data warnings, concentration arithmetic, executable honesty gate, severity ordering, determinism, version stamping.
+`engine.test.ts` — rule, sample-size, missing-data, concentration, honesty, severity-ordering, determinism, and version cases. every rule's trigger and severity, sample-size caps, missing-data warnings, concentration arithmetic, executable honesty gate, severity ordering, determinism, version stamping.
