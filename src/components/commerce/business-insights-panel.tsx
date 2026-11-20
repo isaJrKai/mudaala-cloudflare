@@ -20,6 +20,7 @@ type BusinessAnalytics = {
       severity: 'INFO' | 'WATCH' | 'ACTION'
       metric: string
       statement: string
+      relatedListingTitle?: string
       suggested_action: string | null
       evidence: Array<{ ref: string; label: string; value: number }>
       confidence: null
@@ -209,7 +210,8 @@ export function BusinessInsightsPanel() {
                             {insight.severity === 'ACTION' ? 'Action to consider' : insight.severity === 'WATCH' ? 'Worth watching' : 'Positive signal'}
                           </span>
                         </div>
-                        <p className="mt-2 text-sm">{insight.statement}</p>
+                        {insight.relatedListingTitle ? <p className="mt-2 text-sm font-medium">{insight.relatedListingTitle}</p> : null}
+                        <p className={insight.relatedListingTitle ? 'mt-1 text-sm' : 'mt-2 text-sm'}>{insight.statement}</p>
                         {insight.suggested_action ? <p className="mt-1 text-sm text-muted-foreground"><span className="font-medium">Possible next step: </span>{insight.suggested_action}</p> : null}
                       </article>
                     ))}
