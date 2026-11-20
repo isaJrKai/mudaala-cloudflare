@@ -1,6 +1,6 @@
 # MCI-02 — Retrieval planner (deterministic v0)
 
-**Status:** IN_DEVELOPMENT (implemented + tested; not deployed, not shadowed)
+**Status:** IN_DEVELOPMENT (implemented + tested; commerce adapter wired behind flag; not staging-verified, not deployed, not shadowed)
 **Contract:** `intelligence/contracts/modules/mci02.ts` · **Engine:** `engine.ts` (`mci02-retrieval-planner-v0.2.0`)
 **Gateway route:** `/v1/search/plan` · **Latency budget:** 100 ms · **Compute:** CPU_XS · **Owner:** unassigned
 
