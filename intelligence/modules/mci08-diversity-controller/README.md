@@ -1,7 +1,7 @@
 # MCI-08 — Discovery diversity controller (deterministic v0)
 
 **Status:** IN_DEVELOPMENT (implemented + tested; not deployed, not shadowed)
-**Contract:** `intelligence/contracts/modules/mci08.ts` · **Engine:** `engine.ts` (`mci08-diversity-controller-v0.1.0`)
+**Contract:** `intelligence/contracts/modules/mci08.ts` · **Engine:** `engine.ts` (`mci08-diversity-controller-v0.2.2`)
 **Gateway route:** `/v1/search/diversify` · **Latency budget:** 50 ms · **Compute:** CPU_XS · **Owner:** unassigned
 
 ## Purpose
@@ -22,7 +22,7 @@ Every demotion/promotion carries a machine rule tag (`PER_SELLER_CAP_*`, `ADJACE
 
 ## Data provenance and minimisation
 
-Input: ranked ids + per-id `{seller_ref, category_id, published_at}` metadata only. No engagement, no pricing, no identity data reaches this module.
+Input: ranked ids + per-id `{seller_ref, category_id, published_at}` metadata only. No engagement, no pricing, no identity data reaches this module. The direct engine boundary enforces the same 1,000-key metadata cap as the gateway contract.
 
 ## Fallback and kill switch
 
