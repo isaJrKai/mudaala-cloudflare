@@ -15,7 +15,7 @@
  * by a golden vector test (same canonical string, same HMAC).
  */
 
-import { intelligenceClientConfigured, type IntelligenceClientEnv } from './env-flags'
+import { intelligenceClientConfigured, type IntelligenceEnvSource } from './env-flags'
 
 export const GATEWAY_CLIENT_VERSION = 'gateway-client-v0.1.0'
 
@@ -102,7 +102,7 @@ export async function signGatewayRequest(config: GatewayClientConfig, parts: { m
   }
 }
 
-export function clientConfigFromEnv(env: IntelligenceClientEnv): GatewayClientConfig | null {
+export function clientConfigFromEnv(env: IntelligenceEnvSource): GatewayClientConfig | null {
   if (!intelligenceClientConfigured(env)) return null
   return {
     url: env.INTELLIGENCE_GATEWAY_URL!.trim(),

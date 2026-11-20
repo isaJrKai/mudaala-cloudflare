@@ -145,7 +145,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       }
       const updated = await db.listing.findFirst({ where: { id, userId: user.id } })
       if (!updated) throw new ApiError(404, 'Listing not found')
-      return jsonOk({ listing: updated })
+      // Same serialized shape as the availability and field-edit branches:
+      // photos must come back as an array, not the raw JSON string column.
+      return jsonOk({ listing: serializeListing(updated) })
     }
 
     const parsed = listingUpdateSchema.safeParse(body)

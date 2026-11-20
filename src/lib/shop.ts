@@ -5,6 +5,7 @@
 // actually filled in, and the badge says exactly that.
 
 import { db } from '@/lib/db'
+import { Prisma } from '@prisma/client'
 import type { BusinessProfile, User } from '@prisma/client'
 import { SHOP_OWNER_INCLUDE, serializeListing } from '@/lib/listings'
 import { activeListingExpiryFilter } from '@/lib/listing-visibility'
@@ -102,6 +103,35 @@ export async function generateShopCode(): Promise<string> {
   }
   // 10,000 slots - statistically unreachable at any realistic shop count.
   throw new Error('Could not allocate a unique shop code')
+}
+
+// The check-then-insert window above is only an optimisation; the UNIQUE
+// shopCode constraint is the real authority. Two sellers saving their profile
+// for the first time at the same moment can draw the same 4-digit code - the
+// loser must retry with a fresh draw instead of surfacing a 500. Only a
+// shopCode collision triggers a retry; any other unique violation (userId)
+// is rethrown untouched.
+const SHOP_CODE_RETRY_ATTEMPTS = 5
+
+export async function withFreshShopCode<T>(attempt: (shopCode: string) => Promise<T>): Promise<T> {
+  for (let remaining = SHOP_CODE_RETRY_ATTEMPTS; ; remaining--) {
+    let shopCode: string
+    try {
+      shopCode = await generateShopCode()
+    } catch (error) {
+      if (remaining <= 1) throw error
+      continue
+    }
+    try {
+      return await attempt(shopCode)
+    } catch (error) {
+      const target = (error as { meta?: { target?: string[] | string } }).meta?.target
+      const conflictedShopCode = error instanceof Prisma.PrismaClientKnownRequestError
+        && error.code === 'P2002'
+        && (Array.isArray(target) ? target.join(',') : String(target ?? '')).includes('shopCode')
+      if (!conflictedShopCode || remaining <= 1) throw error
+    }
+  }
 }
 
 // Buyers punch in a code like a mobile-money till number (normalizeShopCode

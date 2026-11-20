@@ -2,7 +2,7 @@ import { route, jsonOk, parseBody, requireSeller, ApiError } from '@/lib/api'
 import { businessProfileSchema, normalizePhone, type CountryKey } from '@/lib/validation'
 import { db } from '@/lib/db'
 import { deliverPushNotification } from '@/lib/push-delivery'
-import { shopChecklistFor, shopChecklistComplete, generateShopCode } from '@/lib/shop'
+import { shopChecklistFor, shopChecklistComplete, withFreshShopCode } from '@/lib/shop'
 
 export async function GET() {
   return route(async () => {
@@ -39,13 +39,17 @@ export async function PUT(request: Request) {
     }
 
     const existingProfile = await db.businessProfile.findUnique({ where: { userId: user.id }, select: { id: true } })
-    const profile = await db.businessProfile.upsert({
-      where: { userId: user.id },
-      create: { userId: user.id, ...data, phone, whatsapp, verified: false, shopCode: await generateShopCode() },
-      // On update the shop code is deliberately untouched: it is the shop's
-      // permanent identity, never recycled or re-rolled.
-      update: { ...data, phone, whatsapp, verified: false },
-    })
+    // The shop code is minted inside the create branch; a concurrent first-save
+    // drawing the same 4-digit code retries with a fresh draw instead of a 500.
+    const profile = await withFreshShopCode((shopCode) =>
+      db.businessProfile.upsert({
+        where: { userId: user.id },
+        create: { userId: user.id, ...data, phone, whatsapp, verified: false, shopCode },
+        // On update the shop code is deliberately untouched: it is the shop's
+        // permanent identity, never recycled or re-rolled.
+        update: { ...data, phone, whatsapp, verified: false },
+      }),
+    )
 
     if (!existingProfile) {
       const dedupeKey = `growth:welcome:${user.id}`

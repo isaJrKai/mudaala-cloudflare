@@ -2,7 +2,7 @@ import { route, jsonOk, parseBody, requireSeller } from '@/lib/api'
 import { profileLocationSchema } from '@/lib/validation'
 import { db } from '@/lib/db'
 import { roundCoord } from '@/lib/geo'
-import { generateShopCode } from '@/lib/shop'
+import { withFreshShopCode } from '@/lib/shop'
 
 // Save or remove the seller's shop spot. This is the ONLY way coordinates
 // enter the system - the main profile PUT strips unknown keys, so regular
@@ -19,18 +19,22 @@ export async function PUT(request: Request) {
     const lat = data.lat === null ? null : roundCoord(data.lat)
     const lng = data.lng === null ? null : roundCoord(data.lng)
 
-    const profile = await db.businessProfile.upsert({
-      where: { userId: user.id },
-      create: {
-        userId: user.id,
-        businessName: user.name,
-        phone: user.phone,
-        lat,
-        lng,
-        shopCode: await generateShopCode(),
-      },
-      update: { lat, lng },
-    })
+    // Same concurrent first-save protection as the main profile PUT: a
+    // shopCode collision retries with a fresh draw instead of a 500.
+    const profile = await withFreshShopCode((shopCode) =>
+      db.businessProfile.upsert({
+        where: { userId: user.id },
+        create: {
+          userId: user.id,
+          businessName: user.name,
+          phone: user.phone,
+          lat,
+          lng,
+          shopCode,
+        },
+        update: { lat, lng },
+      }),
+    )
     return jsonOk({ profile })
   })
 }

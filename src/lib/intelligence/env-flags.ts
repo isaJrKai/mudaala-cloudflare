@@ -20,25 +20,33 @@ export interface IntelligenceClientEnv {
   INTELLIGENCE_DISCOVERY_ENABLED?: string
 }
 
+// Next.js's ProcessEnv carries the same string-valued keys but its declared
+// index signature does not satisfy the weak-type check against an
+// all-optional interface, so raw `process.env` call sites in the commerce app
+// fail the root tsconfig. The flags only ever read their own keys, so any
+// string-valued record is accepted; worker deployments keep passing their
+// narrowed env object and compile under both configs unchanged.
+export type IntelligenceEnvSource = IntelligenceClientEnv | Record<string, string | undefined>
+
 function truthy(raw: string | undefined): boolean {
   const value = (raw ?? '').trim().toLowerCase()
   return value === '1' || value === 'true'
 }
 
-export function mci27IntelligenceEnabled(env: IntelligenceClientEnv): boolean {
+export function mci27IntelligenceEnabled(env: IntelligenceEnvSource): boolean {
   return truthy(env.INTELLIGENCE_MCI27_ENABLED)
 }
 
-export function mciDiscoveryIntelligenceEnabled(env: IntelligenceClientEnv): boolean {
+export function mciDiscoveryIntelligenceEnabled(env: IntelligenceEnvSource): boolean {
   return truthy(env.INTELLIGENCE_DISCOVERY_ENABLED)
 }
 
-export function intelligenceClientDisabled(env: IntelligenceClientEnv): boolean {
+export function intelligenceClientDisabled(env: IntelligenceEnvSource): boolean {
   return truthy(env.INTELLIGENCE_CLIENT_DISABLED)
 }
 
 /** True only when every credential field is present and not disabled. */
-export function intelligenceClientConfigured(env: IntelligenceClientEnv): boolean {
+export function intelligenceClientConfigured(env: IntelligenceEnvSource): boolean {
   if (intelligenceClientDisabled(env)) return false
   return Boolean(
     env.INTELLIGENCE_GATEWAY_URL?.trim() &&

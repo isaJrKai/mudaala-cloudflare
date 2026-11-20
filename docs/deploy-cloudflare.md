@@ -29,7 +29,7 @@ The Worker must receive the production values for:
 - `NEXT_PUBLIC_APP_URL` for canonical URLs, sitemap and metadata.
 - `CRON_SECRET` for the protected scheduled sweep endpoint.
 - `SETTINGS_ENCRYPTION_KEY` (or its supported legacy alias) for encryption of stored settings.
-- `ADMIN_PHONES` for the administrator allowlist.
+- `ADMIN_USER_IDS` for the administrator allowlist — REQUIRED in production (`src/lib/env.ts` refuses to boot without it); `ADMIN_PHONES` is a development-only fallback that production ignores.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` for Google OAuth. The redirect URI must be the exact HTTPS callback URL for the deployment, e.g. `https://mudaala.store/api/auth/google/callback` in production.
 - `AT_API_KEY` and `AT_USERNAME` for Africa's Talking SMS delivery; `AT_SENDER_ID` is optional. These are needed for the new phone-verification challenge and existing SMS password reset.
 - `STORAGE_ENDPOINT`, `STORAGE_BUCKET`, `STORAGE_KEY`, `STORAGE_SECRET`, and `STORAGE_PUBLIC_URL` for S3-compatible photo storage.

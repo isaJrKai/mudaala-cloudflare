@@ -115,6 +115,9 @@ model Session {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  // Login runs an opportunistic deleteMany over expired sessions on every
+  // sign-in; without this index that cleanup is a full-table scan.
+  @@index([expiresAt])
 }
 
 model BusinessProfile {
@@ -311,6 +314,10 @@ model SavedSearch {
   createdAt      DateTime @default(now())
 
   @@index([userId])
+  // The publish-time saved-search sweep serves the stalest-checked searches
+  // first within a bounded window (notifySavedSearchMatches); this index lets
+  // that ordering stop early instead of sorting the whole table.
+  @@index([lastCheckedAt])
 }
 
 model Notification {

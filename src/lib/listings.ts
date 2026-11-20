@@ -16,6 +16,11 @@ import { publicListingOwnerWhere } from '@/lib/shop-visibility'
 import { mciDiscoveryIntelligenceEnabled } from '@/lib/intelligence/env-flags'
 import { prepareMciDiscovery, rankAndDiversifyMciDiscovery } from '@/lib/intelligence/discovery-pipeline'
 
+// Upper bound on candidates ranked for an unqualified discovery browse page.
+// Matches the fallback-scan cap used by the text-search branches so no public
+// read can grow linearly with catalogue size.
+const DISCOVERY_CANDIDATE_CAP = 500
+
 function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000)
 }
@@ -216,6 +221,11 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
   if (effectiveSort === 'discovery' && !searchText) {
     // Rank a bounded field projection using measured buyer actions from the
     // last seven Uganda calendar days, then fetch full rows only for this page.
+    // The candidate window is capped (newest first, deterministic tiebreak):
+    // ranking a discovery FEED is inherently approximate and deep pages shift
+    // between requests anyway, so the bound trades unbounded database work —
+    // which would grow linearly with the catalogue — for a fresh, representative
+    // candidate set. Every sibling branch in this function is bounded the same way.
     const [candidates, total] = await Promise.all([
       db.listing.findMany({
         where,
@@ -223,6 +233,8 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
           id: true, userId: true, title: true, description: true, category: true,
           county: true, area: true, publishedAt: true, refreshedAt: true, viewCount: true,
         },
+        orderBy: [{ refreshedAt: 'desc' }, { id: 'asc' }],
+        take: DISCOVERY_CANDIDATE_CAP,
       }),
       db.listing.count({ where }),
     ])
@@ -263,6 +275,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     }), {
       now,
       category: query.category,
+      county: query.county,
       limit: Math.max(1, candidates.length),
       rotationBucket: Number(kampalaToday.replaceAll('-', '')),
     })
@@ -644,10 +657,17 @@ function listingMatchesQuery(listing: Listing, query: ListingQuery): boolean {
 
 // After a new listing is published, update every OTHER user's saved searches
 // that match it and send real NEW_MATCH notifications with real counts.
+// The sweep is bounded: one publish must never scan the entire SavedSearch
+// table. Searches with no structured filter and no text still count as
+// candidates only within the window; oldest-checked searches are served
+// first so no saved search starves — every publish advances the stalest.
+export const SAVED_SEARCH_SWEEP_CAP = 500
 export async function notifySavedSearchMatches(listing: Listing): Promise<void> {
   const searches = await db.savedSearch.findMany({
     where: { userId: { not: listing.userId } },
     include: { user: { select: { id: true } } },
+    orderBy: { lastCheckedAt: 'asc' },
+    take: SAVED_SEARCH_SWEEP_CAP,
   })
   for (const search of searches) {
     let parsed: ListingQuery
