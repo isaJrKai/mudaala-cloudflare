@@ -37,6 +37,7 @@ import {
   metaDescription,
 } from '@/lib/ad-page'
 import { siteUrl } from '@/lib/site'
+import { recordListingDailyEvent } from '@/lib/listing-analytics'
 import { copy } from '@/lib/copy'
 import { SiteFooter } from '@/components/commerce/site-footer'
 import {
@@ -173,8 +174,17 @@ export default async function AdPage({ params }: Params) {
   const directionsUrl = mapsSearchUrl({ area: listing.area, county: listing.county, country: countryDef(listing.country ?? 'UG').name })
   const market = await marketContext(listing)
   // Same fire-and-forget counter the API detail uses; crawlers included,
-  // because a view is a view whoever asked.
+  // because a view is a view whoever asked. The daily VIEW aggregate is
+  // recorded alongside so merchant analytics include web ad-page views —
+  // before this, SSR views only moved the all-time counter and the daily
+  // dashboards undercounted every crawlable ad page.
   await db.listing.update({ where: { id: listing.id }, data: { viewCount: { increment: 1 } } }).catch(() => undefined)
+  await recordListingDailyEvent({
+    listingId: listing.id,
+    ownerId: owner.id,
+    listingTitle: listing.title,
+    event: 'VIEW',
+  }).catch(() => undefined)
 
   // Structured data: OFFERs get full Product + Offer markup so Google can
   // surface price and availability. REQUESTs get none - a "wanted" ad is

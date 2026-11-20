@@ -155,8 +155,39 @@ export default async function ShopPage({ params }: Params) {
   const visibleShopCollections = shopCollections.filter((collection) => collection.items.length > 0)
   const shareUrl = `${siteUrl}/s/${shop.shopCode}`
 
+  // Structured data with the same honesty rules as the ad pages: real
+  // identity (name, place, till code, member since) and the real catalogue
+  // as an ItemList. No ratings, no verification claims, no opening-hours
+  // markup beyond what the seller actually entered.
+  const shopJsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'LocalBusiness',
+        name,
+        ...(place ? { address: place } : {}),
+        url: shareUrl,
+        ...(shopImage(shop) ? { image: shopImage(shop) } : {}),
+        ...(shop.description ? { description: shop.description.replace(/\s+/g, ' ').trim().slice(0, 300) } : {}),
+        identifier: shop.shopCode,
+      },
+      {
+        '@type': 'ItemList',
+        name: `${name} catalogue`,
+        numberOfItems: shop.activeListingCount,
+        itemListElement: listings.slice(0, 25).map((listing, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          url: `${siteUrl}/l/${listing.id}`,
+          name: listing.title,
+        })),
+      },
+    ],
+  }
+
   return (
     <div className="mx-auto min-h-dvh max-w-2xl bg-background">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(shopJsonLd) }} />
       <header className="flex items-center justify-between border-b bg-card px-4 py-3">
         <a href="/" className="font-display text-xl font-semibold tracking-tight text-primary">
           Mudaala
