@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast'
 
 type Props = {
   listingId: string
+  variantId?: string
   shopName: string
   initialMessage: string
   label?: string
@@ -21,6 +22,7 @@ type Props = {
 
 export function InAppEnquiryButton({
   listingId,
+  variantId,
   shopName,
   initialMessage,
   label = 'Message seller',
@@ -54,7 +56,7 @@ export function InAppEnquiryButton({
     try {
       await apiFetch('/api/enquiries', {
         method: 'POST',
-        body: JSON.stringify({ listingId, message }),
+        body: JSON.stringify({ listingId, ...(variantId ? { variantId } : {}), message }),
       })
       setOpen(false)
       toast({
