@@ -2,7 +2,11 @@
 
 Mudaala is a marketplace for local trade in Uganda. This policy explains, in plain words, what we collect and what we never do. The short version: your phone number is your account, we do not sell your data, and we do not show your contact details to strangers until you choose to.
 
-_Last updated: October 2026. Questions? Reach the team through the app or the support email on your notifications._
+_Last updated: 31 October 2026. Questions or privacy requests? Email [mudaalakatale@gmail.com](mailto:mudaalakatale@gmail.com)._
+
+## Who operates Mudaala
+
+Mudaala is operated by **Kaiso Isaac Junior**, based in Kampala, Uganda. For privacy questions, access or deletion requests, contact **[mudaalakatale@gmail.com](mailto:mudaalakatale@gmail.com)**.
 
 ## What we collect
 
@@ -26,17 +30,15 @@ _Last updated: October 2026. Questions? Reach the team through the app or the su
 
 ## Deleting your data
 
-You can delete any listing yourself, any time. To delete your whole account, contact support through the app. We will remove your account, listings and shop, except the small records we must keep to honour the law and to keep abusers out.
+You can delete any listing yourself, any time. To delete your whole account, contact support through the app or email **[mudaalakatale@gmail.com](mailto:mudaalakatale@gmail.com)**. We will remove your account, listings and shop, except the small records we must keep to honour the law and to keep abusers out.
 
 ## Changes to this policy
 
 When this policy changes, the version date at the top changes and the app may ask you to review it again. Continuing to use Mudaala after a change means you accept the updated policy.
 
-
 ## Bug reports and feedback
 
 If you send “Report a bug / Send feedback”, Mudaala stores the category, summary, comment, the page path you were viewing, a limited browser user-agent string, and any contact detail you choose to provide. Contact details are optional. Feedback is visible to authorized Mudaala administrators for investigation and triage; internal admin notes are not shown to reporters. Feedback is rate-limited to reduce abuse. Do not include passwords, payment secrets, or sensitive personal information in a report. This first version does not accept screenshot attachments. Feedback records are retained while reasonably needed to investigate issues, maintain platform safety, and document resolutions, subject to applicable deletion and legal requirements.
-
 
 ## Image safety checks
 
