@@ -4,7 +4,7 @@ import { mci27IntelligenceEnabled } from './env-flags'
 
 const base = {
   ownerId: 'internal-user-id-123',
-  pseudonymKey: 'test-only-secret',
+  pseudonymKey: 'test-only-pseudonym-key-0123456789abcdef',
   days: 30 as const,
   from: '2026-10-21',
   totals: { views: 42, contactTaps: 7, shareClicks: 3 },
@@ -32,7 +32,11 @@ describe('MCI-27 commerce snapshot adapter', () => {
   test('merchant pseudonym is stable for the same key and owner, and changes with the key', async () => {
     const first = await pseudonymizeMerchantRef(base.ownerId, base.pseudonymKey)
     expect(await pseudonymizeMerchantRef(base.ownerId, base.pseudonymKey)).toBe(first)
-    expect(await pseudonymizeMerchantRef(base.ownerId, 'rotated-secret')).not.toBe(first)
+    expect(await pseudonymizeMerchantRef(base.ownerId, 'rotated-pseudonym-key-0123456789abcdef')).not.toBe(first)
+  })
+
+  test('rejects weak pseudonym key material', async () => {
+    await expect(pseudonymizeMerchantRef(base.ownerId, 'short-key')).rejects.toThrow(/at least 32 characters/)
   })
 
   test('rejects unsupported reporting windows and malformed analytics', async () => {
