@@ -96,6 +96,7 @@ async function linkedMudaalaUserId(telegramUserId: number): Promise<string | nul
   }
 }
 
+
 async function sendMessage(chatId: number, text: string, replyMarkup?: Record<string, unknown>): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN
   if (!token) throw new Error('Telegram bot is not configured')
