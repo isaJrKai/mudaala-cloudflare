@@ -9,7 +9,7 @@
 | Intelligence gateway | Cloudflare Workers (separate worker `mudaala-intelligence-gateway`) | Config + procedure ready | Requires `INTELLIGENCE_CALLERS` secret + DO migration; `workers_dev: false` |
 | Module engines (MCI-01/02/03/08/27) | Inside the gateway worker | Same deployment | In-process dispatch; no separate service |
 | Hermes control plane | Modal (or dedicated CPU host) — **not yet provisioned** | No | Requires owner's Modal workspace; skeleton runs locally today |
-| Commerce-plane client | `src/lib/intelligence/gateway-client.ts` | MCI-27 wired behind an opt-in flag | Seller-authenticated `/api/my/business-analytics` calls `/v1/merchant/insights` only when `INTELLIGENCE_MCI27_ENABLED=true`, gateway credentials are present, and the independent `INTELLIGENCE_MERCHANT_PSEUDONYM_SECRET` is provisioned. The flag remains false by default. |
+| Commerce-plane client | `src/lib/intelligence/gateway-client.ts` | MCI-27 and MCI-01/02/03/08 wired behind independent opt-in flags | Seller analytics uses `/v1/merchant/insights` only when `INTELLIGENCE_MCI27_ENABLED=true`; public text search uses the four discovery routes only when `INTELLIGENCE_DISCOVERY_ENABLED=true`. Both require gateway credentials. Discovery sends bounded public listing features and request-local seller labels. Both flags remain false by default. |
 | Job store | Draft SQL only | No | Owner approval gate (ADR-0004) |
 
 ## A. Gateway deployment procedure (staging first)
@@ -43,7 +43,7 @@ Rollback is tested by construction for commerce (client returns `null` on any ab
 
 - The MCI-27 integration code exists on the seller analytics route, but its flag defaults to false; no production gateway traffic occurs while it remains off.
 - No schema migration (`intelligence/jobs/schema.sql` is draft).
-- No customer-facing intelligence behaviour is active; MCI-27 remains disabled until staging verification and owner approval.
+- No customer-facing intelligence behaviour is active; MCI-27 and MCI-01/02/03/08 discovery remain disabled until staging verification and owner approval.
 - No paid spend of any kind.
 
 ## E. Verification checklist before ANY production enablement (later increments)
@@ -51,6 +51,6 @@ Rollback is tested by construction for commerce (client returns `null` on any ab
 - [ ] Staging negative tests pass (401/409/413/429/503 matrix — automated in `gateway.test.ts`, re-run against the deployed gateway).
 - [ ] Latency budget measured from Uganda: gateway overhead p95 ≤ 50 ms target (master plan §11.2) — unmeasured today.
 - [ ] `INTELLIGENCE_CALLERS` rotation drill done (add second secretId, flip, remove).
-- [ ] Provision and rotate `INTELLIGENCE_MERCHANT_PSEUDONYM_SECRET` independently from `INTELLIGENCE_GATEWAY_SECRET`; never reuse the gateway signing key.
+- [ ] Provision and rotate `INTELLIGENCE_MERCHANT_PSEUDONYM_SECRET` independently from `INTELLIGENCE_GATEWAY_SECRET`; never reuse the gateway signing key.\n- [ ] Keep `INTELLIGENCE_DISCOVERY_ENABLED=false` until all four search routes pass staging E2E, visibility/privacy checks, latency measurement and kill-switch verification.
 - [ ] Kill-switch drill done end-to-end.
 - [ ] Owner sign-off recorded in the PR and in `contracts/registry.json` status transitions.
