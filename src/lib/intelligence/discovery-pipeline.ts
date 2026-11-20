@@ -13,7 +13,10 @@ import { MCI02Result } from '../../../intelligence/contracts/modules/mci02'
 import { MCI03Result, type RankCandidate } from '../../../intelligence/contracts/modules/mci03'
 import { MCI08Result } from '../../../intelligence/contracts/modules/mci08'
 
-type Envelope<T> = { module_id: string; result: T }\n\nconst DISCOVERY_CANDIDATE_CAP = 40\nconst GATEWAY_SAFE_PAYLOAD_BYTES = 28 * 1024
+type Envelope<T> = { module_id: string; result: T }
+
+const DISCOVERY_CANDIDATE_CAP = 40
+const GATEWAY_SAFE_PAYLOAD_BYTES = 28 * 1024
 
 export interface MciDiscoveryPlan {
   queryPlan: ReturnType<typeof MCI01Result.parse>
@@ -46,7 +49,8 @@ async function callModule<T>(
   parse: (value: unknown) => T,
   fetchImpl?: typeof fetch,
 ): Promise<T | null> {
-  if (new TextEncoder().encode(JSON.stringify(body)).byteLength > GATEWAY_SAFE_PAYLOAD_BYTES) return null\n  const response = await getClient(fetchImpl).call<Envelope<unknown>>(path, body)
+  if (new TextEncoder().encode(JSON.stringify(body)).byteLength > GATEWAY_SAFE_PAYLOAD_BYTES) return null
+  const response = await getClient(fetchImpl).call<Envelope<unknown>>(path, body)
   if (!response.ok || response.envelope.module_id !== moduleId) return null
   try {
     return parse(response.envelope.result)
