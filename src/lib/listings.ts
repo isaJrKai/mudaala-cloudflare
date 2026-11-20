@@ -312,7 +312,8 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     const PHOTO_BOOST_SCAN_CAP = 500
     // The intelligence plan is optional. Existing validated commerce filters
     // remain the source of truth; MCI-02 supplies the hard candidate budget.
-    const discoveryPageStart = ((page - 1) * pageSize)\n    const discoveryPlan = searchText && discoveryPageStart < 40 && includeStatuses.length === 1 && includeStatuses[0] === 'ACTIVE' && mciDiscoveryIntelligenceEnabled(process.env)
+    const discoveryPageStart = ((page - 1) * pageSize)
+    const discoveryPlan = searchText && discoveryPageStart < 40 && includeStatuses.length === 1 && includeStatuses[0] === 'ACTIVE' && mciDiscoveryIntelligenceEnabled(process.env)
       ? await prepareMciDiscovery(query.q ?? '', {
           category_id: query.category ?? null,
           counties: query.county ? [query.county] : [],
@@ -353,7 +354,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
         ? db.listing.findMany({
             where: textFallbackWhere,
             orderBy: [orderBy],
-            take: scanCap,
+            take: PHOTO_BOOST_SCAN_CAP,
             select: rankingSelect,
           })
         : Promise.resolve([] as Array<Pick<Listing, 'id' | 'userId' | 'photos' | 'refreshedAt' | 'publishedAt' | 'title' | 'description' | 'category' | 'taxonomyId' | 'price' | 'area' | 'county'>>),
@@ -423,12 +424,12 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
           listing_id: row.id,
           seller_ref: sellerRefFor(row.userId),
           category_id: row.taxonomyId ?? row.category,
-          title: row.title,
-          description: row.description,
+          title: row.title.slice(0, 160),
+          description: row.description?.slice(0, 256) ?? null,
           price: row.price === null ? null : Number(row.price),
           currency: 'UGX',
-          county: row.county,
-          area: row.area,
+          county: row.county?.slice(0, 48) ?? null,
+          area: row.area?.slice(0, 48) ?? null,
           published_at: row.publishedAt.toISOString(),
           refreshed_at: row.refreshedAt.toISOString(),
           engagement: {
