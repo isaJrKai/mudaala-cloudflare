@@ -66,7 +66,7 @@ Excluded from root `tsconfig.json`: `intelligence/gateway` (gets its own worker-
 
 | Order (matrix) | Module | Increment-1 treatment |
 |---|---|---|
-| 1 | MCI-27 Merchant performance analyst | **Implemented (deterministic v0):** typed insight rules over a passed analytics snapshot; preserves `listing-analytics` metric definitions; taps≠sales enforced in contract tests; LLM wording explicitly deferred |
+| 1 | MCI-27 Merchant performance analyst | **Implemented (deterministic v0) + opt-in commerce adapter:** typed insight rules over seller-scoped listing analytics; preserves `listing-analytics` metric definitions; taps≠sales enforced in contract tests; insights are surfaced in My Business only when `INTELLIGENCE_MCI27_ENABLED=true`; LLM wording explicitly deferred |
 | 2 | MCI-38 Merchant growth coach | **REUSE `src/lib/merchant-growth.ts` unchanged** (investigation decision); registered in the machine-readable registry with status IN DEVELOPMENT (existing code), no duplicate built |
 | 3 | MCI-02 Retrieval planner | **Implemented (deterministic v0):** query plan → bounded retrieval paths; `status=ACTIVE` and public-field-only leakage rules in contract tests |
 | 3 | MCI-03 Product relevance ranker | **Implemented (deterministic baseline v0):** versioned explainable engine with feature contributions + reason codes; evaluated on fixtures vs baseline ordering per the AI search evaluation protocol |
@@ -94,7 +94,7 @@ Cross-cutting: per-caller HMAC (secret id + signature over method/path/timestamp
 
 - Caller registry is config, not code: caller id → { secret ref, scopes, rate limit, status }. Secrets live in worker secrets, never Git.
 - Signature covers the body hash: no replay or re-ordering attacks on JSON.
-- Tenant scoping is the caller's responsibility at request construction and the gateway's at validation: merchant insights payloads must carry the merchant subject the caller is authorised for; scope `merchant:insights:any` does not exist in v1.
+- MCI-27 tenant scoping is enforced in the commerce plane BEFORE aggregation: `/api/my/business-analytics` authenticates the seller and every source query is filtered by that seller's `user.id`. The owner id is pseudonymised before the gateway call. Only the HMAC-authenticated commerce service can invoke `merchant:insights`; the gateway never reads the commerce database. Do not expose this route to browser-direct callers or add a cross-merchant scope.
 - Logs carry trace IDs, caller ids, module ids, latencies, outcome codes — never query text or payload contents (privacy rule from master plan §5.1.B).
 - Kill switch: per-module `INTELLIGENCE_MODULE_<ID>_DISABLED` and a global `INTELLIGENCE_GATEWAY_DISABLED` in the commerce client, plus route-level 503 behaviour in the gateway.
 
