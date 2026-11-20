@@ -59,7 +59,7 @@ jobs:
         run: bun test src/lib/intelligence/
 
       - name: Lint the MCI-27 commerce integration
-        run: npx eslint src/app/api/my/business-analytics/route.ts src/lib/intelligence/merchant-insights.ts src/lib/intelligence/merchant-insights.test.ts
+        run: npx eslint src/app/api/my/business-analytics/route.ts src/components/commerce/business-insights-panel.tsx src/lib/intelligence/merchant-insights.ts src/lib/intelligence/merchant-insights.test.ts
 
       - name: SQL gate — fresh and repeatable migrations against disposable PostgreSQL
         run: bun test intelligence/jobs/
