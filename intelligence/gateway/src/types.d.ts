@@ -13,7 +13,9 @@ interface DurableObjectState {
     get<T = unknown>(key: string): Promise<T | undefined>
     put<T>(key: string, value: T): Promise<void>
     delete(key: string): Promise<boolean>
+    deleteAll(): Promise<void>
     list<T>(options?: { prefix?: string; limit?: number }): Promise<Map<string, T>>
+    setAlarm(time: number): Promise<void>
   }
   waitUntil(promise: Promise<unknown>): void
 }

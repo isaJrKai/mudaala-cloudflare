@@ -120,11 +120,12 @@ export async function handleRequest(request: Request, env: Env, envOverrides?: P
     return errorResponse(auth.code, auth.message, traceId, statusForError(auth.code))
   }
 
-  // 4. Nonce replay check + record.
-  if (await gatewayEnv.nonces.seen(auth.nonce)) {
+  // 4. Nonce replay — ONE atomic check-and-record per (caller, nonce).
+  // The increment-1 seen()/record() split had a TOCTOU window; consume()
+  // closes it (see limiter.ts / do.ts).
+  if (await gatewayEnv.nonces.consume(auth.nonce, auth.caller.callerId, NONCE_TTL_SECONDS)) {
     return errorResponse('AUTH_REPLAY', 'nonce already used', traceId, 409)
   }
-  await gatewayEnv.nonces.record(auth.nonce, NONCE_TTL_SECONDS)
 
   // 5. Rate limit per caller.
   const allowed = await gatewayEnv.limiter.check(`caller:${auth.caller.callerId}`, auth.caller.rateLimitPerMinute)

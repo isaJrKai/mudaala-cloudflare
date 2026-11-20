@@ -181,4 +181,80 @@ describe('scopes and caller registry', () => {
   test('empty registry is valid (fresh deployment before secrets)', () => {
     expect(parseCallerRegistry(undefined).size).toBe(0)
   })
+
+  test('caller ids outside the safe shard-name budget are rejected', () => {
+    expect(() =>
+      parseCallerRegistry(JSON.stringify({ 'caller-id-way-too-long-for-a-do-shard-name': { secretId: 'k', secret: 's' } })),
+    ).toThrow(/safe caller-id pattern/)
+  })
+})
+
+describe('header hardening (malformed values fail closed)', () => {
+  const base = { body: '{}', path: '/v1/search/rank', now: 1768938000 }
+
+  async function verifyWith(nonce: string, timestamp = String(base.now)): Promise< Awaited<ReturnType<typeof verifyServiceAuth>>>
+  {
+    const { headers } = await signRequest({
+      secret: TEST_CALLER.secret,
+      callerId: TEST_CALLER.callerId,
+      secretId: TEST_CALLER.secretId,
+      method: 'POST',
+      path: base.path,
+      timestamp,
+      body: base.body,
+      nonce,
+    })
+    const request = new Request(`https://gateway.internal${base.path}`, { method: 'POST', headers, body: base.body })
+    return verifyServiceAuth({ request, bodyText: base.body, callers: registry(), nowSeconds: base.now })
+  }
+
+  test('over-long nonce is rejected without echo', async () => {
+    const result = await verifyWith('n'.repeat(41))
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.code).toBe('AUTH_MISSING')
+      expect(result.message).toBe('malformed auth headers')
+    }
+  })
+
+  test('unsafe nonce characters are rejected (header/log injection surface)', async () => {
+    const result = await verifyWith('nonce unsafe; value')
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('AUTH_MISSING')
+  })
+
+  test('non-hex signature is rejected', async () => {
+    const { headers } = await signRequest({
+      secret: TEST_CALLER.secret,
+      callerId: TEST_CALLER.callerId,
+      secretId: TEST_CALLER.secretId,
+      method: 'POST',
+      path: base.path,
+      timestamp: String(base.now),
+      body: base.body,
+      nonce: 'nonce-hex-0001',
+    })
+    headers['x-mudaala-signature'] = 'z'.repeat(64)
+    const request = new Request(`https://gateway.internal${base.path}`, { method: 'POST', headers, body: base.body })
+    const result = await verifyServiceAuth({ request, bodyText: base.body, callers: registry(), nowSeconds: base.now })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('AUTH_MISSING')
+  })
+
+  test('timestamp with trailing letters is rejected (strict digits)', async () => {
+    const { headers } = await signRequest({
+      secret: TEST_CALLER.secret,
+      callerId: TEST_CALLER.callerId,
+      secretId: TEST_CALLER.secretId,
+      method: 'POST',
+      path: base.path,
+      timestamp: '1768938000x',
+      body: base.body,
+      nonce: 'nonce-ts-0001',
+    })
+    const request = new Request(`https://gateway.internal${base.path}`, { method: 'POST', headers, body: base.body })
+    const result = await verifyServiceAuth({ request, bodyText: base.body, callers: registry(), nowSeconds: base.now })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.code).toBe('AUTH_MISSING')
+  })
 })

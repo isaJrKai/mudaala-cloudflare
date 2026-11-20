@@ -46,6 +46,20 @@ export interface AuthFailure {
 
 export const CLOCK_SKEW_SECONDS = 90
 
+/**
+ * Header value hardening. Values are validated before any use as a storage
+ * key, log field or canonical-string component:
+ * - callerId ≤ 20 chars: it becomes part of a Durable Object shard name
+ *   (`n:<callerId>:<nonce>`, ≤ 64 chars total — the idFromName limit).
+ * - nonce ≤ 40 chars / safe charset: same shard-name budget plus rejection
+ *   of header-injection and log-forging values.
+ * - timestamp: plain digits only; signature: 64 hex chars only.
+ */
+export const CALLER_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._@-]{0,19}$/
+export const NONCE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._@:-]{1,39}$/
+const TIMESTAMP_PATTERN = /^\d{1,13}$/
+const SIGNATURE_PATTERN = /^[0-9a-fA-F]{64}$/
+
 const AUTH_HEADER_NAMES = [
   'x-mudaala-caller',
   'x-mudaala-secret-id',
@@ -148,6 +162,18 @@ export async function verifyServiceAuth(input: VerifyInput): Promise<AuthSuccess
   const nonce = headers.get('x-mudaala-nonce')!
   const signature = headers.get('x-mudaala-signature')!
 
+  // Malformed values are rejected exactly like missing ones (fail-closed),
+  // without echoing the value back (no header/log injection surface).
+  const malformed =
+    !CALLER_ID_PATTERN.test(callerId) ||
+    !CALLER_ID_PATTERN.test(secretId) ||
+    !TIMESTAMP_PATTERN.test(timestamp) ||
+    !NONCE_PATTERN.test(nonce) ||
+    !SIGNATURE_PATTERN.test(signature)
+  if (malformed) {
+    return { ok: false, code: 'AUTH_MISSING', message: 'malformed auth headers' }
+  }
+
   const caller = input.callers.get(callerId)
   if (!caller || !caller.enabled) {
     return { ok: false, code: 'AUTH_BAD_SIGNATURE', message: 'unknown or disabled caller' }
@@ -207,6 +233,10 @@ export function parseCallerRegistry(json: string | undefined): Map<string, Calle
   }
   for (const [callerId, raw] of Object.entries(parsed as Record<string, unknown>)) {
     if (typeof raw !== 'object' || raw === null) continue
+    // Caller ids become DO shard names and log fields: enforce the safe shape.
+    if (!CALLER_ID_PATTERN.test(callerId)) {
+      throw new Error(`caller id ${callerId} must match the safe caller-id pattern (≤20 chars)`)
+    }
     const value = raw as Record<string, unknown>
     if (typeof value.secretId !== 'string' || typeof value.secret !== 'string') {
       throw new Error(`caller ${callerId} is missing secretId/secret`)

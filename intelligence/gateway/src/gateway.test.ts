@@ -291,3 +291,50 @@ describe('job submission (staging store)', () => {
     expect(() => store.submit(submission, 'mudaala-commerce')).toThrow('PAYLOAD_TOO_LARGE')
   })
 })
+
+describe('nonce replay remediation (atomic consume, caller isolation)', () => {
+  const CALLER2: CallerConfig = {
+    callerId: 'commerce-2',
+    secretId: 'key-2026-11',
+    secret: 'test-secret-2-do-not-use',
+    scopes: ['search:understand', 'search:rank', 'search:plan', 'search:diversify', 'merchant:insights', 'jobs:submit'],
+    rateLimitPerMinute: 5,
+    enabled: true,
+  }
+
+  test('two simultaneous requests with the same nonce: exactly one succeeds', async () => {
+    const ctx = testEnv()
+    const [a, b] = await Promise.all([
+      post('/v1/search/understand', { query: 'rice' }, { nonce: 'nonce-race-0001', env: ctx }),
+      post('/v1/search/understand', { query: 'rice' }, { nonce: 'nonce-race-0001', env: ctx }),
+    ])
+    expect([a.status, b.status].sort()).toEqual([200, 409])
+    const rejected = a.status === 409 ? a : b
+    const body = (await rejected.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('AUTH_REPLAY')
+  })
+
+  test('caller isolation: the same nonce string from two callers never collides', async () => {
+    const ctx = testEnv()
+    ctx.overrides.callers = new Map([
+      [CALLER.callerId, CALLER],
+      [CALLER2.callerId, CALLER2],
+    ])
+    const a = await post('/v1/search/understand', { query: 'rice' }, { nonce: 'nonce-shared-0001', env: ctx })
+    const b = await post('/v1/search/understand', { query: 'rice' }, { nonce: 'nonce-shared-0001', env: ctx, caller: CALLER2 })
+    expect(a.status).toBe(200)
+    expect(b.status).toBe(200)
+  })
+
+  test('expired nonces are admitted again after the TTL', async () => {
+    // Nonce TTL is fixed at 180s in the worker; the cache itself is time-based.
+    const nowMs = { value: NOW_SECONDS * 1000 }
+    const ctx = testEnv()
+    ctx.overrides.nonces = new InMemoryNonceCache(() => nowMs.value)
+    const first = await post('/v1/search/understand', { query: 'rice' }, { nonce: 'nonce-exp-0001', env: ctx })
+    expect(first.status).toBe(200)
+    nowMs.value += 181_000
+    const second = await post('/v1/search/understand', { query: 'rice' }, { nonce: 'nonce-exp-0001', env: ctx })
+    expect(second.status).toBe(200)
+  })
+})
