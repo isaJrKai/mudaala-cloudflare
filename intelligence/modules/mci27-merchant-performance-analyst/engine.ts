@@ -20,7 +20,7 @@ import {
   type MerchantInsight,
 } from '../../contracts/modules/mci27'
 
-export const MCI27_ENGINE_VERSION = 'mci27-merchant-performance-analyst-v0.2.0'
+export const MCI27_ENGINE_VERSION = 'mci27-merchant-performance-analyst-v0.3.0'
 
 /** Sample-size honesty caps — below these, insights are withheld and a
  * coverage warning is emitted instead (mirrors price-trends MIN_SAMPLE). */
@@ -65,7 +65,7 @@ export function analyzeMerchantPerformance(snapshot: MerchantAnalyticsSnapshot):
         id: 'ZERO_CONTACT',
         severity: 'ACTION',
         metric: 'CONTACT_TAPS',
-        statement: `Your shop received ${shop_totals.views} views but no contact taps in the last ${period.days} days.`,
+        statement: `Your listings received ${shop_totals.views} views but no contact taps in the last ${period.days} days.`,
         evidence: [
           { ref: 'shop_totals.views', label: 'views', value: shop_totals.views },
           { ref: 'shop_totals.contact_taps', label: 'contact taps', value: 0 },
@@ -123,7 +123,7 @@ export function analyzeMerchantPerformance(snapshot: MerchantAnalyticsSnapshot):
           { ref: 'shop_totals.views', label: 'current views', value: shop_totals.views },
           { ref: 'previous_period_totals.views', label: 'previous views', value: previous_period_totals.views },
         ],
-        suggested_action: 'Refresh your listings and add photos to appear higher in Browse.',
+        suggested_action: 'Improve listing photos and descriptions, then check whether customer interest changes.',
         confidence: null,
       })
     } else if (delta >= MCI27_THRESHOLDS.TREND_RISE_PCT) {
@@ -151,7 +151,7 @@ export function analyzeMerchantPerformance(snapshot: MerchantAnalyticsSnapshot):
       id: `DEAD_LISTING_${listing.listing_id}`,
       severity: 'ACTION',
       metric: 'LISTING_COVERAGE',
-      statement: `Listing ${listing.listing_id} has been live ${listing.days_live} days with no views.`,
+      statement: `This active listing has been live ${listing.days_live} days with no views.`,
       evidence: [
         { ref: `listings.${listing.listing_id}.days_live`, label: 'days live', value: listing.days_live },
         { ref: `listings.${listing.listing_id}.views`, label: 'views', value: 0 },
@@ -170,7 +170,7 @@ export function analyzeMerchantPerformance(snapshot: MerchantAnalyticsSnapshot):
         id: 'VIEWS_CONCENTRATED',
         severity: 'WATCH',
         metric: 'LISTING_COVERAGE',
-        statement: `Listing ${top.listing_id} draws ${pct(share)} of your views; the other ${listings.length - 1} listings draw little traffic.`,
+        statement: `One listing draws ${pct(share)} of your listing views; the other ${listings.length - 1} listings draw little traffic.`,
         evidence: [
           { ref: `listings.${top.listing_id}.views`, label: 'top listing views', value: top.views },
           { ref: 'shop_totals.views', label: 'shop views', value: shop_totals.views },
@@ -190,7 +190,7 @@ export function analyzeMerchantPerformance(snapshot: MerchantAnalyticsSnapshot):
       id: `FRESH_LISTING_${listing.listing_id}`,
       severity: 'INFO',
       metric: 'VIEWS',
-      statement: `Listing ${listing.listing_id} already has ${listing.views} views in its first ${listing.days_live} days.`,
+      statement: `A recently published listing already has ${listing.views} views in its first ${listing.days_live} days.`,
       evidence: [{ ref: `listings.${listing.listing_id}.views`, label: 'views', value: listing.views }],
       suggested_action: null,
       confidence: null,

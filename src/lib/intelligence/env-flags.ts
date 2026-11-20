@@ -11,12 +11,26 @@ export interface IntelligenceClientEnv {
   INTELLIGENCE_GATEWAY_CALLER_ID?: string
   INTELLIGENCE_GATEWAY_SECRET_ID?: string
   INTELLIGENCE_GATEWAY_SECRET?: string
+  /** Independent HMAC key for merchant pseudonyms; never reuse the gateway signing secret. */
+  INTELLIGENCE_MERCHANT_PSEUDONYM_SECRET?: string
   INTELLIGENCE_CLIENT_DISABLED?: string
+  /** Explicit opt-in for the merchant-analytics intelligence slice. Off by default. */
+  INTELLIGENCE_MCI27_ENABLED?: string
+  /** Explicit opt-in for MCI-01/02/03/08 search enrichment. Off by default. */
+  INTELLIGENCE_DISCOVERY_ENABLED?: string
 }
 
 function truthy(raw: string | undefined): boolean {
   const value = (raw ?? '').trim().toLowerCase()
   return value === '1' || value === 'true'
+}
+
+export function mci27IntelligenceEnabled(env: IntelligenceClientEnv): boolean {
+  return truthy(env.INTELLIGENCE_MCI27_ENABLED)
+}
+
+export function mciDiscoveryIntelligenceEnabled(env: IntelligenceClientEnv): boolean {
+  return truthy(env.INTELLIGENCE_DISCOVERY_ENABLED)
 }
 
 export function intelligenceClientDisabled(env: IntelligenceClientEnv): boolean {

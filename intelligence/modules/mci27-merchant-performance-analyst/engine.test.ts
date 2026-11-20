@@ -27,6 +27,11 @@ function snapshot(overrides: Partial<MerchantAnalyticsSnapshot> = {}): MerchantA
 }
 
 describe('MCI-27 contact-rate rules', () => {
+  test('accepts the 30-day reporting window used by My Business analytics', () => {
+    const result = analyzeMerchantPerformance(snapshot({ period: { days: 30, from: '2026-10-21' } }))
+    expect(result.metric_definitions_ref).toBe('listing-analytics.daily-events.v1')
+  })
+
   test('healthy rate is INFO', () => {
     const result = analyzeMerchantPerformance(snapshot())
     const insight = result.insights.find((i) => i.id === 'CTR_HEALTHY')

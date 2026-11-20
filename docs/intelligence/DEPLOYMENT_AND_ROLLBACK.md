@@ -9,7 +9,7 @@
 | Intelligence gateway | Cloudflare Workers (separate worker `mudaala-intelligence-gateway`) | Config + procedure ready | Requires `INTELLIGENCE_CALLERS` secret + DO migration; `workers_dev: false` |
 | Module engines (MCI-01/02/03/08/27) | Inside the gateway worker | Same deployment | In-process dispatch; no separate service |
 | Hermes control plane | Modal (or dedicated CPU host) — **not yet provisioned** | No | Requires owner's Modal workspace; skeleton runs locally today |
-| Commerce-plane client | `src/lib/intelligence/gateway-client.ts` | Shipped flag-OFF | No route references it; enabling = next increment after gateway staging |
+| Commerce-plane client | `src/lib/intelligence/gateway-client.ts` | MCI-27 and MCI-01/02/03/08 wired behind independent opt-in flags | Seller analytics uses `/v1/merchant/insights` only when `INTELLIGENCE_MCI27_ENABLED=true`; public text search uses the four discovery routes only when `INTELLIGENCE_DISCOVERY_ENABLED=true`. Both require gateway credentials. Discovery sends bounded public listing features and request-local seller labels. Both flags remain false by default. |
 | Job store | Draft SQL only | No | Owner approval gate (ADR-0004) |
 
 ## A. Gateway deployment procedure (staging first)
@@ -27,8 +27,10 @@
 
 1. **Per-caller disable** — set `"enabled": false` for the caller in `INTELLIGENCE_CALLERS` and redeploy the secret (seconds; no code change).
 2. **Global kill switch** — `wrangler secret put INTELLIGENCE_GATEWAY_DISABLED "true"`; all `/v1/*` return 503 `MODULE_DISABLED` immediately (health endpoints stay up).
-3. **Commerce side** — unset `INTELLIGENCE_GATEWAY_URL` (or set `INTELLIGENCE_CLIENT_DISABLED=true`) in the commerce environment: the client turns off entirely and every caller falls back to local behaviour. **This is the primary rollback for commerce**: because no route is wired in increment 1, the commerce plane needs no rollback at all.
-4. **Worker removal** — `npx wrangler delete` the gateway worker. Commerce is unaffected (service-binding-less increment).
+3. **MCI-27 feature rollback** — set `INTELLIGENCE_MCI27_ENABLED=false` (the default): the merchant analytics route stops calling intelligence and returns its existing analytics unchanged.
+4. **Discovery feature rollback** — set `INTELLIGENCE_DISCOVERY_ENABLED=false` (the default): public search returns to the established local query/ranking path.
+5. **Global commerce-client rollback** — unset `INTELLIGENCE_GATEWAY_URL` or set `INTELLIGENCE_CLIENT_DISABLED=true`; all intelligence callers fail open to local behaviour.
+6. **Worker removal** — `npx wrangler delete` the gateway worker. Commerce is unaffected (service-binding-less increment).
 
 Rollback is tested by construction for commerce (client returns `null` on any absence/failure — covered by `gateway-client.test.ts`); the DO migration rollback is `wrangler rollback` to the previous deployment (standard Workers semantics, untested here because nothing is deployed — honest status).
 
@@ -41,9 +43,9 @@ Rollback is tested by construction for commerce (client returns `null` on any ab
 
 ## D. What this increment deliberately does NOT deploy
 
-- No production routes call the gateway (client flag-off; zero route changes).
+- The MCI-27 integration code exists on the seller analytics route, but its flag defaults to false; no production gateway traffic occurs while it remains off.
 - No schema migration (`intelligence/jobs/schema.sql` is draft).
-- No customer-facing intelligence behaviour anywhere.
+- No customer-facing intelligence behaviour is active; MCI-27 and MCI-01/02/03/08 discovery remain disabled until staging verification and owner approval.
 - No paid spend of any kind.
 
 ## E. Verification checklist before ANY production enablement (later increments)
@@ -51,5 +53,7 @@ Rollback is tested by construction for commerce (client returns `null` on any ab
 - [ ] Staging negative tests pass (401/409/413/429/503 matrix — automated in `gateway.test.ts`, re-run against the deployed gateway).
 - [ ] Latency budget measured from Uganda: gateway overhead p95 ≤ 50 ms target (master plan §11.2) — unmeasured today.
 - [ ] `INTELLIGENCE_CALLERS` rotation drill done (add second secretId, flip, remove).
+- [ ] Provision and rotate `INTELLIGENCE_MERCHANT_PSEUDONYM_SECRET` independently from `INTELLIGENCE_GATEWAY_SECRET`; never reuse the gateway signing key.
+- [ ] Keep `INTELLIGENCE_DISCOVERY_ENABLED=false` until all four search routes pass staging E2E, visibility/privacy checks, latency measurement and kill-switch verification.
 - [ ] Kill-switch drill done end-to-end.
 - [ ] Owner sign-off recorded in the PR and in `contracts/registry.json` status transitions.

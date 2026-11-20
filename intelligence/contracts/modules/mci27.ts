@@ -30,10 +30,12 @@ export const MerchantAnalyticsSnapshot = z.object({
   /** Pseudonymous merchant ref, not a user id. */
   merchant_ref: z.string().min(1).max(128),
   period: z.object({
-    days: z.union([z.literal(7), z.literal(28), z.literal(90)]),
+    /** Reporting windows supported by the existing merchant analytics API. */
+    days: z.union([z.literal(7), z.literal(30), z.literal(90)]),
     /** ISO start date of the window, inclusive. */
     from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   }),
+  /** Aggregate of this merchant's listing events (not shop-page views). */
   shop_totals: z.object({
     views: z.number().int().nonnegative(),
     contact_taps: z.number().int().nonnegative(),

@@ -18,7 +18,7 @@ import {
   lookupConcept,
 } from './concepts'
 
-export const MCI01_ENGINE_VERSION = 'mci01-query-understanding-v0.2.0'
+export const MCI01_ENGINE_VERSION = 'mci01-query-understanding-v0.3.0'
 export const MCI01_WEIGHTS_REF = CONCEPT_PACK_VERSION
 
 /** Words that never carry category meaning (mirrors commerce conventions). */
@@ -218,7 +218,15 @@ export function understandQuery(request: MCI01Request, now: Date = new Date()): 
   const validated = MCI01Request.parse(request)
   const original = validated.query
   const normalized = normalizeText(original)
-  const tokens = tokenize(normalized)
+  const priceGrammar = parsePriceGrammar(original)
+  // Price expressions are filters, not product keywords. Remove the parsed
+  // expression before tokenisation so terms like 'under' and '1m' do not
+  // become mandatory retrieval keywords in MCI-02 or relevance tokens in MCI-03.
+  const priceExpression = priceGrammar.min !== null || priceGrammar.max !== null
+    ? normalizeText(priceGrammar.rawExpression ?? '')
+    : ''
+  const tokenText = priceExpression ? normalized.replace(priceExpression, ' ').replace(/\s+/gu, ' ').trim() : normalized
+  const tokens = tokenize(tokenText)
   const notes: string[] = []
 
   // Category hints from the concept pack.
@@ -236,7 +244,6 @@ export function understandQuery(request: MCI01Request, now: Date = new Date()): 
       score: Math.min(1, hits / Math.max(1, tokens.length)),
     }))
 
-  const priceGrammar = parsePriceGrammar(original)
   notes.push(...priceGrammar.notes)
 
   const sort = detectSort(normalized)

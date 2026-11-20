@@ -8,6 +8,7 @@
 |---|---|---|---|---|
 | Intelligence gateway | Cloudflare Workers (separate worker) | `/healthz`, `/version`, Worker observability (enabled in config) | `INTELLIGENCE_GATEWAY_DISABLED` secret; per-caller `enabled: false` | unassigned — owner to assign |
 | Module engines | In-process in the gateway | Envelope error rates, latency per route | Per-module `MODULE_DISABLED` responses (route-level disable is a gateway config change) | unassigned |
+| MCI-27 commerce adapter | Seller-authenticated `/api/my/business-analytics` route | Gateway outcome + `AVAILABLE`/`UNAVAILABLE` status; existing analytics response remains the fallback | `INTELLIGENCE_MCI27_ENABLED=false` (default); global client disable is secondary | unassigned |\n| MCI discovery adapter | Public `/api/listings` text-search path | MCI-01/02 prepare + bounded candidate cap; MCI-03 rank + MCI-08 diversify; gateway failure falls back to local ranking | `INTELLIGENCE_DISCOVERY_ENABLED=false` (default); global client disable is secondary | unassigned |
 | Hermes control plane | Not deployed (local skeleton) | `/healthz` on the local/server instance | Process-level; no production instance exists | unassigned |
 | Evaluation harness | CI (`validate-intelligence.yml`) + manual runs | CI green; versioned reports in `intelligence/eval/reports/` | n/a (read-only) | unassigned |
 | Job store | Draft SQL only | Reconciliation query in `intelligence/jobs/schema.sql` | Not applied | unassigned |
@@ -20,6 +21,7 @@ Wired in code now:
 - Gateway responses: `x-mudaala-trace-id` on every response; stable error codes; `cache-control: no-store`; Worker observability enabled in `wrangler.jsonc`.
 - Hermes: append-only JSONL audit (task/skill/actor/outcome, never payloads); task records carry steps/tool-call usage and timestamps.
 - Client: breaker state observable in-process; reason codes distinguish disabled/breaker/timeout/gateway/network.
+- MCI-27 adapter: seller queries are scoped in the commerce plane; the owner identifier is HMAC-pseudonymised with a dedicated key before the bounded aggregate snapshot crosses the gateway. The pseudonym key is independent from the gateway request-signing secret.\n- Discovery adapter: only bounded public listing features cross the gateway. Seller IDs are replaced with request-local labels; no buyer identity or per-user history is sent. Prisma visibility predicates remain authoritative in the commerce plane.
 
 Planned (next increments): trace propagation into the commerce plane's request logs; per-route latency histograms; queue-depth/dead-letter alerts (needs the durable store); spend telemetry (needs a deployed, spend-bearing component — none exists).
 

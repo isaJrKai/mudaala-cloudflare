@@ -41,7 +41,7 @@
 
 Non-negotiables carried into placement decisions:
 
-- The commerce plane never imports intelligence-plane code; the only coupling is the gateway client and shared contract types.
+- The commerce plane never imports intelligence engines; the only coupling is the gateway client, shared contract types and small validated payload adapters.
 - The gateway never holds production database credentials and never executes arbitrary queries.
 - Hermes never mutates commerce state; every output is a typed recommendation needing an authorised consumer.
 - Every module returns the common envelope with `module_id`, `contract_version`, `trace_id`, `reason_codes`, `provenance`, `model_version`.
@@ -56,7 +56,8 @@ Non-negotiables carried into placement decisions:
 | `intelligence/hermes/` | intelligence | Python orchestration core: skill registry, task router, budget caps, append-only audit log, `AgentBackend` adapter interface (pinned-release integration deferred), FastAPI control-plane skeleton for Modal, first two Mudaala-owned skills (MSK-001, MSK-006) |
 | `intelligence/eval/` | intelligence | Synthetic fixture catalogue + graded query set, metrics (nDCG@K, Recall@K, MRR, Precision@5, exposure concentration, zero-result rate), `run-benchmark.ts` producing versioned JSON reports |
 | `intelligence/jobs/` | intelligence | Async job state machine contract + Postgres outbox/job **draft SQL** (explicitly NOT applied — schema changes require owner approval) |
-| `src/lib/intelligence/gateway-client.ts` | commerce | Thin typed client: env-gated, HMAC-signed, timeout + circuit breaker, deterministic fallback (returns null → callers keep local behaviour). **No existing route is rewired in this increment.** |
+| `src/lib/intelligence/gateway-client.ts` | commerce | Thin typed client: env-gated, HMAC-signed, timeout + circuit breaker, deterministic fallback (`ok: false` → callers keep local behaviour). MCI-27 is optionally wired to `/api/my/business-analytics`; MCI-01/02/03/08 are wired to public text search. Independent flags `INTELLIGENCE_MCI27_ENABLED` and `INTELLIGENCE_DISCOVERY_ENABLED` both default OFF. |
+| `src/lib/intelligence/discovery-pipeline.ts` | commerce | MCI-01/02 query preparation + bounded plan, then MCI-03/08 rank/diversity; validates envelopes and slate IDs, applies 28 KiB payload guard, and fails open to the existing local ranker. |
 | `src/lib/intelligence/env-flags.ts` | commerce | Follows the existing `env-flags.ts` pure-function pattern |
 | `docs/intelligence/` | docs | This map, investigation report, ADRs, operations/cost, deployment/rollback, completion report |
 
@@ -66,7 +67,7 @@ Excluded from root `tsconfig.json`: `intelligence/gateway` (gets its own worker-
 
 | Order (matrix) | Module | Increment-1 treatment |
 |---|---|---|
-| 1 | MCI-27 Merchant performance analyst | **Implemented (deterministic v0):** typed insight rules over a passed analytics snapshot; preserves `listing-analytics` metric definitions; taps≠sales enforced in contract tests; LLM wording explicitly deferred |
+| 1 | MCI-27 Merchant performance analyst | **Implemented (deterministic v0) + opt-in commerce adapter:** typed insight rules over seller-scoped listing analytics; preserves `listing-analytics` metric definitions; taps≠sales enforced in contract tests; insights are surfaced in My Business only when `INTELLIGENCE_MCI27_ENABLED=true`; LLM wording explicitly deferred |
 | 2 | MCI-38 Merchant growth coach | **REUSE `src/lib/merchant-growth.ts` unchanged** (investigation decision); registered in the machine-readable registry with status IN DEVELOPMENT (existing code), no duplicate built |
 | 3 | MCI-02 Retrieval planner | **Implemented (deterministic v0):** query plan → bounded retrieval paths; `status=ACTIVE` and public-field-only leakage rules in contract tests |
 | 3 | MCI-03 Product relevance ranker | **Implemented (deterministic baseline v0):** versioned explainable engine with feature contributions + reason codes; evaluated on fixtures vs baseline ordering per the AI search evaluation protocol |
@@ -74,6 +75,8 @@ Excluded from root `tsconfig.json`: `intelligence/gateway` (gets its own worker-
 | 5 | MCI-01 Query understanding | **Implemented (deterministic v0):** Unicode-safe normalisation, UGX price-grammar parsing, concept pack aligned with `product-taxonomy` IDs; language-model upgrade deferred pending a local-language benchmark (honest gap, not silently assumed) |
 
 Deferred modules (MCI-04 personalisation, MCI-05 visual, MCI-11/12 policy, MCI-13/14 fraud, MCI-25/26 forecasting/pricing assistant, MCI-35–37 ads, trade block MCI-29–34) carry explicit statuses in `intelligence/contracts/registry.json` with REUSE/ADOPT/ADAPT/BUILD/TRAIN/DEFER decisions — satisfying resource-matrix §11's machine-readable register requirement.
+
+**Discovery adapter boundary:** the initial remote ranking window is 40 candidates (up to two 20-item pages) to stay below the gateway's 32 KiB body cap. Mudaala's existing Prisma visibility and search predicates remain authoritative; MCI-02's plan supplies the bounded candidate cap. Pages beyond that window continue using the local ranker until a larger, measured batching design is approved. No staging activation is implied.
 
 ## 4. Gateway surface (v1, this increment)
 
@@ -94,7 +97,7 @@ Cross-cutting: per-caller HMAC (secret id + signature over method/path/timestamp
 
 - Caller registry is config, not code: caller id → { secret ref, scopes, rate limit, status }. Secrets live in worker secrets, never Git.
 - Signature covers the body hash: no replay or re-ordering attacks on JSON.
-- Tenant scoping is the caller's responsibility at request construction and the gateway's at validation: merchant insights payloads must carry the merchant subject the caller is authorised for; scope `merchant:insights:any` does not exist in v1.
+- MCI-27 tenant scoping is enforced in the commerce plane BEFORE aggregation: `/api/my/business-analytics` authenticates the seller and every source query is filtered by that seller's `user.id`. The owner id is pseudonymised before the gateway call. Only the HMAC-authenticated commerce service can invoke `merchant:insights`; the gateway never reads the commerce database. Do not expose this route to browser-direct callers or add a cross-merchant scope.
 - Logs carry trace IDs, caller ids, module ids, latencies, outcome codes — never query text or payload contents (privacy rule from master plan §5.1.B).
 - Kill switch: per-module `INTELLIGENCE_MODULE_<ID>_DISABLED` and a global `INTELLIGENCE_GATEWAY_DISABLED` in the commerce client, plus route-level 503 behaviour in the gateway.
 
@@ -120,6 +123,6 @@ ADR-0004: v1 uses a **Postgres-backed outbox draft** (`intelligence/jobs/schema.
 ## 8. What increment 1 deliberately does NOT do
 
 - No production deployment, no secrets creation, no schema migration, no merge to `main`, no customer-facing activation of any intelligence feature (master plan §16 "explicitly not authorised" list respected).
-- No integration of any existing route with the gateway — the client ships flag-off with tests; route wiring is the next increment after the gateway exists in a staging environment.
+- Increment 1 did not activate any existing route. A later refinement (PR #344) adds an optional MCI-27 call from `/api/my/business-analytics`; it remains disabled unless `INTELLIGENCE_MCI27_ENABLED=true`, and still requires a staging gateway before end-to-end network verification.
 - No LLM inside any latency-sensitive path; no vector database; no Redis dependency; no training run of any kind.
 - No claimed benchmark results: the eval harness ships with fixtures and a results log that starts empty.

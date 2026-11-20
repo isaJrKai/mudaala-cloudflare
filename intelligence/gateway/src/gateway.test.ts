@@ -127,6 +127,78 @@ describe('authenticated module dispatch', () => {
     expect(envelope.result.ranked[0].listing_id).toBe('L1')
   })
 
+  test('MCI-01 → MCI-02 → MCI-03 → MCI-08 composes through authenticated gateway routes', async () => {
+    // Fixture-backed integration of the real gateway routes. The fixture
+    // catalogue stands in for the commerce-plane Prisma adapter; production
+    // database wiring is a separate acceptance gate.
+    const understandResponse = await post('/v1/search/understand', { query: 'iphone under 1m' })
+    expect(understandResponse.status).toBe(200)
+    const understandEnvelope = await understandResponse.json() as { module_id: string; result: Record<string, unknown> }
+    expect(understandEnvelope.module_id).toBe('MCI-01')
+    const queryPlan = understandEnvelope.result
+
+    const planResponse = await post('/v1/search/plan', {
+      query_plan: queryPlan,
+      constraints: { counties: ['Kampala'] },
+      bounds: { max_candidates: 50 },
+    })
+    expect(planResponse.status).toBe(200)
+    const planEnvelope = await planResponse.json() as { module_id: string; result: { filters: { statuses: string[]; categories: string[]; price: { currency: string; min: number | null; max: number | null } | null; counties: string[]; keywords: string[]; types: string[] }; limits: { candidate_cap: number } } }
+    expect(planEnvelope.module_id).toBe('MCI-02')
+    const retrieval = planEnvelope.result
+    expect(retrieval.filters.statuses).toEqual(['ACTIVE'])
+    expect(retrieval.filters.price?.max).toBe(1_000_000)
+    expect(retrieval.limits.candidate_cap).toBe(50)
+
+    const fresh = '2026-11-19T12:00:00Z'
+    const catalogue = [
+      { status: 'ACTIVE', type: 'OFFER', candidate: { listing_id: 'L1', seller_ref: 'seller-a', category_id: 'electronics', title: 'iPhone 12 128GB', description: 'Dual SIM smartphone', price: 950_000, currency: 'UGX', county: 'Kampala', area: 'Ntinda', published_at: fresh, refreshed_at: fresh, availability: 'IN_STOCK', engagement: { views: 100, contact_taps: 8, share_clicks: 4 } } },
+      { status: 'ACTIVE', type: 'OFFER', candidate: { listing_id: 'L2', seller_ref: 'seller-a', category_id: 'electronics', title: 'iPhone 11', description: null, price: 750_000, currency: 'UGX', county: 'Kampala', area: 'Kansanga', published_at: fresh, refreshed_at: fresh, availability: 'UNKNOWN' } },
+      { status: 'ACTIVE', type: 'OFFER', candidate: { listing_id: 'L3', seller_ref: 'seller-b', category_id: 'electronics', title: 'iPhone 13', description: null, price: 900_000, currency: 'UGX', county: 'Kampala', area: 'Ntinda', published_at: fresh, refreshed_at: fresh, availability: 'IN_STOCK' } },
+      { status: 'ACTIVE', type: 'OFFER', candidate: { listing_id: 'L4', seller_ref: 'seller-c', category_id: 'electronics', title: 'iPhone 14 Pro', description: null, price: 1_500_000, currency: 'UGX', county: 'Kampala', area: 'Ntinda', published_at: fresh, refreshed_at: fresh } },
+      { status: 'ACTIVE', type: 'OFFER', candidate: { listing_id: 'L5', seller_ref: 'seller-d', category_id: 'electronics', title: 'iPhone 12', description: null, price: 800_000, currency: 'UGX', county: 'Gulu', area: null, published_at: fresh, refreshed_at: fresh } },
+      { status: 'ACTIVE', type: 'OFFER', candidate: { listing_id: 'L6', seller_ref: 'seller-e', category_id: 'home-kitchen', title: 'Wooden sofa', description: null, price: 500_000, currency: 'UGX', county: 'Kampala', area: 'Ntinda', published_at: fresh, refreshed_at: fresh } },
+    ]
+    const retrieved = catalogue.filter((row) => {
+      const candidate = row.candidate
+      const filters = retrieval.filters
+      const priceMatches = !filters.price || (candidate.currency === filters.price.currency && (filters.price.min === null || candidate.price >= filters.price.min) && (filters.price.max === null || candidate.price <= filters.price.max))
+      const categoryMatches = filters.categories.length === 0 || filters.categories.includes(candidate.category_id)
+      const keywordMatches = filters.keywords.every((keyword) => `${candidate.title} ${candidate.description ?? ''}`.toLowerCase().includes(keyword.toLowerCase()))
+      return filters.statuses.includes(row.status) && filters.types.includes(row.type) && filters.counties.includes(candidate.county) && priceMatches && categoryMatches && keywordMatches
+    }).map((row) => row.candidate)
+    expect(retrieved.map((candidate) => candidate.listing_id)).toEqual(['L1', 'L2', 'L3'])
+
+    const rankResponse = await post('/v1/search/rank', {
+      query_plan: queryPlan,
+      candidates: retrieved,
+      context: { county: 'Kampala', area: 'Ntinda', now: '2026-11-20T12:00:00Z' },
+    })
+    expect(rankResponse.status).toBe(200)
+    const rankEnvelope = await rankResponse.json() as { module_id: string; result: { ranked: Array<{ listing_id: string; score: number }> } }
+    expect(rankEnvelope.module_id).toBe('MCI-03')
+    expect(rankEnvelope.result.ranked[0].listing_id).toBe('L1')
+
+    const metadata = Object.fromEntries(retrieved.map((candidate) => [candidate.listing_id, {
+      seller_ref: candidate.seller_ref,
+      category_id: candidate.category_id,
+      published_at: candidate.published_at,
+    }]))
+    const diversifyResponse = await post('/v1/search/diversify', {
+      ranked: rankEnvelope.result.ranked,
+      metadata,
+      settings: { max_per_seller: 1, exploration_slots: 1, rotation_bucket: 0 },
+    })
+    expect(diversifyResponse.status).toBe(200)
+    const diversifyEnvelope = await diversifyResponse.json() as { module_id: string; result: { slate: string[]; fairness_report: { distinct_sellers_top5: number } } }
+    expect(diversifyEnvelope.module_id).toBe('MCI-08')
+    expect(diversifyEnvelope.result.slate).toHaveLength(retrieved.length)
+    expect(new Set(diversifyEnvelope.result.slate)).toEqual(new Set(['L1', 'L2', 'L3']))
+    const sellerByListingId = new Map(retrieved.map((candidate) => [candidate.listing_id, candidate.seller_ref]))
+    expect(sellerByListingId.get(diversifyEnvelope.result.slate[0])).not.toBe(sellerByListingId.get(diversifyEnvelope.result.slate[1]))
+    expect(diversifyEnvelope.result.fairness_report.distinct_sellers_top5).toBe(2)
+  })
+
   test('MCI-27 insights rejects sales language at the boundary too', async () => {
     const snapshot = {
       merchant_ref: 'm-1',

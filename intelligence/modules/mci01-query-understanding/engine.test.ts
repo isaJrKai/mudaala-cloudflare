@@ -66,6 +66,17 @@ describe('MCI-01 UGX price grammar', () => {
     expect(g.max).toBeNull()
   })
 
+  test('price expressions are removed from retrieval tokens', () => {
+    const under = run('iPhone under 1m')
+    expect(under.price_filter?.max).toBe(1_000_000)
+    expect(under.tokens).toEqual(['iphone'])
+
+    const range = run('sofa between 300k and 500k')
+    expect(range.price_filter?.min).toBe(300_000)
+    expect(range.price_filter?.max).toBe(500_000)
+    expect(range.tokens).toEqual(['sofa'])
+  })
+
   test('bare amount becomes an upper bound with an explicit note', () => {
     const result = run('iphone 20k')
     expect(result.price_filter?.max).toBe(20_000)
@@ -123,7 +134,7 @@ describe('MCI-01 category hints and intent', () => {
 
 describe('MCI-01 versioning', () => {
   test('engine version is stable and semantically named', () => {
-    expect(MCI01_ENGINE_VERSION).toMatch(/^mci01-query-understanding-v0\.2\.0$/)
+    expect(MCI01_ENGINE_VERSION).toMatch(/^mci01-query-understanding-v0\.3\.0$/)
     expect(CONCEPT_PACK_VERSION).toMatch(/^mci01\.concepts\.v/)
   })
 

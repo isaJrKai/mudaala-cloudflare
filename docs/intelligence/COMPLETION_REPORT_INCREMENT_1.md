@@ -4,7 +4,11 @@
 **Date:** 2026-11-20
 **Mandate:** Build the intelligence infrastructure described in the committed architecture documents, foundation first, in controlled increments, with honesty about limitations.
 
-**Headline:** The shared foundation, the secure gateway, the Hermes governance core, the offline evaluation harness and five deterministic module engines are implemented and tested (135 TypeScript + 23 Python tests, strict typecheck, lint clean). **Nothing is deployed, nothing is customer-facing, no benchmark claim is made beyond synthetic fixtures, and no spend-bearing component is wired.** A passing build is not production readiness.
+**Headline:** The shared foundation, the secure gateway, the Hermes governance core, the offline evaluation harness and five deterministic module engines are implemented and tested (135 TypeScript + 23 Python tests, strict typecheck, lint clean). **Nothing is deployed, no intelligence capability is active for customers, no benchmark claim is made beyond synthetic fixtures, and no spend-bearing component is wired.** A passing build is not production readiness.
+
+**Subsequent refinement note (2026-11-20):** PR #344 adds a flag-off MCI-27 adapter to the existing seller-owned `/api/my/business-analytics` endpoint. It builds the snapshot from Mudaala's own listing-analytics aggregates and sends only a keyed pseudonym plus bounded aggregate data to the gateway. This does not supersede the end-to-end gaps below: no staging gateway has been deployed, no real network request has been verified, and the flag remains off by default.
+
+**Discovery refinement note (2026-11-20):** PR #344 now also wires MCI-01/02/03/08 into the public `searchListings` path behind `INTELLIGENCE_DISCOVERY_ENABLED=false`. The commerce plane retains the authoritative Prisma visibility/search filters, sends a bounded set of public listing features with request-local seller labels, and validates that MCI-08 returns exactly the candidate IDs. The initial remote window is 40 candidates (up to two 20-item pages); later pages and any gateway/schema/payload failure use the existing local ranker. Adapter tests passed in GitHub Actions run [44786102594](https://github.com/isaJrKai/mudaala-cloudflare/actions/runs/44786102594), including strict commerce typecheck, gateway adapter tests, targeted lint and the full Hermes/PostgreSQL gates. No staging gateway/network request has been verified. This is CI-validated code-level wiring, not an activated customer capability.
 
 ---
 

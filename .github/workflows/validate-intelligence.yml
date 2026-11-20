@@ -18,6 +18,11 @@ on:
     paths:
       - "intelligence/**"
       - "src/lib/intelligence/**"
+      - "src/lib/listings.ts"
+      - "src/app/api/my/business-analytics/**"
+      - "src/components/commerce/business-insights-panel.tsx"
+      - "tsconfig.intelligence-commerce.json"
+      - ".env.example"
       - ".github/workflows/validate-intelligence.yml"
   workflow_dispatch:
 
@@ -48,8 +53,14 @@ jobs:
       - name: Test intelligence contracts, modules, gateway and eval
         run: bun test intelligence/contracts/ intelligence/modules/ intelligence/gateway/ intelligence/eval/
 
-      - name: Test the commerce-plane gateway client
+      - name: Typecheck the MCI discovery and MCI-27 commerce integrations
+        run: npx tsc -p tsconfig.intelligence-commerce.json --noEmit
+
+      - name: Test commerce-plane gateway client, discovery pipeline and MCI-27 snapshot adapter
         run: bun test src/lib/intelligence/
+
+      - name: Lint the intelligence commerce integrations
+        run: npx eslint src/app/api/my/business-analytics/route.ts src/components/commerce/business-insights-panel.tsx src/lib/listings.ts src/lib/intelligence/discovery-pipeline.ts src/lib/intelligence/merchant-insights.ts src/lib/intelligence/merchant-insights.test.ts
 
       - name: SQL gate — fresh and repeatable migrations against disposable PostgreSQL
         run: bun test intelligence/jobs/

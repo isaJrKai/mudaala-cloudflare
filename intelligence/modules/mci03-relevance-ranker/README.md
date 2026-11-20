@@ -1,7 +1,7 @@
 # MCI-03 — Product relevance ranker (deterministic v0)
 
-**Status:** IN_DEVELOPMENT (implemented + tested + fixture-benchmarked; not deployed, not shadowed)
-**Contract:** `intelligence/contracts/modules/mci03.ts` · **Engine:** `engine.ts` (`mci03-ranker-v0.1.0`)
+**Status:** IN_DEVELOPMENT (implemented + tested + fixture-benchmarked; commerce adapter wired behind flag; not staging-verified, not deployed, not shadowed)
+**Contract:** `intelligence/contracts/modules/mci03.ts` · **Engine:** `engine.ts` (`mci03-ranker-v0.3.0`)
 **Weights:** `MCI03_WEIGHTS` (provenance ref `mci03.weights.v0`) · **Gateway route:** `/v1/search/rank`
 **Latency budget:** 200 ms · **Compute:** CPU_S · **Owner:** unassigned
 
@@ -36,4 +36,4 @@ Registry decision: BUILD baseline, ADAPT a learning-to-rank model only after hum
 
 ## Tests
 
-`engine.test.ts` — 9 cases: coverage/float, relevance floor, description budget, freshness ordering, engagement saturation, locality authorisation, availability honesty (unknown ≠ dead), new-shop boost, contract validation, tie-break determinism.
+`engine.test.ts` covers: fractional commerce prices, nonnegative output under negative availability contributions, text coverage, relevance floor, description budget, freshness ordering, engagement saturation, locality authorisation, availability honesty (unknown ≠ dead), new-shop boost, contract validation and deterministic tie-breaks.

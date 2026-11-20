@@ -13,6 +13,8 @@ import { getSearchTermGroups, searchTextMatchesGroup, scoreListingSearch, parseS
 import { activeListingExpiryFilter } from '@/lib/listing-visibility'
 import { rankDiscoveryCandidates } from '@/lib/discovery-ranking'
 import { publicListingOwnerWhere } from '@/lib/shop-visibility'
+import { mciDiscoveryIntelligenceEnabled } from '@/lib/intelligence/env-flags'
+import { prepareMciDiscovery, rankAndDiversifyMciDiscovery } from '@/lib/intelligence/discovery-pipeline'
 
 function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000)
@@ -308,6 +310,16 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
   // full listing and seller details are fetched for the returned page.
   if (effectiveSort === 'newest' || effectiveSort === undefined) {
     const PHOTO_BOOST_SCAN_CAP = 500
+    // The intelligence plan is optional. Existing validated commerce filters
+    // remain the source of truth; MCI-02 supplies the hard candidate budget.
+    const discoveryPageStart = ((page - 1) * pageSize)
+    const discoveryPlan = searchText && discoveryPageStart < 40 && pageSize === 20 && includeStatuses.length === 1 && includeStatuses[0] === 'ACTIVE' && mciDiscoveryIntelligenceEnabled(process.env)
+      ? await prepareMciDiscovery(query.q ?? '', {
+          category_id: query.category ?? null,
+          counties: query.county ? [query.county] : [],
+          offer_request: query.type ?? null,
+        })
+      : null
     const BAND_MS = 24 * 60 * 60 * 1000
     const now = Date.now()
     const pageStart = (page - 1) * pageSize
@@ -318,11 +330,15 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
     // Browse request while preserving the existing ranking and Unicode fallback.
     const rankingSelect = {
       id: true,
+      userId: true,
       photos: true,
       refreshedAt: true,
+      publishedAt: true,
       title: true,
       description: true,
       category: true,
+      taxonomyId: true,
+      price: true,
       area: true,
       county: true,
     } as const
@@ -341,7 +357,7 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
             take: PHOTO_BOOST_SCAN_CAP,
             select: rankingSelect,
           })
-        : Promise.resolve([] as Array<Pick<Listing, 'id' | 'photos' | 'refreshedAt' | 'title' | 'description' | 'category' | 'area' | 'county'>>),
+        : Promise.resolve([] as Array<Pick<Listing, 'id' | 'userId' | 'photos' | 'refreshedAt' | 'publishedAt' | 'title' | 'description' | 'category' | 'taxonomyId' | 'price' | 'area' | 'county'>>),
     ])
 
     // Match normalized seller text in a capped recent window, then merge it
@@ -363,6 +379,98 @@ export async function searchListings({ query, includeStatuses = ['ACTIVE'] }: Se
       : 0
     const combined = [...all, ...extraFallback]
     const adjustedTotal = total + extraFallback.length - overlapCount
+
+    // When explicitly enabled, send only bounded public listing features to
+    // the intelligence plane. Internal seller ids are replaced with
+    // request-local labels; no user identity or buyer history leaves Mudaala.
+    if (discoveryPlan && combined.length > 0) {
+      // Preselect the strongest local text matches into the planner's hard cap.
+      // This retains Unicode-normalized fallback candidates instead of allowing
+      // the first SQL page to crowd them out before MCI-03 sees the pool.
+      const candidates = combined
+        .map((row, index) => ({ row, index, relevance: scoreListingSearch({
+          title: row.title, description: row.description, category: row.category, area: row.area, county: row.county,
+        }, searchText) }))
+        .sort((a, b) => b.relevance - a.relevance || b.row.refreshedAt.getTime() - a.row.refreshedAt.getTime() || a.index - b.index)
+        .slice(0, discoveryPlan.candidateCap)
+        .map((entry) => entry.row)
+      const candidateIds = candidates.map((row) => row.id)
+      const today = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Africa/Kampala', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(new Date())
+      const since = new Date(`${today}T00:00:00+03:00`)
+      since.setUTCDate(since.getUTCDate() - 6)
+      const sinceDay = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Africa/Kampala', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(since)
+      const engagementRows = await db.listingDailyAnalytics.groupBy({
+        by: ['listingId'],
+        where: { listingId: { in: candidateIds }, day: { gte: sinceDay } },
+        _sum: { views: true, callClicks: true, whatsappClicks: true, shareClicks: true },
+      })
+      const engagementById = new Map(engagementRows.flatMap((row) => row.listingId ? [[row.listingId, row._sum] as const] : []))
+      const sellerRefs = new Map<string, string>()
+      const sellerRefFor = (userId: string) => {
+        let ref = sellerRefs.get(userId)
+        if (!ref) {
+          ref = `seller-${sellerRefs.size + 1}`
+          sellerRefs.set(userId, ref)
+        }
+        return ref
+      }
+      const rankedCandidates = candidates.map((row) => {
+        const metrics = engagementById.get(row.id)
+        return {
+          listing_id: row.id,
+          seller_ref: sellerRefFor(row.userId),
+          category_id: row.taxonomyId ?? row.category,
+          title: row.title.slice(0, 100),
+          description: row.description?.slice(0, 80) ?? null,
+          price: row.price === null ? null : Number(row.price),
+          currency: 'UGX',
+          county: row.county?.slice(0, 32) ?? null,
+          area: row.area?.slice(0, 32) ?? null,
+          published_at: row.publishedAt.toISOString(),
+          refreshed_at: row.refreshedAt.toISOString(),
+          engagement: {
+            views: metrics?.views ?? 0,
+            contact_taps: (metrics?.callClicks ?? 0) + (metrics?.whatsappClicks ?? 0),
+            share_clicks: metrics?.shareClicks ?? 0,
+          },
+        }
+      })
+      const metadata = Object.fromEntries(candidates.map((row) => [row.id, {
+        seller_ref: sellerRefFor(row.userId),
+        category_id: row.taxonomyId ?? row.category,
+        published_at: row.publishedAt.toISOString(),
+      }]))
+      const slate = await rankAndDiversifyMciDiscovery({
+        queryPlan: discoveryPlan.queryPlan,
+        candidates: rankedCandidates,
+        metadata,
+        context: { county: query.county ?? null, area: null, now: new Date().toISOString() },
+        rotationBucket: Number(today.replaceAll('-', '')) % 10,
+      })
+      if (slate) {
+        const pageIds = slate.slice(pageStart, pageStart + pageSize)
+        const fullRows = pageIds.length
+          ? await db.listing.findMany({ where: { id: { in: pageIds } }, include: SHOP_OWNER_INCLUDE })
+          : []
+        const fullRowsById = new Map(fullRows.map((row) => [row.id, row]))
+        return {
+          items: pageIds.flatMap((id) => {
+            const row = fullRowsById.get(id)
+            return row ? [serializeListing(row)] : []
+          }),
+          total: adjustedTotal,
+          page,
+          pageSize,
+          pageCount: Math.max(1, Math.ceil(adjustedTotal / pageSize)),
+        }
+      }
+      // A timeout, invalid envelope or unavailable module is a transparent
+      // fallback to the established local search ranker below.
+    }
 
     const ranked = combined.map((row, index) => ({
       row,
