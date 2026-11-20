@@ -1,6 +1,6 @@
 # MCI-08 — Discovery diversity controller (deterministic v0)
 
-**Status:** IN_DEVELOPMENT (implemented + tested; not deployed, not shadowed)
+**Status:** IN_DEVELOPMENT (implemented + tested; commerce adapter wired behind flag; not staging-verified, not deployed, not shadowed)
 **Contract:** `intelligence/contracts/modules/mci08.ts` · **Engine:** `engine.ts` (`mci08-diversity-controller-v0.2.2`)
 **Gateway route:** `/v1/search/diversify` · **Latency budget:** 50 ms · **Compute:** CPU_XS · **Owner:** unassigned
 
