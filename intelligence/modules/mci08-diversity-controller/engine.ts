@@ -49,7 +49,7 @@
  * safe alternative exists for a same-seller pair.
  */
 import { z } from 'zod'
-import type { MCI08Result } from '../../contracts/modules/mci08'
+import { MCI08_METADATA_MAX_KEYS, type MCI08Result } from '../../contracts/modules/mci08'
 import type { RankedItem } from '../../contracts/modules/mci03'
 
 export const MCI08_ENGINE_VERSION = 'mci08-diversity-controller-v0.2.2'
@@ -68,7 +68,9 @@ export const MCI08_METADATA_SHAPE = z.record(
     category_id: z.string().max(64),
     published_at: z.string(),
   }),
-)
+).refine((metadata) => Object.keys(metadata).length <= MCI08_METADATA_MAX_KEYS, {
+  message: `metadata is limited to ${MCI08_METADATA_MAX_KEYS} entries`,
+})
 
 const MCI08_INPUT_SHAPE = z.object({
   ranked: z.array(MCI08_ITEM_SHAPE).max(500),
