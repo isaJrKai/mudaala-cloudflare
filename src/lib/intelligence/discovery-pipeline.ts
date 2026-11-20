@@ -33,7 +33,8 @@ export interface MciDiscoveryMetadata {
 
 let cachedClient: ReturnType<typeof createGatewayClient> | undefined
 
-function getClient() {
+function getClient(fetchImpl?: typeof fetch) {
+  if (fetchImpl) return createGatewayClient(clientConfigFromEnv(process.env), { fetchImpl })
   if (!cachedClient) cachedClient = createGatewayClient(clientConfigFromEnv(process.env))
   return cachedClient
 }
@@ -43,8 +44,9 @@ async function callModule<T>(
   body: unknown,
   moduleId: string,
   parse: (value: unknown) => T,
+  fetchImpl?: typeof fetch,
 ): Promise<T | null> {
-  const response = await getClient().call<Envelope<unknown>>(path, body)
+  const response = await getClient(fetchImpl).call<Envelope<unknown>>(path, body)
   if (!response.ok || response.envelope.module_id !== moduleId) return null
   try {
     return parse(response.envelope.result)
@@ -58,6 +60,7 @@ export async function prepareMciDiscovery(
   query: string,
   constraints: { category_id?: string | null; counties?: string[]; offer_request?: 'OFFER' | 'REQUEST' | null },
   now = new Date(),
+  fetchImpl?: typeof fetch,
 ): Promise<MciDiscoveryPlan | null> {
   if (!query.trim() || query.length > 256) return null
   const queryPlan = await callModule(
@@ -65,6 +68,7 @@ export async function prepareMciDiscovery(
     { query, locale: 'en-UG', channel: 'WEB', surface: 'SEARCH', now: now.toISOString() },
     'MCI-01',
     (value) => MCI01Result.parse(value),
+    fetchImpl,
   )
   if (!queryPlan) return null
 
@@ -73,6 +77,7 @@ export async function prepareMciDiscovery(
     { query_plan: queryPlan, constraints, bounds: { max_candidates: 500 } },
     'MCI-02',
     (value) => MCI02Result.parse(value),
+    fetchImpl,
   )
   if (!retrievalPlan) return null
 
@@ -95,7 +100,7 @@ export async function rankAndDiversifyMciDiscovery(input: {
   metadata: Record<string, MciDiscoveryMetadata>
   context: { county?: string | null; area?: string | null; now: string }
   rotationBucket: number
-}): Promise<string[] | null> {
+}, fetchImpl?: typeof fetch): Promise<string[] | null> {
   if (input.candidates.length === 0 || input.candidates.length > 500) return null
   const candidateIds = new Set(input.candidates.map((candidate) => candidate.listing_id))
   if (candidateIds.size !== input.candidates.length) return null
@@ -105,6 +110,7 @@ export async function rankAndDiversifyMciDiscovery(input: {
     { query_plan: input.queryPlan, candidates: input.candidates, context: input.context },
     'MCI-03',
     (value) => MCI03Result.parse(value),
+    fetchImpl,
   )
   if (!ranked || ranked.ranked.length !== input.candidates.length) return null
 
@@ -117,6 +123,7 @@ export async function rankAndDiversifyMciDiscovery(input: {
     },
     'MCI-08',
     (value) => MCI08Result.parse(value),
+    fetchImpl,
   )
   if (!diversified) return null
 
