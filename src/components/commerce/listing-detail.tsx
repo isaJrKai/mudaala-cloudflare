@@ -197,7 +197,7 @@ export function ListingDetail({ id }: { id: string }) {
       </Button>
 
       <article className="overflow-hidden rounded-lg border bg-card">
-        <PhotoGallery listing={selectedVariant?.photos.length ? { ...listing, photos: selectedVariant.photos } : listing} />
+        <PhotoGallery key={selectedVariant?.id ?? 'base'} listing={selectedVariant?.photos.length ? { ...listing, photos: selectedVariant.photos } : listing} />
 
         <div className="p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-2">
