@@ -1,7 +1,7 @@
 # MCI-02 — Retrieval planner (deterministic v0)
 
 **Status:** IN_DEVELOPMENT (implemented + tested; not deployed, not shadowed)
-**Contract:** `intelligence/contracts/modules/mci02.ts` · **Engine:** `engine.ts` (`mci02-retrieval-planner-v0.1.0`)
+**Contract:** `intelligence/contracts/modules/mci02.ts` · **Engine:** `engine.ts` (`mci02-retrieval-planner-v0.2.0`)
 **Gateway route:** `/v1/search/plan` · **Latency budget:** 100 ms · **Compute:** CPU_XS · **Owner:** unassigned
 
 ## Purpose
@@ -19,7 +19,7 @@ Deterministic planning over structured filters. PostgreSQL full-text/trigram rem
 
 ## Data provenance and minimisation
 
-Input is the MCI-01 plan plus optional explicit constraints (category, counties, offer/request) supplied by the authorised caller. No identifiers, no history. Output contains only filter/path metadata.
+Input is the MCI-01 plan plus optional explicit constraints (category, counties, offer/request) supplied by the authorised caller. No identifiers, no history. Output contains only filter/path metadata. Category selectivity uses the explicit top-level taxonomy ID set; punctuation in category IDs is not treated as taxonomy depth.
 
 ## Honest limitations (v0)
 
