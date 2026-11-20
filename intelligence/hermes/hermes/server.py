@@ -65,9 +65,9 @@ MAX_BODY_BYTES = 32 * 1024
 DEFAULT_MAX_ATTEMPTS = 3
 
 
-def resolve_storage_from_env() -> tuple[TaskStore, NonceStore, AuditSink, str]:
+def resolve_storage_from_env(*, worker_mode: bool = False) -> tuple[TaskStore, NonceStore, AuditSink, str]:
     """Resolve the storage stack from the environment (round-2 remediation,
-    reviewer finding 1).
+    reviewer finding 1; round-3 hardening).
 
     - HERMES_DATABASE_URL set → the DURABLE stack: PostgresTaskStore,
       PostgresNonceStore and PostgresAuditLog. Configuration is validated
@@ -75,7 +75,9 @@ def resolve_storage_from_env() -> tuple[TaskStore, NonceStore, AuditSink, str]:
       (never a silent degradation into memory state). The optional
       HERMES_ADMIN_DATABASE_URL wires the infrastructure role (worker claims,
       retention, admin reads) separately from the tenant app role — migration
-      005 documents the role model.
+      005 documents the role model. With worker_mode=True the infrastructure
+      connection must be capability-probed (RLS-bound role without the admin
+      boundary ⇒ startup fails instead of a silently idle worker).
     - Not set → Hermes STILL STARTS with in-process memory stores. That is a
       deliberate availability decision (the commerce plane must keep working
       with or without the intelligence infrastructure), but it is announced
@@ -95,9 +97,17 @@ def resolve_storage_from_env() -> tuple[TaskStore, NonceStore, AuditSink, str]:
         if value is not None and not (value.startswith("postgres://") or value.startswith("postgresql://")):
             raise RuntimeError(f"{name} must be a postgres:// or postgresql:// connection URL")
     try:
-        store = PostgresTaskStore(url, admin_conninfo=os.environ.get("HERMES_ADMIN_DATABASE_URL"))
+        store = PostgresTaskStore(
+            url,
+            admin_conninfo=os.environ.get("HERMES_ADMIN_DATABASE_URL"),
+            require_infrastructure_role=worker_mode,
+        )
         nonces = PostgresNonceStore(url)
         audit_log = PostgresAuditLog(url)
+    except RuntimeError:
+        # Configuration errors (capability probe, migration verification)
+        # already carry safe, actionable wording — surface them unwrapped.
+        raise
     except Exception as error:  # noqa: BLE001 — fail fast, leak nothing
         raise RuntimeError(
             f"failed to initialise the durable Hermes storage stack: {type(error).__name__} "
@@ -136,6 +146,11 @@ def create_app(
         # fail-closed default (register_default_skills=False) exists for
         # tests and for operators who want an empty registry.
         register_increment_one_skills(backend)
+    # Worker mode is resolved BEFORE storage so the durable stack can be
+    # required to be infrastructure-capable at startup (round-3 remediation):
+    # a worker on an RLS-bound role without the admin boundary would start,
+    # log "worker started" and then silently claim nothing forever.
+    worker_requested = bool(os.environ.get("HERMES_WORKER_MODE") == "1") if run_worker is None else run_worker
     if store is not None:
         # Explicit injection (tests, custom wiring) wins over the environment.
         audit_log = audit if audit is not None else InMemoryAuditLog()
@@ -143,7 +158,7 @@ def create_app(
         resolved_nonces = nonces if nonces is not None else InMemoryNonceStore()
         storage_mode = "injected"
     else:
-        resolved_store, env_nonces, env_audit, storage_mode = resolve_storage_from_env()
+        resolved_store, env_nonces, env_audit, storage_mode = resolve_storage_from_env(worker_mode=worker_requested)
         audit_log = audit if audit is not None else env_audit
         resolved_nonces = nonces if nonces is not None else env_nonces
     resolved_callers = callers if callers is not None else parse_caller_registry(os.environ.get("HERMES_CALLERS"))
@@ -160,7 +175,12 @@ def create_app(
     app.state.nonces = resolved_nonces
     app.state.callers = resolved_callers
     app.state.storage_mode = storage_mode
-    app.state.run_worker = bool(os.environ.get("HERMES_WORKER_MODE") == "1") if run_worker is None else run_worker
+    app.state.run_worker = worker_requested
+    # False ⇒ the infrastructure connection is RLS-bound without the admin
+    # boundary: worker claims, retention, admin reads/requeue and
+    # cross-replica cancellation visibility are unavailable (the store logs
+    # the details at startup; tenant request paths still work).
+    app.state.infrastructure_capable = getattr(resolved_store, "infrastructure_capable", True)
 
     # -- auth ---------------------------------------------------------------
 

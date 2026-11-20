@@ -108,7 +108,10 @@ Baseline before remediation: 135 bun + 23 pytest, tsc clean — preserved and re
 ## 10. Branch name and commit SHAs
 
 - Branch: `fix/intelligence-increment1-remediation`
-- Tip: `b099144` (see §3 for the full commit list; original nine Increment-1 commits preserved byte-for-byte beneath them — verified via `git log`).
+- Round-2 tip (pushed): `a1f6e71370023df1c954ca8a9a474db146bfe22c`
+- Round-3 fix commit: directly follows the round-2 tip; its SHA is recorded in the compiled report (§10 there) and the delivery summary.
+- Round-1 report tip: `3566da165561dd7b2af3e1c90b819a7bdb706e66` (compiled round-1 report; commit `6f5de18631381f2cea5331a24f4f9420c1d16caf` carried the round-2 remediation).
+- Original implementation tip (untouched): `a745984756a07520efc66e892bcc6dfa64c1a2dc`; `main` untouched at `cdfb6f6d07406fedad4786d65023d8b2910b358d`.
 
 ## 11. CI run links
 
@@ -145,7 +148,25 @@ The independent review of the round-1 branch confirmed the work was substantial 
 
 ---
 
-## Requirements status
+## 14. Round 3 — the two remaining review findings (2026-11-20)
+
+The second independent review confirmed the round-2 remediation was substantially improved and identified two remaining issues. Both were reproduced against the actual code, fixed, and pinned by tests. The round-3 fix commit directly follows the round-2 tip `a1f6e71`; its SHA is recorded in §10.
+
+**Issue 1 — PostgreSQL role handling: infrastructure fallback under FORCE RLS.** Confirmed: `save()` and `get()` ran on the infrastructure connection, which falls back to the tenant application connection when `HERMES_ADMIN_DATABASE_URL` is absent — under the restricted `intelligence_app` role with enforced RLS, the synchronous lifecycle path (route save → execute → success save) hit the owner policy and failed, and unscoped reads silently returned nothing. Fixed by resolving the connection/ownership model explicitly:
+
+- **Lifecycle saves carry the record's own owner context.** `save()` now wraps its UPDATE in a transaction with `set_config('intelligence.owner', <record.submitted_by>, is_local => true)`. On the tenant connection the RLS owner policy (WITH CHECK) admits the save; on the infrastructure connection the context is redundant (the admin policy already admits it). One code path, correct under both role shapes — the synchronous create → execute → save → read lifecycle works on a restricted tenant connection with NO admin URL wired.
+- **The infrastructure capability is probed at startup, not assumed.** `PostgresTaskStore` probes whether its infrastructure connection can actually see task rows under the deployed model (superuser/BYPASSRLS, table owner with unforced RLS, or `intelligence_admin` membership) and exposes `infrastructure_capable`. Without capability it logs exactly which operations are unavailable (worker claims, retention, admin reads/requeue, cross-replica cancellation visibility) while tenant paths keep working; degraded-but-safe behaviour is proven (the admin dead-letter list returns an empty list, never an error or a leak).
+- **Worker mode without the required infrastructure role fails startup.** `create_app()` resolves worker mode BEFORE storage resolution and constructs the store with `require_infrastructure_role=True` when worker mode is on — an RLS-bound role raises a RuntimeError naming the fix (`GRANT intelligence_admin TO <role>` / wire `HERMES_ADMIN_DATABASE_URL`), instead of a worker that logs "worker started" and silently claims nothing forever.
+
+Evidence (dedicated restricted roles, production-like wiring): a full create → execute → save → read test over the real signed API with the app role and the admin role wired separately (SUCCEEDED, receipts, durable state verified by an independent raw connection); the tenant-only wiring test (no admin URL) proving the sync path survives restricted roles; the worker-mode-without-role startup failure test; the worker-mode happy-path test where the background worker really claims and completes a submitted task; and a direct probe test (`infrastructure_capable` false for app roles, true for the admin member and the bootstrap superuser).
+
+**Issue 2 — MCI-08 initial adjacency pass could create a new violation.** Confirmed with the reviewer's regression case `A1, A2, B1, A3` (sellers A, A, B, A; `rotationBucket=0`, `explorationSlots=0`): the guard-free initial pass moved B1 to split the head pair (A1, A2), which VACATED a spot joining A2 and A3 — a new same-seller adjacency at the tail. Fixed (engine v0.2.2): the vacated-spot guard now applies to the INITIAL pass as well — a candidate whose removal would join two same-seller items is skipped, while the pass stays forward-only (top-1 stability preserved). Where no safe alternative exists the pair may remain, per the guardrail's own promise — in the regression case three A items and one separator make one adjacency mathematically unavoidable, and the final slate keeps the ORIGINAL head pair instead of creating a new tail pair. Evidence: the reviewer's exact regression test (final slate pinned to `A1, A2, B1, A3`, permutation/cap/tail integrity asserted); a safe-alternative test proving the pass still repairs when a move is safe (`A1, A2, B1, C1` → `A1, B1, A2, C1`); a skip-unsafe-take-safe test (`A1, A2, B1, A3, C1` → `A1, C1, A2, B1, A3`, zero violations); and a tail-placement + repair test reaching zero violations when separation is possible. All 28 MCI-08 tests green (24 prior + 4 new); benchmark re-run with **zero changed metrics** (p10 top-seller share 0.6112, distinct sellers top-5 2.4444 — identical to rounds 1 and 2).
+
+**Verification (local, 2026-11-20, after this round):** TypeScript suite 187 pass / 0 fail (171 contracts+modules+gateway+eval, 13 commerce-plane client, 3 SQL-gate), `tsc` clean, ESLint 0 errors (1 pre-existing warning), Hermes 125 pass / 0 fail (up from 120: +5 restricted-role round-3 tests), benchmark metrics unchanged, disposable-PG role tests all green. `main` untouched at `cdfb6f6…`.
+
+---
+
+## 15. Requirements status
 
 | Requirement | Status | Evidence |
 |---|---|---|
@@ -153,13 +174,14 @@ The independent review of the round-1 branch confirmed the work was substantial 
 | Gateway payload limits | ✅ COMPLETE | Streaming cap (reader stops before last chunk), misleading/missing Content-Length, emoji byte regression, malformed UTF-8, mid-stream failure tests |
 | Hermes authentication | ✅ COMPLETE | `tests/test_auth.py`: unsigned → 401, forged signature → 401, stale → 401, replay → 409, malformed → 401, forged identity field rejected |
 | Tenant isolation | ✅ COMPLETE | `tests/test_ownership.py`: foreign read/cancel = 404 (no existence leak), admin explicit + audited; **round 2:** RLS ENFORCED against restricted login roles — rows invisible without/wrong owner context, INSERT rejected, app role cannot drive worker/admin paths |
-| Durable task storage | ✅ COMPLETE | `test_storage_postgres.py`: fresh + repeatable migrations, cross-restart lifecycle, atomic multi-worker claims (`FOR UPDATE SKIP LOCKED`), disposable PG only; **round 2:** wired into `create_app` via `HERMES_DATABASE_URL` with fail-fast validation (end-to-end API→PG test) + separate admin connection |
+| Durable task storage | ✅ COMPLETE | `test_storage_postgres.py`: fresh + repeatable migrations, cross-restart lifecycle, atomic multi-worker claims (`FOR UPDATE SKIP LOCKED`), disposable PG only; **round 2:** wired into `create_app` via `HERMES_DATABASE_URL` with fail-fast validation (end-to-end API→PG test) + separate admin connection; **round 3:** restricted-role create → execute → save → read lifecycle test, tenant-only sync path proven, startup capability probe |
 | Cross-replica idempotency | ✅ COMPLETE (round 2) | Atomic `INSERT ... ON CONFLICT DO NOTHING` + replay: 3 concurrent independent stores × 5 rounds — one creator, two replays, zero uniqueness errors; conflict-across-stores test |
 | Task orchestration | ✅ COMPLETE | Lifecycle transitions, receipts per attempt, retry/backoff/DEAD classification, timeout (thread-kill limitation documented), cooperative cancellation, worker claim/recovery/graceful shutdown, registered Increment-1 handlers |
-| Module correctness | ✅ COMPLETE | MCI-01/02/03/08/27 runtime-validated; MCI-08 tail placement + rotation bucket; **round 2 (engine v0.2.1):** adjacency survives rotation and promotion (guarded repair, reviewer's `A,B,C,A` example), settings runtime-validated; benchmark metrics unchanged; 183 TS tests green |
+| Connection/ownership model | ✅ COMPLETE (round 3) | Lifecycle saves carry the record's owner context (sync path works tenant-only under FORCE RLS); infrastructure capability probed at startup and announced; worker mode without an infrastructure-capable role fails startup; worker-mode happy path claims and executes end to end |
+| Module correctness | ✅ COMPLETE | MCI-01/02/03/08/27 runtime-validated; MCI-08 tail placement + rotation bucket; **round 2 (engine v0.2.1):** adjacency survives rotation and promotion; **round 3 (engine v0.2.2):** initial pass vacated-spot guard — reviewer's `A1,A2,B1,A3` regression pinned, safe alternatives still taken; benchmark metrics unchanged |
 | SQL migrations | ✅ COMPLETE | Five valid repeatable migrations (incl. 004 durable audit, 005 roles+grants+FORCE RLS); fresh + repeatable verified on disposable PG; constraints + RLS asserted in both TS and Python gates |
 | Audit durability | ✅ COMPLETE (round 2) | `hermes_audit` table + `PostgresAuditLog` wired with the durable stack; append-only by GRANT (app-role UPDATE/DELETE proven rejected); survives restart; memory mode announced as ephemeral on `/version` |
-| CI and tests | ✅ COMPLETE (runs pending PR) | Workflow has install step, SQL gate, disposable-PG python job; suites: 183 bun + 120 pytest green locally; CI run links follow PR creation |
+| CI and tests | ✅ COMPLETE (runs pending PR) | Workflow has install step, SQL gate, disposable-PG python job; suites: 187 bun + 125 pytest green locally; CI run links follow PR creation |
 | Documentation | ✅ COMPLETE | gateway/hermes/jobs READMEs match code (role model, storage modes, wiring); this report; honest limitations + hosting-provisioning list |
 
-**Verdict:** all twelve requirement areas are implemented and locally verified; the two external dependencies for *declared* completion are (1) the CI run on the pushed branch (needs the PR) and (2) hosting provisioning — both owner-side actions, listed above and not claimed as done.
+**Verdict:** all thirteen requirement areas are implemented and locally verified; the two external dependencies for *declared* completion are (1) the CI run on the pushed branch (needs the PR) and (2) hosting provisioning — both owner-side actions, listed above and not claimed as done.

@@ -35,6 +35,8 @@ DATABASE_URL=postgres://<staging> bun run intelligence/jobs/apply-migrations.mjs
 
 Roles are created NOLOGIN — the operator creates login users per environment and grants these roles (`CREATE USER ...; GRANT intelligence_app TO ...;`). Superusers and `BYPASSRLS` roles still bypass RLS by design; deployments connect as the app role. ENFORCEMENT IS TESTED: the Hermes PG suite runs dedicated login roles with exactly the migration-005 grants and proves rows are invisible without (and with a wrong) owner context, writes are rejected without context, the app role cannot drive worker/admin paths, and the audit table is append-only for app roles (SELECT+INSERT grants only, migration 004/005).
 
+**Connection/ownership model (round 3):** lifecycle saves (`save()`) carry the record's own owner context, so the synchronous request path (route → execute → save) works on a RESTRICTED tenant connection even with no `HERMES_ADMIN_DATABASE_URL` wired. Unscoped infrastructure operations (worker claims, retention, cross-tenant admin reads) remain structurally admin-only: the store PROBES the infrastructure connection at startup (superuser/BYPASSRLS, unforced owner, or `intelligence_admin` membership) — without capability it announces exactly which operations are unavailable, and **worker mode without an infrastructure-capable role FAILS STARTUP** instead of running a silently idle worker.
+
 ## Why not Cloudflare Queues already
 
 No Queues binding exists; provider semantics (delivery guarantees, retry, dead-letter, cost) are untested; and adding a binding to the commerce Worker now would repeat the CPU-pressure pattern documented in PR #342. The outbox pattern works with what exists today.

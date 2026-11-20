@@ -333,3 +333,70 @@ describe('MCI-08 remediation — adversarial inputs', () => {
     expect(result.fairness_report.distinct_sellers_top5).toBe(2)
   })
 })
+
+describe('MCI-08 round 3 — initial repair never creates new violations', () => {
+  test('reviewer regression: A1,A2,B1,A3 — the repair must not vacate B1 into a new violation', () => {
+    // Sellers A,A,B,A with cap 2: cap pass → [a1,a2,b1 | a3(tail)]. The
+    // guard-free initial pass moved b1 to split (a1,a2), which vacated a
+    // spot that joined (a2,a3) — a NEW violation. With the vacated-spot
+    // guard, b1 stays put: the one remaining same-seller pair is the
+    // unavoidable head pair (three A items and one separator make one
+    // adjacency mathematically unavoidable — no safe alternative exists).
+    const ranked = [item('a1', 90), item('a2', 80), item('b1', 70), item('a3', 60)]
+    const meta = metaFor([['a1', 'A'], ['a2', 'A'], ['b1', 'B'], ['a3', 'A']])
+    const result = diversifySlate(ranked, meta, { rotationBucket: 0, explorationSlots: 0 })
+    // b1 keeps separating the tail A items; no NEW violation was created.
+    expect(result.slate).toEqual(['a1', 'a2', 'b1', 'a3'])
+    expect(result.slate[2]).toBe('b1')
+    // Permutation integrity and cap/tail placement intact.
+    expect(new Set(result.slate)).toEqual(new Set(['a1', 'a2', 'b1', 'a3']))
+    const aInWindow = result.slate.slice(0, 3).filter((id) => meta[id].seller_ref === 'A').length
+    expect(aInWindow).toBe(2) // cap respected in the exposure window
+    expect(result.demoted.some((d) => d.listing_id === 'a3' && d.rule.startsWith('PER_SELLER_CAP'))).toBe(true)
+  })
+
+  test('a safe alternative is still taken by the initial pass', () => {
+    // Moving b1 is SAFE here: its vacated spot joins a2 (seller A) with
+    // c1 (seller C) — different sellers — so the invariant is fully satisfied.
+    const ranked = [item('a1', 90), item('a2', 80), item('b1', 70), item('c1', 60)]
+    const meta = metaFor([['a1', 'A'], ['a2', 'A'], ['b1', 'B'], ['c1', 'C']])
+    const result = diversifySlate(ranked, meta, { rotationBucket: 0, explorationSlots: 0 })
+    expect(result.slate).toEqual(['a1', 'b1', 'a2', 'c1'])
+    for (let i = 1; i < result.slate.length; i++) {
+      expect(meta[result.slate[i]].seller_ref).not.toBe(meta[result.slate[i - 1]].seller_ref)
+    }
+  })
+
+  test('the guard skips unsafe candidates but takes a later safe one', () => {
+    // (a1,a2) violated: b1 is unsafe (vacating joins a2,a3 — same seller)
+    // but c1 is safe (last position, nothing to join). The repair must not
+    // give up after the first rejection.
+    const ranked = [item('a1', 95), item('a2', 90), item('b1', 85), item('a3', 80), item('c1', 75)]
+    const meta = metaFor([
+      ['a1', 'A'], ['a2', 'A'], ['b1', 'B'], ['a3', 'A'], ['c1', 'C'],
+    ])
+    const result = diversifySlate(ranked, meta, { maxPerSeller: 3, rotationBucket: 0, explorationSlots: 0 })
+    expect(result.slate).toEqual(['a1', 'c1', 'a2', 'b1', 'a3'])
+    for (let i = 1; i < result.slate.length; i++) {
+      expect(meta[result.slate[i]].seller_ref).not.toBe(meta[result.slate[i - 1]].seller_ref)
+    }
+    expect(new Set(result.slate)).toEqual(new Set(['a1', 'a2', 'b1', 'a3', 'c1']))
+  })
+
+  test('tail placement plus repair reaches zero violations when separation is possible', () => {
+    // Beyond-cap a3 lands in the tail; the repair separates every A item
+    // because enough alternatives exist.
+    const ranked = [
+      item('a1', 95), item('a2', 90), item('b1', 85), item('c1', 80), item('d1', 75), item('a3', 70),
+    ]
+    const meta = metaFor([
+      ['a1', 'A'], ['a2', 'A'], ['b1', 'B'], ['c1', 'C'], ['d1', 'D'], ['a3', 'A'],
+    ])
+    const result = diversifySlate(ranked, meta, { maxPerSeller: 2, rotationBucket: 0, explorationSlots: 0 })
+    expect(result.slate).toEqual(['a1', 'b1', 'a2', 'c1', 'd1', 'a3'])
+    for (let i = 1; i < result.slate.length; i++) {
+      expect(meta[result.slate[i]].seller_ref).not.toBe(meta[result.slate[i - 1]].seller_ref)
+    }
+    expect(new Set(result.slate).size).toBe(6)
+  })
+})

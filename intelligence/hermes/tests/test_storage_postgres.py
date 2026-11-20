@@ -616,3 +616,158 @@ def test_admin_database_url_wires_the_infrastructure_role_separately(pg_url, rls
     record = signed_json_request(client, ADMIN, "GET", f"/v1/tasks/{task_id}", None)
     assert record.status_code == 200
     assert record.json()["task_id"] == task_id
+
+
+# ============================================================================
+# Round-3 remediation tests: the connection/ownership model under restricted
+# production-like roles — lifecycle saves carry owner context, the
+# infrastructure capability is probed at startup, and worker mode without
+# the required role fails startup instead of running silently idle.
+# ============================================================================
+
+
+def test_full_lifecycle_end_to_end_with_restricted_roles(pg_url, rls_env, monkeypatch):
+    """Reviewer round-3 requirement: create → execute → save → read with
+    restricted production-like roles. The app runs on the tenant app role
+    with the infrastructure role wired separately; the whole synchronous
+    lifecycle (create with owner context, route save, execute, success save,
+    owner read) works and is visible at the database layer."""
+    from fastapi.testclient import TestClient
+
+    from hermes.server import create_app
+
+    monkeypatch.setenv("HERMES_DATABASE_URL", rls_env["urls"]["owner"])
+    monkeypatch.setenv("HERMES_ADMIN_DATABASE_URL", rls_env["urls"]["admin"])
+    app = create_app(callers=test_callers(), run_worker=False)
+    assert app.state.storage_mode == "postgres"
+    assert app.state.infrastructure_capable is True
+
+    client = TestClient(app)
+    body = submission_body(idempotency_key="idem-r3-lifecycle-0001")
+    response = signed_json_request(client, COMMERCE, "POST", "/v1/tasks", body)
+    assert response.status_code == 200
+    assert response.json()["status"] == "SUCCEEDED"  # create → route save → execute → save
+    task_id = response.json()["task_id"]
+
+    # READ as the verified owner (tenant connection, owner context).
+    record = signed_json_request(client, COMMERCE, "GET", f"/v1/tasks/{task_id}", None)
+    assert record.status_code == 200
+    body_json = record.json()
+    assert body_json["status"] == "SUCCEEDED"
+    assert body_json["submitted_by"] == "svc-commerce"
+    assert len(body_json["receipts"]) == 1
+
+    # Independent raw connection: the lifecycle state is durable.
+    raw = psycopg.connect(pg_url, row_factory=dict_row)
+    raw.autocommit = True
+    try:
+        row = raw.execute(
+            "SELECT status, worker_id, attempts, jsonb_array_length(receipts) AS receipts "
+            "FROM intelligence.hermes_tasks WHERE task_id = %s",
+            (task_id,),
+        ).fetchone()
+        assert row["status"] == "SUCCEEDED"
+        assert row["attempts"] == 1 and row["receipts"] == 1
+    finally:
+        raw.close()
+
+
+def test_sync_path_survives_tenant_only_restricted_wiring(pg_url, rls_env, monkeypatch):
+    """Round-3 regression: with NO admin URL, the sync execution path
+    (route save → execute → success save) runs on the RESTRICTED tenant
+    connection. Lifecycle saves carry the record's owner context, so this
+    works — against the previous behaviour it hit the RLS owner policy and
+    the submission failed. Degraded infrastructure paths stay SAFE: the
+    admin read of a foreign task is still hidden, and the capability probe
+    announces exactly what is unavailable."""
+    from fastapi.testclient import TestClient
+
+    from hermes.server import create_app
+
+    monkeypatch.setenv("HERMES_DATABASE_URL", rls_env["urls"]["owner"])
+    monkeypatch.delenv("HERMES_ADMIN_DATABASE_URL", raising=False)
+    app = create_app(callers=test_callers(), run_worker=False)
+    assert app.state.storage_mode == "postgres"
+    assert app.state.infrastructure_capable is False  # probed, announced
+
+    client = TestClient(app)
+    body = submission_body(idempotency_key="idem-r3-tenant-only-0001")
+    response = signed_json_request(client, COMMERCE, "POST", "/v1/tasks", body)
+    assert response.status_code == 200
+    assert response.json()["status"] == "SUCCEEDED"
+    task_id = response.json()["task_id"]
+
+    record = signed_json_request(client, COMMERCE, "GET", f"/v1/tasks/{task_id}", None)
+    assert record.status_code == 200 and record.json()["status"] == "SUCCEEDED"
+
+    # Degraded-but-safe: the admin dead-letter list runs on a connection
+    # that cannot see rows under RLS — an empty list, not an error or a leak.
+    dead = signed_json_request(client, ADMIN, "GET", "/v1/admin/dead-letters", None)
+    assert dead.status_code == 200 and dead.json() == []
+
+
+def test_worker_mode_without_infrastructure_role_fails_startup(pg_url, rls_env, monkeypatch):
+    """Round-3 requirement: worker mode enabled WITHOUT an
+    infrastructure-capable role must fail startup LOUDLY — a worker on an
+    RLS-bound role would log 'worker started' and then silently claim
+    nothing forever."""
+    from hermes.server import create_app
+
+    monkeypatch.setenv("HERMES_DATABASE_URL", rls_env["urls"]["owner"])
+    monkeypatch.delenv("HERMES_ADMIN_DATABASE_URL", raising=False)
+    monkeypatch.setenv("HERMES_WORKER_MODE", "1")
+    with pytest.raises(RuntimeError, match="infrastructure-capable"):
+        create_app(callers=test_callers())
+
+
+def test_worker_mode_with_admin_role_starts_and_executes(pg_url, rls_env, monkeypatch):
+    """Round-3 requirement, happy path: worker mode with the
+    intelligence_admin member wired as the infrastructure role starts, the
+    worker really claims, and a submitted task completes end to end."""
+    from fastapi.testclient import TestClient
+
+    from hermes.server import create_app
+
+    monkeypatch.setenv("HERMES_DATABASE_URL", rls_env["urls"]["owner"])
+    monkeypatch.setenv("HERMES_ADMIN_DATABASE_URL", rls_env["urls"]["admin"])
+    monkeypatch.setenv("HERMES_WORKER_MODE", "1")
+    app = create_app(callers=test_callers())
+    assert app.state.run_worker is True
+    assert app.state.infrastructure_capable is True
+
+    with TestClient(app) as client:  # lifespan starts the worker
+        assert client.get("/version").json()["worker_running"] is True
+        body = submission_body(idempotency_key="idem-r3-worker-0001")
+        response = signed_json_request(client, COMMERCE, "POST", "/v1/tasks", body)
+        assert response.status_code == 200
+        assert response.json()["status"] == "QUEUED"  # worker mode: no sync execution
+        task_id = response.json()["task_id"]
+
+        # The background worker claims (infrastructure role) and executes.
+        deadline = time.time() + 8
+        status = None
+        while time.time() < deadline:
+            record = signed_json_request(client, COMMERCE, "GET", f"/v1/tasks/{task_id}", None)
+            assert record.status_code == 200
+            status = record.json()["status"]
+            if status == "SUCCEEDED":
+                break
+            time.sleep(0.2)
+        assert status == "SUCCEEDED"
+
+
+def test_infrastructure_capability_probe_matches_roles(pg_url, rls_env):
+    """Direct probe evidence: restricted app roles are NOT
+    infrastructure-capable (FORCE RLS binds them), the intelligence_admin
+    member and the bootstrap superuser ARE."""
+    owner_store = PostgresTaskStore(rls_env["urls"]["owner"], apply_migrations=False)
+    admin_store = PostgresTaskStore(rls_env["urls"]["admin"], apply_migrations=False)
+    super_store = PostgresTaskStore(pg_url, apply_migrations=False)
+    try:
+        assert owner_store.infrastructure_capable is False
+        assert admin_store.infrastructure_capable is True
+        assert super_store.infrastructure_capable is True
+    finally:
+        owner_store.close()
+        admin_store.close()
+        super_store.close()

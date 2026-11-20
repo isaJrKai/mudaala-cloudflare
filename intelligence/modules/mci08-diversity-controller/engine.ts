@@ -52,7 +52,7 @@ import { z } from 'zod'
 import type { MCI08Result } from '../../contracts/modules/mci08'
 import type { RankedItem } from '../../contracts/modules/mci03'
 
-export const MCI08_ENGINE_VERSION = 'mci08-diversity-controller-v0.2.1'
+export const MCI08_ENGINE_VERSION = 'mci08-diversity-controller-v0.2.2'
 
 export const MCI08_ITEM_SHAPE = z.object({
   listing_id: z.string().min(1).max(128),
@@ -152,13 +152,16 @@ export function diversifySlate(
 
   // 2. Adjacency repair (reused after rotation and promotion below). For
   //    each same-seller neighbour pair, the nearest alternative item is
-  //    moved BETWEEN the two. The INITIAL pass is forward-only and
-  //    guard-free — byte-identical to the increment-1 behaviour (top-1
-  //    stability). The POST-ROTATION and POST-PROMOTION passes may also
-  //    look BACKWARD (after a rotation the only alternative can sit ABOVE
-  //    the pair) and reject a candidate whose removal would join two
-  //    same-seller items at the vacated spot. Where no safe alternative
-  //    exists the pair may remain.
+  //    moved BETWEEN the two. All passes enforce the vacated-spot guard
+  //    (round-3 regression fix): a candidate whose removal would join two
+  //    same-seller items is skipped — the reviewer's case `A1,A2,B1,A3`
+  //    (sellers A,A,B,A) previously moved B1 to split the head pair and
+  //    CREATED a new violation at the tail (A2,A3 became adjacent). The
+  //    INITIAL pass remains forward-only (top-1 stability); the
+  //    POST-ROTATION and POST-PROMOTION passes may also look BACKWARD,
+  //    because after a rotation the only alternative can sit ABOVE the
+  //    pair. Where no safe alternative exists the pair may remain (the
+  //    guardrail promises separation only where alternatives exist).
   const repairAdjacency = (allowBackward: boolean, guardVacated: boolean) => {
     for (let sweep = 0; sweep <= slate.length; sweep++) {
       let changed = false
@@ -191,7 +194,7 @@ export function diversifySlate(
       if (!changed) break
     }
   }
-  repairAdjacency(false, false)
+  repairAdjacency(false, true)
 
   // 3. Rotation bucket: deterministic left-rotation of the top window.
   const windowSize = Math.min(s.explorationWindow, slate.length)

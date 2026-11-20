@@ -19,6 +19,12 @@ by intelligence/jobs/migrations/. Guarantees:
   cross-tenant admin reads — a role holding intelligence_admin membership).
   Without admin_conninfo both are the same connection (dev/tests as owner or
   superuser, where RLS is bypassed by design).
+- Lifecycle saves carry the record's own owner context (round-3 remediation),
+  so the synchronous request path works on a restricted tenant connection
+  without any admin URL; a startup capability probe verifies the
+  infrastructure connection can actually drive worker/admin operations and
+  either fails startup (require_infrastructure_role=True, e.g. worker mode)
+  or announces exactly what is unavailable.
 - Replay protection for service auth across replicas: hermes_nonces consumes
   nonces atomically (INSERT ... ON CONFLICT DO NOTHING) with TTL cleanup.
 - Recovery: stale RUNNING tasks requeue; retention sweeps finished tasks.
@@ -146,6 +152,7 @@ class PostgresTaskStore:
         *,
         admin_conninfo: Optional[str] = None,
         apply_migrations: bool = True,
+        require_infrastructure_role: bool = False,
     ):
         self._conn = psycopg.connect(conninfo, row_factory=dict_row)
         self._conn.autocommit = True
@@ -156,6 +163,57 @@ class PostgresTaskStore:
         self._lock = threading.RLock()
         if apply_migrations:
             self.apply_migrations()
+        # Probe the INFRASTRUCTURE connection's real capability under the
+        # deployed RLS model (round-3 remediation): lifecycle operations
+        # (claims, unscoped reads, retention) are structurally impossible for
+        # an RLS-bound role without the admin boundary — better to know at
+        # startup than to watch a worker silently claim nothing.
+        self._infra_capable = self._probe_infrastructure_role()
+        if require_infrastructure_role and not self._infra_capable:
+            target = "HERMES_ADMIN_DATABASE_URL" if self._admin_conn is not None else "the main connection"
+            raise RuntimeError(
+                "worker/admin mode requires an infrastructure-capable database role, but "
+                f"{target} is RLS-bound: it is neither a superuser/BYPASSRLS role, the "
+                "table owner with unforced RLS, nor a member of intelligence_admin. "
+                "Fix: wire HERMES_ADMIN_DATABASE_URL with a role granted "
+                "'GRANT intelligence_admin TO <role>;' (see intelligence/jobs/README.md) "
+                "or disable worker mode."
+            )
+        if not self._infra_capable:
+            logger.warning(
+                "postgres store: the infrastructure connection is RLS-bound WITHOUT the "
+                "admin boundary — worker claims, retention sweeps, admin reads/requeue and "
+                "cross-replica cancellation visibility are UNAVAILABLE on this connection. "
+                "Tenant request paths (create/read/list/cancel) still work. Wire "
+                "HERMES_ADMIN_DATABASE_URL with an intelligence_admin member to enable them."
+            )
+
+    def _probe_infrastructure_role(self) -> bool:
+        """True when the infrastructure connection can actually see task rows
+        under the deployed RLS model: superuser or BYPASSRLS, the table owner
+        with unforced RLS, or a member of intelligence_admin. A missing table
+        (migrations not yet applied) counts as capable — nothing is enforced
+        yet."""
+        row = self._infra.execute(
+            "SELECT "
+            "coalesce((SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user), false) "
+            "OR NOT coalesce("
+            "  (SELECT relforcerowsecurity FROM pg_class "
+            "   WHERE oid = 'intelligence.hermes_tasks'::regclass),"
+            "  false) "
+            "OR coalesce("
+            "  (SELECT pg_has_role(current_user, 'intelligence_admin', 'member') "
+            "   WHERE EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'intelligence_admin')),"
+            "  false) AS capable"
+        ).fetchone()
+        return bool(row["capable"])
+
+    @property
+    def infrastructure_capable(self) -> bool:
+        """Whether the infrastructure connection can drive the lifecycle
+        operations (worker claims, retention, admin reads) under RLS —
+        probed once at construction, after migrations."""
+        return self._infra_capable
 
     # -- connections ---------------------------------------------------------
 
@@ -340,7 +398,15 @@ class PostgresTaskStore:
     def save(self, record: TaskRecord) -> TaskRecord:
         row = _record_to_row(record)
         row["payload_canonical"] = canonical_payload(record.payload)
-        with self._lock:
+        with self._lock, self._infra.transaction():
+            # Lifecycle saves carry the record's own owner context
+            # (round-3 remediation): on the tenant connection the RLS owner
+            # policy WITH CHECK admits the UPDATE; on the infrastructure
+            # connection the context is redundant (the admin policy already
+            # admits it). One code path, correct under both role shapes.
+            self._infra.execute(
+                "SELECT set_config('intelligence.owner', %s, true)", (record.submitted_by,)
+            )
             updated = self._infra.execute(
                 f"UPDATE intelligence.hermes_tasks SET schema_version=%(schema_version)s, task_type=%(task_type)s, "
                 "skill_id=%(skill_id)s, purpose=%(purpose)s, submitted_by=%(submitted_by)s, status=%(status)s, "
