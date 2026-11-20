@@ -18,11 +18,15 @@ describe('MCI-02 plan construction', () => {
     expect(MCI02Result.safeParse(plan).success).toBe(true)
   })
 
-  test('category hints flow into filters with subcategory-aware selectivity', () => {
+  test('category hints flow into filters with taxonomy-aware selectivity', () => {
     const plan = planRetrieval(understandQuery({ query: 'iphone for sale' }))
     expect(plan.filters.categories).toContain('electronics')
     const categoryPath = plan.paths.find((p) => p.kind === 'CATEGORY')
     expect(categoryPath?.expected_selectivity).toBe('MEDIUM') // top-level id
+    const apparel = planRetrieval(understandQuery({ query: 'kitenge' }))
+    expect(apparel.paths.find((p) => p.kind === 'CATEGORY')?.expected_selectivity).toBe('MEDIUM')
+    const dresses = planRetrieval(understandQuery({ query: 'kitenge dresses' }))
+    expect(dresses.paths.find((p) => p.kind === 'CATEGORY')?.expected_selectivity).toBe('NARROW')
   })
 
   test('explicit constraints override query intent', () => {
