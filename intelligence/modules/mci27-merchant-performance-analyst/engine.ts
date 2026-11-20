@@ -20,7 +20,7 @@ import {
   type MerchantInsight,
 } from '../../contracts/modules/mci27'
 
-export const MCI27_ENGINE_VERSION = 'mci27-merchant-performance-analyst-v0.2.0'
+export const MCI27_ENGINE_VERSION = 'mci27-merchant-performance-analyst-v0.3.0'
 
 /** Sample-size honesty caps — below these, insights are withheld and a
  * coverage warning is emitted instead (mirrors price-trends MIN_SAMPLE). */
