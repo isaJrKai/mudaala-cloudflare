@@ -13,6 +13,7 @@
  */
 import catalogueJson from './fixtures/catalogue.json'
 import queriesJson from './fixtures/queries.json'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { mean, mrr, ndcgAtK, precisionAtK, recallAtK, topSellerShare, type Judgments } from './metrics'
 import { understandQuery } from '../modules/mci01-query-understanding/engine'
 import { planRetrieval } from '../modules/mci02-retrieval-planner/engine'
@@ -43,8 +44,8 @@ interface FixtureListing {
   shop_size_band: string
 }
 
-const catalogue = (catalogueJson as { listings: FixtureListing[] }).listings
-const queries = (queriesJson as { queries: Array<{ id: string; query: string; intent_note: string; judgments: Record<string, number> }> }).queries
+const catalogue = (catalogueJson as unknown as { listings: FixtureListing[] }).listings
+const queries = (queriesJson as unknown as { queries: Array<{ id: string; query: string; intent_note: string; judgments: Record<string, number> }> }).queries
 
 /** Filter-category matching honours the taxonomy hierarchy: a top-level hint
  * ('electronics') matches subcategory ids ('electronics-phones'). */
@@ -218,10 +219,9 @@ function main(argv: string[]): void {
   const report = runBenchmark()
   const outIndex = argv.indexOf('--out')
   if (outIndex !== -1 && argv[outIndex + 1]) {
-    const fs = require('node:fs') as typeof import('node:fs')
     const path = argv[outIndex + 1]
-    fs.mkdirSync(path.slice(0, path.lastIndexOf('/')), { recursive: true })
-    fs.writeFileSync(path, `${JSON.stringify(report, null, 2)}\n`)
+    mkdirSync(path.slice(0, path.lastIndexOf('/')), { recursive: true })
+    writeFileSync(path, `${JSON.stringify(report, null, 2)}\n`)
     console.log(`report written: ${path}`)
   }
   const summary = [

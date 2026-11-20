@@ -246,8 +246,8 @@ export function understandQuery(request: MCI01Request, now: Date = new Date()): 
   if (tokens.length === 0) {
     level = 'HIGH'
     notes.push('no informative tokens after normalisation')
-  } else if (categoryHints.length > 1 && categoryHints[0][1] === categoryHints[1][1]) {
-    level = level === 'HIGH' ? 'HIGH' : 'MEDIUM'
+  } else if (categoryHints.length > 1 && categoryHints[0].score === categoryHints[1].score) {
+    level = 'MEDIUM'
     notes.push('multiple equally strong category hints')
   }
   if (offer.value === null && categoryHints.length === 0 && tokens.length > 0) {

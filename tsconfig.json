@@ -40,7 +40,9 @@
     "node_modules",
     "examples",
     "skills",
+    "intelligence/gateway",
     "src/lib/merchant-kb/**/*.test.ts",
-    "src/lib/telegram-merchant-kb.test.ts"
+    "src/lib/telegram-merchant-kb.test.ts",
+    "intelligence/**/*.test.ts"
   ]
 }
