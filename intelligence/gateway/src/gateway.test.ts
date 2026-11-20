@@ -133,7 +133,7 @@ describe('authenticated module dispatch', () => {
       period: { days: 7, from: '2026-11-13' },
       shop_totals: { views: 100, contact_taps: 10, share_clicks: 2 },
       shop_daily: [{ day: '2026-11-19', views: 20, contact_taps: 2, share_clicks: 1 }],
-      listings: [{ listing_id: 'L-A', title: 'Rice bag', category_id: 'food-staples', status: 'ACTIVE', days_live: 20, views: 60, contact_taps: 6, share_clicks: 1 }],
+      listings: [{ listing_id: 'L-A', category_id: 'food-staples', status: 'ACTIVE', days_live: 20, views: 60, contact_taps: 6, share_clicks: 1 }],
       previous_period_totals: null,
     }
     const response = await post('/v1/merchant/insights', snapshot)
