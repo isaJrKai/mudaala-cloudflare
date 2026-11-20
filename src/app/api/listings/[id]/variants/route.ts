@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { ApiError, jsonOk, parseBody, requireSeller, route } from '@/lib/api'
 import { db } from '@/lib/db'
-import { getOwnedListingOr404 } from '@/lib/listings'
+import { getOwnedListingOr404, sanitizePhotos } from '@/lib/listings'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -57,7 +57,7 @@ export async function PUT(_request: Request, { params }: Params) {
             stockQuantity: variant.stockQuantity ?? null,
             trackInventory: variant.trackInventory,
             availabilityStatus: variant.availabilityStatus,
-            photos: JSON.stringify(variant.photos),
+            photos: JSON.stringify(sanitizePhotos(variant.photos)),
             sortOrder: index,
           })),
         })
