@@ -19,12 +19,10 @@ by intelligence/jobs/migrations/. Guarantees:
   cross-tenant admin reads — a role holding intelligence_admin membership).
   Without admin_conninfo both are the same connection (dev/tests as owner or
   superuser, where RLS is bypassed by design).
-- Lifecycle saves carry the record's own owner context (round-3 remediation),
-  so the synchronous request path works on a restricted tenant connection
-  without any admin URL; a startup capability probe verifies the
-  infrastructure connection can actually drive worker/admin operations and
-  either fails startup (require_infrastructure_role=True, e.g. worker mode)
-  or announces exactly what is unavailable.
+- Ordinary lifecycle saves use the restricted tenant connection with an
+  immutable owner predicate; cross-tenant worker/admin operations remain on
+  the infrastructure connection. A startup capability probe verifies that
+  connection can drive worker/admin operations.
 - Replay protection for service auth across replicas: hermes_nonces consumes
   nonces atomically (INSERT ... ON CONFLICT DO NOTHING) with TTL cleanup.
 - Recovery: stale RUNNING tasks requeue; retention sweeps finished tasks.
