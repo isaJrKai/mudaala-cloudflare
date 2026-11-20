@@ -56,7 +56,7 @@ Non-negotiables carried into placement decisions:
 | `intelligence/hermes/` | intelligence | Python orchestration core: skill registry, task router, budget caps, append-only audit log, `AgentBackend` adapter interface (pinned-release integration deferred), FastAPI control-plane skeleton for Modal, first two Mudaala-owned skills (MSK-001, MSK-006) |
 | `intelligence/eval/` | intelligence | Synthetic fixture catalogue + graded query set, metrics (nDCG@K, Recall@K, MRR, Precision@5, exposure concentration, zero-result rate), `run-benchmark.ts` producing versioned JSON reports |
 | `intelligence/jobs/` | intelligence | Async job state machine contract + Postgres outbox/job **draft SQL** (explicitly NOT applied — schema changes require owner approval) |
-| `src/lib/intelligence/gateway-client.ts` | commerce | Thin typed client: env-gated, HMAC-signed, timeout + circuit breaker, deterministic fallback (`ok: false` → callers keep local behaviour). MCI-27 is optionally wired to `/api/my/business-analytics` behind `INTELLIGENCE_MCI27_ENABLED`; default remains OFF. |
+| `src/lib/intelligence/gateway-client.ts` | commerce | Thin typed client: env-gated, HMAC-signed, timeout + circuit breaker, deterministic fallback (`ok: false` → callers keep local behaviour). MCI-27 is optionally wired to `/api/my/business-analytics`; MCI-01/02/03/08 are wired to public text search. Independent flags `INTELLIGENCE_MCI27_ENABLED` and `INTELLIGENCE_DISCOVERY_ENABLED` both default OFF. |\n| `src/lib/intelligence/discovery-pipeline.ts` | commerce | MCI-01/02 query preparation + bounded plan, then MCI-03/08 rank/diversity; validates envelopes and slate IDs, applies 28 KiB payload guard, and fails open to the existing local ranker. |
 | `src/lib/intelligence/env-flags.ts` | commerce | Follows the existing `env-flags.ts` pure-function pattern |
 | `docs/intelligence/` | docs | This map, investigation report, ADRs, operations/cost, deployment/rollback, completion report |
 
@@ -75,7 +75,7 @@ Excluded from root `tsconfig.json`: `intelligence/gateway` (gets its own worker-
 
 Deferred modules (MCI-04 personalisation, MCI-05 visual, MCI-11/12 policy, MCI-13/14 fraud, MCI-25/26 forecasting/pricing assistant, MCI-35–37 ads, trade block MCI-29–34) carry explicit statuses in `intelligence/contracts/registry.json` with REUSE/ADOPT/ADAPT/BUILD/TRAIN/DEFER decisions — satisfying resource-matrix §11's machine-readable register requirement.
 
-## 4. Gateway surface (v1, this increment)
+**Discovery adapter boundary:** the initial remote ranking window is 40 candidates (up to two 20-item pages) to stay below the gateway's 32 KiB body cap. Mudaala's existing Prisma visibility and search predicates remain authoritative; MCI-02's plan supplies the bounded candidate cap. Pages beyond that window continue using the local ranker until a larger, measured batching design is approved. No staging activation is implied.\n\n## 4. Gateway surface (v1, this increment)
 
 | Endpoint | Method | Auth scope | Consumer | Notes |
 |---|---|---|---|---|
