@@ -1,0 +1,55 @@
+name: Validate Mudaala intelligence workstreams
+
+on:
+  pull_request:
+    paths:
+      - "intelligence/**"
+      - "src/lib/intelligence/**"
+      - ".github/workflows/validate-intelligence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  typescript:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Typecheck the intelligence tree (strict, worker config)
+        run: npx tsc -p intelligence/gateway/tsconfig.json --noEmit
+
+      - name: Test intelligence contracts, modules, gateway and eval
+        run: bun test intelligence/
+
+      - name: Test the commerce-plane gateway client
+        run: bun test src/lib/intelligence/
+
+      - name: Run the offline benchmark (synthetic fixtures)
+        run: bun run intelligence/eval/run-benchmark.ts
+
+  python:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Hermes control-plane dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r intelligence/hermes/requirements.txt -r intelligence/hermes/dev-requirements.txt
+
+      - name: Test Hermes governance core
+        run: python -m pytest intelligence/hermes/tests/
