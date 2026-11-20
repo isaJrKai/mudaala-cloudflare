@@ -114,7 +114,7 @@ export async function GET(request: Request) {
         try {
           const previousSince = new Date(since.getTime() - days * 24 * 60 * 60 * 1000)
           const previousSinceDay = ugandaCalendarDay(previousSince)
-          const [dailyRows, perListingRows, merchantListings, previousTotals] = await Promise.all([
+          const [dailyRows, merchantListings, previousTotals] = await Promise.all([
             db.listingDailyAnalytics.groupBy({
               by: ['day'],
               where: { ownerId: user.id, day: { gte: sinceDay } },
@@ -122,16 +122,9 @@ export async function GET(request: Request) {
               orderBy: { day: 'asc' },
               take: 92,
             }),
-            db.listingDailyAnalytics.groupBy({
-              by: ['listingId'],
-              where: { ownerId: user.id, day: { gte: sinceDay }, listingId: { not: null } },
-              _sum: { views: true, callClicks: true, whatsappClicks: true, shareClicks: true },
-              orderBy: { _sum: { views: 'desc' } },
-              take: 200,
-            }),
             db.listing.findMany({
               where: { userId: user.id },
-              select: { id: true, title: true, category: true, status: true, publishedAt: true },
+              select: { id: true, title: true, category: true, taxonomyId: true, status: true, publishedAt: true },
               orderBy: { publishedAt: 'desc' },
               take: 200,
             }),
@@ -140,6 +133,18 @@ export async function GET(request: Request) {
               _sum: { views: true, callClicks: true, whatsappClicks: true, shareClicks: true },
             }),
           ])
+          // Aggregate exactly the listings included in the snapshot. Grouping
+          // the top 200 most-viewed rows independently would omit metrics for
+          // some of the newest 200 listings and could falsely label them dead.
+          const perListingRows = merchantListings.length
+            ? await db.listingDailyAnalytics.groupBy({
+                by: ['listingId'],
+                where: { ownerId: user.id, day: { gte: sinceDay }, listingId: { in: merchantListings.map((listing) => listing.id) } },
+                _sum: { views: true, callClicks: true, whatsappClicks: true, shareClicks: true },
+                orderBy: { _sum: { views: 'desc' } },
+                take: 200,
+              })
+            : []
           const byListing = new Map<string, (typeof perListingRows)[number]>()
           for (const row of perListingRows) {
             if (row.listingId) byListing.set(row.listingId, row)
@@ -168,7 +173,7 @@ export async function GET(request: Request) {
               return [{
                 id: listing.id,
                 title: listing.title,
-                categoryId: listing.category,
+                categoryId: listing.taxonomyId ?? listing.category,
                 status: status as 'ACTIVE' | 'FULFILLED' | 'EXPIRED' | 'ARCHIVED' | 'HIDDEN',
                 daysLive: Math.floor((nowMs - listing.publishedAt.getTime()) / 86_400_000),
                 views: metrics?.views ?? 0,
