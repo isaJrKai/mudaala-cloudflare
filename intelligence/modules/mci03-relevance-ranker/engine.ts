@@ -19,7 +19,7 @@ import { MCI01Result } from '../../contracts/modules/mci01'
 import { MCI03Result, RankCandidate, type RankedItem } from '../../contracts/modules/mci03'
 import { z } from 'zod'
 
-export const MCI03_ENGINE_VERSION = 'mci03-ranker-v0.2.0'
+export const MCI03_ENGINE_VERSION = 'mci03-ranker-v0.3.0'
 export const MCI03_WEIGHTS_REF = 'mci03.weights.v0'
 
 export const MCI03_WEIGHTS = {
@@ -164,7 +164,10 @@ export function rankCandidates(
     if (hasQuery && titleCoverage > 0 && score < MCI03_WEIGHTS.RELEVANCE_FLOOR) {
       score = MCI03_WEIGHTS.RELEVANCE_FLOOR
     }
-    score = Math.round(score * 100) / 100
+    // Out-of-stock penalties can outweigh all other signals for a stale,
+    // zero-engagement candidate. The public score contract is nonnegative;
+    // preserve the negative feature contribution but clamp the final score.
+    score = Math.max(0, Math.round(score * 100) / 100)
 
     ranked.push({
       listing_id: candidate.listing_id,
@@ -176,9 +179,9 @@ export function rankCandidates(
 
   ranked.sort((a, b) => b.score - a.score || a.listing_id.localeCompare(b.listing_id))
 
-  return {
+  return MCI03Result.parse({
     ranked,
     engine_version: MCI03_ENGINE_VERSION,
     weights_ref: MCI03_WEIGHTS_REF,
-  }
+  })
 }
