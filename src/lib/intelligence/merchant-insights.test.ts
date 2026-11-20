@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { buildMCI27Snapshot, pseudonymizeMerchantRef } from './merchant-insights'
-import { mci27IntelligenceEnabled } from './env-flags'
+import { mci27IntelligenceEnabled, mciDiscoveryIntelligenceEnabled } from './env-flags'
 
 const base = {
   ownerId: 'internal-user-id-123',
@@ -18,6 +18,12 @@ describe('MCI-27 commerce snapshot adapter', () => {
     expect(mci27IntelligenceEnabled({})).toBe(false)
     expect(mci27IntelligenceEnabled({ INTELLIGENCE_MCI27_ENABLED: 'false' })).toBe(false)
     expect(mci27IntelligenceEnabled({ INTELLIGENCE_MCI27_ENABLED: 'true' })).toBe(true)
+  })
+
+  test('discovery integration flag is opt-in and off by default', () => {
+    expect(mciDiscoveryIntelligenceEnabled({})).toBe(false)
+    expect(mciDiscoveryIntelligenceEnabled({ INTELLIGENCE_DISCOVERY_ENABLED: 'false' })).toBe(false)
+    expect(mciDiscoveryIntelligenceEnabled({ INTELLIGENCE_DISCOVERY_ENABLED: 'true' })).toBe(true)
   })
 
   test('maps real merchant aggregates into the 30-day MCI-27 contract', async () => {
