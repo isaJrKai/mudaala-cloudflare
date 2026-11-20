@@ -3,7 +3,7 @@
  */
 import { describe, expect, test } from 'bun:test'
 import { MCI01Result } from '../../contracts/modules/mci01'
-import { RankCandidate } from '../../contracts/modules/mci03'
+import { MCI03Result, RankCandidate } from '../../contracts/modules/mci03'
 import { MCI03_WEIGHTS, MCI03_WEIGHTS_REF, rankCandidates } from './engine'
 import { understandQuery } from '../mci01-query-understanding/engine'
 
@@ -111,6 +111,18 @@ describe('MCI-03 freshness, engagement, locality, availability', () => {
 })
 
 describe('MCI-03 contract and determinism', () => {
+  test('candidate contract accepts fractional prices from the commerce listing model', () => {
+    expect(RankCandidate.safeParse(candidate({ listing_id: 'fractional', price: 1250.5 })).success).toBe(true)
+  })
+
+  test('stale zero-signal out-of-stock candidates cannot violate the nonnegative score contract', () => {
+    const result = rankCandidates(plan('the'), [
+      candidate({ listing_id: 'stale-out', refreshed_at: '2000-01-01T00:00:00Z', availability: 'OUT_OF_STOCK', engagement: undefined }),
+    ], { now: NOW })
+    expect(result.ranked[0].score).toBe(0)
+    expect(MCI03Result.safeParse(result).success).toBe(true)
+  })
+
   test('output validates against the MCI-03 contract', () => {
     const result = rankCandidates(plan('kitenge dresses'), [
       candidate({ listing_id: 'k1', title: 'kitenge dress', category_id: 'fashion-dresses' }),
