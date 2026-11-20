@@ -419,10 +419,15 @@ async function verifyListingLifecycle(browser) {
 
     // The shop link must lead to the actual shop route, not a dead button.
     // Use the stable destination contract rather than localized accessible copy.
-    const shopLink = page.locator('a[href^="/#/shop/"]');
-    const shopHref = await shopLink.getAttribute('href');
-    if (!shopHref || !/^\/#\/shop\/[^/]+$/.test(shopHref)) throw new Error('Public shop link is malformed: ' + shopHref);
-    await shopLink.click();
+    const shopLinks = page.locator('a[href^="/#/shop/"]');
+    const shopLinkCount = await shopLinks.count();
+    if (shopLinkCount < 1) throw new Error('Public product page did not render a shop link');
+    const shopHrefs = await shopLinks.evaluateAll((links) => links.map((link) => link.getAttribute('href')));
+    const shopHref = shopHrefs.find((href) => href && /^\/#\/shop\/[^/]+$/.test(href));
+    if (!shopHref || shopHrefs.some((href) => href !== shopHref)) {
+      throw new Error('Public shop links are missing or point to inconsistent destinations: ' + JSON.stringify(shopHrefs));
+    }
+    await shopLinks.first().click();
     await page.waitForFunction(() => window.location.hash.startsWith('#/shop/'), null, { timeout });
     await page.goBack({ waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.getByRole('link', { name: 'Message seller', exact: true }).waitFor({ state: 'visible', timeout });
