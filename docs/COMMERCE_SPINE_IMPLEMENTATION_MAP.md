@@ -135,7 +135,9 @@ Ranked:
 - Rate-limiting budget names and the fail-closed production authority.
 - Increment-1 intelligence remediation + PR #343/#344 work (this branch is based on their tip).
 
-## 7. Phase plan (implementation order, verified per phase)
+## 7. Phase plan — COMPLETED 2026-11-20 (evidence: docs/COMMERCE_SPINE_REPORT.md)
+
+All six phases implemented, tested and committed (A: 7e259c5, B: 4c8ad32, C: 39c6312, D: 38c90f1, E: cdc808c). Original plan below for reference.
 
 - **A — Repairs:** the §5 list, in rank order; every fix carries a test or a reasoned
   no-test note. Rebuild verified green before anything else.
