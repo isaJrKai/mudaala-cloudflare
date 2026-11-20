@@ -109,7 +109,7 @@ Baseline before remediation: 135 bun + 23 pytest, tsc clean — preserved and re
 
 - Branch: `fix/intelligence-increment1-remediation`
 - Round-2 tip (pushed): `a1f6e71370023df1c954ca8a9a474db146bfe22c`
-- Round-3 fix commit: directly follows the round-2 tip; its SHA is recorded in the compiled report (§10 there) and the delivery summary.
+- Round-3 fix commit: `65631cb8d30a919c57c60fcbdaa63c2dc4fc2133`
 - Round-1 report tip: `3566da165561dd7b2af3e1c90b819a7bdb706e66` (compiled round-1 report; commit `6f5de18631381f2cea5331a24f4f9420c1d16caf` carried the round-2 remediation).
 - Original implementation tip (untouched): `a745984756a07520efc66e892bcc6dfa64c1a2dc`; `main` untouched at `cdfb6f6d07406fedad4786d65023d8b2910b358d`.
 
