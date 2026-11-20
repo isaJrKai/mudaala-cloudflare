@@ -12,11 +12,17 @@ export interface IntelligenceClientEnv {
   INTELLIGENCE_GATEWAY_SECRET_ID?: string
   INTELLIGENCE_GATEWAY_SECRET?: string
   INTELLIGENCE_CLIENT_DISABLED?: string
+  /** Explicit opt-in for the merchant-analytics intelligence slice. Off by default. */
+  INTELLIGENCE_MCI27_ENABLED?: string
 }
 
 function truthy(raw: string | undefined): boolean {
   const value = (raw ?? '').trim().toLowerCase()
   return value === '1' || value === 'true'
+}
+
+export function mci27IntelligenceEnabled(env: IntelligenceClientEnv): boolean {
+  return truthy(env.INTELLIGENCE_MCI27_ENABLED)
 }
 
 export function intelligenceClientDisabled(env: IntelligenceClientEnv): boolean {
