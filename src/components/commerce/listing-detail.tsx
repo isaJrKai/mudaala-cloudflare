@@ -331,7 +331,7 @@ export function ListingDetail({ id }: { id: string }) {
             variantId={selectedVariant?.id}
             shopName={shopDisplayName}
             initialMessage={selectedVariant
-              ? `Hello, I'm interested in ${listing.title} — ${selectedVariant.label}. Is this option available?`
+              ? `Hello, I'm interested in ${listing.title} · ${selectedVariant.label}. Is this option available?`
               : `Hello, I'm interested in ${listing.title}. Is it available?`}
             label="Message seller"
             variant="default"
