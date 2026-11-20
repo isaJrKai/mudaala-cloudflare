@@ -94,6 +94,7 @@ export const GATEWAY_ERROR_CODES = [
   'MODULE_DISABLED',
   'MODULE_TIMEOUT',
   'MODULE_INTERNAL',
+  'IDEMPOTENCY_CONFLICT',
   'JOB_STORE_UNAVAILABLE',
 ] as const
 export type GatewayErrorCode = (typeof GATEWAY_ERROR_CODES)[number]

@@ -5,7 +5,7 @@
  */
 import { describe, expect, test } from 'bun:test'
 import { handleRequest } from './index'
-import { signRequest } from './auth'
+import { buildCanonicalString, hmacSha256Hex, sha256Hex, signRequest } from './auth'
 import { InMemoryLimiter, InMemoryNonceCache } from './limiter'
 import { MemoryJobStore } from './handlers'
 import type { CallerConfig } from './auth'
@@ -336,5 +336,144 @@ describe('nonce replay remediation (atomic consume, caller isolation)', () => {
     nowMs.value += 181_000
     const second = await post('/v1/search/understand', { query: 'rice' }, { nonce: 'nonce-exp-0001', env: ctx })
     expect(second.status).toBe(200)
+  })
+})
+
+describe('streaming payload limits (remediation: cap enforced while reading)', () => {
+  function chunkedRequest(chunks: Uint8Array[], headers: Record<string, string>): Request {
+    let index = 0
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (index < chunks.length) controller.enqueue(chunks[index++])
+        else controller.close()
+      },
+    })
+    return new Request('https://gateway.internal/v1/search/understand', {
+      method: 'POST',
+      headers: { ...headers, 'content-type': 'application/json' },
+      // @ts-expect-error bun accepts a ReadableStream body here
+      body: stream,
+      // @ts-expect-error duplex is required for streaming bodies
+      duplex: 'half',
+    })
+  }
+
+  test('oversized chunked body is rejected without buffering the whole stream', async () => {
+    const { env, overrides } = testEnv()
+    let pulls = 0
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (pulls < 8) {
+          controller.enqueue(new TextEncoder().encode('x'.repeat(8192)))
+          pulls++
+        } else {
+          controller.close()
+        }
+      },
+    })
+    const response = await handleRequest(
+      new Request('https://gateway.internal/v1/search/understand', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        // @ts-expect-error bun accepts a ReadableStream body here
+        body: stream,
+        // @ts-expect-error duplex is required for streaming bodies
+        duplex: 'half',
+      }),
+      env,
+      overrides,
+    )
+    expect(response.status).toBe(413)
+    const body = (await response.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('PAYLOAD_TOO_LARGE')
+    // The reader must have stopped BEFORE draining all 8 chunks (32 KiB cap
+    // is crossed on the 5th 8 KiB chunk); a fully-buffering implementation
+    // would have consumed all 8.
+    expect(pulls).toBeLessThan(8)
+  })
+
+  test('misleading Content-Length (declares small, sends large) is caught by the stream cap', async () => {
+    const { env, overrides } = testEnv()
+    const chunks = Array.from({ length: 5 }, () => new TextEncoder().encode('y'.repeat(8192)))
+    const response = await handleRequest(chunkedRequest(chunks, { 'content-length': '100' }), env, overrides)
+    expect(response.status).toBe(413)
+    const body = (await response.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('PAYLOAD_TOO_LARGE')
+  })
+
+  test('UTF-8 bytes are measured, not UTF-16 code units (emoji payload regression)', async () => {
+    const { env, overrides } = testEnv()
+    // 10 000 emoji = 20 000 UTF-16 units (old check passes at 32 768) but
+    // 40 000 UTF-8 bytes (new check rejects).
+    const emojiBody = JSON.stringify({ query: '😀'.repeat(10_000) })
+    const chunks = [new TextEncoder().encode(emojiBody)]
+    const response = await handleRequest(chunkedRequest(chunks, {}), env, overrides)
+    expect(response.status).toBe(413)
+    const body = (await response.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('PAYLOAD_TOO_LARGE')
+  })
+
+  test('valid multibyte JSON under the cap still succeeds', async () => {
+    const response = await post('/v1/search/understand', { query: 'kitenge 😀 dresses under 50k' })
+    expect(response.status).toBe(200)
+    const envelope = (await response.json()) as { module_id: string }
+    expect(envelope.module_id).toBe('MCI-01')
+  })
+
+  test('malformed UTF-8 bytes are rejected with a stable envelope', async () => {
+    const { env, overrides } = testEnv()
+    const badBytes = new Uint8Array([0x7b, 0x22, 0xff, 0xfe, 0x22, 0x7d]) // {"<invalid>"}
+    const bodyHash = await sha256Hex(badBytes)
+    const canonical = buildCanonicalString({
+      callerId: CALLER.callerId,
+      secretId: CALLER.secretId,
+      method: 'POST',
+      path: '/v1/search/understand',
+      timestamp: String(NOW_SECONDS),
+      bodyHash,
+    })
+    const signature = await hmacSha256Hex(CALLER.secret, canonical)
+    const headers = {
+      'x-mudaala-caller': CALLER.callerId,
+      'x-mudaala-secret-id': CALLER.secretId,
+      'x-mudaala-timestamp': String(NOW_SECONDS),
+      'x-mudaala-nonce': 'nonce-badutf8-01',
+      'x-mudaala-signature': signature,
+    }
+    const request = new Request('https://gateway.internal/v1/search/understand', {
+      method: 'POST',
+      headers,
+      // @ts-expect-error raw bytes body
+      body: badBytes,
+    })
+    const response = await handleRequest(request, env, overrides)
+    expect(response.status).toBe(400)
+    const body = (await response.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('PAYLOAD_INVALID')
+  })
+
+  test('a stream that fails mid-flight returns a clean 400, not a crash', async () => {
+    const { env, overrides } = testEnv()
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"query":"ri'))
+        setTimeout(() => controller.error(new Error('connection dropped')), 5)
+      },
+    })
+    const response = await handleRequest(
+      new Request('https://gateway.internal/v1/search/understand', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        // @ts-expect-error streaming body
+        body: stream,
+        // @ts-expect-error duplex
+        duplex: 'half',
+      }),
+      env,
+      overrides,
+    )
+    expect(response.status).toBe(400)
+    const body = (await response.json()) as { error: { code: string } }
+    expect(body.error.code).toBe('PAYLOAD_INVALID')
   })
 })

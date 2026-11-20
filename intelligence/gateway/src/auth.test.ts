@@ -67,7 +67,7 @@ describe('verifyServiceAuth', () => {
       nonce,
     })
     const request = new Request(url, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body })
-    const result = await verifyServiceAuth({ request, bodyText: body, callers: registry(), nowSeconds: 1768938000 })
+    const result = await verifyServiceAuth({ request, bodyBytes: new TextEncoder().encode(body), callers: registry(), nowSeconds: 1768938000 })
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.caller.callerId).toBe('mudaala-commerce')
@@ -92,7 +92,7 @@ describe('verifyServiceAuth', () => {
       headers,
       body: '{"query":"TAMPERED"}',
     })
-    const result = await verifyServiceAuth({ request, bodyText: '{"query":"TAMPERED"}', callers: registry(), nowSeconds: 1768938000 })
+    const result = await verifyServiceAuth({ request, bodyBytes: new TextEncoder().encode('{"query":"TAMPERED"}'), callers: registry(), nowSeconds: 1768938000 })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('AUTH_BAD_SIGNATURE')
   })
@@ -110,7 +110,7 @@ describe('verifyServiceAuth', () => {
       nonce: 'n-3',
     })
     const request = new Request('https://gateway.internal/v1/search/rank', { method: 'POST', headers, body })
-    const result = await verifyServiceAuth({ request, bodyText: body, callers: registry(), nowSeconds: 1768938000 })
+    const result = await verifyServiceAuth({ request, bodyBytes: new TextEncoder().encode(body), callers: registry(), nowSeconds: 1768938000 })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('AUTH_BAD_SIGNATURE')
   })
@@ -128,7 +128,7 @@ describe('verifyServiceAuth', () => {
       nonce: 'n-4',
     })
     const request = new Request('https://gateway.internal/v1/search/rank', { method: 'POST', headers, body })
-    const result = await verifyServiceAuth({ request, bodyText: body, callers: registry(), nowSeconds: 1768938000 })
+    const result = await verifyServiceAuth({ request, bodyBytes: new TextEncoder().encode(body), callers: registry(), nowSeconds: 1768938000 })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('AUTH_CLOCK_SKEW')
   })
@@ -153,7 +153,7 @@ describe('verifyServiceAuth', () => {
       nonce: 'n-5',
     })
     const request = new Request('https://gateway.internal/v1/search/rank', { method: 'POST', headers, body })
-    const result = await verifyServiceAuth({ request, bodyText: body, callers: registry(), nowSeconds: 1768938000 })
+    const result = await verifyServiceAuth({ request, bodyBytes: new TextEncoder().encode(body), callers: registry(), nowSeconds: 1768938000 })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('AUTH_BAD_SIGNATURE')
   })
@@ -205,7 +205,7 @@ describe('header hardening (malformed values fail closed)', () => {
       nonce,
     })
     const request = new Request(`https://gateway.internal${base.path}`, { method: 'POST', headers, body: base.body })
-    return verifyServiceAuth({ request, bodyText: base.body, callers: registry(), nowSeconds: base.now })
+    return verifyServiceAuth({ request, bodyBytes: new TextEncoder().encode(base.body), callers: registry(), nowSeconds: base.now })
   }
 
   test('over-long nonce is rejected without echo', async () => {
@@ -236,7 +236,7 @@ describe('header hardening (malformed values fail closed)', () => {
     })
     headers['x-mudaala-signature'] = 'z'.repeat(64)
     const request = new Request(`https://gateway.internal${base.path}`, { method: 'POST', headers, body: base.body })
-    const result = await verifyServiceAuth({ request, bodyText: base.body, callers: registry(), nowSeconds: base.now })
+    const result = await verifyServiceAuth({ request, bodyBytes: new TextEncoder().encode(base.body), callers: registry(), nowSeconds: base.now })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('AUTH_MISSING')
   })
@@ -253,7 +253,7 @@ describe('header hardening (malformed values fail closed)', () => {
       nonce: 'nonce-ts-0001',
     })
     const request = new Request(`https://gateway.internal${base.path}`, { method: 'POST', headers, body: base.body })
-    const result = await verifyServiceAuth({ request, bodyText: base.body, callers: registry(), nowSeconds: base.now })
+    const result = await verifyServiceAuth({ request, bodyBytes: new TextEncoder().encode(base.body), callers: registry(), nowSeconds: base.now })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe('AUTH_MISSING')
   })

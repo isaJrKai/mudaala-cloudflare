@@ -143,7 +143,9 @@ export async function signRequest(parts: {
 
 export interface VerifyInput {
   request: Request
-  bodyText: string
+  /** Exact request body bytes — the hash is computed over bytes, so no
+   * text decode/re-encode drift can affect the signature. */
+  bodyBytes: Uint8Array
   /** Registry keyed by callerId. */
   callers: Map<string, CallerConfig>
   /** Seconds; injected for tests. */
@@ -191,7 +193,7 @@ export async function verifyServiceAuth(input: VerifyInput): Promise<AuthSuccess
   }
 
   const url = new URL(input.request.url)
-  const bodyHash = await sha256Hex(new TextEncoder().encode(input.bodyText))
+  const bodyHash = await sha256Hex(input.bodyBytes)
   const canonical = buildCanonicalString({
     callerId,
     secretId,
