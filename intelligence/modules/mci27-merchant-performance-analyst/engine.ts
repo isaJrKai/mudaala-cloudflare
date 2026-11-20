@@ -151,7 +151,7 @@ export function analyzeMerchantPerformance(snapshot: MerchantAnalyticsSnapshot):
       id: `DEAD_LISTING_${listing.listing_id}`,
       severity: 'ACTION',
       metric: 'LISTING_COVERAGE',
-      statement: `\"${listing.title}\" has been live ${listing.days_live} days with no views.`,
+      statement: `This active listing has been live ${listing.days_live} days with no views.`,
       evidence: [
         { ref: `listings.${listing.listing_id}.days_live`, label: 'days live', value: listing.days_live },
         { ref: `listings.${listing.listing_id}.views`, label: 'views', value: 0 },
@@ -170,7 +170,7 @@ export function analyzeMerchantPerformance(snapshot: MerchantAnalyticsSnapshot):
         id: 'VIEWS_CONCENTRATED',
         severity: 'WATCH',
         metric: 'LISTING_COVERAGE',
-        statement: `\"${top.title}\" draws ${pct(share)} of your listing views; the other ${listings.length - 1} listings draw little traffic.`,
+        statement: `One listing draws ${pct(share)} of your listing views; the other ${listings.length - 1} listings draw little traffic.`,
         evidence: [
           { ref: `listings.${top.listing_id}.views`, label: 'top listing views', value: top.views },
           { ref: 'shop_totals.views', label: 'shop views', value: shop_totals.views },
@@ -190,7 +190,7 @@ export function analyzeMerchantPerformance(snapshot: MerchantAnalyticsSnapshot):
       id: `FRESH_LISTING_${listing.listing_id}`,
       severity: 'INFO',
       metric: 'VIEWS',
-      statement: `\"${listing.title}\" already has ${listing.views} views in its first ${listing.days_live} days.`,
+      statement: `A recently published listing already has ${listing.views} views in its first ${listing.days_live} days.`,
       evidence: [{ ref: `listings.${listing.listing_id}.views`, label: 'views', value: listing.views }],
       suggested_action: null,
       confidence: null,
