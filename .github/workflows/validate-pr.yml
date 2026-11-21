@@ -131,32 +131,29 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
-      - name: Apply and verify product variants migration in disposable PostgreSQL
+      - name: Apply and verify product variants migration in isolated disposable PostgreSQL database
         run: |
           set -euo pipefail
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."Enquiry" DROP CONSTRAINT IF EXISTS "Enquiry_variantId_fkey";'
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."Enquiry" DROP COLUMN IF EXISTS "variantId", DROP COLUMN IF EXISTS "variantSnapshot";'
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."ListingVariant" CASCADE;'
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261121090000_product_variants/migration.sql
-          variant_table=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='ListingVariant'")
-          variant_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='ListingVariant' AND column_name IN ('listingId','options','sku','price','stockQuantity','trackInventory','availabilityStatus','photos')")
-          enquiry_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='Enquiry' AND column_name IN ('variantId','variantSnapshot')")
-          foreign_keys=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_constraint WHERE conname IN ('ListingVariant_listingId_fkey','Enquiry_variantId_fkey')")
+          # Keep migration verification isolated from the runtime-test database.
+          # This proves the versioned SQL migration without dropping columns
+          # that later API tests rely on.
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE mudaala_variants_migration;'
+          psql "$MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE TABLE public."Listing" ("id" TEXT NOT NULL PRIMARY KEY);
+          CREATE TABLE public."Enquiry" ("id" TEXT NOT NULL PRIMARY KEY);
+          SQL
+          psql "$MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261121090000_product_variants/migration.sql
+          variant_table=$(psql "$MIGRATION_DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='ListingVariant'")
+          variant_columns=$(psql "$MIGRATION_DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='ListingVariant' AND column_name IN ('listingId','options','sku','price','stockQuantity','trackInventory','availabilityStatus','photos')")
+          enquiry_columns=$(psql "$MIGRATION_DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='Enquiry' AND column_name IN ('variantId','variantSnapshot')")
+          foreign_keys=$(psql "$MIGRATION_DATABASE_URL" -Atc "SELECT count(*) FROM pg_constraint WHERE conname IN ('ListingVariant_listingId_fkey','Enquiry_variantId_fkey')")
           if [ "$variant_table" != "1" ] || [ "$variant_columns" != "8" ] || [ "$enquiry_columns" != "2" ] || [ "$foreign_keys" != "2" ]; then
             echo "Product variants migration verification failed: table=$variant_table variant_columns=$variant_columns enquiry_columns=$enquiry_columns foreign_keys=$foreign_keys"
             exit 1
           fi
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
-
-      # The migration test temporarily removes the variant columns created by
-      # db:push. Restore the Prisma schema before runtime/API tests use the
-      # generated client, while keeping the versioned SQL migration check above.
-      - name: Restore current Prisma schema in disposable PostgreSQL
-        run: npx prisma db push
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
-          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          MIGRATION_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala_variants_migration
 
       - name: Apply and verify admin account restriction migration in disposable PostgreSQL
         run: |
