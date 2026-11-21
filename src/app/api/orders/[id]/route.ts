@@ -94,10 +94,12 @@ export async function PATCH(request: Request, context: Context) {
           where: { orderId: order.id, status: 'HELD' },
           data: { status: 'RELEASED', releasedAt: now },
         })
-        return tx.commerceOrder.update({
+        const rejected = await tx.commerceOrder.update({
           where: { id: order.id },
           data: { status: 'REJECTED', cancelledAt: now, sellerNote: body.sellerNote ?? null },
         })
+        await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_REJECTED', category: 'SYSTEM', priority: 'HIGH', title: 'Seller could not accept the order', body: 'Order ' + order.orderNumber + ' was declined. Any stock hold has been released.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-rejected:' + order.id } })
+        return rejected
       }
 
       if (body.action === 'ACCEPT') {
@@ -147,10 +149,12 @@ export async function PATCH(request: Request, context: Context) {
           where: { orderId: order.id, status: 'HELD' },
           data: { status: 'COMMITTED', committedAt: now },
         })
-        return tx.commerceOrder.update({
+        const accepted = await tx.commerceOrder.update({
           where: { id: order.id },
           data: { status: 'ACCEPTED', acceptedAt: now, sellerNote: body.sellerNote ?? null },
         })
+        await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_ACCEPTED', category: 'SYSTEM', priority: 'HIGH', title: 'Your order was accepted', body: 'The seller accepted order ' + order.orderNumber + ' and confirmed the tracked stock.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-accepted:' + order.id } })
+        return accepted
       }
 
       if (body.action === 'MARK_PAID') {
@@ -158,7 +162,7 @@ export async function PATCH(request: Request, context: Context) {
           throw new ApiError(409, 'The order must be accepted before payment can be recorded.')
         }
         if (order.paymentStatus === 'PAID') return order
-        return tx.commerceOrder.update({
+        const paid = await tx.commerceOrder.update({
           where: { id: order.id },
           data: {
             paymentStatus: 'PAID',
@@ -167,6 +171,8 @@ export async function PATCH(request: Request, context: Context) {
             paymentReference: body.paymentReference?.trim() || null,
           },
         })
+        await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_PAYMENT_CONFIRMED', category: 'SYSTEM', priority: 'NORMAL', title: 'Payment confirmed by seller', body: 'The seller recorded payment for order ' + order.orderNumber + '.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-payment:' + order.id } })
+        return paid
       }
 
       const transitions: Record<string, { from: string[]; to: string }> = {
@@ -179,7 +185,7 @@ export async function PATCH(request: Request, context: Context) {
       if (!transition || !transition.from.includes(order.status)) {
         throw new ApiError(409, 'That order status change is not allowed.')
       }
-      return tx.commerceOrder.update({
+      const changed = await tx.commerceOrder.update({
         where: { id: order.id },
         data: {
           status: transition.to,
@@ -187,6 +193,8 @@ export async function PATCH(request: Request, context: Context) {
           ...(body.sellerNote !== undefined ? { sellerNote: body.sellerNote } : {}),
         },
       })
+      await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_STATUS_UPDATED', category: 'SYSTEM', priority: 'NORMAL', title: 'Order status updated', body: 'Order ' + order.orderNumber + ' is now ' + transition.to.toLowerCase().replace(/_/g, ' ') + '.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-status:' + order.id + ':' + transition.to } })
+      return changed
     }, { isolationLevel: 'Serializable' })
 
     if (result.status === 'EXPIRED') throw new ApiError(409, 'The stock reservation expired. Ask the buyer to place the order again.')
