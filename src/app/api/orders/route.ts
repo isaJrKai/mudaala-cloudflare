@@ -165,6 +165,16 @@ export async function POST(request: Request) {
         ? await tx.businessProduct.findMany({ where: { id: { in: productIds }, archived: false, userId: { in: [...bySeller.keys()] } } })
         : []
       const lockedById = new Map(lockedProducts.map((product) => [product.id, product]))
+      for (const group of bySeller.values()) {
+        for (const line of group) {
+          if (!line.product) continue
+          const current = lockedById.get(line.product.id)
+          const mappingIsCurrent = line.variant
+            ? current?.listingVariantId === line.variant.id
+            : current?.listingId === line.listing.id
+          if (!mappingIsCurrent) throw new ApiError(409, 'The seller inventory link changed during checkout. Refresh the product and try again.')
+        }
+      }
       const heldByProduct = new Map<string, number>()
       for (const productId of productIds) {
         const held = await tx.stockReservation.aggregate({
