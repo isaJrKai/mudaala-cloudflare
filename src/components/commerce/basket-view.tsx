@@ -469,7 +469,7 @@ function BasketShopSection({
                 <Input value={selectedDeliveryOption?.district ?? deliveryDistrict} disabled={Boolean(selectedDeliveryOption?.district)} placeholder="District" onChange={(e) => setDeliveryDistrict(e.target.value)} />
                 <Input value={deliveryArea} placeholder="Area or neighbourhood" onChange={(e) => setDeliveryArea(e.target.value)} />
                 <Input value={deliveryAddressLine} placeholder="Delivery address or landmark" onChange={(e) => setDeliveryAddressLine(e.target.value)} />
-                <Input value={deliveryContactPhone} placeholder="Delivery contact phone (optional)" onChange={(e) => setDeliveryContactPhone(e.target.value)} />
+                <Input value={deliveryContactPhone} placeholder="Delivery contact phone (required)" onChange={(e) => setDeliveryContactPhone(e.target.value)} />
               </div>
             ) : null}
             {selectedDeliveryOption ? <p className="text-xs text-muted-foreground">Delivery timing is an estimate. The seller confirms it when reviewing your order.</p> : null}
@@ -481,7 +481,7 @@ function BasketShopSection({
             type="button"
             variant="default"
             className="press h-11 w-full"
-            disabled={placingOrder || statuses.isLoading || deliveryQuery.isLoading || (deliveryNeedsAddress && !(selectedDeliveryOption?.district || deliveryDistrict.trim()) ) || (deliveryNeedsAddress && !deliveryAddressLine.trim())}
+            disabled={placingOrder || statuses.isLoading || deliveryQuery.isLoading || (deliveryNeedsAddress && !(selectedDeliveryOption?.district || deliveryDistrict.trim()) ) || (deliveryNeedsAddress && !deliveryAddressLine.trim()) || (deliveryNeedsAddress && !deliveryContactPhone.trim())}
             onClick={async () => {
               setPlacingOrder(true)
               try {
