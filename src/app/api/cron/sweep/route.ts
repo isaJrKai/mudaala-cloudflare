@@ -38,7 +38,7 @@ export async function POST() {
     const commerceExpiry = await db.$transaction(async (tx) => {
       // UPDATE ... RETURNING is atomic and races safely with seller acceptance:
       // the order row lock in /api/orders/[id] serializes both transitions.
-      const expiredOrders = await tx.$queryRaw<Array<{ id: string; buyerId: string; sellerId: string; orderNumber: string }>>(Prisma.sql`
+      const expiredOrders = await tx.$queryRaw<Array<{ id: string; buyerId: string | null; sellerId: string; orderNumber: string }>>(Prisma.sql`
         UPDATE "CommerceOrder"
         SET "status" = 'EXPIRED', "updatedAt" = NOW()
         WHERE "status" = 'PENDING_SELLER' AND "expiresAt" IS NOT NULL AND "expiresAt" <= NOW()
@@ -51,6 +51,7 @@ export async function POST() {
           data: { status: 'EXPIRED', releasedAt: new Date() },
         })
         for (const order of expiredOrders) {
+          if (!order.buyerId) continue
           await tx.notification.create({
             data: {
               userId: order.buyerId,
