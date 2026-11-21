@@ -188,6 +188,7 @@ export async function POST(request: Request) {
           data: {
             orderNumber: orderNumber(),
             buyerId: buyer.id,
+            buyerName: buyer.name,
             sellerId,
             idempotencyKey: body.idempotencyKey + ':' + sellerId,
             currency,
