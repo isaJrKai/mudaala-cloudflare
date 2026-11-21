@@ -149,7 +149,14 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
-
+      # The migration test temporarily removes the variant columns created by
+      # db:push. Restore the Prisma schema before runtime/API tests use the
+      # generated client, while keeping the versioned SQL migration check above.
+      - name: Restore current Prisma schema in disposable PostgreSQL
+        run: npx prisma db push
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
       - name: Apply and verify admin account restriction migration in disposable PostgreSQL
         run: |
