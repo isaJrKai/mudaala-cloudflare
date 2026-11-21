@@ -905,7 +905,7 @@ export function EditListingForm({ id }: { id: string }) {
                 </Select>
               </Field>
               <label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={row.trackInventory} onCheckedChange={(checked) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, trackInventory: checked === true } : item))} />
+                <Checkbox checked={row.trackInventory} disabled={Boolean(row.businessProductId)} onCheckedChange={(checked) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, trackInventory: checked === true } : item))} />
                 Track stock for this option
               </label>
               {row.trackInventory && !row.businessProductId ? (
