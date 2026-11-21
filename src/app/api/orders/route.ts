@@ -81,13 +81,14 @@ export async function POST(request: Request) {
         type: 'OFFER',
         status: 'ACTIVE',
         isSeed: false,
-        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-      },
-      include: {
-        user: { select: { id: true, profile: { select: { businessName: true, moderationStatus: true } } } },
+        expiresAt: { gt: now },
       },
     })
     if (listings.length !== listingIds.length) throw new ApiError(409, 'One or more products are no longer available.')
+    const sellerRecords = await db.user.findMany({
+      where: { id: { in: [...new Set(listings.map((listing) => listing.userId))] } },
+      select: { id: true, profile: { select: { businessName: true, moderationStatus: true } } },
+    })
     const [variantRecords, businessProductRecords] = await Promise.all([
       db.listingVariant.findMany({
         where: { listingId: { in: listingIds } },
@@ -100,6 +101,7 @@ export async function POST(request: Request) {
     ])
     const listingsWithInventory = listings.map((listing) => ({
       ...listing,
+      user: sellerRecords.find((seller) => seller.id === listing.userId) ?? null,
       variants: variantRecords.filter((variant) => variant.listingId === listing.id),
       businessProducts: businessProductRecords.filter((product) => product.listingId === listing.id),
     }))
