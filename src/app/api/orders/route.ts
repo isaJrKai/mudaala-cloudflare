@@ -24,6 +24,35 @@ function orderNumber() {
   return 'MD-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomUUID().slice(0, 6).toUpperCase()
 }
 
+export async function GET() {
+  return route(async () => {
+    const user = await requireUser()
+    const orders = await db.commerceOrder.findMany({
+      where: { OR: [{ buyerId: user.id }, { sellerId: user.id }] },
+      include: {
+        items: true,
+        seller: { select: { profile: { select: { businessName: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    })
+    return jsonOk({
+      orders: orders.map((order) => ({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        role: order.buyerId === user.id ? 'BUYER' : 'SELLER',
+        shopName: order.seller.profile?.businessName ?? 'Mudaala shop',
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        currency: order.currency,
+        total: Number(order.total),
+        itemCount: order.items.length,
+        createdAt: order.createdAt.toISOString(),
+      })),
+    })
+  })
+}
+
 export async function POST(request: Request) {
   return route(async () => {
     const buyer = await requireUser('Sign in to place an order')
