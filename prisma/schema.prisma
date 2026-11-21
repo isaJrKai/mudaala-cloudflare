@@ -622,8 +622,9 @@ model StockMovement {
 model CommerceOrder {
   id               String   @id @default(cuid())
   orderNumber      String   @unique
-  buyerId          String
-  buyer            User     @relation("CommerceOrderBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
+  buyerId          String?
+  buyer            User?    @relation("CommerceOrderBuyer", fields: [buyerId], references: [id], onDelete: SetNull)
+  buyerName        String
   sellerId         String
   seller           User     @relation("CommerceOrderSeller", fields: [sellerId], references: [id], onDelete: Restrict)
   status           String   @default("PENDING_SELLER") // PENDING_SELLER | ACCEPTED | REJECTED | AWAITING_PAYMENT | PAID | PROCESSING | READY | OUT_FOR_DELIVERY | COMPLETED | CANCELLED | EXPIRED
