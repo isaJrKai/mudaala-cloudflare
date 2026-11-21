@@ -256,6 +256,7 @@ function BasketShopSection({
   lines: Record<string, BasketLineInfo>
 }) {
   const { navigate, setAuthOpen } = useAppStore()
+  const { toast } = useToast()
   const basket = useBasket()
   const done = isShopDone(basket, shopId)
   const removeLine = useRemoveLine()
@@ -432,7 +433,7 @@ function BasketShopSection({
             type="button"
             variant="default"
             className="press h-11 w-full"
-            disabled={placingOrder}
+            disabled={placingOrder || statuses.isLoading}
             onClick={async () => {
               setPlacingOrder(true)
               try {
