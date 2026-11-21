@@ -20,6 +20,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const listing = await db.listing.findUnique({
       where: { id },
       include: {
+        variants: { orderBy: { sortOrder: 'asc' } },
         user: {
           select: {
             id: true,
@@ -83,7 +84,15 @@ export async function GET(_request: NextRequest, { params }: Params) {
     // Return only the public seller identity fields needed by the listing page.
     // Do not spread the full User or BusinessProfile rows into a public response:
     // that would expose internal flags, legal-acceptance metadata, and private contact fields.
-    return jsonOk({ listing: { ...serializeListing(listing), telegramContactEnabled, user: listing.user } })
+    return jsonOk({ listing: {
+      ...serializeListing(listing),
+      variants: listing.variants.map((variant) => ({
+        ...variant,
+        photos: (() => { try { const parsed = JSON.parse(variant.photos); return Array.isArray(parsed) ? parsed : [] } catch { return [] } })(),
+      })),
+      telegramContactEnabled,
+      user: listing.user,
+    } })
   })
 }
 
