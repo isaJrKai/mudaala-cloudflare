@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button'
 import { ToastAction } from '@/components/ui/toast'
 import { PaySheet } from '@/components/commerce/pay-sheet'
 import { InAppEnquiryButton } from './in-app-enquiry-button'
-import { apiGet } from '@/lib/client'
+import { apiGet, apiPost } from '@/lib/client'
 import type { ListingDetail, ShopPage } from '@/lib/client'
 import { formatPrice } from '@/lib/format'
 import { useAppStore } from '@/lib/store'
@@ -90,14 +90,15 @@ export function useAddedFlash(): [boolean, (ok: boolean) => void] {
 // so React Query serves both surfaces from one fetch) and the honesty rule
 // travels with it: nothing ships to WhatsApp without this check.
 export function useLineStatuses(shopId: string, ids: string[]) {
+  const uniqueIds = [...new Set(ids)]
   return useQuery({
-    queryKey: ['basket-check', shopId, ids.join(',')],
-    enabled: ids.length > 0,
+    queryKey: ['basket-check', shopId, uniqueIds.join(',')],
+    enabled: uniqueIds.length > 0,
     retry: false,
     staleTime: 30_000,
     queryFn: async () => {
       const entries = await Promise.all(
-        ids.map(async (id) => {
+        uniqueIds.map(async (id) => {
           try {
             const res = await apiGet<{ listing: Pick<ListingDetail, 'status'> }>(`/api/listings/${id}`)
             return [id, res.listing.status] as const
@@ -138,7 +139,7 @@ export function useRemoveLine() {
 }
 
 export function BasketView() {
-  const { navigate } = useAppStore()
+  const { navigate, setAuthOpen } = useAppStore()
   const basket = useBasket()
   const shopIds = Object.keys(basket.lines)
 
@@ -259,8 +260,9 @@ function BasketShopSection({
   const done = isShopDone(basket, shopId)
   const removeLine = useRemoveLine()
   const [payOpen, setPayOpen] = useState(false)
+  const [placingOrder, setPlacingOrder] = useState(false)
   const entries = Object.entries(lines)
-  const ids = entries.map(([id]) => id)
+  const ids = entries.map(([, line]) => line.listingId)
   const statuses = useLineStatuses(shopId, ids)
 
   // The pay sheet runs on FRESH shop data, never on the basket's snapshot:
@@ -276,8 +278,8 @@ function BasketShopSection({
     staleTime: 60_000,
   })
 
-  const fresh = entries.filter(([id]) => !statuses.data || statuses.data[id] === 'ACTIVE')
-  const stale = entries.filter(([id]) => statuses.data && statuses.data[id] !== 'ACTIVE')
+  const fresh = entries.filter(([, line]) => !statuses.data || statuses.data[line.listingId] === 'ACTIVE')
+  const stale = entries.filter(([, line]) => statuses.data && statuses.data[line.listingId] !== 'ACTIVE')
   const sendable = statuses.isLoading ? entries : fresh
   const sendableLines = sendable.map(([, line]) => line)
   const subtotal = basketSubtotal(sendableLines)
@@ -428,6 +430,41 @@ function BasketShopSection({
         {sendable.length > 0 ? (
           <Button
             type="button"
+            variant="default"
+            className="press h-11 w-full"
+            disabled={placingOrder}
+            onClick={async () => {
+              setPlacingOrder(true)
+              try {
+                const response = await apiPost<{ orders: Array<{ orderNumber: string; total: number; currency: string }> }>('/api/orders', {
+                  items: sendable.map(([, line]) => ({
+                    listingId: line.listingId,
+                    ...(line.variantId ? { variantId: line.variantId } : {}),
+                    quantity: line.qty,
+                  })),
+                  idempotencyKey: crypto.randomUUID(),
+                })
+                removeShop(shopId)
+                toast({
+                  title: 'Order sent to ' + shop.name,
+                  description: response.orders.map((order) => order.orderNumber).join(', ') + ' · The seller has 20 minutes to confirm availability.',
+                })
+              } catch (error) {
+                const message = error instanceof Error ? error.message : 'Could not place this order.'
+                if (/sign in|session|unauthor/i.test(message)) setAuthOpen(true)
+                else toast({ title: 'Could not place order', description: message, variant: 'destructive' })
+              } finally {
+                setPlacingOrder(false)
+              }
+            }}
+          >
+            {placingOrder ? 'Placing order…' : 'Place order · reserve stock'}
+          </Button>
+        ) : null}
+
+        {sendable.length > 0 ? (
+          <Button
+            type="button"
             className="press h-10 w-full"
             onClick={() => setPayOpen(true)}
             aria-label={copy.pay.openAria(shop.name)}
@@ -442,7 +479,7 @@ function BasketShopSection({
 
         {sendable.length > 0 ? (
           <InAppEnquiryButton
-            listingId={sendable[0][0]}
+            listingId={sendable[0][1].listingId}
             shopName={shop.name}
             initialMessage={[
               `Hello ${shop.name}, I'd like to ask about these items:`,
