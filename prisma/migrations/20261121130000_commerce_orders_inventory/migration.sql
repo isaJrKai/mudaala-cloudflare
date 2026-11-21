@@ -194,3 +194,7 @@ ALTER TABLE "StockReservation" ADD CONSTRAINT "StockReservation_variantId_fkey"
 ALTER TABLE "CommerceOrder" DROP CONSTRAINT "CommerceOrder_sellerId_fkey";
 ALTER TABLE "CommerceOrder" ADD CONSTRAINT "CommerceOrder_sellerId_fkey"
   FOREIGN KEY ("sellerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "StockReservation" DROP CONSTRAINT "StockReservation_businessProductId_fkey";
+ALTER TABLE "StockReservation" ADD CONSTRAINT "StockReservation_businessProductId_fkey"
+  FOREIGN KEY ("businessProductId") REFERENCES "BusinessProduct"("id") ON DELETE SET NULL ON UPDATE CASCADE;
