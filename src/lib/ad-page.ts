@@ -82,14 +82,14 @@ export const loadAdRow = cache(async (param: string) =>
   withBestEffortExpirySweep(expireOverdueListings, async () => {
     let listing = await db.listing.findUnique({
       where: { id: param },
-      include: { user: { include: { profile: true } } },
+      include: { user: { include: { profile: true } }, variants: { orderBy: { sortOrder: 'asc' } } },
     })
     if (!listing && param.includes('-')) {
       const tail = param.slice(param.lastIndexOf('-') + 1)
       if (tail) {
         listing = await db.listing.findUnique({
           where: { id: tail },
-          include: { user: { include: { profile: true } } },
+          include: { user: { include: { profile: true } }, variants: { orderBy: { sortOrder: 'asc' } } },
         })
       }
     }

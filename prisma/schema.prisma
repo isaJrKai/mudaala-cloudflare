@@ -20,6 +20,8 @@ datasource db {
 model User {
   id           String           @id @default(cuid())
   phone        String           @unique // normalized E.164: +2567XXXXXXXX (Uganda)
+  email        String?          @unique // private account/recovery email; never the public shop contact
+  emailVerifiedAt DateTime?
   name         String
   country      String           @default("UG") // UG (Uganda is the launch market)
   passwordHash String
@@ -68,6 +70,7 @@ model User {
   policyViolations PolicyViolation[]
   profile        BusinessProfile?
   passwordResets PasswordReset[]
+  emailAuthChallenges EmailAuthChallenge[]
   followingShops ShopFollow[] @relation("Follower")
   shopFollowers ShopFollow[] @relation("ShopOwner")
   categoryInterests CategoryInterest[]
@@ -110,7 +113,7 @@ model Session {
   id        String   @id // opaque random token
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  authMethod String  @default("PASSWORD") // PASSWORD | GOOGLE
+  authMethod String  @default("PASSWORD") // PASSWORD | GOOGLE | EMAIL_CODE
   expiresAt DateTime
   createdAt DateTime @default(now())
 
@@ -225,6 +228,7 @@ model Listing {
   collectionItems ProductCollectionItem[]
   savedProducts SavedProduct[]
   enquiries Enquiry[]
+  variants ListingVariant[]
   telegramContactTokens EnquiryContactToken[]
 }
 
@@ -803,6 +807,29 @@ model SavedProduct {
   @@index([listingId])
 }
 
+// Seller-defined options for one public listing. Inventory is optional: when
+// trackInventory is false, stockQuantity is deliberately not interpreted.
+model ListingVariant {
+  id              String   @id @default(cuid())
+  listingId       String
+  listing         Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  label           String
+  options         Json
+  sku             String?
+  price           Float?
+  stockQuantity   Float?
+  trackInventory  Boolean  @default(false)
+  availabilityStatus String @default("UNKNOWN")
+  photos          String   @default("[]")
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  enquiries       Enquiry[]
+
+  @@unique([listingId, sku])
+  @@index([listingId, sortOrder])
+}
+
 // A buyer-initiated conversation about one exact listing and one merchant.
 // Guest Telegram buyers are identified by a keyed Telegram identity hash;
 // their raw Telegram ID/chat ID is never stored in this row.
@@ -819,6 +846,9 @@ model Enquiry {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   listing            Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  variantId          String?
+  variant            ListingVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  variantSnapshot    Json?
   merchant           User     @relation("EnquiryMerchant", fields: [merchantId], references: [id], onDelete: Cascade)
   shopper            User?    @relation("EnquiryShopper", fields: [shopperId], references: [id], onDelete: SetNull)
   messages           EnquiryMessage[]
@@ -827,6 +857,7 @@ model Enquiry {
   @@index([shopperId, status, lastMessageAt])
   @@index([buyerTelegramHash, status, lastMessageAt])
   @@index([listingId, createdAt])
+  @@index([variantId])
 }
 
 // Message bodies are visible only to the two participants. Delivery state is
@@ -896,4 +927,23 @@ model ShopShowroom {
 
   @@index([userId, status, updatedAt])
   @@index([status, publishedAt])
+}
+
+
+// Purpose-scoped, one-use email challenges. Codes are HMAC/SHA hashes only;
+// the email address is stored on User and must be verified before recovery/login.
+model EmailAuthChallenge {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose     String   // VERIFY_EMAIL | PASSWORD_RESET | PASSWORDLESS_LOGIN
+  targetEmail String   // destination snapshot; never accepted as proof until challenge succeeds
+  codeHash    String
+  expiresAt   DateTime
+  attempts    Int      @default(0)
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, purpose, consumedAt, expiresAt])
+  @@index([expiresAt])
 }

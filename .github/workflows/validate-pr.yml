@@ -60,6 +60,9 @@ jobs:
       - name: Test Web Push VAPID and encryption
         run: npm run test:web-push
 
+      - name: Test Gmail API delivery with mocked Google endpoints
+        run: npm run test:gmail
+
       - name: Test public listing continues when expiry sweep fails
         run: npm run test:public-listing-expiry
 
@@ -129,6 +132,26 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
+      - name: Apply and verify account email authentication migration in disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."EmailAuthChallenge" CASCADE;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP INDEX IF EXISTS public."User_email_key";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."User" DROP COLUMN IF EXISTS "email", DROP COLUMN IF EXISTS "emailVerifiedAt";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261119000000_account_email_auth/migration.sql
+          email_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='User' AND column_name IN ('email','emailVerifiedAt')")
+          email_index=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='User' AND indexname='User_email_key'")
+          challenge_table=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='EmailAuthChallenge'")
+          challenge_indexes=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='EmailAuthChallenge' AND indexname IN ('EmailAuthChallenge_userId_purpose_consumedAt_expiresAt_idx','EmailAuthChallenge_expiresAt_idx')")
+          challenge_fk=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.referential_constraints WHERE constraint_schema='public' AND constraint_name='EmailAuthChallenge_userId_fkey'")
+          if [ "$email_columns" != "2" ] || [ "$email_index" != "1" ] || [ "$challenge_table" != "1" ] || [ "$challenge_indexes" != "2" ] || [ "$challenge_fk" != "1" ]; then
+            echo "Account email migration failed: email_columns=$email_columns email_index=$email_index challenge_table=$challenge_table challenge_indexes=$challenge_indexes challenge_fk=$challenge_fk"
+            exit 1
+          fi
+          echo "Account email authentication migration and constraints passed."
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
       - name: Apply and verify admin account restriction migration in disposable PostgreSQL
         run: |
@@ -407,6 +430,24 @@ jobs:
             exit 1
           fi
           echo "Telegram commerce migration passed: ownership, availability, data constraints, RLS, deny policies and restricted runtime grants verified."
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
+      - name: Apply and verify product variants migration in disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."Enquiry" DROP CONSTRAINT IF EXISTS "Enquiry_variantId_fkey";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."Enquiry" DROP COLUMN IF EXISTS "variantId", DROP COLUMN IF EXISTS "variantSnapshot";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."ListingVariant" CASCADE;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261121090000_product_variants/migration.sql
+          variant_table=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='ListingVariant'")
+          variant_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='ListingVariant' AND column_name IN ('listingId','options','sku','price','stockQuantity','trackInventory','availabilityStatus','photos')")
+          enquiry_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='Enquiry' AND column_name IN ('variantId','variantSnapshot')")
+          foreign_keys=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_constraint WHERE conname IN ('ListingVariant_listingId_fkey','Enquiry_variantId_fkey')")
+          if [ "$variant_table" != "1" ] || [ "$variant_columns" != "8" ] || [ "$enquiry_columns" != "2" ] || [ "$foreign_keys" != "2" ]; then
+            echo "Product variants migration verification failed: table=$variant_table variant_columns=$variant_columns enquiry_columns=$enquiry_columns foreign_keys=$foreign_keys"
+            exit 1
+          fi
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 

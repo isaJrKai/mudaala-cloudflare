@@ -72,6 +72,19 @@ export async function apiFetch<T>(input: string, init?: RequestInit): Promise<T>
   return body as T
 }
 
+export interface ListingVariantT {
+  id: string
+  label: string
+  options: Record<string, string>
+  sku: string | null
+  price: number | null
+  stockQuantity: number | null
+  trackInventory: boolean
+  availabilityStatus: 'UNKNOWN' | 'IN_STOCK' | 'AVAILABLE_ON_ORDER' | 'OUT_OF_STOCK'
+  photos: string[]
+  sortOrder: number
+}
+
 export interface Listing {
   id: string
   userId: string
@@ -104,6 +117,7 @@ export interface Listing {
   expiresAt: string
   /** Public capability flag; never contains a Telegram ID or chat address. */
   telegramContactEnabled?: boolean
+  variants?: ListingVariantT[]
 }
 
 export interface BusinessProfileT {
@@ -204,6 +218,8 @@ export interface SessionUser {
   id: string
   name: string
   phone: string
+  email?: string | null
+  emailVerified?: boolean
   country: string
   createdAt: string
   /** Server-derived from the admin phone allowlist; never user-editable. */

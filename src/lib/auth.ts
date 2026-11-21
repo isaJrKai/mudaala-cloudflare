@@ -38,7 +38,7 @@ export function verifyPassword(password: string, stored: string): boolean {
   return timingSafeEqual(candidate, expected)
 }
 
-export async function createSession(userId: string, authMethod: 'PASSWORD' | 'GOOGLE' = 'PASSWORD'): Promise<{ token: string; expiresAt: Date }> {
+export async function createSession(userId: string, authMethod: 'PASSWORD' | 'GOOGLE' | 'EMAIL_CODE' = 'PASSWORD'): Promise<{ token: string; expiresAt: Date }> {
   const account = await db.user.findUnique({ where: { id: userId }, select: { suspendedAt: true } })
   if (!account || account.suspendedAt) throw new Error('This Mudaala account is currently restricted')
   const token = randomBytes(32).toString('hex')
@@ -114,6 +114,8 @@ interface PublicUser {
   id: string
   name: string
   phone: string
+  email: string | null
+  emailVerified: boolean
   country: string
   createdAt: string
 }
@@ -123,6 +125,8 @@ export function toPublicUser(user: User): PublicUser {
     id: user.id,
     name: user.name,
     phone: user.phone,
+    email: user.email,
+    emailVerified: Boolean(user.emailVerifiedAt),
     country: user.country,
     createdAt: user.createdAt.toISOString(),
   }
