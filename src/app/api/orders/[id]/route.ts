@@ -121,6 +121,7 @@ export async function PATCH(request: Request, context: Context) {
       if (body.action === 'ACCEPT') {
         if (order.status !== 'PENDING_SELLER') throw new ApiError(409, 'This order has already been reviewed.')
         const held = order.reservations.filter((reservation) => reservation.status === 'HELD')
+        if (held.some((reservation) => !reservation.businessProductId)) throw new ApiError(409, 'A reserved inventory record is no longer available. Review stock before accepting this order.')
         if (held.some((reservation) => reservation.expiresAt <= now)) {
           await tx.stockReservation.updateMany({
             where: { orderId: order.id, status: 'HELD' },
