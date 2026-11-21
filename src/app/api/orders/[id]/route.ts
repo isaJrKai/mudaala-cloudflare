@@ -118,20 +118,20 @@ export async function PATCH(request: Request, context: Context) {
         }
         for (const reservation of held) {
           if (!reservation.businessProductId) continue
-          const changed = await tx.businessProduct.updateMany({
-            where: {
-              id: reservation.businessProductId,
-              userId: seller.id,
-              archived: false,
-              trackInventory: true,
-              stockOnHand: { gte: reservation.quantity },
-            },
-            data: { stockOnHand: { decrement: reservation.quantity } },
-          })
-          if (changed.count !== 1) throw new ApiError(409, 'Recorded stock changed before this order could be accepted. Review inventory and try again.')
           const movementKey = 'order-deduction:' + reservation.orderItemId
           const existingMovement = await tx.stockMovement.findUnique({ where: { idempotencyKey: movementKey } })
           if (!existingMovement) {
+            const changed = await tx.businessProduct.updateMany({
+              where: {
+                id: reservation.businessProductId,
+                userId: seller.id,
+                archived: false,
+                trackInventory: true,
+                stockOnHand: { gte: reservation.quantity },
+              },
+              data: { stockOnHand: { decrement: reservation.quantity } },
+            })
+            if (changed.count !== 1) throw new ApiError(409, 'Recorded stock changed before this order could be accepted. Review inventory and try again.')
             await tx.stockMovement.create({
               data: {
                 userId: seller.id,
