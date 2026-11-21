@@ -908,9 +908,12 @@ export function EditListingForm({ id }: { id: string }) {
                 <Checkbox checked={row.trackInventory} onCheckedChange={(checked) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, trackInventory: checked === true } : item))} />
                 Track stock for this option
               </label>
+              {row.trackInventory && !row.businessProductId ? (
+                <p className="text-xs text-amber-700">Connect a stock ledger product above to enable automatic reservations and stock deductions at order confirmation.</p>
+              ) : null}
               {row.trackInventory ? (
-                <Field label="Units in stock" htmlFor={`variant-stock-${index}`}>
-                  <Input id={`variant-stock-${index}`} type="number" min="0" step="any" value={row.stockQuantity} onChange={(e) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, stockQuantity: e.target.value } : item))} />
+                <Field label={row.businessProductId ? "Stock quantity · managed by inventory ledger" : "Units in stock"} htmlFor={`variant-stock-${index}`}>
+                  <Input id={`variant-stock-${index}`} type="number" min="0" step="any" value={row.stockQuantity} disabled={Boolean(row.businessProductId)} onChange={(e) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, stockQuantity: e.target.value } : item))} />
                 </Field>
               ) : (
                 <Field label="Availability (seller reported)" htmlFor={`variant-status-${index}`}>
