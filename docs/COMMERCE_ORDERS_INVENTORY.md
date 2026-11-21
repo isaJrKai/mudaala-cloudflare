@@ -53,4 +53,4 @@ The migration is additive and applies the same server-only RLS model as existing
 
 ## Current implementation status
 
-This branch establishes the schema and initial server API lifecycle. It is an implementation-in-progress, not a production-ready checkout release. The production database has not been migrated and no deployment has been performed.
+This branch now includes the schema, checkout APIs, variant-aware buyer basket, buyer order history, seller order actions, delivery configuration and delivery selection. It remains an implementation-in-progress until the new disposable-PostgreSQL migration test, full CI, concurrency/expiry/security tests and real browser journeys pass. The production database has not been migrated and no deployment has been performed.
