@@ -17,3 +17,6 @@ CREATE TABLE "EmailAuthChallenge" (
 CREATE INDEX "EmailAuthChallenge_userId_purpose_consumedAt_expiresAt_idx"
   ON "EmailAuthChallenge"("userId", "purpose", "consumedAt", "expiresAt");
 CREATE INDEX "EmailAuthChallenge_expiresAt_idx" ON "EmailAuthChallenge"("expiresAt");
+
+-- This table is server-only; deny direct Data API access by enabling RLS without client policies.
+ALTER TABLE "EmailAuthChallenge" ENABLE ROW LEVEL SECURITY;
