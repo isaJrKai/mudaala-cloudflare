@@ -154,7 +154,8 @@ export function OrdersView() {
             {order.status === 'ACCEPTED' ? <Button className="w-full" disabled={busy} onClick={() => void act('PROCESSING')}>Start preparing</Button> : null}
             {order.status === 'PROCESSING' ? <Button className="w-full" disabled={busy} onClick={() => void act('READY')}>Mark ready</Button> : null}
             {order.status === 'READY' ? <Button className="w-full" disabled={busy} onClick={() => void act('OUT_FOR_DELIVERY')}>Dispatch order</Button> : null}
-            {order.status === 'READY' || order.status === 'OUT_FOR_DELIVERY' ? <Button className="w-full" disabled={busy} onClick={() => void act('COMPLETE')}>Mark completed</Button> : null}
+            {(order.status === 'READY' || order.status === 'OUT_FOR_DELIVERY') && order.paymentStatus === 'PAID' ? <Button className="w-full" disabled={busy} onClick={() => void act('COMPLETE')}>Mark completed</Button> : null}
+            {(order.status === 'READY' || order.status === 'OUT_FOR_DELIVERY') && order.paymentStatus !== 'PAID' ? <p className="text-xs text-muted-foreground">Confirm the payment received before marking this order completed.</p> : null}
             <p className="text-xs text-muted-foreground">Accepting confirms the order and deducts tracked stock once. Record payment only after checking your own payment receipt.</p>
           </section>
         ) : null}
