@@ -131,6 +131,47 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Apply and verify shop tag runtime RLS migration in disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $roles$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon NOLOGIN; END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mudaala_runtime') THEN
+              CREATE ROLE mudaala_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+            END IF;
+          END
+          $roles$;
+          GRANT USAGE ON SCHEMA public TO mudaala_runtime;
+          DROP TABLE IF EXISTS public."ShopTagDailyStat", public."ShopTag" CASCADE;
+          SQL
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261121100000_shop_nfc_tags/migration.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261121150000_shop_tag_runtime_rls/migration.sql
+          rls_tables=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('ShopTag','ShopTagDailyStat') AND c.relrowsecurity")
+          runtime_policies=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename IN ('ShopTag','ShopTagDailyStat') AND policyname='mudaala_runtime_access'")
+          deny_policies=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename IN ('ShopTag','ShopTagDailyStat') AND policyname='deny_direct_api_clients'")
+          runtime_grants=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('ShopTag','ShopTagDailyStat') AND grantee='mudaala_runtime' AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          if [ "$rls_tables" != "2" ] || [ "$runtime_policies" != "2" ] || [ "$deny_policies" != "2" ] || [ "$runtime_grants" != "8" ]; then
+            echo "Shop tag RLS migration failed: rls_tables=$rls_tables runtime_policies=$runtime_policies deny_policies=$deny_policies runtime_grants=$runtime_grants"
+            exit 1
+          fi
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO public."User" ("id", "phone", "name", "passwordHash", "createdAt", "updatedAt")
+          VALUES ('shop-tag-rls-fixture-user', '+256700000098', 'Shop tag RLS fixture', 'not-a-real-password-hash', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+          SET ROLE mudaala_runtime;
+          INSERT INTO public."ShopTag" ("id", "ownerId", "tagCode", "label", "updatedAt")
+          VALUES ('shop-tag-rls-fixture', 'shop-tag-rls-fixture-user', 'abcdefghjk', 'Test counter', CURRENT_TIMESTAMP);
+          INSERT INTO public."ShopTagDailyStat" ("id", "tagId", "day")
+          VALUES ('shop-tag-stat-rls-fixture', 'shop-tag-rls-fixture', '2026-11-21');
+          RESET ROLE;
+          DELETE FROM public."User" WHERE "id"='shop-tag-rls-fixture-user';
+          SQL
+          echo "Shop tag RLS migration passed: runtime writes work and direct API roles remain denied."
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
       - name: Apply and verify product variants migration in isolated disposable PostgreSQL database
         run: |
           set -euo pipefail
