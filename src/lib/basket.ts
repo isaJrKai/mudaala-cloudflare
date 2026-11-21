@@ -259,7 +259,7 @@ export function restoreLine(shopId: string, shop: BasketShopInfo, lineId: string
     shops: state.shops[shopId] ? state.shops : { ...state.shops, [shopId]: shop },
     lines: {
       ...state.lines,
-      [shopId]: { ...(state.lines[shopId] ?? {}), [listingId]: line },
+      [shopId]: { ...(state.lines[shopId] ?? {}), [lineId]: line },
     },
   })
 }
