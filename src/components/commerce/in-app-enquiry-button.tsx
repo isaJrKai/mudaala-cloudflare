@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { MessageCircle } from 'lucide-react'
+import { MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -74,7 +74,7 @@ export function InAppEnquiryButton({
   return (
     <>
       <Button type="button" variant={variant} className={className} onClick={startEnquiry} disabled={isLoading}>
-        <MessageCircle className="size-4" aria-hidden />
+        <MessageSquare className="size-4" aria-hidden />
         {label}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
