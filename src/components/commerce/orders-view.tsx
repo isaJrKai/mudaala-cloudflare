@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Package, Truck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { apiGet, apiPatch } from '@/lib/client'
 import { formatPrice } from '@/lib/format'
 import { useToast } from '@/hooks/use-toast'
@@ -59,6 +60,7 @@ export function OrdersView() {
   const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState('MTN_MOMO')
   const list = useQuery({
     queryKey: ['commerce-orders'],
     queryFn: () => apiGet<{ orders: OrderSummary[] }>('/api/orders'),
@@ -77,7 +79,7 @@ export function OrdersView() {
     try {
       await apiPatch(`/api/orders/${selectedId}`, {
         action,
-        ...(action === 'MARK_PAID' ? { paymentMethod: 'OTHER' } : {}),
+        ...(action === 'MARK_PAID' ? { paymentMethod } : {}),
       })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['commerce-orders'] }),
@@ -142,7 +144,7 @@ export function OrdersView() {
           <section className="space-y-2 rounded-xl border bg-card p-4">
             <h2 className="font-semibold">Manage order</h2>
             {sellerCanReview ? <div className="grid grid-cols-2 gap-2"><Button variant="outline" disabled={busy} onClick={() => void act('REJECT')}>Decline</Button><Button disabled={busy} onClick={() => void act('ACCEPT')}>Accept & deduct stock</Button></div> : null}
-            {order.status === 'ACCEPTED' && order.paymentStatus !== 'PAID' ? <Button className="w-full" variant="outline" disabled={busy} onClick={() => void act('MARK_PAID')}>Confirm payment received</Button> : null}
+            {order.status === 'ACCEPTED' && order.paymentStatus !== 'PAID' ? <div className="space-y-2"><Select value={paymentMethod} onValueChange={setPaymentMethod}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="MTN_MOMO">MTN MoMo</SelectItem><SelectItem value="AIRTEL_MONEY">Airtel Money</SelectItem><SelectItem value="CASH">Cash</SelectItem><SelectItem value="OTHER">Other</SelectItem></SelectContent></Select><Button className="w-full" variant="outline" disabled={busy} onClick={() => void act('MARK_PAID')}>Confirm payment received</Button></div> : null}
             {order.status === 'ACCEPTED' ? <Button className="w-full" disabled={busy} onClick={() => void act('PROCESSING')}>Start preparing</Button> : null}
             {order.status === 'PROCESSING' ? <Button className="w-full" disabled={busy} onClick={() => void act('READY')}>Mark ready</Button> : null}
             {order.status === 'READY' ? <Button className="w-full" disabled={busy} onClick={() => void act('OUT_FOR_DELIVERY')}>Dispatch order</Button> : null}
