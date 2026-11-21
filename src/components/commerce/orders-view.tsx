@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Check, Clock3, Package, Truck } from 'lucide-react'
+import { ArrowLeft, Package, Truck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { apiGet, apiPatch } from '@/lib/client'
 import { formatPrice } from '@/lib/format'
@@ -34,7 +34,7 @@ type OrderDetail = Omit<OrderSummary, 'shopName' | 'itemCount'> & {
   deliveryAddress: { district: string; area?: string; addressLine: string; contactPhone?: string } | null
   buyerNote: string | null
   sellerNote: string | null
-  seller: { businessName: string; phone: string; whatsapp: string | null } | null
+  seller: { businessName: string; phone: string; whatsapp: string | null; momoMerchantCode: string | null; momoNetwork: string | null; momoMerchantName: string | null } | null
   buyerName: string | null
   items: Array<{ id: string; title: string; variantLabel: string | null; sku: string | null; photoUrl: string | null; quantity: number; unitPrice: number; lineTotal: number }>
 }
@@ -133,7 +133,7 @@ export function OrdersView() {
           <div className="mt-4 space-y-1 border-t pt-3 text-sm"><div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatPrice(order.subtotal, null, order.currency)}</span></div><div className="flex justify-between"><span className="text-muted-foreground">Delivery</span><span>{formatPrice(order.deliveryFee, null, order.currency)}</span></div><div className="flex justify-between font-semibold"><span>Total</span><span>{formatPrice(order.total, null, order.currency)}</span></div></div>
         </section>
         {order.role === 'BUYER' && order.seller ? (
-          <section className="rounded-xl border bg-card p-4"><h2 className="font-semibold">{order.seller.businessName}</h2><p className="mt-1 text-sm text-muted-foreground">Payment is made directly to the seller. Confirm the recipient name in your mobile-money app before sending.</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" asChild><a href={`tel:${order.seller.phone}`}>Call seller</a></Button>{order.seller.whatsapp ? <Button variant="outline" asChild><a href={`https://wa.me/${order.seller.whatsapp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer">WhatsApp</a></Button> : null}</div></section>
+          <section className="rounded-xl border bg-card p-4"><h2 className="font-semibold">{order.seller.businessName}</h2><p className="mt-1 text-sm text-muted-foreground">Payment is made directly to the seller. Confirm the recipient name in your mobile-money app before sending.</p>{order.seller.momoMerchantCode ? <div className="mt-3 rounded-lg border bg-secondary/35 p-3"><p className="text-xs text-muted-foreground">{order.seller.momoNetwork ?? 'Mobile money'} merchant code · self-reported</p><p className="mt-1 text-lg font-semibold tracking-wider">{order.seller.momoMerchantCode}</p>{order.seller.momoMerchantName ? <p className="mt-1 text-xs text-muted-foreground">Expected recipient name: {order.seller.momoMerchantName}</p> : null}</div> : null}<div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" asChild><a href={`tel:${order.seller.phone}`}>Call seller</a></Button>{order.seller.whatsapp ? <Button variant="outline" asChild><a href={`https://wa.me/${order.seller.whatsapp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer">WhatsApp</a></Button> : null}</div></section>
         ) : null}
         {order.deliveryEstimate ? <section className="rounded-xl border bg-card p-4"><h2 className="flex items-center gap-2 font-semibold"><Truck className="size-4" /> Delivery estimate</h2><p className="mt-1 text-sm text-muted-foreground">{order.deliveryEstimate.optionName ?? 'Seller delivery'} · {order.deliveryEstimate.minDays}–{order.deliveryEstimate.maxDays} days · Estimate only, seller confirms availability</p>{order.deliveryAddress ? <p className="mt-2 text-sm">{order.deliveryAddress.addressLine}, {order.deliveryAddress.area ? order.deliveryAddress.area + ', ' : ''}{order.deliveryAddress.district}</p> : null}</section> : null}
         {order.buyerNote ? <p className="rounded-lg bg-secondary/40 p-3 text-sm">Buyer note: {order.buyerNote}</p> : null}
