@@ -182,3 +182,15 @@ ALTER TABLE "CommerceOrder" ALTER COLUMN "buyerName" DROP DEFAULT;
 ALTER TABLE "CommerceOrder" DROP CONSTRAINT "CommerceOrder_buyerId_fkey";
 ALTER TABLE "CommerceOrder" ADD CONSTRAINT "CommerceOrder_buyerId_fkey"
   FOREIGN KEY ("buyerId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Preserve immutable order item snapshots if a listing or seller is deleted.
+ALTER TABLE "CommerceOrderItem" ALTER COLUMN "listingId" DROP NOT NULL;
+ALTER TABLE "CommerceOrderItem" DROP CONSTRAINT "CommerceOrderItem_listingId_fkey";
+ALTER TABLE "CommerceOrderItem" ADD CONSTRAINT "CommerceOrderItem_listingId_fkey"
+  FOREIGN KEY ("listingId") REFERENCES "Listing"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "StockReservation" DROP CONSTRAINT "StockReservation_variantId_fkey";
+ALTER TABLE "StockReservation" ADD CONSTRAINT "StockReservation_variantId_fkey"
+  FOREIGN KEY ("variantId") REFERENCES "ListingVariant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "CommerceOrder" DROP CONSTRAINT "CommerceOrder_sellerId_fkey";
+ALTER TABLE "CommerceOrder" ADD CONSTRAINT "CommerceOrder_sellerId_fkey"
+  FOREIGN KEY ("sellerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
