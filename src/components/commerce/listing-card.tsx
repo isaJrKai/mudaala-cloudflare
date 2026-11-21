@@ -209,8 +209,10 @@ export function ListingCard({ listing, onOpen, actions, showStatus, onOpenShop, 
       <button type="button" onClick={() => onOpen(listing.id)} className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" aria-label={copy.card.openAria(listing.title)}>
         <div className="flex gap-3 p-2.5">
           {/* Photo - small, on the side, its own 1px border and 8px radius */}
-          <div className="relative size-24 shrink-0 overflow-hidden rounded-lg border bg-secondary sm:size-28">
-            <ListingPhoto listing={listing} />
+          <div className="relative size-24 shrink-0 overflow-hidden rounded-lg border border-border/80 bg-secondary p-1.5 sm:size-28 sm:p-2">
+            <div className="relative size-full overflow-hidden rounded-md border border-border/70 bg-background">
+              <ListingPhoto listing={listing} />
+            </div>
             <span className="absolute left-1 top-1">
               <TypeBadge type={listing.type} />
             </span>
@@ -293,8 +295,10 @@ export function ListingBlock({ listing, onOpen, onOpenShop, onAdd, shopLabel, di
         {/* Photo: a bordered 96px tile beside the text on phones, the card's
             full-width top on desktop. No zoom-on-hover - the picture sells,
             it does not perform. */}
-        <div className="relative aspect-[4/3] w-full overflow-hidden border-b bg-secondary">
-          <ListingPhoto listing={listing} />
+        <div className="relative aspect-[4/3] w-full overflow-hidden border-b bg-secondary p-2 sm:p-2.5">
+          <div className="relative size-full overflow-hidden border border-border/80 bg-background">
+            <ListingPhoto listing={listing} />
+          </div>
           <button type="button" onClick={() => onOpen(listing.id)} className="absolute inset-0 z-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" aria-label={copy.card.openAria(listing.title)} />
           <span className="pointer-events-none absolute left-1 top-1 z-10 sm:left-1.5 sm:top-1.5">
             <TypeBadge type={listing.type} />
