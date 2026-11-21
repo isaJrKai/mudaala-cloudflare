@@ -165,6 +165,9 @@ export function BusinessDashboard() {
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
+          <Button variant="outline" className="h-10" onClick={() => navigate({ name: 'orders' })}>
+            Orders
+          </Button>
           <Button variant="outline" className="h-10" onClick={() => navigate({ name: 'enquiries' })}>
             Enquiries
           </Button>
