@@ -66,3 +66,23 @@ export const tagTapSchema = z.object({
   t: z.string().max(40),
   v: z.enum(['nfc', 'qr']).optional(),
 })
+
+// What the seller dashboard receives. The tag code travels only inside the two
+// links; labels are private and never shown on a public page.
+export interface OwnerTag {
+  id: string
+  label: string
+  status: 'ACTIVE' | 'DISABLED'
+  lockedAt: string | null
+  createdAt: string
+  taps30d: number
+  qrScans30d: number
+  nfcUrl: string
+  qrUrl: string
+}
+
+export interface OwnerTagsResponse {
+  tags: OwnerTag[]
+  shopCode: string
+  max: number
+}
