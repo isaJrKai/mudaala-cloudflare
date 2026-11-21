@@ -20,6 +20,7 @@
     "test:commerce-discovery": "bun test src/lib/commerce-discovery.test.ts src/lib/telegram-product-details.test.mjs",
     "test:web-push": "bun test src/lib/web-push.test.mjs",
     "test:listing-visibility": "bun test scripts/test-listing-visibility.test.mjs",
+    "test:shop-tags": "bun test src/lib/shop-tags.test.ts",
     "test:merchant-kb": "bun test src/lib/merchant-kb/merchant-kb.test.ts src/lib/telegram-merchant-kb.test.ts"
   },
   "dependencies": {
