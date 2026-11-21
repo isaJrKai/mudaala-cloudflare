@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client'
+import { cookies } from 'next/headers'
 import { z } from 'zod'
 import { ApiError, jsonOk, parseBody, requireUser, route } from '@/lib/api'
 import { db } from '@/lib/db'
@@ -142,6 +143,28 @@ export async function POST(request: Request) {
       availabilityStatus: selectedVariant.availabilityStatus,
     } : undefined
 
+    const cookieStore = await cookies()
+    const referralCode = cookieStore.get('mudaala_mvp_referral')?.value
+    const affiliateReferral = referralCode ? await db.affiliateReferral.findFirst({
+      where: {
+        code: referralCode,
+        partnership: {
+          mvpId: { not: shopper.id },
+          status: 'APPROVED',
+          offer: {
+            listingId: listing.id,
+            merchantId: listing.userId,
+            status: 'ACTIVE',
+            AND: [
+              { OR: [{ startsAt: null }, { startsAt: { lte: new Date() } }] },
+              { OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }] },
+            ],
+          },
+        },
+      },
+      select: { id: true },
+    }) : null
+
     const created = await db.$transaction(async (tx) => {
       let enquiry = await tx.enquiry.findFirst({
         where: {
@@ -160,6 +183,7 @@ export async function POST(request: Request) {
             merchantId: listing.userId,
             shopperId: shopper.id,
             contactChannel: 'WEB',
+            ...(affiliateReferral ? { affiliateReferralId: affiliateReferral.id } : {}),
             ...(selectedVariant ? { variantId: selectedVariant.id, variantSnapshot } : {}),
           },
           select: { id: true },
@@ -184,6 +208,7 @@ export async function POST(request: Request) {
         where: { id: enquiry.id },
         data: {
           lastMessageAt: message.createdAt,
+          ...(affiliateReferral ? { affiliateReferralId: affiliateReferral.id } : {}),
           variantId: selectedVariant?.id ?? null,
           variantSnapshot: selectedVariant ? variantSnapshot : Prisma.DbNull,
         },
