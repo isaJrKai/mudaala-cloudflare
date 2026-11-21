@@ -20,7 +20,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const listing = await db.listing.findUnique({
       where: { id },
       include: {
-        variants: { orderBy: { sortOrder: 'asc' } },
+        variants: { include: { businessProduct: { select: { id: true, stockOnHand: true, trackInventory: true } } }, orderBy: { sortOrder: 'asc' } },
         user: {
           select: {
             id: true,
@@ -43,6 +43,18 @@ export async function GET(_request: NextRequest, { params }: Params) {
       },
     })
     if (!listing) throw new ApiError(404, 'This listing does not exist or has been removed')
+
+    const inventoryProductIds = listing.variants
+      .map((variant) => variant.businessProduct?.id)
+      .filter((value): value is string => Boolean(value))
+    const heldReservations = inventoryProductIds.length
+      ? await db.stockReservation.groupBy({
+          by: ['businessProductId'],
+          where: { businessProductId: { in: inventoryProductIds }, status: 'HELD', expiresAt: { gt: new Date() } },
+          _sum: { quantity: true },
+        })
+      : []
+    const heldByProduct = new Map(heldReservations.map((entry) => [entry.businessProductId, Number(entry._sum.quantity ?? 0)]))
 
     // Resolve the viewer once so owner/admin previews do not inflate public
     // engagement metrics. Moderation state is never leaked to unauthorized viewers.
@@ -86,10 +98,19 @@ export async function GET(_request: NextRequest, { params }: Params) {
     // that would expose internal flags, legal-acceptance metadata, and private contact fields.
     return jsonOk({ listing: {
       ...serializeListing(listing),
-      variants: listing.variants.map((variant) => ({
-        ...variant,
-        photos: (() => { try { const parsed = JSON.parse(variant.photos); return Array.isArray(parsed) ? parsed : [] } catch { return [] } })(),
-      })),
+      variants: listing.variants.map((variant) => {
+        const { businessProduct, ...publicVariant } = variant
+        const ledgerTracked = Boolean(businessProduct?.trackInventory)
+        const availableFromLedger = businessProduct
+          ? Math.max(0, Number(businessProduct.stockOnHand) - (heldByProduct.get(businessProduct.id) ?? 0))
+          : null
+        return {
+          ...publicVariant,
+          trackInventory: ledgerTracked ? true : variant.trackInventory,
+          stockQuantity: ledgerTracked ? availableFromLedger : variant.stockQuantity,
+          photos: (() => { try { const parsed = JSON.parse(variant.photos); return Array.isArray(parsed) ? parsed : [] } catch { return [] } })(),
+        }
+      }),
       telegramContactEnabled,
       user: listing.user,
     } })
