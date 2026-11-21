@@ -3442,7 +3442,7 @@ async function main() {
     const checkout = await call('POST', '/api/orders', {
       items: [{ listingId: orderListingId, variantId, quantity: 2 }],
       deliveryOptions: { [orderSeller.user!.id]: deliveryOptionId },
-      deliveryAddress: { district: 'Kampala', area: 'Central', addressLine: 'Test landmark, Kampala' },
+      deliveryAddress: { district: 'Kampala', area: 'Central', addressLine: 'Test landmark, Kampala', contactPhone: '+256700000111' },
       idempotencyKey: checkoutKey,
     }, orderBuyer)
     const orderNumber = checkout.json?.orders?.[0]?.orderNumber ?? ''
