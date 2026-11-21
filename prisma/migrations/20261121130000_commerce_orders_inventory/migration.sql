@@ -158,3 +158,19 @@ END
 $$;
 
 ALTER TABLE "StockReservation" ADD CONSTRAINT "StockReservation_orderItemId_fkey" FOREIGN KEY ("orderItemId") REFERENCES "CommerceOrderItem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Paid Mudaala orders also become normal seller sales so existing revenue
+-- and business reporting can include them without counting unpaid orders.
+ALTER TABLE "Sale" ADD COLUMN "commerceOrderId" TEXT;
+ALTER TABLE "SaleItem" ALTER COLUMN "productId" DROP NOT NULL;
+ALTER TABLE "SaleItem" ADD COLUMN "listingId" TEXT;
+ALTER TABLE "SaleItem" ADD COLUMN "variantId" TEXT;
+CREATE UNIQUE INDEX "Sale_commerceOrderId_key" ON "Sale"("commerceOrderId");
+CREATE INDEX "SaleItem_listingId_createdAt_idx" ON "SaleItem"("listingId","createdAt");
+CREATE INDEX "SaleItem_variantId_createdAt_idx" ON "SaleItem"("variantId","createdAt");
+ALTER TABLE "Sale" ADD CONSTRAINT "Sale_commerceOrderId_fkey"
+  FOREIGN KEY ("commerceOrderId") REFERENCES "CommerceOrder"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "SaleItem" ADD CONSTRAINT "SaleItem_listingId_fkey"
+  FOREIGN KEY ("listingId") REFERENCES "Listing"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "SaleItem" ADD CONSTRAINT "SaleItem_variantId_fkey"
+  FOREIGN KEY ("variantId") REFERENCES "ListingVariant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
