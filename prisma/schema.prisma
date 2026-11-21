@@ -1001,6 +1001,7 @@ model Enquiry {
   variantSnapshot    Json?
   affiliateReferralId String?
   affiliateReferral   AffiliateReferral? @relation(fields: [affiliateReferralId], references: [id], onDelete: SetNull)
+  affiliateConversions AffiliateConversion[]
   merchant           User     @relation("EnquiryMerchant", fields: [merchantId], references: [id], onDelete: Cascade)
   shopper            User?    @relation("EnquiryShopper", fields: [shopperId], references: [id], onDelete: SetNull)
   messages           EnquiryMessage[]
