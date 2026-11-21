@@ -98,7 +98,7 @@ export function DeliveryOptionsPanel() {
         {query.error ? <p className="text-xs text-destructive">Could not load delivery options.</p> : null}
         {(query.data?.options ?? []).map((option) => (
           <div key={option.id} className="flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2.5">
-            <div className="min-w-0 flex-1"><p className="text-sm font-medium">{option.name}</p><p className="text-xs text-muted-foreground">{option.method.replace(/_/g, ' ').toLowerCase()} · {option.district ?? 'Any district'}{option.area ? ' · ' + option.area : ''} · UGX {option.fee.toLocaleString()} · {option.minDays}–{option.maxDays} days</p></div>
+            <div className="min-w-0 flex-1"><p className="text-sm font-medium">{option.name}</p><p className="text-xs text-muted-foreground">{option.method.replace(/_/g, ' ').toLowerCase()} · {option.district ?? 'Any district'}{option.area ? ' · ' + option.area : ''} · UGX {option.fee.toLocaleString()} · {option.minDays}-{option.maxDays} days</p></div>
             <span className="text-xs text-muted-foreground">{option.isActive ? 'Active' : 'Inactive'}</span>
             <Button size="sm" variant="outline" onClick={() => void toggle(option)}>{option.isActive ? 'Pause' : 'Activate'}</Button>
             {option.isActive ? <Button size="sm" variant="ghost" onClick={() => void remove(option)} className="text-muted-foreground">Remove</Button> : null}
