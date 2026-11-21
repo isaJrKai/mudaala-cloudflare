@@ -3445,6 +3445,7 @@ async function main() {
       deliveryAddress: { district: 'Kampala', area: 'Central', addressLine: 'Test landmark, Kampala', contactPhone: '+256700000111' },
       idempotencyKey: checkoutKey,
     }, orderBuyer)
+    if (checkout.status !== 201) console.log('21a checkout response:', checkout.status, JSON.stringify(checkout.json))
     const orderNumber = checkout.json?.orders?.[0]?.orderNumber ?? ''
     const order = orderNumber
       ? await db.commerceOrder.findUnique({ where: { orderNumber }, include: { items: true, reservations: true } })
@@ -3496,6 +3497,7 @@ async function main() {
       items: [{ listingId: cancelListingId, quantity: 1 }],
       idempotencyKey: randomUUID(),
     }, orderBuyer) : { status: 0, json: null }
+    if (cancelCheckout.status !== 201) console.log('21a cancellation checkout response:', cancelCheckout.status, JSON.stringify(cancelCheckout.json))
     const cancelOrderNumber = cancelCheckout.json?.orders?.[0]?.orderNumber ?? ''
     const cancelOrder = cancelOrderNumber ? await db.commerceOrder.findUnique({ where: { orderNumber: cancelOrderNumber }, include: { reservations: true } }) : null
     const cancelled = cancelOrder ? await call('PATCH', '/api/orders/' + cancelOrder.id, { action: 'CANCEL' }, orderBuyer) : { status: 0, json: null }
@@ -3523,6 +3525,7 @@ async function main() {
       call('POST', '/api/orders', { items: [{ listingId: scarceListingId, quantity: 1 }], idempotencyKey: randomUUID() }, orderBuyer),
       call('POST', '/api/orders', { items: [{ listingId: scarceListingId, quantity: 1 }], idempotencyKey: randomUUID() }, secondBuyer),
     ]) : [{ status: 0 }, { status: 0 }]
+    if (simultaneous.some((response) => response.status !== 201 && response.status !== 409)) console.log('21a concurrency responses:', simultaneous.map((response) => ({ status: response.status, json: response.json })))
     const scarceReservations = scarceProductId ? await db.stockReservation.count({ where: { businessProductId: scarceProductId, status: 'HELD', expiresAt: { gt: new Date() } } }) : 0
     ok('21a.9 simultaneous checkouts cannot reserve the same final unit twice',
       simultaneous.filter((response) => response.status === 201).length === 1 &&
