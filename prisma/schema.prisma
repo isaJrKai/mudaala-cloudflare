@@ -663,8 +663,8 @@ model CommerceOrderItem {
   id                String          @id @default(cuid())
   orderId           String
   order             CommerceOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  listingId         String
-  listing           Listing         @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  listingId         String?
+  listing           Listing?        @relation(fields: [listingId], references: [id], onDelete: SetNull)
   variantId         String?
   variant           ListingVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
   businessProductId String?
@@ -696,7 +696,7 @@ model StockReservation {
   businessProductId String?
   businessProduct   BusinessProduct? @relation(fields: [businessProductId], references: [id], onDelete: Restrict)
   variantId         String?
-  variant           ListingVariant?  @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  variant           ListingVariant?  @relation(fields: [variantId], references: [id], onDelete: SetNull)
   quantity          Decimal          @db.Decimal(14, 3)
   status            String           @default("HELD")
   expiresAt         DateTime
