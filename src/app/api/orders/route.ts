@@ -85,15 +85,28 @@ export async function POST(request: Request) {
       },
       include: {
         user: { select: { id: true, profile: { select: { businessName: true, moderationStatus: true } } } },
-        businessProducts: { where: { archived: false } },
-        variants: { include: { businessProduct: true }, orderBy: { sortOrder: 'asc' } },
       },
     })
     if (listings.length !== listingIds.length) throw new ApiError(409, 'One or more products are no longer available.')
-    const bySeller = new Map<string, Array<{ item: CheckoutItem; listing: typeof listings[number]; variant: typeof listings[number]['variants'][number] | null; product: typeof listings[number]['businessProducts'][number] | null; price: number }>>()
+    const [variantRecords, businessProductRecords] = await Promise.all([
+      db.listingVariant.findMany({
+        where: { listingId: { in: listingIds } },
+        include: { businessProduct: true },
+        orderBy: { sortOrder: 'asc' },
+      }),
+      db.businessProduct.findMany({
+        where: { listingId: { in: listingIds }, archived: false },
+      }),
+    ])
+    const listingsWithInventory = listings.map((listing) => ({
+      ...listing,
+      variants: variantRecords.filter((variant) => variant.listingId === listing.id),
+      businessProducts: businessProductRecords.filter((product) => product.listingId === listing.id),
+    }))
+    const bySeller = new Map<string, Array<{ item: CheckoutItem; listing: typeof listingsWithInventory[number]; variant: typeof listingsWithInventory[number]['variants'][number] | null; product: typeof listingsWithInventory[number]['businessProducts'][number] | null; price: number }>>()
 
     for (const item of items) {
-      const listing = listings.find((entry) => entry.id === item.listingId)!
+      const listing = listingsWithInventory.find((entry) => entry.id === item.listingId)!
       if (listing.userId === buyer.id) throw new ApiError(409, 'You cannot order products from your own shop.')
       if (!listing.user.profile || listing.user.profile.moderationStatus !== 'ACTIVE') throw new ApiError(409, 'This seller is not currently accepting orders.')
       const variant = item.variantId ? listing.variants.find((entry) => entry.id === item.variantId) ?? null : null
