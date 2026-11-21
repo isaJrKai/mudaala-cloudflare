@@ -20,6 +20,8 @@ datasource db {
 model User {
   id           String           @id @default(cuid())
   phone        String           @unique // normalized E.164: +2567XXXXXXXX (Uganda)
+  email        String?          @unique
+  emailVerifiedAt DateTime?
   name         String
   country      String           @default("UG") // UG (Uganda is the launch market)
   passwordHash String
@@ -83,6 +85,7 @@ model User {
   googleOAuthStates GoogleOAuthState[]
   phoneVerificationChallenges PhoneVerificationChallenge[]
   appealPhoneVerificationChallenges AppealPhoneVerificationChallenge[]
+  emailAuthChallenges EmailAuthChallenge[]
 }
 
 // Products a shop can showcase beyond its current stock. These records are
@@ -226,6 +229,7 @@ model Listing {
   savedProducts SavedProduct[]
   enquiries Enquiry[]
   telegramContactTokens EnquiryContactToken[]
+  variants ListingVariant[]
 }
 
 // Shop-owned curated groups for seasonal edits, new arrivals and themed collections.
@@ -806,6 +810,45 @@ model SavedProduct {
 // A buyer-initiated conversation about one exact listing and one merchant.
 // Guest Telegram buyers are identified by a keyed Telegram identity hash;
 // their raw Telegram ID/chat ID is never stored in this row.
+// Purpose-scoped, one-use email challenges. Only hashes of codes are stored.
+model EmailAuthChallenge {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose     String
+  targetEmail String
+  codeHash    String
+  expiresAt   DateTime
+  attempts    Int      @default(0)
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, purpose, consumedAt, expiresAt])
+  @@index([expiresAt])
+}
+
+// Seller-defined options for one public listing. Inventory is optional.
+model ListingVariant {
+  id                String   @id @default(cuid())
+  listingId         String
+  listing           Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  label             String
+  options           Json
+  sku               String?
+  price             Float?
+  stockQuantity     Float?
+  trackInventory    Boolean  @default(false)
+  availabilityStatus String  @default("UNKNOWN")
+  photos            String   @default("[]")
+  sortOrder         Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  enquiries         Enquiry[]
+
+  @@unique([listingId, sku])
+  @@index([listingId, sortOrder])
+}
+
 model Enquiry {
   id                 String   @id @default(cuid())
   listingId          String
@@ -819,6 +862,9 @@ model Enquiry {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   listing            Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  variantId          String?
+  variant            ListingVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  variantSnapshot    Json?
   merchant           User     @relation("EnquiryMerchant", fields: [merchantId], references: [id], onDelete: Cascade)
   shopper            User?    @relation("EnquiryShopper", fields: [shopperId], references: [id], onDelete: SetNull)
   messages           EnquiryMessage[]
@@ -827,6 +873,7 @@ model Enquiry {
   @@index([shopperId, status, lastMessageAt])
   @@index([buyerTelegramHash, status, lastMessageAt])
   @@index([listingId, createdAt])
+  @@index([variantId])
 }
 
 // Message bodies are visible only to the two participants. Delivery state is

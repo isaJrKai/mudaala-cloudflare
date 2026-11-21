@@ -97,6 +97,7 @@ export async function POST(request: Request) {
 
     const body = await parseBody(request, z.object({
       listingId: z.string().trim().min(1).max(128),
+      variantId: z.string().trim().min(1).max(128).optional(),
       message: z.string().trim().min(1).max(1200),
     }))
     const listing = await db.listing.findFirst({
@@ -111,12 +112,35 @@ export async function POST(request: Request) {
         id: true,
         title: true,
         userId: true,
+        currency: true,
+        price: true,
+        unit: true,
+        variants: { select: { id: true, label: true, options: true, sku: true, price: true, availabilityStatus: true, trackInventory: true, stockQuantity: true } },
         user: { select: { profile: { select: { businessName: true } } } },
       },
     })
     if (!listing) throw new ApiError(404, 'This product is no longer available.')
     if (listing.userId === shopper.id) throw new ApiError(409, 'You cannot send an enquiry to your own shop.')
     if (!listing.user.profile) throw new ApiError(409, 'This seller does not have an active shop.')
+    const selectedVariant = body.variantId
+      ? listing.variants.find((variant) => variant.id === body.variantId)
+      : null
+    if (body.variantId && !selectedVariant) throw new ApiError(400, 'Choose a valid option for this product.')
+    if (selectedVariant?.availabilityStatus === 'OUT_OF_STOCK' || (selectedVariant?.trackInventory && (selectedVariant.stockQuantity ?? 0) <= 0)) {
+      throw new ApiError(409, 'That option is currently out of stock.')
+    }
+    const variantSnapshot = selectedVariant ? {
+      id: selectedVariant.id,
+      label: selectedVariant.label,
+      options: selectedVariant.options,
+      sku: selectedVariant.sku,
+      price: selectedVariant.price ?? listing.price ?? null,
+      currency: listing.currency,
+      unit: listing.unit,
+      trackInventory: selectedVariant.trackInventory,
+      stockQuantity: selectedVariant.stockQuantity,
+      availabilityStatus: selectedVariant.availabilityStatus,
+    } : undefined
 
     const created = await db.$transaction(async (tx) => {
       let enquiry = await tx.enquiry.findFirst({
@@ -136,6 +160,7 @@ export async function POST(request: Request) {
             merchantId: listing.userId,
             shopperId: shopper.id,
             contactChannel: 'WEB',
+            ...(selectedVariant ? { variantId: selectedVariant.id, variantSnapshot } : {}),
           },
           select: { id: true },
         })
@@ -146,7 +171,9 @@ export async function POST(request: Request) {
           enquiryId: enquiry.id,
           senderType: 'SHOPPER',
           senderUserId: shopper.id,
-          body: body.message,
+          body: body.message + (selectedVariant
+            ? '\n\nSelected option: ' + selectedVariant.label + (selectedVariant.sku ? ' · SKU ' + selectedVariant.sku : '') + ' · Price: ' + (selectedVariant.price ?? listing.price ?? 'Ask seller') + ' ' + listing.currency + (listing.unit ? ' per ' + listing.unit : '')
+            : ''),
           // For WEB, SENT means durably accepted into the Mudaala thread;
           // it does not claim that the merchant has read the message.
           deliveryStatus: 'SENT',
@@ -155,7 +182,11 @@ export async function POST(request: Request) {
       })
       await tx.enquiry.update({
         where: { id: enquiry.id },
-        data: { lastMessageAt: message.createdAt },
+        data: {
+          lastMessageAt: message.createdAt,
+          variantId: selectedVariant?.id ?? null,
+          variantSnapshot: selectedVariant ? variantSnapshot : Prisma.DbNull,
+        },
       })
       await tx.notification.create({
         data: {

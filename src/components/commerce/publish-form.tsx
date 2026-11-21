@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
-import { apiPost, apiPatch, apiGet } from '@/lib/client'
+import { apiPost, apiPatch, apiGet, apiPut } from '@/lib/client'
 import type { Listing, SessionUser } from '@/lib/client'
 import { listingCreateSchema, fieldErrors } from '@/lib/validation'
 import { listingFormCategoryFields } from '@/lib/listing-form-fields'
@@ -23,6 +23,17 @@ import { ListingListSkeleton } from './skeletons'
 import { PhotoPicker } from './photo-picker'
 import { cn } from '@/lib/utils'
 import { copy } from '@/lib/copy'
+
+type VariantEditorRow = {
+  label: string
+  optionsText: string
+  sku: string
+  price: string
+  stockQuantity: string
+  trackInventory: boolean
+  availabilityStatus: 'UNKNOWN' | 'IN_STOCK' | 'AVAILABLE_ON_ORDER' | 'OUT_OF_STOCK'
+  photos: string[]
+}
 
 interface FormState {
   type: 'OFFER' | 'REQUEST'
@@ -570,6 +581,7 @@ export function EditListingForm({ id }: { id: string }) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  const [variantRows, setVariantRows] = useState<VariantEditorRow[]>([])
   const selectedTaxonomyPath = form.taxonomyId !== 'none' ? taxonomyAncestors(form.taxonomyId) : []
   const selectedTaxonomyGroup = selectedTaxonomyPath[1]?.id ?? 'none'
   const selectedTaxonomyType = selectedTaxonomyPath[2]?.id ?? 'none'
@@ -581,6 +593,16 @@ export function EditListingForm({ id }: { id: string }) {
     apiGet<{ listing: Listing }>(`/api/listings/${id}`)
       .then(({ listing }) => {
         setLoaded(listing)
+        setVariantRows((listing.variants ?? []).map((variant) => ({
+          label: variant.label,
+          optionsText: Object.entries(variant.options).map(([key, value]) => `${key}=${value}`).join(', '),
+          sku: variant.sku ?? '',
+          price: variant.price === null ? '' : String(variant.price),
+          stockQuantity: variant.stockQuantity === null ? '' : String(variant.stockQuantity),
+          trackInventory: variant.trackInventory,
+          availabilityStatus: variant.availabilityStatus,
+          photos: variant.photos ?? [],
+        })))
         setForm({
           type: listing.type,
           title: listing.title,
@@ -673,6 +695,21 @@ export function EditListingForm({ id }: { id: string }) {
     setBusy(true)
     try {
       await apiPatch(`/api/listings/${id}`, payload)
+      await apiPut(`/api/listings/${id}/variants`, {
+        variants: variantRows.map((row) => ({
+          label: row.label.trim(),
+          options: Object.fromEntries(row.optionsText.split(',').map((part) => {
+            const [key, ...value] = part.split('=')
+            return [key.trim(), value.join('=').trim()] as [string, string]
+          }).filter(([key, value]) => key && value)),
+          sku: row.sku.trim() || null,
+          price: row.price.trim() ? Number(row.price) : null,
+          stockQuantity: row.stockQuantity.trim() ? Number(row.stockQuantity) : null,
+          trackInventory: row.trackInventory,
+          availabilityStatus: row.availabilityStatus,
+          photos: row.photos,
+        })),
+      })
       await queryClient.invalidateQueries({ queryKey: ['listings'] })
       await queryClient.invalidateQueries({ queryKey: ['listing', id] })
       await queryClient.invalidateQueries({ queryKey: ['my-listings'] })
@@ -810,6 +847,64 @@ export function EditListingForm({ id }: { id: string }) {
       <Field label="Description" htmlFor="e-desc" error={errors.description} hint={`${form.description.length}/2000`}>
         <Textarea id="e-desc" value={form.description} onChange={(e) => set('description', e.target.value)} rows={5} maxLength={2000} required />
       </Field>
+
+      {loaded.type === 'OFFER' ? (
+        <section className="space-y-3 rounded-lg border bg-secondary/25 p-3.5" aria-label="Product options">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold">Product options</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Add sizes, colours, storage, materials or any combination. Leave this empty for a product with one standard option.</p>
+            </div>
+            <Button type="button" size="sm" variant="outline" onClick={() => setVariantRows((rows) => [...rows, {
+              label: '', optionsText: '', sku: '', price: '', stockQuantity: '', trackInventory: false,
+              availabilityStatus: 'UNKNOWN', photos: [],
+            }])}>Add option</Button>
+          </div>
+          {variantRows.map((row, index) => (
+            <div key={index} className="space-y-2 rounded-md border bg-card p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-muted-foreground">OPTION {index + 1}</p>
+                <button type="button" className="text-xs text-destructive" onClick={() => setVariantRows((rows) => rows.filter((_, i) => i !== index))}>Remove</button>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Field label="Display label" htmlFor={`variant-label-${index}`}>
+                  <Input id={`variant-label-${index}`} value={row.label} placeholder="e.g. Black · 256 GB" onChange={(e) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, label: e.target.value } : item))} maxLength={120} />
+                </Field>
+                <Field label="Options (Name=Value)" htmlFor={`variant-options-${index}`} hint="Separate multiple with commas">
+                  <Input id={`variant-options-${index}`} value={row.optionsText} placeholder="Colour=Black, Storage=256 GB" onChange={(e) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, optionsText: e.target.value } : item))} />
+                </Field>
+                <Field label="SKU (optional)" htmlFor={`variant-sku-${index}`}>
+                  <Input id={`variant-sku-${index}`} value={row.sku} onChange={(e) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, sku: e.target.value } : item))} maxLength={64} />
+                </Field>
+                <Field label={`Price (${form.currency}) · blank uses product price`} htmlFor={`variant-price-${index}`}>
+                  <Input id={`variant-price-${index}`} type="number" min="0" step="any" value={row.price} onChange={(e) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, price: e.target.value } : item))} />
+                </Field>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={row.trackInventory} onCheckedChange={(checked) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, trackInventory: checked === true } : item))} />
+                Track stock for this option
+              </label>
+              {row.trackInventory ? (
+                <Field label="Units in stock" htmlFor={`variant-stock-${index}`}>
+                  <Input id={`variant-stock-${index}`} type="number" min="0" step="any" value={row.stockQuantity} onChange={(e) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, stockQuantity: e.target.value } : item))} />
+                </Field>
+              ) : (
+                <Field label="Availability (seller reported)" htmlFor={`variant-status-${index}`}>
+                  <select id={`variant-status-${index}`} value={row.availabilityStatus} onChange={(e) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, availabilityStatus: e.target.value as VariantEditorRow['availabilityStatus'] } : item))} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+                    <option value="UNKNOWN">Not confirmed</option>
+                    <option value="IN_STOCK">In stock</option>
+                    <option value="AVAILABLE_ON_ORDER">Available on order</option>
+                    <option value="OUT_OF_STOCK">Out of stock</option>
+                  </select>
+                </Field>
+              )}
+              <Field label="Option photos" htmlFor={`variant-photos-${index}`} hint="Optional · up to 4">
+                <PhotoPicker value={row.photos} onChange={(photos) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, photos } : item))} max={4} />
+              </Field>
+            </div>
+          ))}
+        </section>
+      ) : null}
 
       <Field label="Photos" htmlFor="e-photos" hint="Real photos get more calls">
         <PhotoPicker value={form.photos} onChange={(photos) => set('photos', photos)} max={4} />
