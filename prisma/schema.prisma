@@ -668,6 +668,7 @@ model CommerceOrderItem {
   unitPrice         Decimal         @db.Decimal(14, 2)
   lineTotal         Decimal         @db.Decimal(14, 2)
   createdAt         DateTime        @default(now())
+  reservations      StockReservation[]
 
   @@index([orderId])
   @@index([listingId])
@@ -680,6 +681,7 @@ model StockReservation {
   orderId           String
   order             CommerceOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderItemId       String
+  orderItem         CommerceOrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
   businessProductId String?
   businessProduct   BusinessProduct? @relation(fields: [businessProductId], references: [id], onDelete: Restrict)
   variantId         String?
