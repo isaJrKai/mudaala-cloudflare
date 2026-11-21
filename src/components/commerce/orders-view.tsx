@@ -73,7 +73,7 @@ export function OrdersView() {
     retry: false,
   })
 
-  async function act(action: 'ACCEPT' | 'REJECT' | 'MARK_PAID' | 'PROCESSING' | 'READY' | 'OUT_FOR_DELIVERY' | 'COMPLETE') {
+  async function act(action: 'ACCEPT' | 'REJECT' | 'CANCEL' | 'MARK_PAID' | 'PROCESSING' | 'READY' | 'OUT_FOR_DELIVERY' | 'COMPLETE') {
     if (!selectedId) return
     setBusy(true)
     try {
@@ -85,7 +85,7 @@ export function OrdersView() {
         queryClient.invalidateQueries({ queryKey: ['commerce-orders'] }),
         queryClient.invalidateQueries({ queryKey: ['commerce-order', selectedId] }),
       ])
-      toast({ title: action === 'ACCEPT' ? 'Order accepted' : action === 'REJECT' ? 'Order declined' : action === 'MARK_PAID' ? 'Payment recorded' : 'Order updated' })
+      toast({ title: action === 'ACCEPT' ? 'Order accepted' : action === 'REJECT' ? 'Order declined' : action === 'CANCEL' ? 'Order cancelled' : action === 'MARK_PAID' ? 'Payment recorded' : 'Order updated' })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not update this order.'
       toast({ title: 'Order update failed', description: message, variant: 'destructive' })
@@ -140,6 +140,12 @@ export function OrdersView() {
         {order.deliveryEstimate ? <section className="rounded-xl border bg-card p-4"><h2 className="flex items-center gap-2 font-semibold"><Truck className="size-4" /> Delivery estimate</h2><p className="mt-1 text-sm text-muted-foreground">{order.deliveryEstimate.optionName ?? 'Seller delivery'} · {order.deliveryEstimate.minDays}–{order.deliveryEstimate.maxDays} days · Estimate only, seller confirms availability</p>{order.deliveryAddress ? <p className="mt-2 text-sm">{order.deliveryAddress.addressLine}, {order.deliveryAddress.area ? order.deliveryAddress.area + ', ' : ''}{order.deliveryAddress.district}</p> : null}</section> : null}
         {order.buyerNote ? <p className="rounded-lg bg-secondary/40 p-3 text-sm">Buyer note: {order.buyerNote}</p> : null}
         {order.sellerNote ? <p className="rounded-lg bg-secondary/40 p-3 text-sm">Seller note: {order.sellerNote}</p> : null}
+        {order.role === 'BUYER' && order.status === 'PENDING_SELLER' ? (
+          <section className="rounded-xl border bg-card p-4">
+            <Button variant="outline" className="w-full" disabled={busy} onClick={() => void act('CANCEL')}>Cancel order</Button>
+            <p className="mt-2 text-xs text-muted-foreground">You can cancel while the seller has not accepted. The temporary stock reservation will be released.</p>
+          </section>
+        ) : null}
         {order.role === 'SELLER' ? (
           <section className="space-y-2 rounded-xl border bg-card p-4">
             <h2 className="font-semibold">Manage order</h2>
