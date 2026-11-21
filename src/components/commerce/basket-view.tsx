@@ -459,7 +459,7 @@ function BasketShopSection({
                 <SelectItem value="none">Arrange collection directly with seller</SelectItem>
                 {deliveryQuery.data.options.map((option) => (
                   <SelectItem key={option.id} value={option.id}>
-                    {option.name} · {option.fee === 0 ? 'Free' : formatPrice(option.fee, null, 'UGX')} · {option.minDays}–{option.maxDays} days
+                    {option.name} · {option.fee === 0 ? 'Free' : formatPrice(option.fee, null, 'UGX')} · {option.minDays}-{option.maxDays} days
                   </SelectItem>
                 ))}
               </SelectContent>
