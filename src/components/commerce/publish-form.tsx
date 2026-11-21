@@ -894,7 +894,7 @@ export function EditListingForm({ id }: { id: string }) {
                 </Field>
               </div>
               <Field label="Connect to stock ledger" htmlFor={`variant-inventory-${index}`} hint="Choose the merchant inventory record used for automatic reservations and deductions.">
-                <Select value={row.businessProductId || 'none'} onValueChange={(value) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, businessProductId: value === 'none' ? '' : value } : item))}>
+                <Select value={row.businessProductId || 'none'} onValueChange={(value) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, businessProductId: value === 'none' ? '' : value, trackInventory: value === 'none' ? item.trackInventory : true } : item))}>
                   <SelectTrigger id={`variant-inventory-${index}`}><SelectValue placeholder="Not connected" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Not connected</SelectItem>
