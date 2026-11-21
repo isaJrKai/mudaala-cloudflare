@@ -183,8 +183,8 @@ export async function POST(request: Request) {
         if (group.some((line) => line.listing.currency !== currency)) throw new ApiError(400, 'A single seller order must use one currency.')
         const subtotal = group.reduce((sum, line) => sum + line.price * line.item.quantity, 0)
         const deliveryFee = deliveryOption ? Number(deliveryOption.fee) : 0
-        if (deliveryOption && deliveryOption.method !== 'PICKUP' && !body.deliveryAddress) {
-          throw new ApiError(400, 'Enter a delivery address for this seller.')
+        if (deliveryOption && deliveryOption.method !== 'PICKUP' && (!body.deliveryAddress || !body.deliveryAddress.contactPhone)) {
+          throw new ApiError(400, 'Enter a delivery address and contact phone for this seller.')
         }
         if (deliveryOption?.district && body.deliveryAddress?.district.toLowerCase() !== deliveryOption.district.toLowerCase()) {
           throw new ApiError(400, 'This delivery option does not cover the selected district.')
