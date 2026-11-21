@@ -145,7 +145,7 @@ $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."ListingVariant" TO mudaala_runtime;
 CREATE POLICY mudaala_runtime_access ON public."ListingVariant" FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
 
-DO $
+DO $commerce_policies$
 DECLARE table_name TEXT;
 BEGIN
   FOREACH table_name IN ARRAY ARRAY['CommerceOrder','CommerceOrderItem','StockReservation','DeliveryOption'] LOOP
@@ -155,7 +155,7 @@ BEGIN
     EXECUTE format('CREATE POLICY mudaala_runtime_access ON public.%I FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true)', table_name);
   END LOOP;
 END
-$$;
+$commerce_policies$;
 
 ALTER TABLE "StockReservation" ADD CONSTRAINT "StockReservation_orderItemId_fkey" FOREIGN KEY ("orderItemId") REFERENCES "CommerceOrderItem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
