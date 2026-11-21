@@ -171,6 +171,44 @@ export async function PATCH(request: Request, context: Context) {
             paymentReference: body.paymentReference?.trim() || null,
           },
         })
+        const existingSale = await tx.sale.findUnique({ where: { commerceOrderId: order.id } })
+        if (!existingSale) {
+          const productIds = [...new Set(order.items.map((item) => item.businessProductId).filter((value): value is string => Boolean(value)))]
+          const products = productIds.length
+            ? await tx.businessProduct.findMany({ where: { id: { in: productIds }, userId: seller.id } })
+            : []
+          const productsById = new Map(products.map((product) => [product.id, product]))
+          const sale = await tx.sale.create({
+            data: {
+              userId: seller.id,
+              commerceOrderId: order.id,
+              idempotencyKey: 'mudaala-order:' + order.id,
+              channel: 'MUDAALA',
+              currency: order.currency,
+              soldAt: now,
+              notes: 'Paid Mudaala order ' + order.orderNumber,
+              items: {
+                create: order.items.map((item) => ({
+                  productId: item.businessProductId ?? null,
+                  listingId: item.listingId,
+                  variantId: item.variantId,
+                  productName: item.productTitle,
+                  unit: item.unit ?? 'piece',
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                  unitCost: item.businessProductId && productsById.get(item.businessProductId)?.costPrice
+                    ? productsById.get(item.businessProductId)!.costPrice
+                    : null,
+                  lineTotal: item.lineTotal,
+                })),
+              },
+            },
+          })
+          await tx.stockMovement.updateMany({
+            where: { orderId: order.id, saleId: null },
+            data: { saleId: sale.id },
+          })
+        }
         await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_PAYMENT_CONFIRMED', category: 'SYSTEM', priority: 'NORMAL', title: 'Payment confirmed by seller', body: 'The seller recorded payment for order ' + order.orderNumber + '.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-payment:' + order.id } })
         return paid
       }
