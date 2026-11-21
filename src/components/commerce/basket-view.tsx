@@ -139,7 +139,7 @@ export function useRemoveLine() {
 }
 
 export function BasketView() {
-  const { navigate, setAuthOpen } = useAppStore()
+  const { navigate } = useAppStore()
   const basket = useBasket()
   const shopIds = Object.keys(basket.lines)
 
@@ -255,7 +255,7 @@ function BasketShopSection({
   shop: BasketShopInfo
   lines: Record<string, BasketLineInfo>
 }) {
-  const { navigate } = useAppStore()
+  const { navigate, setAuthOpen } = useAppStore()
   const basket = useBasket()
   const done = isShopDone(basket, shopId)
   const removeLine = useRemoveLine()
