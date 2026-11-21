@@ -23,6 +23,7 @@ import { ErrorState } from './listings-browse'
 import { BusinessRecordsPanel } from './business-records-panel'
 import { BusinessInsightsPanel } from './business-insights-panel'
 import { ProductCollectionsManager } from './product-collections-manager'
+import { DeliveryOptionsPanel } from './delivery-options-panel'
 
 function MetricCard({
   label,
@@ -298,6 +299,7 @@ export function BusinessDashboard() {
         {moreToolsOpen ? (
           <div className="space-y-6 border-t border-border/70 p-4 sm:p-5">
             <ProductCollectionsManager />
+            <DeliveryOptionsPanel />
             <BusinessInsightsPanel />
             <BusinessRecordsPanel />
           </div>
