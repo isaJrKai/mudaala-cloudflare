@@ -14,9 +14,10 @@ The existing `BusinessProduct` + `StockMovement` records remain the inventory so
 4. **No double count:** the inventory balance decrement and append-only movement insert are atomic.
 5. **Expired holds release:** the authenticated cron sweep expires unconfirmed orders and releases their HELD reservations. Expired holds are excluded from available-stock calculations even if a sweep is delayed.
 6. **Order snapshots:** order items retain product, option, SKU, photo, unit, quantity and price snapshots.
-7. **Seller boundaries:** a multi-seller basket creates one order per seller. A seller can only read or transition their own orders; buyers can only read their own.
-8. **Payment honesty:** direct-to-merchant payments are not verified by Mudaala. A seller records payment only after checking their own MTN MoMo/Airtel Money/cash receipt.
-9. **Delivery honesty:** merchant delivery options carry an estimate, not a guaranteed arrival promise. The seller confirms fulfilment.
+7. **Paid sale records:** seller-confirmed payment creates one idempotent Sale with item snapshots; pending/unpaid orders do not inflate sales reporting. Linked stock movements attach to that Sale.
+8. **Seller boundaries:** a multi-seller basket creates one order per seller. A seller can only read or transition their own orders; buyers can only read their own.
+9. **Payment honesty:** direct-to-merchant payments are not verified by Mudaala. A seller records payment only after checking their own MTN MoMo/Airtel Money/cash receipt.
+10. **Delivery honesty:** merchant delivery options carry an estimate, not a guaranteed arrival promise. The seller confirms fulfilment.
 
 ## Initial backend surface
 
@@ -35,6 +36,7 @@ The existing `BusinessProduct` + `StockMovement` records remain the inventory so
 - `DeliveryOption`: seller-defined pickup/delivery methods, area, fee and ETA range.
 - `BusinessProduct.listingVariantId`: explicit bridge from a public variant to the existing stock ledger.
 - `StockMovement.orderId` + `idempotencyKey`: order-linked, idempotent stock audit trail.
+- `Sale.commerceOrderId` and nullable/listing-aware `SaleItem` links: seller-confirmed paid orders appear in existing sales reports without requiring every public listing to have a stock record.
 
 The migration is additive and applies the same server-only RLS model as existing business records. It is not to be applied to production until review and validation pass.
 
