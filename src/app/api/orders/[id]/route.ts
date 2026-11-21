@@ -24,7 +24,7 @@ export async function GET(_request: Request, context: Context) {
       include: {
         items: true,
         reservations: true,
-        seller: { select: { profile: { select: { businessName: true, phone: true, whatsapp: true } } } },
+        seller: { select: { profile: { select: { businessName: true, phone: true, whatsapp: true, momoMerchantCode: true, momoNetwork: true, momoMerchantName: true } } } },
         buyer: { select: { name: true } },
       },
     })
