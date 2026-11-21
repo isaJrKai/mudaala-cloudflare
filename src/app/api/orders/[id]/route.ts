@@ -79,6 +79,8 @@ export async function PATCH(request: Request, context: Context) {
     const body = await parseBody(request, actionSchema)
 
     const result = await db.$transaction(async (tx) => {
+      // Serialize seller actions against the expiry sweep for this order.
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "CommerceOrder" WHERE "id" = ${id} FOR UPDATE`)
       const order = await tx.commerceOrder.findFirst({
         where: { id, sellerId: seller.id },
         include: { reservations: true, items: true },
