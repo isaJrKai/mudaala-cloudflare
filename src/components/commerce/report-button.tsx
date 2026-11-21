@@ -9,16 +9,20 @@
 import { useState } from 'react'
 import { Check, ChevronDown, Flag, Loader2 } from 'lucide-react'
 import { REPORT_REASON_LABELS, REPORT_REASONS, type ReportReason } from '@/lib/constants'
+import { composeReportDetails, reportDetailsRoom } from '@/lib/report-details'
 
 interface ReportButtonProps {
   targetType: 'LISTING' | 'SHOP'
   targetId: string
-  noun?: 'ad' | 'shop'
+  noun?: 'ad' | 'shop' | 'tag'
+  // Short note moderators see first, e.g. that the report came from a tap-to-shop tag.
+  contextNote?: string
 }
 
 type Phase = 'idle' | 'open' | 'sending' | 'sent'
 
-export function ReportButton({ targetType, targetId, noun = 'ad' }: ReportButtonProps) {
+export function ReportButton({ targetType, targetId, noun = 'ad', contextNote }: ReportButtonProps) {
+  const room = reportDetailsRoom(contextNote)
   const [phase, setPhase] = useState<Phase>('idle')
   const [reason, setReason] = useState<ReportReason | null>(null)
   const [details, setDetails] = useState('')
@@ -35,7 +39,7 @@ export function ReportButton({ targetType, targetId, noun = 'ad' }: ReportButton
       const res = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ targetType, targetId, reason, details: details.trim() || null }),
+        body: JSON.stringify({ targetType, targetId, reason, details: composeReportDetails(details, contextNote) }),
       })
       const json = await res.json().catch(() => null)
       if (res.status === 201) {
@@ -97,14 +101,14 @@ export function ReportButton({ targetType, targetId, noun = 'ad' }: ReportButton
           <textarea
             value={details}
             onChange={(e) => setDetails(e.target.value)}
-            maxLength={500}
+            maxLength={room}
             rows={2}
             placeholder="Anything the team should know? (optional)"
             aria-label="Extra details (optional)"
             className="mt-2.5 w-full rounded-md border bg-card p-2 text-[13px] outline-none focus:ring-2 focus:ring-ring"
           />
           <div className="mt-1 flex items-center justify-between">
-            <span className="text-[11px] text-muted-foreground">{details.length}/500</span>
+            <span className="text-[11px] text-muted-foreground">{details.length}/{room}</span>
             <button
               type="button"
               onClick={send}
