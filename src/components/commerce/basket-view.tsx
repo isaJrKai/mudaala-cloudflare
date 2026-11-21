@@ -264,6 +264,7 @@ function BasketShopSection({
   const removeLine = useRemoveLine()
   const [payOpen, setPayOpen] = useState(false)
   const [placingOrder, setPlacingOrder] = useState(false)
+  const [checkoutKey, setCheckoutKey] = useState<{ fingerprint: string; key: string } | null>(null)
   const [selectedDeliveryOptionId, setSelectedDeliveryOptionId] = useState('none')
   const [deliveryDistrict, setDeliveryDistrict] = useState('')
   const [deliveryArea, setDeliveryArea] = useState('')
@@ -484,13 +485,23 @@ function BasketShopSection({
             onClick={async () => {
               setPlacingOrder(true)
               try {
+                const fingerprint = JSON.stringify({
+                  items: sendable.map(([, line]) => ({ listingId: line.listingId, variantId: line.variantId ?? null, quantity: line.qty })),
+                  deliveryOptionId: selectedDeliveryOptionId,
+                  deliveryDistrict,
+                  deliveryArea,
+                  deliveryAddressLine,
+                  deliveryContactPhone,
+                })
+                const idempotencyKey = checkoutKey?.fingerprint === fingerprint ? checkoutKey.key : crypto.randomUUID()
+                setCheckoutKey({ fingerprint, key: idempotencyKey })
                 const response = await apiPost<{ orders: Array<{ orderNumber: string; total: number; currency: string }> }>('/api/orders', {
                   items: sendable.map(([, line]) => ({
                     listingId: line.listingId,
                     ...(line.variantId ? { variantId: line.variantId } : {}),
                     quantity: line.qty,
                   })),
-                  idempotencyKey: crypto.randomUUID(),
+                  idempotencyKey,
                   ...(selectedDeliveryOptionId !== 'none' ? { deliveryOptions: { [shopId]: selectedDeliveryOptionId } } : {}),
                   ...(deliveryNeedsAddress ? { deliveryAddress: {
                     district: selectedDeliveryOption?.district || deliveryDistrict.trim(),
@@ -500,6 +511,7 @@ function BasketShopSection({
                   } } : {}),
                 })
                 removeShop(shopId)
+                setCheckoutKey(null)
                 toast({
                   title: 'Order sent to ' + shop.name,
                   description: response.orders.map((order) => order.orderNumber).join(', ') + ' · The seller has 20 minutes to confirm availability.',
