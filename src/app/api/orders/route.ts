@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       const product = variant
         ? variant.businessProduct
         : listing.businessProducts.find((entry) => entry.listingId === listing.id) ?? null
-      if (variant?.trackInventory && !product) {
+      if (variant?.trackInventory && (!product || !product.trackInventory)) {
         throw new ApiError(409, 'This option is not yet connected to the seller’s stock records. Contact the seller before ordering.')
       }
       if (product?.trackInventory === false) {
@@ -86,8 +86,9 @@ export async function POST(request: Request) {
     }
 
     const result = await db.$transaction(async (tx) => {
+      const expectedKeys = [...bySeller.keys()].map((sellerId) => body.idempotencyKey + ':' + sellerId)
       const orders = await tx.commerceOrder.findMany({
-        where: { buyerId: buyer.id, idempotencyKey: { startsWith: body.idempotencyKey + ':' } },
+        where: { buyerId: buyer.id, idempotencyKey: { in: expectedKeys } },
         include: { items: true },
       })
       if (orders.length) return { orders, replayed: true }
@@ -104,6 +105,10 @@ export async function POST(request: Request) {
         await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "BusinessProduct" WHERE "id" IN (${Prisma.join(productIds)}) FOR UPDATE`)
       }
 
+      const lockedProducts = productIds.length
+        ? await tx.businessProduct.findMany({ where: { id: { in: productIds }, archived: false, userId: { in: [...bySeller.keys()] } } })
+        : []
+      const lockedById = new Map(lockedProducts.map((product) => [product.id, product]))
       const heldByProduct = new Map<string, number>()
       for (const productId of productIds) {
         const held = await tx.stockReservation.aggregate({
@@ -113,8 +118,8 @@ export async function POST(request: Request) {
         heldByProduct.set(productId, Number(held._sum.quantity ?? 0))
       }
       for (const [productId, requested] of productTotals) {
-        const product = [...bySeller.values()].flat().find((line) => line.product?.id === productId)?.product
-        if (!product) continue
+        const product = lockedById.get(productId)
+        if (!product) throw new ApiError(409, 'A seller inventory record changed. Please refresh and try again.')
         const available = Number(product.stockOnHand) - (heldByProduct.get(productId) ?? 0)
         if (available + 0.000001 < requested) {
           throw new ApiError(409, 'There is not enough available stock for ' + product.name + '. Please reduce the quantity or contact the seller.')
