@@ -968,6 +968,9 @@ model ListingVariant {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   enquiries         Enquiry[]
+  businessProduct    BusinessProduct?
+  orderItems         CommerceOrderItem[]
+  reservations       StockReservation[]
 
   @@unique([listingId, sku])
   @@index([listingId, sortOrder])
