@@ -14,6 +14,13 @@ const checkoutSchema = z.object({
       .refine((value) => Math.round(value * 1000) === value * 1000, 'Quantity must have at most three decimal places'),
   })).min(1).max(100),
   deliveryOptionId: z.string().trim().min(1).max(128).optional(),
+  deliveryOptions: z.record(z.string(), z.string().trim().min(1).max(128)).optional(),
+  deliveryAddress: z.object({
+    district: z.string().trim().min(1).max(80),
+    area: z.string().trim().max(100).optional(),
+    addressLine: z.string().trim().min(3).max(240),
+    contactPhone: z.string().trim().max(32).optional(),
+  }).optional(),
   buyerNote: z.string().trim().max(1000).optional(),
   idempotencyKey: z.string().trim().min(8).max(128),
 })
@@ -103,6 +110,7 @@ export async function POST(request: Request) {
       const product = variant
         ? variant.businessProduct
         : listing.businessProducts.find((entry) => entry.listingId === listing.id) ?? null
+      if (product && product.userId !== listing.userId) throw new ApiError(409, 'The seller inventory link is invalid. Contact the seller.')
       if (variant?.trackInventory && (!product || !product.trackInventory)) {
         throw new ApiError(409, 'This option is not yet connected to the seller’s stock records. Contact the seller before ordering.')
       }
@@ -158,9 +166,10 @@ export async function POST(request: Request) {
       const createdOrders = []
       for (const [sellerId, group] of bySeller) {
         let deliveryOption: { id: string; name: string; method: string; fee: Prisma.Decimal; minDays: number; maxDays: number; district: string | null; area: string | null } | null = null
-        if (body.deliveryOptionId) {
+        const selectedDeliveryOptionId = body.deliveryOptions?.[sellerId] ?? (bySeller.size === 1 ? body.deliveryOptionId : undefined)
+        if (selectedDeliveryOptionId) {
           deliveryOption = await tx.deliveryOption.findFirst({
-            where: { id: body.deliveryOptionId, sellerId, isActive: true },
+            where: { id: selectedDeliveryOptionId, sellerId, isActive: true },
           })
           if (!deliveryOption) throw new ApiError(400, 'The selected delivery option is no longer available for this seller.')
         }
@@ -168,6 +177,12 @@ export async function POST(request: Request) {
         if (group.some((line) => line.listing.currency !== currency)) throw new ApiError(400, 'A single seller order must use one currency.')
         const subtotal = group.reduce((sum, line) => sum + line.price * line.item.quantity, 0)
         const deliveryFee = deliveryOption ? Number(deliveryOption.fee) : 0
+        if (deliveryOption && deliveryOption.method !== 'PICKUP' && !body.deliveryAddress) {
+          throw new ApiError(400, 'Enter a delivery address for this seller.')
+        }
+        if (deliveryOption?.district && body.deliveryAddress?.district.toLowerCase() !== deliveryOption.district.toLowerCase()) {
+          throw new ApiError(400, 'This delivery option does not cover the selected district.')
+        }
         const order = await tx.commerceOrder.create({
           data: {
             orderNumber: orderNumber(),
@@ -179,6 +194,7 @@ export async function POST(request: Request) {
             deliveryFee: deliveryFee.toFixed(2),
             total: (subtotal + deliveryFee).toFixed(2),
             deliveryMethod: deliveryOption?.method ?? 'PICKUP',
+            deliveryAddress: body.deliveryAddress ? body.deliveryAddress : undefined,
             deliveryEstimate: deliveryOption ? {
               optionId: deliveryOption.id,
               optionName: deliveryOption.name,
