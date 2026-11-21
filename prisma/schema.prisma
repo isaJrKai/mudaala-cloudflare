@@ -87,6 +87,11 @@ model User {
   phoneVerificationChallenges PhoneVerificationChallenge[]
   appealPhoneVerificationChallenges AppealPhoneVerificationChallenge[]
   emailAuthChallenges EmailAuthChallenge[]
+  affiliateOffers AffiliateOffer[] @relation("AffiliateOfferMerchant")
+  mvpPartnerships AffiliatePartnership[] @relation("AffiliatePartnershipMVP")
+  affiliateConversionsAsMerchant AffiliateConversion[] @relation("AffiliateConversionMerchant")
+  affiliateConversionsAsMVP AffiliateConversion[] @relation("AffiliateConversionMVP")
+  affiliateConversionEvents AffiliateConversionEvent[] @relation("AffiliateConversionActor")
 }
 
 // Products a shop can showcase beyond its current stock. These records are
@@ -231,6 +236,8 @@ model Listing {
   enquiries Enquiry[]
   telegramContactTokens EnquiryContactToken[]
   variants ListingVariant[]
+  affiliateOffers AffiliateOffer[]
+  affiliateConversions AffiliateConversion[]
 }
 
 // Shop-owned curated groups for seasonal edits, new arrivals and themed collections.
@@ -467,6 +474,132 @@ model PriceSnapshot {
   @@index([category, unit, currency])
 }
 
+
+
+// Mudaala Most Valuable Partner (MVP) network. These are single-level,
+// product-specific commercial relationships; no inventory is owned by the MVP.
+model AffiliateOffer {
+  id                    String   @id @default(cuid())
+  merchantId            String
+  merchant              User     @relation("AffiliateOfferMerchant", fields: [merchantId], references: [id], onDelete: Cascade)
+  listingId             String
+  listing               Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  commissionType        String   // PERCENT | FIXED_PER_UNIT
+  commissionValue       Decimal  @db.Decimal(14, 2)
+  currency              String   @default("UGX")
+  status                String   @default("ACTIVE") // ACTIVE | PAUSED | ENDED
+  applicationMode       String   @default("APPROVAL") // OPEN | APPROVAL
+  attributionWindowDays Int      @default(14)
+  termsText             String   @default("")
+  startsAt              DateTime?
+  endsAt                DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  partnerships AffiliatePartnership[]
+  conversions  AffiliateConversion[]
+
+  @@index([merchantId, status, updatedAt])
+  @@index([listingId, status])
+  @@index([status, startsAt, endsAt])
+}
+
+model AffiliatePartnership {
+  id                       String   @id @default(cuid())
+  offerId                  String
+  offer                    AffiliateOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  mvpId                    String
+  mvp                      User     @relation("AffiliatePartnershipMVP", fields: [mvpId], references: [id], onDelete: Cascade)
+  status                   String   @default("PENDING") // PENDING | APPROVED | REJECTED | PAUSED | REVOKED
+  acceptedCommissionType   String
+  acceptedCommissionValue  Decimal  @db.Decimal(14, 2)
+  acceptedCurrency         String
+  acceptedTermsText        String   @default("")
+  acceptedAt               DateTime?
+  revokedAt                DateTime?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  referral    AffiliateReferral?
+  conversions AffiliateConversion[]
+
+  @@unique([offerId, mvpId])
+  @@index([mvpId, status, updatedAt])
+  @@index([offerId, status, createdAt])
+}
+
+model AffiliateReferral {
+  id             String   @id @default(cuid())
+  partnershipId  String   @unique
+  partnership    AffiliatePartnership @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  code           String   @unique
+  clickCount     Int      @default(0)
+  lastClickedAt  DateTime?
+  createdAt      DateTime @default(now())
+
+  enquiries  Enquiry[]
+  conversions AffiliateConversion[]
+
+  @@index([createdAt])
+}
+
+model AffiliateConversion {
+  id                       String   @id @default(cuid())
+  referralId               String
+  referral                 AffiliateReferral @relation(fields: [referralId], references: [id], onDelete: Restrict)
+  partnershipId            String
+  partnership              AffiliatePartnership @relation(fields: [partnershipId], references: [id], onDelete: Restrict)
+  offerId                  String
+  offer                    AffiliateOffer @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  merchantId               String
+  merchant                 User     @relation("AffiliateConversionMerchant", fields: [merchantId], references: [id], onDelete: Cascade)
+  mvpId                    String
+  mvp                      User     @relation("AffiliateConversionMVP", fields: [mvpId], references: [id], onDelete: Cascade)
+  listingId                String
+  listing                  Listing  @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  enquiryId                String?
+  enquiry                  Enquiry? @relation(fields: [enquiryId], references: [id], onDelete: SetNull)
+  merchantOrderReference   String?
+  idempotencyKey           String   @unique
+  quantity                 Decimal  @db.Decimal(14, 3)
+  productSubtotal          Decimal  @db.Decimal(14, 2)
+  commissionAmount         Decimal  @db.Decimal(14, 2)
+  currency                 String
+  commissionTypeSnapshot   String
+  commissionValueSnapshot  Decimal  @db.Decimal(14, 2)
+  status                   String   @default("PENDING") // PENDING | CLEARED | PAID | DISPUTED | REVERSED
+  confirmedAt              DateTime @default(now())
+  clearedAt                DateTime?
+  paidAt                   DateTime?
+  paymentChannel           String?
+  paymentReference          String?
+  statusReason             String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  events AffiliateConversionEvent[]
+
+  @@unique([merchantId, merchantOrderReference])
+  @@index([merchantId, status, createdAt])
+  @@index([mvpId, status, createdAt])
+  @@index([referralId, createdAt])
+  @@index([enquiryId])
+}
+
+model AffiliateConversionEvent {
+  id           String   @id @default(cuid())
+  conversionId String
+  conversion   AffiliateConversion @relation(fields: [conversionId], references: [id], onDelete: Cascade)
+  actorId      String?
+  actor        User?    @relation("AffiliateConversionActor", fields: [actorId], references: [id], onDelete: SetNull)
+  eventType    String // CONFIRMED | CLEARED | PAID | DISPUTED | REVERSED
+  reason       String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([conversionId, createdAt])
+  @@index([actorId, createdAt])
+}
 
 // A buyer follows a shop to keep that seller in their personal market.
 // The relationship is unique: one buyer can follow a shop once.
@@ -866,6 +999,8 @@ model Enquiry {
   variantId          String?
   variant            ListingVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
   variantSnapshot    Json?
+  affiliateReferralId String?
+  affiliateReferral   AffiliateReferral? @relation(fields: [affiliateReferralId], references: [id], onDelete: SetNull)
   merchant           User     @relation("EnquiryMerchant", fields: [merchantId], references: [id], onDelete: Cascade)
   shopper            User?    @relation("EnquiryShopper", fields: [shopperId], references: [id], onDelete: SetNull)
   messages           EnquiryMessage[]
@@ -875,6 +1010,7 @@ model Enquiry {
   @@index([buyerTelegramHash, status, lastMessageAt])
   @@index([listingId, createdAt])
   @@index([variantId])
+  @@index([affiliateReferralId])
 }
 
 // Message bodies are visible only to the two participants. Delivery state is
