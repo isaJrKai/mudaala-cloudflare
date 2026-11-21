@@ -111,6 +111,7 @@ export async function POST(request: Request) {
         ? variant.businessProduct
         : listing.businessProducts.find((entry) => entry.listingId === listing.id) ?? null
       if (product && product.userId !== listing.userId) throw new ApiError(409, 'The seller inventory link is invalid. Contact the seller.')
+      if (variant && product && variant.trackInventory !== product.trackInventory) throw new ApiError(409, 'The seller must align this option’s stock tracking with its linked inventory record.')
       if (variant?.trackInventory && (!product || !product.trackInventory)) {
         throw new ApiError(409, 'This option is not yet connected to the seller’s stock records. Contact the seller before ordering.')
       }
@@ -139,7 +140,7 @@ export async function POST(request: Request) {
       const productIds = [...productTotals.keys()]
       if (productIds.length) {
         // Serialize competing checkouts against the same inventory rows.
-        await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "BusinessProduct" WHERE "id" IN (${Prisma.join(productIds)}) FOR UPDATE`)
+        await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "BusinessProduct" WHERE "id" IN (${Prisma.join(productIds)}) ORDER BY "id" FOR UPDATE`)
       }
 
       const lockedProducts = productIds.length
