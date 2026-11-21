@@ -139,7 +139,13 @@ BEGIN
 END
 $$;
 
-DO $$
+-- The previous variants migration enabled RLS but did not add the trusted
+-- Worker role's allow policy. Add it here so variant-backed checkout can read
+-- and manage variants through the restricted runtime connection.
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."ListingVariant" TO mudaala_runtime;
+CREATE POLICY mudaala_runtime_access ON public."ListingVariant" FOR ALL TO mudaala_runtime USING (true) WITH CHECK (true);
+
+DO $
 DECLARE table_name TEXT;
 BEGIN
   FOREACH table_name IN ARRAY ARRAY['CommerceOrder','CommerceOrderItem','StockReservation','DeliveryOption'] LOOP
