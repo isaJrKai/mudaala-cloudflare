@@ -22,6 +22,7 @@ export type ViewName =
   | 'messages'
   | 'following'
   | 'business'
+  | 'orders'
 
 export interface View {
   name: ViewName
@@ -100,13 +101,15 @@ export function viewToHash(view: View): string {
       return '#/following'
     case 'business':
       return '#/business'
+    case 'orders':
+      return '#/orders'
   }
 }
 
 export function hashToView(hash: string): View {
   const parts = hash.replace(/^#\/?/, '').split('/')
   const [name, id] = parts
-  const valid: ViewName[] = ['home', 'browse', 'listing', 'shop', 'basket', 'publish', 'edit', 'my-listings', 'saved', 'notifications', 'account', 'settings', 'enquiries', 'messages', 'following', 'business']
+  const valid: ViewName[] = ['home', 'browse', 'listing', 'shop', 'basket', 'publish', 'edit', 'my-listings', 'saved', 'notifications', 'account', 'settings', 'enquiries', 'messages', 'following', 'business', 'orders']
   if (valid.includes(name as ViewName)) {
     if ((name === 'listing' || name === 'edit' || name === 'shop') && !id) return { name: 'browse' }
     return { name: name as ViewName, id }
