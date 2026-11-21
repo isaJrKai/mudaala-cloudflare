@@ -77,6 +77,7 @@ model User {
   productCollections ProductCollection[]
   showroomItems    ShowroomItem[]
   showrooms        ShopShowroom[]
+  shopTags         ShopTag[]
   sales           Sale[]
   stockMovements  StockMovement[]
   listingDailyAnalytics ListingDailyAnalytics[]
@@ -943,4 +944,36 @@ model ShopShowroom {
 
   @@index([userId, status, updatedAt])
   @@index([status, publishedAt])
+}
+
+
+// A physical NFC sticker/tag (or its QR twin) that opens the seller's shop.
+// The tag stores ONLY a Mudaala link (/s/MD-XXXX?t=<tagCode>) - never a payment
+// number. tagCode is random and unguessable; rotating it retires a lost,
+// copied or tampered tag without touching the permanent shop code. Labels are
+// private to the seller. No buyer data is stored: taps are daily counters.
+model ShopTag {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tagCode   String   @unique
+  label     String
+  status    String   @default("ACTIVE") // ACTIVE | DISABLED
+  lockedAt  DateTime? // seller confirmed the physical tag is write-protected
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  stats     ShopTagDailyStat[]
+
+  @@index([ownerId, status])
+}
+
+model ShopTagDailyStat {
+  id      String  @id @default(cuid())
+  tagId   String
+  tag     ShopTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  day     String  // local Uganda calendar date: YYYY-MM-DD
+  taps    Int     @default(0) // NFC taps and plain link opens
+  qrScans Int     @default(0)
+
+  @@unique([tagId, day])
 }

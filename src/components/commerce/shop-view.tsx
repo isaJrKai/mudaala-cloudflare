@@ -21,6 +21,7 @@ import { useAppStore } from '@/lib/store'
 import { useSession } from '@/hooks/use-session'
 import { useAddToBasket } from './basket-view'
 import { MudaalaCurve } from './mudaala-curve'
+import { ShopTagsPanel } from './shop-tags-panel'
 import { ListingBlock } from './listing-card'
 import { PublicShopCollections } from './public-shop-collections'
 import { ShopShowroom } from './shop-showroom'
@@ -505,6 +506,8 @@ export function ShopView({ id }: { id: string }) {
           </div>
         </section>
       ) : null}
+
+      {isOwner && shop.shopCode ? <ShopTagsPanel shopName={shop.name} /> : null}
 
       {/* The selected showroom design stays a presentation setting; buyers see the shop and its products, not a showroom promotion. */}
       {standaloneShowrooms?.length ? (

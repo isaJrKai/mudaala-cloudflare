@@ -23,10 +23,16 @@ import { categoryLabel } from '@/lib/constants'
 import { findTaxonomyNode } from '@/lib/product-taxonomy'
 import { publicCollectionVisibilityWhere } from '@/lib/collection-visibility'
 import { ShopProductBrowser, type ShopBrowserProduct } from '@/components/commerce/shop-product-browser'
+import { TagTapBeacon } from '@/components/commerce/tag-tap-beacon'
+import { TagSafetyNotice } from '@/components/commerce/tag-safety-notice'
+import { normalizeTagCode } from '@/lib/shop-tags'
 
 export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ code: string }> }
+// ?t=<tagCode> (and &v=qr) arrive when the page is opened from a Mudaala NFC
+// tag or its QR twin; they only drive tap counting and never change content.
+type PageProps = Params & { searchParams: Promise<{ t?: string | string[]; v?: string | string[] }> }
 
 // Request-scoped loader (React.cache dedupes the generateMetadata + page
 // pair). Null for malformed or unknown codes; the page turns that into a
@@ -51,6 +57,16 @@ const loadShop = cache(async (raw: string) => {
 })
 
 type ShopRow = NonNullable<Awaited<ReturnType<typeof loadShop>>>
+
+// Host shown to buyers in the tag safety checklist; falls back to the raw
+// origin if APP_ORIGIN is ever misconfigured, so the page never crashes on it.
+function siteHost(): string {
+  try {
+    return new URL(siteUrl).host
+  } catch {
+    return siteUrl
+  }
+}
 
 function shopName(shop: ShopRow): string {
   return shop.businessName?.trim() || shop.user.name
@@ -109,9 +125,12 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   })
 }
 
-export default async function ShopPage({ params }: Params) {
+export default async function ShopPage({ params, searchParams }: PageProps) {
   return withRequestDb(async () => {
   const { code } = await params
+  const query = await searchParams
+  const tagCode = normalizeTagCode(Array.isArray(query.t) ? query.t[0] : query.t)
+  const tagVia = (Array.isArray(query.v) ? query.v[0] : query.v) === 'qr' ? 'qr' : 'nfc'
   const shop = await loadShop(code)
   if (!shop) notFound()
 
@@ -150,6 +169,7 @@ export default async function ShopPage({ params }: Params) {
 
   return (
     <div className="mx-auto min-h-dvh max-w-2xl bg-background">
+      {tagCode ? <TagTapBeacon tagCode={tagCode} via={tagVia} /> : null}
       <header className="flex items-center justify-between border-b bg-card px-4 py-3">
         <a href="/" className="font-display text-xl font-semibold tracking-tight text-primary">
           Mudaala
@@ -161,6 +181,8 @@ export default async function ShopPage({ params }: Params) {
           Open in the app
         </a>
       </header>
+
+      {tagCode && shop.shopCode ? <TagSafetyNotice shopId={shop.id} shopName={name} shopCode={shop.shopCode} host={siteHost()} /> : null}
 
       <main className="space-y-4 px-4 py-4">
         {/* Identity - real account facts only, same honesty rules as the
