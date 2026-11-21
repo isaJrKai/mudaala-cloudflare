@@ -16,6 +16,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Check, CheckCircle2, Minus, Plus, Smartphone, Store, Trash2, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ToastAction } from '@/components/ui/toast'
 import { PaySheet } from '@/components/commerce/pay-sheet'
 import { InAppEnquiryButton } from './in-app-enquiry-button'
@@ -262,6 +264,11 @@ function BasketShopSection({
   const removeLine = useRemoveLine()
   const [payOpen, setPayOpen] = useState(false)
   const [placingOrder, setPlacingOrder] = useState(false)
+  const [selectedDeliveryOptionId, setSelectedDeliveryOptionId] = useState('none')
+  const [deliveryDistrict, setDeliveryDistrict] = useState('')
+  const [deliveryArea, setDeliveryArea] = useState('')
+  const [deliveryAddressLine, setDeliveryAddressLine] = useState('')
+  const [deliveryContactPhone, setDeliveryContactPhone] = useState('')
   const entries = Object.entries(lines)
   const ids = entries.map(([, line]) => line.listingId)
   const statuses = useLineStatuses(shopId, ids)
@@ -278,6 +285,15 @@ function BasketShopSection({
     enabled: payOpen,
     staleTime: 60_000,
   })
+
+  const deliveryQuery = useQuery({
+    queryKey: ['shop-delivery-options', shopId],
+    queryFn: () => apiGet<{ options: Array<{ id: string; name: string; method: string; district: string | null; area: string | null; fee: number; minDays: number; maxDays: number }> }>(`/api/shops/${shopId}/delivery-options`),
+    enabled: entries.length > 0,
+    staleTime: 60_000,
+  })
+  const selectedDeliveryOption = deliveryQuery.data?.options.find((option) => option.id === selectedDeliveryOptionId) ?? null
+  const deliveryNeedsAddress = Boolean(selectedDeliveryOption && selectedDeliveryOption.method !== 'PICKUP')
 
   const fresh = entries.filter(([, line]) => !statuses.data || statuses.data[line.listingId] === 'ACTIVE')
   const stale = entries.filter(([, line]) => statuses.data && statuses.data[line.listingId] !== 'ACTIVE')
@@ -428,12 +444,43 @@ function BasketShopSection({
           </p>
         ) : null}
 
+        {deliveryQuery.data?.options.length ? (
+          <div className="space-y-2 rounded-lg border bg-secondary/25 p-3">
+            <p className="text-xs font-semibold">Collection and delivery</p>
+            <Select value={selectedDeliveryOptionId} onValueChange={(value) => {
+              setSelectedDeliveryOptionId(value)
+              const option = deliveryQuery.data?.options.find((item) => item.id === value)
+              setDeliveryDistrict(option?.district ?? '')
+              setDeliveryArea(option?.area ?? '')
+            }}>
+              <SelectTrigger><SelectValue placeholder="Choose collection or delivery" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Arrange collection directly with seller</SelectItem>
+                {deliveryQuery.data.options.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.name} · {option.fee === 0 ? 'Free' : formatPrice(option.fee, null, 'UGX')} · {option.minDays}–{option.maxDays} days
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {deliveryNeedsAddress ? (
+              <div className="grid gap-2">
+                <Input value={selectedDeliveryOption?.district ?? deliveryDistrict} disabled={Boolean(selectedDeliveryOption?.district)} placeholder="District" onChange={(e) => setDeliveryDistrict(e.target.value)} />
+                <Input value={deliveryArea} placeholder="Area or neighbourhood" onChange={(e) => setDeliveryArea(e.target.value)} />
+                <Input value={deliveryAddressLine} placeholder="Delivery address or landmark" onChange={(e) => setDeliveryAddressLine(e.target.value)} />
+                <Input value={deliveryContactPhone} placeholder="Delivery contact phone (optional)" onChange={(e) => setDeliveryContactPhone(e.target.value)} />
+              </div>
+            ) : null}
+            {selectedDeliveryOption ? <p className="text-xs text-muted-foreground">Delivery timing is an estimate. The seller confirms it when reviewing your order.</p> : null}
+          </div>
+        ) : null}
+
         {sendable.length > 0 ? (
           <Button
             type="button"
             variant="default"
             className="press h-11 w-full"
-            disabled={placingOrder || statuses.isLoading}
+            disabled={placingOrder || statuses.isLoading || deliveryQuery.isLoading || (deliveryNeedsAddress && !(selectedDeliveryOption?.district || deliveryDistrict.trim()) ) || (deliveryNeedsAddress && !deliveryAddressLine.trim())}
             onClick={async () => {
               setPlacingOrder(true)
               try {
@@ -444,6 +491,13 @@ function BasketShopSection({
                     quantity: line.qty,
                   })),
                   idempotencyKey: crypto.randomUUID(),
+                  ...(selectedDeliveryOptionId !== 'none' ? { deliveryOptions: { [shopId]: selectedDeliveryOptionId } } : {}),
+                  ...(deliveryNeedsAddress ? { deliveryAddress: {
+                    district: selectedDeliveryOption?.district || deliveryDistrict.trim(),
+                    area: deliveryArea.trim() || selectedDeliveryOption?.area || undefined,
+                    addressLine: deliveryAddressLine.trim(),
+                    contactPhone: deliveryContactPhone.trim() || undefined,
+                  } } : {}),
                 })
                 removeShop(shopId)
                 toast({
