@@ -24,6 +24,7 @@ import { findTaxonomyNode } from '@/lib/product-taxonomy'
 import { publicCollectionVisibilityWhere } from '@/lib/collection-visibility'
 import { ShopProductBrowser, type ShopBrowserProduct } from '@/components/commerce/shop-product-browser'
 import { TagTapBeacon } from '@/components/commerce/tag-tap-beacon'
+import { TagSafetyNotice } from '@/components/commerce/tag-safety-notice'
 import { normalizeTagCode } from '@/lib/shop-tags'
 
 export const dynamic = 'force-dynamic'
@@ -56,6 +57,16 @@ const loadShop = cache(async (raw: string) => {
 })
 
 type ShopRow = NonNullable<Awaited<ReturnType<typeof loadShop>>>
+
+// Host shown to buyers in the tag safety checklist; falls back to the raw
+// origin if APP_ORIGIN is ever misconfigured, so the page never crashes on it.
+function siteHost(): string {
+  try {
+    return new URL(siteUrl).host
+  } catch {
+    return siteUrl
+  }
+}
 
 function shopName(shop: ShopRow): string {
   return shop.businessName?.trim() || shop.user.name
@@ -170,6 +181,8 @@ export default async function ShopPage({ params, searchParams }: PageProps) {
           Open in the app
         </a>
       </header>
+
+      {tagCode && shop.shopCode ? <TagSafetyNotice shopId={shop.id} shopName={name} shopCode={shop.shopCode} host={siteHost()} /> : null}
 
       <main className="space-y-4 px-4 py-4">
         {/* Identity - real account facts only, same honesty rules as the

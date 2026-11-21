@@ -14,3 +14,10 @@ only through the shop's own pay sheet - a tag never carries a payment number.
 
 Rollout: `npm run db:deploy` (migration `20261121100000_shop_nfc_tags`), then deploy.
 Tests: `npm run test:shop-tags`.
+
+## Buyer safety on tag opens
+When a shop page opens from a tag (`?t=` present and well-formed) it shows a "Before you pay: 3 quick checks"
+card (address matches, shop name/code match the sticker, MoMo/Airtel name matches the pay sheet) and a
+"Report this tag" button. The report is a normal SHOP report (existing moderation queue and daily caps) with
+`[Reported from a tap-to-shop tag]` prepended to the details so moderators can tell a swapped or covered sticker
+apart from a bad shop. It does not add a new report type or change auto-hide rules.

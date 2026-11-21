@@ -1,6 +1,7 @@
 // Bun executes this test file in CI; Bun's ambient test types are not part of the Next.js TypeScript build.
 // @ts-nocheck
 import { describe, expect, it } from 'bun:test'
+import { composeReportDetails, reportDetailsRoom, REPORT_DETAILS_MAX } from './report-details'
 import { buildTagUrl, createTagSchema, generateTagCode, normalizeTagCode, tagTapSchema, updateTagSchema } from './shop-tags'
 
 describe('generateTagCode', () => {
@@ -69,5 +70,26 @@ describe('schemas', () => {
     expect(tagTapSchema.safeParse({ t: 'k7m2qx9p4a', v: 'qr' }).success).toBe(true)
     expect(tagTapSchema.safeParse({ t: 'x'.repeat(41) }).success).toBe(false)
     expect(tagTapSchema.safeParse({ t: 'k7m2qx9p4a', v: 'sms' }).success).toBe(false)
+  })
+})
+
+describe('composeReportDetails', () => {
+  const note = '[Reported from a tap-to-shop tag]'
+
+  it('passes plain details through and returns null when empty', () => {
+    expect(composeReportDetails('  fake sticker  ')).toBe('fake sticker')
+    expect(composeReportDetails('   ')).toBeNull()
+  })
+
+  it('puts the context note first and keeps it when the reporter writes nothing', () => {
+    expect(composeReportDetails('sticker was covered', note)).toBe(`${note} sticker was covered`)
+    expect(composeReportDetails('', note)).toBe(note)
+  })
+
+  it('never exceeds the 500-character API cap, trimming the reporter text not the note', () => {
+    const out = composeReportDetails('x'.repeat(900), note)
+    expect(out.length).toBe(REPORT_DETAILS_MAX)
+    expect(out.startsWith(note)).toBe(true)
+    expect(reportDetailsRoom(note)).toBe(REPORT_DETAILS_MAX - note.length - 1)
   })
 })
