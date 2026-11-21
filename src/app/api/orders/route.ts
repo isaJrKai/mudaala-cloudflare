@@ -103,8 +103,9 @@ export async function POST(request: Request) {
       if (variant?.availabilityStatus === 'OUT_OF_STOCK' || (!variant && listing.availabilityStatus === 'OUT_OF_STOCK')) {
         throw new ApiError(409, 'One of the selected products is out of stock.')
       }
-      const price = variant?.price ?? listing.price
-      if (price === null || price === undefined || !Number.isFinite(price) || price < 0) {
+      const rawPrice = variant?.price ?? listing.price
+      const price = rawPrice === null || rawPrice === undefined ? null : Number(rawPrice)
+      if (price === null || !Number.isFinite(price) || price < 0) {
         throw new ApiError(409, 'A seller must confirm the price before this product can be ordered.')
       }
       const product = variant
