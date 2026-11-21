@@ -5,6 +5,34 @@ import { getOwnedListingOr404, sanitizePhotos } from '@/lib/listings'
 
 type Params = { params: Promise<{ id: string }> }
 
+export async function GET(_request: Request, { params }: Params) {
+  return route(async () => {
+    const seller = await requireSeller()
+    const { id } = await params
+    await getOwnedListingOr404(id, seller.id)
+    const [variants, products] = await Promise.all([
+      db.listingVariant.findMany({
+        where: { listingId: id },
+        include: { businessProduct: { select: { id: true, name: true, sku: true, stockOnHand: true, trackInventory: true } } },
+        orderBy: { sortOrder: 'asc' },
+      }),
+      db.businessProduct.findMany({
+        where: { userId: seller.id, archived: false, trackInventory: true },
+        select: { id: true, name: true, sku: true, stockOnHand: true, listingId: true, listingVariantId: true },
+        orderBy: { name: 'asc' },
+      }),
+    ])
+    return jsonOk({
+      variants: variants.map((variant) => ({
+        ...variant,
+        businessProduct: variant.businessProduct ? { ...variant.businessProduct, stockOnHand: Number(variant.businessProduct.stockOnHand) } : null,
+        photos: (() => { try { const parsed = JSON.parse(variant.photos); return Array.isArray(parsed) ? parsed : [] } catch { return [] } })(),
+      })),
+      inventoryProducts: products.map((product) => ({ ...product, stockOnHand: Number(product.stockOnHand) })),
+    })
+  })
+}
+
 const variantSchema = z.object({
   label: z.string().trim().min(1).max(120),
   options: z.record(z.string(), z.string().trim().min(1).max(80)).refine((value) => Object.keys(value).length > 0),
