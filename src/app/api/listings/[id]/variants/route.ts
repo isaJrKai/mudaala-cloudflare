@@ -113,6 +113,7 @@ export async function PUT(_request: Request, { params }: Params) {
               where: { id: variant.businessProductId, userId: seller.id, archived: false },
             })
             if (!product) throw new ApiError(404, 'Choose a stock product from your own active inventory.')
+            if (!product.trackInventory) throw new ApiError(409, 'Turn on inventory tracking for this stock product before linking it to a variant.')
             if (product.listingId && product.listingId !== id) {
               throw new ApiError(409, 'That stock product is already attached to another listing.')
             }
@@ -123,6 +124,9 @@ export async function PUT(_request: Request, { params }: Params) {
               where: { id: product.id },
               data: { listingVariantId: saved.id },
             })
+            if (!saved.trackInventory) {
+              await tx.listingVariant.update({ where: { id: saved.id }, data: { trackInventory: true } })
+            }
           }
         }
       }
