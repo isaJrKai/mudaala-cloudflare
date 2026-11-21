@@ -81,7 +81,7 @@ export async function POST(request: Request) {
         type: 'OFFER',
         status: 'ACTIVE',
         isSeed: false,
-        expiresAt: { gt: now },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
       },
       include: {
         user: { select: { id: true, profile: { select: { businessName: true, moderationStatus: true } } } },
