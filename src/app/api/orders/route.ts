@@ -110,7 +110,7 @@ export async function POST(request: Request) {
     for (const item of items) {
       const listing = listingsWithInventory.find((entry) => entry.id === item.listingId)!
       if (listing.userId === buyer.id) throw new ApiError(409, 'You cannot order products from your own shop.')
-      if (!listing.user.profile || listing.user.profile.moderationStatus !== 'ACTIVE') throw new ApiError(409, 'This seller is not currently accepting orders.')
+      if (!listing.user?.profile || listing.user.profile.moderationStatus !== 'ACTIVE') throw new ApiError(409, 'This seller is not currently accepting orders.')
       const variant = item.variantId ? listing.variants.find((entry) => entry.id === item.variantId) ?? null : null
       if (item.variantId && !variant) throw new ApiError(400, 'A selected product option is no longer available.')
       if (listing.variants.length > 0 && !variant) throw new ApiError(400, 'Choose a product option before checkout.')
