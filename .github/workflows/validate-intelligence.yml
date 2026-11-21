@@ -1,0 +1,99 @@
+name: Validate Mudaala intelligence workstreams
+
+# Remediation of the increment-1 workflow, which had NO dependency-install
+# step (TS tests import zod from node_modules — it could not have passed
+# end-to-end) and no database gate for the SQL migrations.
+#
+# Gates executed here (matching the remediation acceptance gates):
+#   - TypeScript typecheck (strict, worker config)
+#   - Full TS intelligence suite: contracts, modules, gateway (replay,
+#     streaming caps), eval harness invariants
+#   - SQL gate: fresh + repeatable migrations, constraints, RLS policies
+#     against a disposable PostgreSQL (embedded binaries; no production)
+#   - Python gate: Hermes auth/ownership/lifecycle/durability tests against
+#     a disposable PostgreSQL service container
+#   - Offline benchmark run (synthetic fixtures only; reproducible report)
+on:
+  pull_request:
+    paths:
+      - "intelligence/**"
+      - "src/lib/intelligence/**"
+      - ".github/workflows/validate-intelligence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-intelligence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typescript:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies (lockfile-based, reproducible)
+        run: npm ci
+
+      - name: Typecheck the intelligence tree (strict, worker config)
+        run: npx tsc -p intelligence/gateway/tsconfig.json --noEmit
+
+      - name: Test intelligence contracts, modules, gateway and eval
+        run: bun test intelligence/contracts/ intelligence/modules/ intelligence/gateway/ intelligence/eval/
+
+      - name: Test the commerce-plane gateway client
+        run: bun test src/lib/intelligence/
+
+      - name: SQL gate — fresh and repeatable migrations against disposable PostgreSQL
+        run: bun test intelligence/jobs/
+
+      - name: Run the offline benchmark (synthetic fixtures, reproducible report)
+        run: bun run intelligence/eval/run-benchmark.ts --out /tmp/benchmark-report.json
+
+  python:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      # Disposable PostgreSQL for the Hermes durability gate — never production.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hermes
+          POSTGRES_PASSWORD: hermes-test
+          POSTGRES_DB: hermes_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hermes"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Hermes dependencies (pinned)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r intelligence/hermes/requirements.txt -r intelligence/hermes/dev-requirements.txt
+
+      - name: Test Hermes governance core (auth, ownership, lifecycle, idempotency)
+        run: python -m pytest intelligence/hermes/tests/ -q --ignore=intelligence/hermes/tests/test_storage_postgres.py
+
+      - name: Test Hermes durable storage against disposable PostgreSQL
+        env:
+          HERMES_TEST_DATABASE_URL: postgres://hermes:hermes-test@127.0.0.1:5432/hermes_test
+        run: python -m pytest intelligence/hermes/tests/test_storage_postgres.py -q

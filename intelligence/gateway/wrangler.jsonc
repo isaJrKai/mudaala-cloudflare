@@ -1,0 +1,39 @@
+// Mudaala Intelligence Gateway — separate worker (ADR-0002).
+//
+// Deliberate differences from the commerce worker config (wrangler.jsonc):
+// - No Hyperdrive, no KV, no R2, no queues: the gateway never touches the
+//   commerce database or object storage. All data arrives in scoped payloads.
+// - workers_dev is disabled: the worker is reached via a service binding from
+//   the commerce worker (add to the commerce wrangler.jsonc when wiring is
+//   approved) or via an internal route — never via a public workers.dev URL.
+// - Secrets (never in Git):
+//     wrangler secret put INTELLIGENCE_CALLERS   # JSON caller registry; the
+//                                                # "secret" fields inside it
+//                                                # must be provisioned values
+//     wrangler secret put GATEWAY_VERSION        # optional
+//   Kill switch: wrangler secret put INTELLIGENCE_GATEWAY_DISABLED  # "true"
+{
+  "$schema": "https://unpkg.com/@cloudflare/workers-types@latest/wrangler/wrangler-config-schema.json",
+  "name": "mudaala-intelligence-gateway",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-05",
+  "workers_dev": false,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "INTELLIGENCE_LIMITER",
+        "class_name": "IntelligenceLimiter"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1-intelligence-limiter",
+      "new_sqlite_classes": ["IntelligenceLimiter"]
+    }
+  ]
+}

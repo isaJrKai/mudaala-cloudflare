@@ -1,0 +1,25 @@
+{
+  "version": "eval.fixtures.queries.v0.1",
+  "created": "2026-11-20T00:00:00Z",
+  "note": "Author-graded synthetic query set for pipeline evaluation. Judgments were written by the implementing agent alongside the fixtures — they are NOT human-panel-reviewed and NOT real search traffic. Grades: 3 highly relevant, 2 relevant, 1 marginal, 0 not relevant. Queries marked 'ambiguous' intentionally carry conflicting grades.",
+  "queries": [
+    { "id": "q01", "query": "iphone", "intent_note": "Brand search; any iPhone model relevant", "judgments": { "L01": 3, "L02": 3, "L04": 3, "L34": 3, "L35": 1 } },
+    { "id": "q02", "query": "kitenge dresses", "intent_note": "Category + garment; fabric and made-to-order both relevant", "judgments": { "L08": 3, "L09": 3, "L10": 2, "L36": 1 } },
+    { "id": "q03", "query": "perfume", "intent_note": "Fragrance search", "judgments": { "L27": 3, "L29": 1, "L28": 1 } },
+    { "id": "q04", "query": "fridge", "intent_note": "Appliance search", "judgments": { "L14": 3, "L39": 1 } },
+    { "id": "q05", "query": "rice 25kg", "intent_note": "Staple with pack size", "judgments": { "L19": 3, "L20": 1 } },
+    { "id": "q06", "query": "matooke", "intent_note": "Local produce term (loanword)", "judgments": { "L21": 3 } },
+    { "id": "q07", "query": "cement", "intent_note": "Building material", "judgments": { "L25": 3, "L26": 1 } },
+    { "id": "q08", "query": "samsung phone", "intent_note": "Brand + category; Samsung handsets relevant, iPhone marginal", "judgments": { "L32": 3, "L33": 3, "L01": 1, "L34": 1 } },
+    { "id": "q09", "query": "sofa set", "intent_note": "Furniture", "judgments": { "L16": 3, "L38": 3 } },
+    { "id": "q10", "query": "cheap smartphones under 1m", "intent_note": "Budget-constrained; sub-1M phones relevant, premium iPhone marginal", "judgments": { "L03": 3, "L33": 3, "L35": 2, "L32": 2, "L01": 1, "L02": 1, "L04": 1 } },
+    { "id": "q11", "query": "looking for goat", "intent_note": "Buyer phrasing over OFFER inventory; livestock", "judgments": { "L24": 3 } },
+    { "id": "q12", "query": "blender", "intent_note": "Kitchen appliance", "judgments": { "L15": 3, "L39": 1 } },
+    { "id": "q13", "query": "plumber", "intent_note": "Service search", "judgments": { "L30": 3 } },
+    { "id": "q14", "query": "powerbank", "intent_note": "Accessory search", "judgments": { "L07": 3, "L05": 1 } },
+    { "id": "q15", "query": "eggs", "intent_note": "Grocery staple", "judgments": { "L23": 3, "L24": 1 } },
+    { "id": "q16", "query": "sofa", "intent_note": "Ambiguous: two sofa items from different shops", "judgments": { "L16": 3, "L38": 3 } },
+    { "id": "q17", "query": "dress for gomesi", "intent_note": "Traditional wear; gomesi itself highest", "judgments": { "L10": 3, "L08": 1, "L31": 2 } },
+    { "id": "q18", "query": "xyzzy plugh", "intent_note": "No-result query: nothing should be forced", "judgments": {} }
+  ]
+}

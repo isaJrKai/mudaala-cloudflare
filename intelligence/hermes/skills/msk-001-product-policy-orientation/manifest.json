@@ -1,0 +1,15 @@
+{
+  "id": "msk-001",
+  "name": "Mudaala Product & Policy Orientation",
+  "version": "0.1.0",
+  "owner": "unassigned",
+  "status": "active",
+  "purpose": "Explain Mudaala's product boundaries, policies and verified facts, and state unknowns as unknowns.",
+  "allowed_tools": ["read_mudaala_docs"],
+  "forbidden_actions": ["mutate_commerce_records", "issue_verification_badges", "send_notifications", "call_paid_model_apis", "access_production_database"],
+  "task_types": ["ORIENT_PRODUCT_FACTS"],
+  "inputs": "doc_refs.json (list of approved doc ids)",
+  "outputs": "TaskResult with grounded summary + doc refs in reason_codes",
+  "test_command": "python -m pytest intelligence/hermes/tests/test_router.py -k orientation",
+  "evidence_links": []
+}

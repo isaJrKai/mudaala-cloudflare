@@ -1,0 +1,6 @@
+# Pinned (lockfile-grade) set, verified against Python 3.12 in CI and locally.
+fastapi==0.128.0
+uvicorn==0.44.0
+pydantic==2.12.5
+httpx==0.28.1
+psycopg[binary]==3.3.9

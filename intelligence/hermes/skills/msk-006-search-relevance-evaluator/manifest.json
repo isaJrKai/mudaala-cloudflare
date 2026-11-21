@@ -1,0 +1,15 @@
+{
+  "id": "msk-006",
+  "name": "Search Relevance Evaluator",
+  "version": "0.1.0",
+  "owner": "unassigned",
+  "status": "active",
+  "purpose": "Run the fixed offline search-relevance benchmark and report metrics per the adopted evaluation protocol.",
+  "allowed_tools": ["bun_run_eval"],
+  "forbidden_actions": ["modify_ranking_weights", "modify_fixtures_or_judgments", "access_production_data", "mutate_commerce_records", "call_paid_model_apis"],
+  "task_types": ["RUN_SEARCH_RELEVANCE_EVAL"],
+  "inputs": "eval_spec.json (optional report output path)",
+  "outputs": "TaskResult with metrics summary + result_ref to the report JSON",
+  "test_command": "python -m pytest intelligence/hermes/tests/test_router.py -k evaluator",
+  "evidence_links": ["docs/AI_SEARCH_EVALUATION_PROTOCOL.md (unmerged branch, adopted as gate spec)"]
+}

@@ -86,3 +86,15 @@ public/uploads/*
 # on disk, both stay out of git.
 .pgtool/
 .t4stage/
+
+# Python generated artifacts (never commit)
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+
+# Hermes local runtime state
+intelligence/hermes/*.jsonl

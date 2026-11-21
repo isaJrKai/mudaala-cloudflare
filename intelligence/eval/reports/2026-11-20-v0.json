@@ -1,0 +1,432 @@
+{
+  "run_id": "benchmark-2026-11-20-v0",
+  "ran_at": "2026-11-20T12:00:00Z",
+  "fixture_catalogue_version": "eval.fixtures.catalogue.v0.1",
+  "fixture_queries_version": "eval.fixtures.queries.v0.1",
+  "engine_versions": {
+    "mci01": "mci01-query-understanding-v0.1.0",
+    "mci02": "mci02-retrieval-planner-v0.1.0",
+    "mci03": "mci03-ranker-v0.1.0",
+    "mci08": "mci08-diversity-controller-v0.1.0"
+  },
+  "page_size": 10,
+  "synthetic_data_notice": "Synthetic fixtures, author-graded judgments, no real users, no production data. Not evidence of production quality.",
+  "per_query": [
+    {
+      "query_id": "q01",
+      "query": "iphone",
+      "intent_note": "Brand search; any iPhone model relevant",
+      "candidate_count": 11,
+      "pipeline": {
+        "ndcg5": 0.9789,
+        "precision5": 0.8,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 4,
+        "top_seller_share": 0.222
+      },
+      "baseline": {
+        "ndcg5": 0.3124,
+        "precision5": 0.4,
+        "recall10": 0.75,
+        "mrr": 0.25,
+        "distinct_sellers_top5": 4,
+        "top_seller_share": 0.3
+      }
+    },
+    {
+      "query_id": "q02",
+      "query": "kitenge dresses",
+      "intent_note": "Category + garment; fabric and made-to-order both relevant",
+      "candidate_count": 3,
+      "pipeline": {
+        "ndcg5": 0.9677,
+        "precision5": 1,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 2,
+        "top_seller_share": 0.667
+      },
+      "baseline": {
+        "ndcg5": 0.9677,
+        "precision5": 1,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 2,
+        "top_seller_share": 0.667
+      }
+    },
+    {
+      "query_id": "q03",
+      "query": "perfume",
+      "intent_note": "Fragrance search",
+      "candidate_count": 2,
+      "pipeline": {
+        "ndcg5": 0.9385,
+        "precision5": 0.5,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 1,
+        "top_seller_share": 1
+      },
+      "baseline": {
+        "ndcg5": 0.9385,
+        "precision5": 0.5,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 1,
+        "top_seller_share": 1
+      }
+    },
+    {
+      "query_id": "q04",
+      "query": "fridge",
+      "intent_note": "Appliance search",
+      "candidate_count": 4,
+      "pipeline": {
+        "ndcg5": 0.9738,
+        "precision5": 0.25,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 3,
+        "top_seller_share": 0.5
+      },
+      "baseline": {
+        "ndcg5": 0.5151,
+        "precision5": 0.25,
+        "recall10": 1,
+        "mrr": 0.3333,
+        "distinct_sellers_top5": 3,
+        "top_seller_share": 0.5
+      }
+    },
+    {
+      "query_id": "q05",
+      "query": "rice 25kg",
+      "intent_note": "Staple with pack size",
+      "candidate_count": 2,
+      "pipeline": {
+        "ndcg5": 1,
+        "precision5": 0.5,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 1,
+        "top_seller_share": 1
+      },
+      "baseline": {
+        "ndcg5": 1,
+        "precision5": 0.5,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 1,
+        "top_seller_share": 1
+      }
+    },
+    {
+      "query_id": "q06",
+      "query": "matooke",
+      "intent_note": "Local produce term (loanword)",
+      "candidate_count": 3,
+      "pipeline": {
+        "ndcg5": 1,
+        "precision5": 0.3333,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 2,
+        "top_seller_share": 0.667
+      },
+      "baseline": {
+        "ndcg5": 1,
+        "precision5": 0.3333,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 2,
+        "top_seller_share": 0.667
+      }
+    },
+    {
+      "query_id": "q07",
+      "query": "cement",
+      "intent_note": "Building material",
+      "candidate_count": 1,
+      "pipeline": {
+        "ndcg5": 0.9173,
+        "precision5": 1,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 1,
+        "top_seller_share": 1
+      },
+      "baseline": {
+        "ndcg5": 0.9173,
+        "precision5": 1,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 1,
+        "top_seller_share": 1
+      }
+    },
+    {
+      "query_id": "q08",
+      "query": "samsung phone",
+      "intent_note": "Brand + category; Samsung handsets relevant, iPhone marginal",
+      "candidate_count": 11,
+      "pipeline": {
+        "ndcg5": 0.9595,
+        "precision5": 0.4,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 4,
+        "top_seller_share": 0.222
+      },
+      "baseline": {
+        "ndcg5": 0.3497,
+        "precision5": 0.2,
+        "recall10": 1,
+        "mrr": 0.3333,
+        "distinct_sellers_top5": 4,
+        "top_seller_share": 0.3
+      }
+    },
+    {
+      "query_id": "q09",
+      "query": "sofa set",
+      "intent_note": "Furniture",
+      "candidate_count": 6,
+      "pipeline": {
+        "ndcg5": 1,
+        "precision5": 0.4,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 4,
+        "top_seller_share": 0.333
+      },
+      "baseline": {
+        "ndcg5": 0.8772,
+        "precision5": 0.4,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 4,
+        "top_seller_share": 0.333
+      }
+    },
+    {
+      "query_id": "q10",
+      "query": "cheap smartphones under 1m",
+      "intent_note": "Budget-constrained; sub-1M phones relevant, premium iPhone marginal",
+      "candidate_count": 34,
+      "pipeline": {
+        "ndcg5": 0.6862,
+        "precision5": 0.4,
+        "recall10": 0.75,
+        "mrr": 1,
+        "distinct_sellers_top5": 5,
+        "top_seller_share": 0.2
+      },
+      "baseline": {
+        "ndcg5": 0.4796,
+        "precision5": 0.2,
+        "recall10": 0.5,
+        "mrr": 1,
+        "distinct_sellers_top5": 5,
+        "top_seller_share": 0.1
+      }
+    },
+    {
+      "query_id": "q11",
+      "query": "looking for goat",
+      "intent_note": "Buyer phrasing over OFFER inventory; livestock",
+      "candidate_count": 1,
+      "pipeline": {
+        "ndcg5": 1,
+        "precision5": 1,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 1,
+        "top_seller_share": 1
+      },
+      "baseline": {
+        "ndcg5": 1,
+        "precision5": 1,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 1,
+        "top_seller_share": 1
+      }
+    },
+    {
+      "query_id": "q12",
+      "query": "blender",
+      "intent_note": "Kitchen appliance",
+      "candidate_count": 4,
+      "pipeline": {
+        "ndcg5": 0.9738,
+        "precision5": 0.25,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 3,
+        "top_seller_share": 0.5
+      },
+      "baseline": {
+        "ndcg5": 0.9738,
+        "precision5": 0.25,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 3,
+        "top_seller_share": 0.5
+      }
+    },
+    {
+      "query_id": "q13",
+      "query": "plumber",
+      "intent_note": "Service search",
+      "candidate_count": 2,
+      "pipeline": {
+        "ndcg5": 1,
+        "precision5": 0.5,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 1,
+        "top_seller_share": 1
+      },
+      "baseline": {
+        "ndcg5": 1,
+        "precision5": 0.5,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 1,
+        "top_seller_share": 1
+      }
+    },
+    {
+      "query_id": "q14",
+      "query": "powerbank",
+      "intent_note": "Accessory search",
+      "candidate_count": 3,
+      "pipeline": {
+        "ndcg5": 1,
+        "precision5": 0.3333,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 2,
+        "top_seller_share": 0.667
+      },
+      "baseline": {
+        "ndcg5": 0.5413,
+        "precision5": 0.3333,
+        "recall10": 1,
+        "mrr": 0.3333,
+        "distinct_sellers_top5": 2,
+        "top_seller_share": 0.667
+      }
+    },
+    {
+      "query_id": "q15",
+      "query": "eggs",
+      "intent_note": "Grocery staple",
+      "candidate_count": 3,
+      "pipeline": {
+        "ndcg5": 0.9173,
+        "precision5": 0.3333,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 2,
+        "top_seller_share": 0.667
+      },
+      "baseline": {
+        "ndcg5": 0.5788,
+        "precision5": 0.3333,
+        "recall10": 1,
+        "mrr": 0.5,
+        "distinct_sellers_top5": 2,
+        "top_seller_share": 0.667
+      }
+    },
+    {
+      "query_id": "q16",
+      "query": "sofa",
+      "intent_note": "Ambiguous: two sofa items from different shops",
+      "candidate_count": 2,
+      "pipeline": {
+        "ndcg5": 1,
+        "precision5": 1,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 2,
+        "top_seller_share": 0.5
+      },
+      "baseline": {
+        "ndcg5": 1,
+        "precision5": 1,
+        "recall10": 1,
+        "mrr": 1,
+        "distinct_sellers_top5": 2,
+        "top_seller_share": 0.5
+      }
+    },
+    {
+      "query_id": "q17",
+      "query": "dress for gomesi",
+      "intent_note": "Traditional wear; gomesi itself highest",
+      "candidate_count": 4,
+      "pipeline": {
+        "ndcg5": 0.7364,
+        "precision5": 0.5,
+        "recall10": 1,
+        "mrr": 0.5,
+        "distinct_sellers_top5": 2,
+        "top_seller_share": 0.5
+      },
+      "baseline": {
+        "ndcg5": 0.6166,
+        "precision5": 0.5,
+        "recall10": 1,
+        "mrr": 0.3333,
+        "distinct_sellers_top5": 2,
+        "top_seller_share": 0.5
+      }
+    },
+    {
+      "query_id": "q18",
+      "query": "xyzzy plugh",
+      "intent_note": "No-result query: nothing should be forced",
+      "candidate_count": 40,
+      "pipeline": {
+        "ndcg5": 1,
+        "precision5": 0,
+        "recall10": 1,
+        "mrr": 0,
+        "distinct_sellers_top5": 4,
+        "top_seller_share": 0.2
+      },
+      "baseline": {
+        "ndcg5": 1,
+        "precision5": 0,
+        "recall10": 1,
+        "mrr": 0,
+        "distinct_sellers_top5": 5,
+        "top_seller_share": 0.3
+      }
+    }
+  ],
+  "aggregates": {
+    "pipeline": {
+      "mean_ndcg5": 0.9472,
+      "mean_precision5": 0.5278,
+      "mean_recall10": 0.9861,
+      "mean_mrr": 0.9167,
+      "mean_distinct_sellers_top5": 2.4444,
+      "mean_top_seller_share": 0.6025,
+      "zero_result_rate": 0
+    },
+    "baseline": {
+      "mean_ndcg5": 0.7816,
+      "mean_precision5": 0.4833,
+      "mean_recall10": 0.9583,
+      "mean_mrr": 0.7268,
+      "mean_distinct_sellers_top5": 2.5,
+      "mean_top_seller_share": 0.6112,
+      "zero_result_rate": 0
+    }
+  }
+}
