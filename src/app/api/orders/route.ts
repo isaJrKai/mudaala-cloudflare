@@ -123,13 +123,18 @@ export async function POST(request: Request) {
       bySeller.set(listing.userId, group)
     }
 
-    const result = await db.$transaction(async (tx) => {
-      const expectedKeys = [...bySeller.keys()].map((sellerId) => body.idempotencyKey + ':' + sellerId)
+    const expectedKeys = [...bySeller.keys()].map((sellerId) => body.idempotencyKey + ':' + sellerId)
+    let result: { orders: Array<{ id: string; orderNumber: string; status: string; total: Prisma.Decimal; currency: string }>; replayed: boolean }
+    try {
+      result = await db.$transaction(async (tx) => {
       const orders = await tx.commerceOrder.findMany({
         where: { buyerId: buyer.id, idempotencyKey: { in: expectedKeys } },
         include: { items: true },
       })
-      if (orders.length) return { orders, replayed: true }
+      if (orders.length) {
+        if (orders.length !== expectedKeys.length) throw new ApiError(409, 'This checkout key was already used for a different basket. Refresh and try again.')
+        return { orders, replayed: true }
+      }
 
       const productTotals = new Map<string, number>()
       for (const group of bySeller.values()) {
@@ -262,7 +267,16 @@ export async function POST(request: Request) {
         })
       }
       return { orders: createdOrders, replayed: false }
-    }, { isolationLevel: 'Serializable' })
+      }, { isolationLevel: 'Serializable' })
+    } catch (error) {
+      const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : null
+      if (code !== 'P2002' && code !== 'P2034') throw error
+      const previous = await db.commerceOrder.findMany({
+        where: { buyerId: buyer.id, idempotencyKey: { in: expectedKeys } },
+      })
+      if (previous.length !== expectedKeys.length) throw error
+      result = { orders: previous, replayed: true }
+    }
 
     return jsonOk({
       orders: result.orders.map((order) => ({
