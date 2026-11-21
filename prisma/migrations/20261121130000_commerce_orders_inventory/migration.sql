@@ -150,3 +150,5 @@ BEGIN
   END LOOP;
 END
 $$;
+
+ALTER TABLE "StockReservation" ADD CONSTRAINT "StockReservation_orderItemId_fkey" FOREIGN KEY ("orderItemId") REFERENCES "CommerceOrderItem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
