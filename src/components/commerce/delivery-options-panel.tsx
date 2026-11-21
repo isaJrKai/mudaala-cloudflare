@@ -21,7 +21,7 @@ type DeliveryOption = {
   isActive: boolean
 }
 
-const empty = { name: '', method: 'SELLER_DELIVERY' as const, district: '', area: '', fee: '0', minDays: '0', maxDays: '2' }
+const empty: { name: string; method: DeliveryOption['method']; district: string; area: string; fee: string; minDays: string; maxDays: string } = { name: '', method: 'SELLER_DELIVERY', district: '', area: '', fee: '0', minDays: '0', maxDays: '2' }
 
 export function DeliveryOptionsPanel() {
   const queryClient = useQueryClient()
