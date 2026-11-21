@@ -86,6 +86,9 @@ model User {
   phoneVerificationChallenges PhoneVerificationChallenge[]
   appealPhoneVerificationChallenges AppealPhoneVerificationChallenge[]
   emailAuthChallenges EmailAuthChallenge[]
+  commerceOrdersAsBuyer CommerceOrder[] @relation("CommerceOrderBuyer")
+  commerceOrdersAsSeller CommerceOrder[] @relation("CommerceOrderSeller")
+  deliveryOptions DeliveryOption[]
 }
 
 // Products a shop can showcase beyond its current stock. These records are
@@ -230,6 +233,7 @@ model Listing {
   enquiries Enquiry[]
   telegramContactTokens EnquiryContactToken[]
   variants ListingVariant[]
+  orderItems CommerceOrderItem[]
 }
 
 // Shop-owned curated groups for seasonal edits, new arrivals and themed collections.
@@ -523,6 +527,10 @@ model BusinessProduct {
 
   saleItems      SaleItem[]
   stockMovements StockMovement[]
+  listingVariantId String? @unique
+  listingVariant ListingVariant? @relation(fields: [listingVariantId], references: [id], onDelete: SetNull)
+  orderItems CommerceOrderItem[]
+  reservations StockReservation[]
 
   @@unique([userId, sku])
   @@index([userId, archived, updatedAt])
@@ -584,6 +592,9 @@ model StockMovement {
   product     BusinessProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
   saleId      String?
   sale        Sale?           @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  orderId     String?
+  order       CommerceOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  idempotencyKey String? @unique
   type        String // OPENING | RESTOCK | SALE | RETURN | ADJUSTMENT | DAMAGE | CORRECTION
   quantityDelta Decimal       @db.Decimal(14, 3) // positive adds stock; negative removes stock
   note        String?
@@ -592,8 +603,119 @@ model StockMovement {
   @@index([userId, createdAt])
   @@index([productId, createdAt])
   @@index([saleId])
+  @@index([orderId])
 }
 
+
+
+// A buyer's order with one merchant. Multi-seller baskets split into separate
+// orders so each seller controls confirmation, payment and fulfilment.
+model CommerceOrder {
+  id               String   @id @default(cuid())
+  orderNumber      String   @unique
+  buyerId          String
+  buyer            User     @relation("CommerceOrderBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
+  sellerId         String
+  seller           User     @relation("CommerceOrderSeller", fields: [sellerId], references: [id], onDelete: Restrict)
+  status           String   @default("PENDING_SELLER") // PENDING_SELLER | ACCEPTED | REJECTED | AWAITING_PAYMENT | PAID | PROCESSING | READY | OUT_FOR_DELIVERY | COMPLETED | CANCELLED | EXPIRED
+  paymentStatus    String   @default("UNPAID") // UNPAID | PENDING | PAID | FAILED | REFUNDED
+  paymentMethod    String?
+  paymentReference String?
+  currency         String   @default("UGX")
+  subtotal         Decimal  @db.Decimal(14, 2)
+  deliveryFee      Decimal  @default(0) @db.Decimal(14, 2)
+  total            Decimal  @db.Decimal(14, 2)
+  deliveryMethod   String   @default("PICKUP")
+  deliveryAddress  Json?
+  deliveryEstimate Json?
+  buyerNote        String?  @db.Text
+  sellerNote       String?  @db.Text
+  idempotencyKey   String?
+  acceptedAt       DateTime?
+  paidAt           DateTime?
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+  expiresAt        DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  items            CommerceOrderItem[]
+  reservations     StockReservation[]
+  stockMovements   StockMovement[]
+
+  @@unique([buyerId, idempotencyKey])
+  @@index([buyerId, status, createdAt])
+  @@index([sellerId, status, createdAt])
+  @@index([status, expiresAt])
+}
+
+model CommerceOrderItem {
+  id                String          @id @default(cuid())
+  orderId           String
+  order             CommerceOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  listingId         String
+  listing           Listing         @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  variantId         String?
+  variant           ListingVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  businessProductId String?
+  businessProduct   BusinessProduct? @relation(fields: [businessProductId], references: [id], onDelete: SetNull)
+  productTitle      String
+  variantLabel      String?
+  variantOptions    Json?
+  sku               String?
+  photoUrl          String?
+  unit              String?
+  quantity          Decimal         @db.Decimal(14, 3)
+  unitPrice         Decimal         @db.Decimal(14, 2)
+  lineTotal         Decimal         @db.Decimal(14, 2)
+  createdAt         DateTime        @default(now())
+
+  @@index([orderId])
+  @@index([listingId])
+  @@index([variantId])
+  @@index([businessProductId])
+}
+
+model StockReservation {
+  id                String           @id @default(cuid())
+  orderId           String
+  order             CommerceOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItemId       String
+  businessProductId String?
+  businessProduct   BusinessProduct? @relation(fields: [businessProductId], references: [id], onDelete: Restrict)
+  variantId         String?
+  variant           ListingVariant?  @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  quantity          Decimal          @db.Decimal(14, 3)
+  status            String           @default("HELD")
+  expiresAt         DateTime
+  committedAt       DateTime?
+  releasedAt        DateTime?
+  idempotencyKey    String           @unique
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([orderId, status])
+  @@index([businessProductId, status, expiresAt])
+  @@index([variantId, status, expiresAt])
+  @@index([status, expiresAt])
+}
+
+model DeliveryOption {
+  id        String   @id @default(cuid())
+  sellerId  String
+  seller    User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  name      String
+  method    String   @default("SELLER_DELIVERY")
+  district  String?
+  area      String?
+  fee       Decimal  @default(0) @db.Decimal(14, 2)
+  minDays   Int      @default(0)
+  maxDays   Int      @default(2)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sellerId, isActive])
+}
 
 // Formal restriction appeals are independent cases, not feedback records.
 // The target fields point to existing moderation records; no target is copied or deleted.
