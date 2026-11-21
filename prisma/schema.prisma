@@ -586,6 +586,8 @@ model SaleItem {
 
   @@index([saleId])
   @@index([productId, createdAt])
+  @@index([listingId, createdAt])
+  @@index([variantId, createdAt])
 }
 
 // Append-only stock history. Corrections and returns are new signed entries,
