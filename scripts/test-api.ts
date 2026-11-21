@@ -3380,6 +3380,155 @@ async function main() {
     ok('21a.17 exports use CSV content type and preserve void history', exportProducts.headers.get('content-type')?.includes('text/csv') === true && exportSales.headers.get('content-type')?.includes('text/csv') === true && exportStock.headers.get('content-type')?.includes('text/csv') === true && productsCsv.includes('Business ledger test product') && salesCsv.includes('VOIDED') && stockCsv.includes('RESTOCK'))
   }
 
+  console.log('\n== 21a.1 Orders, variant reservations, stock deduction and delivery ==')
+  {
+    const orderSeller: Jar = { cookie: '' }
+    const orderBuyer: Jar = { cookie: '' }
+    const secondBuyer: Jar = { cookie: '' }
+    await register(orderSeller, uniquePhone(), 'Order Seller', 'quiet-harbor-31')
+    await register(orderBuyer, uniquePhone(), 'Order Buyer', 'quiet-harbor-32')
+
+    const orderListingRes = await call('POST', '/api/listings', {
+      ...validListing,
+      title: 'Variant order lifecycle fixture ' + RUN_TAG,
+      price: 15000,
+      quantity: 4,
+      unit: 'piece',
+    }, orderSeller)
+    const orderListingId = orderListingRes.json?.listing?.id ?? ''
+    const orderProductRes = await call('POST', '/api/my/business-products', {
+      name: 'Variant order inventory ' + RUN_TAG,
+      sku: 'ORD-' + RUN_TAG,
+      unit: 'piece',
+      currency: 'UGX',
+      sellingPrice: 15000,
+      costPrice: 8000,
+      openingStock: 4,
+      reorderLevel: 0,
+      trackInventory: true,
+    }, orderSeller)
+    const orderProductId = orderProductRes.json?.product?.id ?? ''
+    const variantRes = orderListingId && orderProductId
+      ? await call('PUT', `/api/listings/${orderListingId}/variants`, {
+          variants: [{
+            label: 'Blue / M',
+            options: { Color: 'Blue', Size: 'M' },
+            sku: 'ORDV-' + RUN_TAG,
+            price: 15000,
+            stockQuantity: 4,
+            trackInventory: true,
+            availabilityStatus: 'IN_STOCK',
+            photos: [],
+            businessProductId: orderProductId,
+          }],
+        }, orderSeller)
+      : { status: 0, json: null }
+    const variantId = variantRes.json?.variants?.[0]?.id ?? ''
+    ok('21a.1 variant listing, ledger product and explicit stock link are created', orderListingRes.status === 201 && orderProductRes.status === 201 && variantRes.status === 200 && Boolean(variantId))
+
+    const deliveryRes = await call('POST', '/api/my/delivery-options', {
+      name: 'Kampala test delivery',
+      method: 'SELLER_DELIVERY',
+      district: 'Kampala',
+      area: 'Central',
+      fee: 2000,
+      minDays: 1,
+      maxDays: 2,
+    }, orderSeller)
+    const deliveryOptionId = deliveryRes.json?.option?.id ?? ''
+    ok('21a.2 seller can configure a delivery area, fee and estimated window', deliveryRes.status === 201 && Boolean(deliveryOptionId))
+
+    const checkoutKey = randomUUID()
+    const checkout = await call('POST', '/api/orders', {
+      items: [{ listingId: orderListingId, variantId, quantity: 2 }],
+      deliveryOptions: { [orderSeller.user!.id]: deliveryOptionId },
+      deliveryAddress: { district: 'Kampala', area: 'Central', addressLine: 'Test landmark, Kampala' },
+      idempotencyKey: checkoutKey,
+    }, orderBuyer)
+    const orderNumber = checkout.json?.orders?.[0]?.orderNumber ?? ''
+    const order = orderNumber
+      ? await db.commerceOrder.findUnique({ where: { orderNumber }, include: { items: true, reservations: true } })
+      : null
+    const stockBeforeAccept = orderProductId ? await db.businessProduct.findUnique({ where: { id: orderProductId } }) : null
+    ok('21a.3 checkout snapshots the chosen variant, delivery and total while holding stock (not deducting yet)',
+      checkout.status === 201 && order?.items[0]?.variantId === variantId && order?.reservations[0]?.status === 'HELD' &&
+      Number(stockBeforeAccept?.stockOnHand) === 4 && Number(order?.total) === 32000 &&
+      (order?.deliveryEstimate as any)?.minDays === 1)
+
+    const buyerOrder = order ? await call('GET', '/api/orders/' + order.id, undefined, orderBuyer) : { status: 0, json: null }
+    const sellerOrders = await call('GET', '/api/orders', undefined, orderSeller)
+    ok('21a.4 buyer and seller can see only their participant order view', buyerOrder.status === 200 && buyerOrder.json?.order?.items?.[0]?.variantId === variantId && sellerOrders.status === 200 && sellerOrders.json?.orders?.some((entry: any) => entry.id === order?.id))
+
+    const accepted = order ? await call('PATCH', '/api/orders/' + order.id, { action: 'ACCEPT' }, orderSeller) : { status: 0, json: null }
+    const stockAfterAccept = orderProductId ? await db.businessProduct.findUnique({ where: { id: orderProductId } }) : null
+    const movement = order?.items[0]
+      ? await db.stockMovement.findUnique({ where: { idempotencyKey: 'order-deduction:' + order.items[0].id } })
+      : null
+    ok('21a.5 seller acceptance deducts tracked stock once and appends an ORDER ledger movement',
+      accepted.status === 200 && accepted.json?.order?.status === 'ACCEPTED' && Number(stockAfterAccept?.stockOnHand) === 2 && Number(movement?.quantityDelta) === -2)
+
+    const paid = order ? await call('PATCH', '/api/orders/' + order.id, { action: 'MARK_PAID', paymentMethod: 'MTN_MOMO' }, orderSeller) : { status: 0, json: null }
+    const paidSale = order ? await db.sale.findUnique({ where: { commerceOrderId: order.id }, include: { items: true } }) : null
+    const linkedMovement = movement ? await db.stockMovement.findUnique({ where: { id: movement.id } }) : null
+    ok('21a.6 seller-confirmed payment creates one Sale snapshot and links the stock movement',
+      paid.status === 200 && paid.json?.order?.paymentStatus === 'PAID' && Boolean(paidSale) &&
+      paidSale?.items.length === 1 && paidSale.items[0]?.variantId === variantId && linkedMovement?.saleId === paidSale?.id)
+
+    const processing = order ? await call('PATCH', '/api/orders/' + order.id, { action: 'PROCESSING' }, orderSeller) : { status: 0, json: null }
+    const ready = order ? await call('PATCH', '/api/orders/' + order.id, { action: 'READY' }, orderSeller) : { status: 0, json: null }
+    const complete = order ? await call('PATCH', '/api/orders/' + order.id, { action: 'COMPLETE' }, orderSeller) : { status: 0, json: null }
+    ok('21a.7 seller can move a paid order through preparation, ready and completion',
+      processing.status === 200 && ready.status === 200 && complete.status === 200 && complete.json?.order?.status === 'COMPLETED')
+
+    const cancelListing = await call('POST', '/api/listings', {
+      ...validListing, title: 'Order cancellation fixture ' + RUN_TAG, price: 5000, quantity: 1, unit: 'piece',
+    }, orderSeller)
+    const cancelProduct = await call('POST', '/api/my/business-products', {
+      name: 'Cancellation stock ' + RUN_TAG, sku: 'CXL-' + RUN_TAG, unit: 'piece', currency: 'UGX',
+      sellingPrice: 5000, costPrice: null, openingStock: 1, reorderLevel: 0, trackInventory: true,
+    }, orderSeller)
+    const cancelListingId = cancelListing.json?.listing?.id ?? ''
+    const cancelProductId = cancelProduct.json?.product?.id ?? ''
+    if (cancelListingId && cancelProductId) {
+      await db.businessProduct.update({ where: { id: cancelProductId }, data: { listingId: cancelListingId } })
+    }
+    const cancelCheckout = cancelListingId ? await call('POST', '/api/orders', {
+      items: [{ listingId: cancelListingId, quantity: 1 }],
+      idempotencyKey: randomUUID(),
+    }, orderBuyer) : { status: 0, json: null }
+    const cancelOrderNumber = cancelCheckout.json?.orders?.[0]?.orderNumber ?? ''
+    const cancelOrder = cancelOrderNumber ? await db.commerceOrder.findUnique({ where: { orderNumber: cancelOrderNumber }, include: { reservations: true } }) : null
+    const cancelled = cancelOrder ? await call('PATCH', '/api/orders/' + cancelOrder.id, { action: 'CANCEL' }, orderBuyer) : { status: 0, json: null }
+    const cancelStock = cancelProductId ? await db.businessProduct.findUnique({ where: { id: cancelProductId } }) : null
+    const cancelReservation = cancelOrder?.reservations[0]
+      ? await db.stockReservation.findUnique({ where: { id: cancelOrder.reservations[0].id } })
+      : null
+    ok('21a.8 buyer cancellation before acceptance releases the reservation without deducting stock',
+      cancelCheckout.status === 201 && cancelled.status === 200 && cancelReservation?.status === 'RELEASED' && Number(cancelStock?.stockOnHand) === 1)
+
+    await register(secondBuyer, uniquePhone(), 'Second Order Buyer', 'quiet-harbor-33')
+    const scarceListing = await call('POST', '/api/listings', {
+      ...validListing, title: 'Concurrent stock fixture ' + RUN_TAG, price: 1000, quantity: 1, unit: 'piece',
+    }, orderSeller)
+    const scarceProduct = await call('POST', '/api/my/business-products', {
+      name: 'Single unit inventory ' + RUN_TAG, sku: 'ONE-' + RUN_TAG, unit: 'piece', currency: 'UGX',
+      sellingPrice: 1000, costPrice: null, openingStock: 1, reorderLevel: 0, trackInventory: true,
+    }, orderSeller)
+    const scarceListingId = scarceListing.json?.listing?.id ?? ''
+    const scarceProductId = scarceProduct.json?.product?.id ?? ''
+    if (scarceListingId && scarceProductId) {
+      await db.businessProduct.update({ where: { id: scarceProductId }, data: { listingId: scarceListingId } })
+    }
+    const simultaneous = scarceListingId ? await Promise.all([
+      call('POST', '/api/orders', { items: [{ listingId: scarceListingId, quantity: 1 }], idempotencyKey: randomUUID() }, orderBuyer),
+      call('POST', '/api/orders', { items: [{ listingId: scarceListingId, quantity: 1 }], idempotencyKey: randomUUID() }, secondBuyer),
+    ]) : [{ status: 0 }, { status: 0 }]
+    const scarceReservations = scarceProductId ? await db.stockReservation.count({ where: { businessProductId: scarceProductId, status: 'HELD', expiresAt: { gt: new Date() } } }) : 0
+    ok('21a.9 simultaneous checkouts cannot reserve the same final unit twice',
+      simultaneous.filter((response) => response.status === 201).length === 1 &&
+      simultaneous.filter((response) => response.status === 409).length === 1 && scarceReservations === 1)
+  }
+
   console.log('\n== 21b. Privacy-safe listing and shop engagement analytics ==')
   {
     const engagementSeller: Jar = { cookie: '' }
