@@ -5,7 +5,7 @@ import { saleCreateSchema } from '@/lib/business-records'
 function serializeSale(sale: {
   id: string; status: string; channel: string; currency: string; soldAt: Date
   notes: string | null; createdAt: Date
-  items: { id: string; productId: string; productName: string; unit: string
+  items: { id: string; productId: string | null; productName: string; unit: string
     quantity: { toString(): string }; unitPrice: { toString(): string }
     unitCost: { toString(): string } | null; lineTotal: { toString(): string } }[]
 }) {

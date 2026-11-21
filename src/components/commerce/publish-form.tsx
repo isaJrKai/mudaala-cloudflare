@@ -25,6 +25,8 @@ import { cn } from '@/lib/utils'
 import { copy } from '@/lib/copy'
 
 type VariantEditorRow = {
+  variantId?: string
+  businessProductId: string
   label: string
   optionsText: string
   sku: string
@@ -582,6 +584,7 @@ export function EditListingForm({ id }: { id: string }) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [variantRows, setVariantRows] = useState<VariantEditorRow[]>([])
+  const [inventoryProducts, setInventoryProducts] = useState<Array<{ id: string; name: string; sku: string | null; stockOnHand: number; listingId: string | null; listingVariantId: string | null }>>([])
   const selectedTaxonomyPath = form.taxonomyId !== 'none' ? taxonomyAncestors(form.taxonomyId) : []
   const selectedTaxonomyGroup = selectedTaxonomyPath[1]?.id ?? 'none'
   const selectedTaxonomyType = selectedTaxonomyPath[2]?.id ?? 'none'
@@ -593,7 +596,16 @@ export function EditListingForm({ id }: { id: string }) {
     apiGet<{ listing: Listing }>(`/api/listings/${id}`)
       .then(({ listing }) => {
         setLoaded(listing)
+        apiGet<{ variants: Array<{ id: string; businessProduct: { id: string } | null }>; inventoryProducts: Array<{ id: string; name: string; sku: string | null; stockOnHand: number; listingId: string | null; listingVariantId: string | null }> }>(`/api/listings/${id}/variants`)
+          .then(({ variants, inventoryProducts: products }) => {
+            setInventoryProducts(products)
+            const linked = new Map(variants.map((variant) => [variant.id, variant.businessProduct?.id ?? '']))
+            setVariantRows((rows) => rows.map((row) => ({ ...row, businessProductId: row.variantId ? linked.get(row.variantId) ?? '' : '' })))
+          })
+          .catch(() => setInventoryProducts([]))
         setVariantRows((listing.variants ?? []).map((variant) => ({
+          variantId: variant.id,
+          businessProductId: '',
           label: variant.label,
           optionsText: Object.entries(variant.options).map(([key, value]) => `${key}=${value}`).join(', '),
           sku: variant.sku ?? '',
@@ -708,6 +720,7 @@ export function EditListingForm({ id }: { id: string }) {
           trackInventory: row.trackInventory,
           availabilityStatus: row.availabilityStatus,
           photos: row.photos,
+          businessProductId: row.businessProductId || null,
         })),
       })
       await queryClient.invalidateQueries({ queryKey: ['listings'] })
@@ -856,7 +869,7 @@ export function EditListingForm({ id }: { id: string }) {
               <p className="mt-0.5 text-xs text-muted-foreground">Add sizes, colours, storage, materials or any combination. Leave this empty for a product with one standard option.</p>
             </div>
             <Button type="button" size="sm" variant="outline" onClick={() => setVariantRows((rows) => [...rows, {
-              label: '', optionsText: '', sku: '', price: '', stockQuantity: '', trackInventory: false,
+              variantId: undefined, businessProductId: '', label: '', optionsText: '', sku: '', price: '', stockQuantity: '', trackInventory: false,
               availabilityStatus: 'UNKNOWN', photos: [],
             }])}>Add option</Button>
           </div>
@@ -880,13 +893,27 @@ export function EditListingForm({ id }: { id: string }) {
                   <Input id={`variant-price-${index}`} type="number" min="0" step="any" value={row.price} onChange={(e) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, price: e.target.value } : item))} />
                 </Field>
               </div>
+              <Field label="Connect to stock ledger" htmlFor={`variant-inventory-${index}`} hint="Choose the merchant inventory record used for automatic reservations and deductions.">
+                <Select value={row.businessProductId || 'none'} onValueChange={(value) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, businessProductId: value === 'none' ? '' : value, trackInventory: value === 'none' ? item.trackInventory : true } : item))}>
+                  <SelectTrigger id={`variant-inventory-${index}`}><SelectValue placeholder="Not connected" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Not connected</SelectItem>
+                    {inventoryProducts.filter((product) => !product.listingVariantId || product.listingVariantId === row.variantId).map((product) => (
+                      <SelectItem key={product.id} value={product.id}>{product.name}{product.sku ? ` · ${product.sku}` : ''} · ${product.stockOnHand} available</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
               <label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={row.trackInventory} onCheckedChange={(checked) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, trackInventory: checked === true } : item))} />
+                <Checkbox checked={row.trackInventory} disabled={Boolean(row.businessProductId)} onCheckedChange={(checked) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, trackInventory: checked === true } : item))} />
                 Track stock for this option
               </label>
+              {row.trackInventory && !row.businessProductId ? (
+                <p className="text-xs text-amber-700">Connect a stock ledger product above to enable automatic reservations and stock deductions at order confirmation.</p>
+              ) : null}
               {row.trackInventory ? (
-                <Field label="Units in stock" htmlFor={`variant-stock-${index}`}>
-                  <Input id={`variant-stock-${index}`} type="number" min="0" step="any" value={row.stockQuantity} onChange={(e) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, stockQuantity: e.target.value } : item))} />
+                <Field label={row.businessProductId ? "Stock quantity · managed by inventory ledger" : "Units in stock"} htmlFor={`variant-stock-${index}`}>
+                  <Input id={`variant-stock-${index}`} type="number" min="0" step="any" value={row.stockQuantity} disabled={Boolean(row.businessProductId)} onChange={(e) => setVariantRows((rows) => rows.map((item, i) => i === index ? { ...item, stockQuantity: e.target.value } : item))} />
                 </Field>
               ) : (
                 <Field label="Availability (seller reported)" htmlFor={`variant-status-${index}`}>

@@ -17,6 +17,7 @@ import { NotificationsView } from './notifications-view'
 import { AccountView } from './account-view'
 import { SettingsView } from './settings-view'
 import { EnquiriesView } from './enquiries-view'
+import { OrdersView } from './orders-view'
 import { ShopFollowBar, FollowingView } from './shop-follow'
 import { useAppStore, hashToView, viewToHash } from '@/lib/store'
 
@@ -46,6 +47,8 @@ function CurrentViewContent() {
   switch (view.name) {
     case 'home':
       return <HomeDashboard />
+    case 'orders':
+      return <OrdersView />
     case 'business':
       return (
         <Suspense fallback={<div className="p-4 text-sm text-muted-foreground" role="status">Loading your business...</div>}>

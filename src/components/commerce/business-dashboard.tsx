@@ -23,6 +23,7 @@ import { ErrorState } from './listings-browse'
 import { BusinessRecordsPanel } from './business-records-panel'
 import { BusinessInsightsPanel } from './business-insights-panel'
 import { ProductCollectionsManager } from './product-collections-manager'
+import { DeliveryOptionsPanel } from './delivery-options-panel'
 
 function MetricCard({
   label,
@@ -164,6 +165,9 @@ export function BusinessDashboard() {
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
+          <Button variant="outline" className="h-10" onClick={() => navigate({ name: 'orders' })}>
+            Orders
+          </Button>
           <Button variant="outline" className="h-10" onClick={() => navigate({ name: 'enquiries' })}>
             Enquiries
           </Button>
@@ -298,6 +302,7 @@ export function BusinessDashboard() {
         {moreToolsOpen ? (
           <div className="space-y-6 border-t border-border/70 p-4 sm:p-5">
             <ProductCollectionsManager />
+            <DeliveryOptionsPanel />
             <BusinessInsightsPanel />
             <BusinessRecordsPanel />
           </div>

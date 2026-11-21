@@ -5,6 +5,34 @@ import { getOwnedListingOr404, sanitizePhotos } from '@/lib/listings'
 
 type Params = { params: Promise<{ id: string }> }
 
+export async function GET(_request: Request, { params }: Params) {
+  return route(async () => {
+    const seller = await requireSeller()
+    const { id } = await params
+    await getOwnedListingOr404(id, seller.id)
+    const [variants, products] = await Promise.all([
+      db.listingVariant.findMany({
+        where: { listingId: id },
+        include: { businessProduct: { select: { id: true, name: true, sku: true, stockOnHand: true, trackInventory: true } } },
+        orderBy: { sortOrder: 'asc' },
+      }),
+      db.businessProduct.findMany({
+        where: { userId: seller.id, archived: false, trackInventory: true },
+        select: { id: true, name: true, sku: true, stockOnHand: true, listingId: true, listingVariantId: true },
+        orderBy: { name: 'asc' },
+      }),
+    ])
+    return jsonOk({
+      variants: variants.map((variant) => ({
+        ...variant,
+        businessProduct: variant.businessProduct ? { ...variant.businessProduct, stockOnHand: Number(variant.businessProduct.stockOnHand) } : null,
+        photos: (() => { try { const parsed = JSON.parse(variant.photos); return Array.isArray(parsed) ? parsed : [] } catch { return [] } })(),
+      })),
+      inventoryProducts: products.map((product) => ({ ...product, stockOnHand: Number(product.stockOnHand) })),
+    })
+  })
+}
+
 const variantSchema = z.object({
   label: z.string().trim().min(1).max(120),
   options: z.record(z.string(), z.string().trim().min(1).max(80)).refine((value) => Object.keys(value).length > 0),
@@ -14,6 +42,7 @@ const variantSchema = z.object({
   trackInventory: z.boolean().default(false),
   availabilityStatus: z.enum(['UNKNOWN', 'IN_STOCK', 'AVAILABLE_ON_ORDER', 'OUT_OF_STOCK']).default('UNKNOWN'),
   photos: z.array(z.string().trim().min(1).max(2048)).max(8).default([]),
+  businessProductId: z.string().trim().min(1).max(128).nullable().optional(),
 })
 const bodySchema = z.object({ variants: z.array(variantSchema).max(100) })
 
@@ -45,31 +74,76 @@ export async function PUT(_request: Request, { params }: Params) {
     }
 
     await db.$transaction(async (tx) => {
-      await tx.listingVariant.deleteMany({ where: { listingId: id } })
-      if (body.variants.length) {
-        await tx.listingVariant.createMany({
-          data: body.variants.map((variant, index) => ({
-            listingId: id,
-            label: variant.label,
-            options: variant.options,
-            sku: variant.sku || null,
-            price: variant.price ?? null,
-            stockQuantity: variant.stockQuantity ?? null,
-            trackInventory: variant.trackInventory,
-            availabilityStatus: variant.availabilityStatus,
-            photos: JSON.stringify(sanitizePhotos(variant.photos)),
-            sortOrder: index,
-          })),
-        })
+      const existing = await tx.listingVariant.findMany({ where: { listingId: id } })
+      const keptIds = new Set<string>()
+      const optionKey = (options: Record<string, string>) => JSON.stringify(Object.entries(options)
+        .map(([name, value]) => [name.trim().toLowerCase(), value.trim().toLowerCase()])
+        .sort(([a], [b]) => String(a).localeCompare(String(b))))
+
+      for (const [index, variant] of body.variants.entries()) {
+        const incomingKey = optionKey(variant.options)
+        const match = existing.find((entry) =>
+          (variant.sku && entry.sku?.toLowerCase() === variant.sku.toLowerCase()) ||
+          optionKey(entry.options as Record<string, string>) === incomingKey
+        )
+        const values = {
+          label: variant.label,
+          options: variant.options,
+          sku: variant.sku || null,
+          price: variant.price ?? null,
+          stockQuantity: variant.stockQuantity ?? null,
+          trackInventory: variant.trackInventory,
+          availabilityStatus: variant.availabilityStatus,
+          photos: JSON.stringify(sanitizePhotos(variant.photos)),
+          sortOrder: index,
+        }
+        const saved = match
+          ? await tx.listingVariant.update({ where: { id: match.id }, data: values })
+          : await tx.listingVariant.create({ data: { listingId: id, ...values } })
+        keptIds.add(saved.id)
+
+        if (variant.businessProductId !== undefined) {
+          if (variant.businessProductId === null) {
+            await tx.businessProduct.updateMany({
+              where: { userId: seller.id, listingVariantId: saved.id },
+              data: { listingVariantId: null },
+            })
+          } else {
+            const product = await tx.businessProduct.findFirst({
+              where: { id: variant.businessProductId, userId: seller.id, archived: false },
+            })
+            if (!product) throw new ApiError(404, 'Choose a stock product from your own active inventory.')
+            if (!product.trackInventory) throw new ApiError(409, 'Turn on inventory tracking for this stock product before linking it to a variant.')
+            if (product.listingId && product.listingId !== id) {
+              throw new ApiError(409, 'That stock product is already attached to another listing.')
+            }
+            if (product.listingVariantId && product.listingVariantId !== saved.id) {
+              throw new ApiError(409, 'That stock product is already linked to another variant.')
+            }
+            await tx.businessProduct.update({
+              where: { id: product.id },
+              data: { listingVariantId: saved.id },
+            })
+            if (!saved.trackInventory) {
+              await tx.listingVariant.update({ where: { id: saved.id }, data: { trackInventory: true } })
+            }
+          }
+        }
       }
+
+      await tx.listingVariant.deleteMany({
+        where: { listingId: id, ...(keptIds.size ? { id: { notIn: [...keptIds] } } : {}) },
+      })
     }, { isolationLevel: 'Serializable' })
 
     const variants = await db.listingVariant.findMany({
       where: { listingId: id },
+      include: { businessProduct: { select: { id: true, name: true, sku: true, stockOnHand: true, trackInventory: true } } },
       orderBy: { sortOrder: 'asc' },
     })
     return jsonOk({ variants: variants.map((variant) => ({
       ...variant,
+      businessProduct: variant.businessProduct ? { ...variant.businessProduct, stockOnHand: Number(variant.businessProduct.stockOnHand) } : null,
       photos: (() => { try { const parsed = JSON.parse(variant.photos); return Array.isArray(parsed) ? parsed : [] } catch { return [] } })(),
     })) })
   })

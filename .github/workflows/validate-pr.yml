@@ -454,6 +454,41 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Apply commerce orders and reservations migration after product variants in disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          # db:push starts from the current schema; remove only commerce additions
+          # so this step exercises the actual additive production migration.
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."StockReservation", public."CommerceOrderItem", public."DeliveryOption", public."CommerceOrder" CASCADE;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."BusinessProduct" DROP COLUMN IF EXISTS "listingVariantId"; ALTER TABLE public."StockMovement" DROP COLUMN IF EXISTS "orderId", DROP COLUMN IF EXISTS "idempotencyKey"; ALTER TABLE public."Sale" DROP COLUMN IF EXISTS "commerceOrderId"; ALTER TABLE public."SaleItem" DROP COLUMN IF EXISTS "listingId", DROP COLUMN IF EXISTS "variantId"; ALTER TABLE public."SaleItem" ALTER COLUMN "productId" SET NOT NULL;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $roles$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='mudaala_runtime') THEN
+              CREATE ROLE mudaala_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN; END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
+          END
+          $roles$;
+          SQL
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261121130000_commerce_orders_inventory/migration.sql
+
+          commerce_tables=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('CommerceOrder','CommerceOrderItem','StockReservation','DeliveryOption')")
+          commerce_rls=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('CommerceOrder','CommerceOrderItem','StockReservation','DeliveryOption') AND c.relrowsecurity")
+          commerce_policies=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename IN ('CommerceOrder','CommerceOrderItem','StockReservation','DeliveryOption') AND policyname IN ('deny_direct_api_clients','mudaala_runtime_access')")
+          runtime_grants=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('CommerceOrder','CommerceOrderItem','StockReservation','DeliveryOption') AND grantee='mudaala_runtime' AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          direct_grants=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.role_table_grants WHERE table_schema='public' AND table_name IN ('CommerceOrder','CommerceOrderItem','StockReservation','DeliveryOption') AND grantee IN ('anon','authenticated') AND privilege_type IN ('SELECT','INSERT','UPDATE','DELETE')")
+          variant_runtime_policy=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='ListingVariant' AND policyname='mudaala_runtime_access' AND 'mudaala_runtime'=ANY(roles)")
+          order_constraints=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM pg_constraint WHERE conname IN ('CommerceOrder_buyerId_fkey','CommerceOrder_sellerId_fkey','CommerceOrderItem_orderId_fkey','CommerceOrderItem_listingId_fkey','StockReservation_orderId_fkey','StockReservation_orderItemId_fkey','StockReservation_businessProductId_fkey','StockReservation_variantId_fkey','Sale_commerceOrderId_fkey')")
+          if [ "$commerce_tables" != "4" ] || [ "$commerce_rls" != "4" ] || [ "$commerce_policies" != "8" ] || [ "$runtime_grants" != "16" ] || [ "$direct_grants" != "0" ] || [ "$variant_runtime_policy" != "1" ] || [ "$order_constraints" != "9" ]; then
+            echo "Commerce migration check failed: tables=$commerce_tables RLS=$commerce_rls policies=$commerce_policies runtime_grants=$runtime_grants direct_grants=$direct_grants variant_runtime_policy=$variant_runtime_policy constraints=$order_constraints"
+            exit 1
+          fi
+          echo "Commerce migration passed: order, reservation, delivery and paid-sale schema; RLS, runtime grants, direct-role denial and variant runtime access verified."
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
       - name: Validate SQLite product collection migration and constraints
         run: |
           python3 - <<'PY'

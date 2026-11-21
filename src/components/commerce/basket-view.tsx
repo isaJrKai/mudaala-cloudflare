@@ -16,10 +16,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Check, CheckCircle2, Minus, Plus, Smartphone, Store, Trash2, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ToastAction } from '@/components/ui/toast'
 import { PaySheet } from '@/components/commerce/pay-sheet'
 import { InAppEnquiryButton } from './in-app-enquiry-button'
-import { apiGet } from '@/lib/client'
+import { apiGet, apiPost } from '@/lib/client'
 import type { ListingDetail, ShopPage } from '@/lib/client'
 import { formatPrice } from '@/lib/format'
 import { useAppStore } from '@/lib/store'
@@ -90,14 +92,15 @@ export function useAddedFlash(): [boolean, (ok: boolean) => void] {
 // so React Query serves both surfaces from one fetch) and the honesty rule
 // travels with it: nothing ships to WhatsApp without this check.
 export function useLineStatuses(shopId: string, ids: string[]) {
+  const uniqueIds = [...new Set(ids)]
   return useQuery({
-    queryKey: ['basket-check', shopId, ids.join(',')],
-    enabled: ids.length > 0,
+    queryKey: ['basket-check', shopId, uniqueIds.join(',')],
+    enabled: uniqueIds.length > 0,
     retry: false,
     staleTime: 30_000,
     queryFn: async () => {
       const entries = await Promise.all(
-        ids.map(async (id) => {
+        uniqueIds.map(async (id) => {
           try {
             const res = await apiGet<{ listing: Pick<ListingDetail, 'status'> }>(`/api/listings/${id}`)
             return [id, res.listing.status] as const
@@ -254,13 +257,21 @@ function BasketShopSection({
   shop: BasketShopInfo
   lines: Record<string, BasketLineInfo>
 }) {
-  const { navigate } = useAppStore()
+  const { navigate, setAuthOpen } = useAppStore()
+  const { toast } = useToast()
   const basket = useBasket()
   const done = isShopDone(basket, shopId)
   const removeLine = useRemoveLine()
   const [payOpen, setPayOpen] = useState(false)
+  const [placingOrder, setPlacingOrder] = useState(false)
+  const [checkoutKey, setCheckoutKey] = useState<{ fingerprint: string; key: string } | null>(null)
+  const [selectedDeliveryOptionId, setSelectedDeliveryOptionId] = useState('none')
+  const [deliveryDistrict, setDeliveryDistrict] = useState('')
+  const [deliveryArea, setDeliveryArea] = useState('')
+  const [deliveryAddressLine, setDeliveryAddressLine] = useState('')
+  const [deliveryContactPhone, setDeliveryContactPhone] = useState('')
   const entries = Object.entries(lines)
-  const ids = entries.map(([id]) => id)
+  const ids = entries.map(([, line]) => line.listingId)
   const statuses = useLineStatuses(shopId, ids)
 
   // The pay sheet runs on FRESH shop data, never on the basket's snapshot:
@@ -276,8 +287,17 @@ function BasketShopSection({
     staleTime: 60_000,
   })
 
-  const fresh = entries.filter(([id]) => !statuses.data || statuses.data[id] === 'ACTIVE')
-  const stale = entries.filter(([id]) => statuses.data && statuses.data[id] !== 'ACTIVE')
+  const deliveryQuery = useQuery({
+    queryKey: ['shop-delivery-options', shopId],
+    queryFn: () => apiGet<{ options: Array<{ id: string; name: string; method: string; district: string | null; area: string | null; fee: number; minDays: number; maxDays: number }> }>(`/api/shops/${shopId}/delivery-options`),
+    enabled: entries.length > 0,
+    staleTime: 60_000,
+  })
+  const selectedDeliveryOption = deliveryQuery.data?.options.find((option) => option.id === selectedDeliveryOptionId) ?? null
+  const deliveryNeedsAddress = Boolean(selectedDeliveryOption && selectedDeliveryOption.method !== 'PICKUP')
+
+  const fresh = entries.filter(([, line]) => !statuses.data || statuses.data[line.listingId] === 'ACTIVE')
+  const stale = entries.filter(([, line]) => statuses.data && statuses.data[line.listingId] !== 'ACTIVE')
   const sendable = statuses.isLoading ? entries : fresh
   const sendableLines = sendable.map(([, line]) => line)
   const subtotal = basketSubtotal(sendableLines)
@@ -425,6 +445,91 @@ function BasketShopSection({
           </p>
         ) : null}
 
+        {deliveryQuery.data?.options.length ? (
+          <div className="space-y-2 rounded-lg border bg-secondary/25 p-3">
+            <p className="text-xs font-semibold">Collection and delivery</p>
+            <Select value={selectedDeliveryOptionId} onValueChange={(value) => {
+              setSelectedDeliveryOptionId(value)
+              const option = deliveryQuery.data?.options.find((item) => item.id === value)
+              setDeliveryDistrict(option?.district ?? '')
+              setDeliveryArea(option?.area ?? '')
+            }}>
+              <SelectTrigger><SelectValue placeholder="Choose collection or delivery" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Arrange collection directly with seller</SelectItem>
+                {deliveryQuery.data.options.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.name} · {option.fee === 0 ? 'Free' : formatPrice(option.fee, null, 'UGX')} · {option.minDays}-{option.maxDays} days
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {deliveryNeedsAddress ? (
+              <div className="grid gap-2">
+                <Input value={selectedDeliveryOption?.district ?? deliveryDistrict} disabled={Boolean(selectedDeliveryOption?.district)} placeholder="District" onChange={(e) => setDeliveryDistrict(e.target.value)} />
+                <Input value={deliveryArea} placeholder="Area or neighbourhood" onChange={(e) => setDeliveryArea(e.target.value)} />
+                <Input value={deliveryAddressLine} placeholder="Delivery address or landmark" onChange={(e) => setDeliveryAddressLine(e.target.value)} />
+                <Input value={deliveryContactPhone} placeholder="Delivery contact phone (required)" onChange={(e) => setDeliveryContactPhone(e.target.value)} />
+              </div>
+            ) : null}
+            {selectedDeliveryOption ? <p className="text-xs text-muted-foreground">Delivery timing is an estimate. The seller confirms it when reviewing your order.</p> : null}
+          </div>
+        ) : null}
+
+        {sendable.length > 0 ? (
+          <Button
+            type="button"
+            variant="default"
+            className="press h-11 w-full"
+            disabled={placingOrder || statuses.isLoading || deliveryQuery.isLoading || (deliveryNeedsAddress && !(selectedDeliveryOption?.district || deliveryDistrict.trim()) ) || (deliveryNeedsAddress && !deliveryAddressLine.trim()) || (deliveryNeedsAddress && !deliveryContactPhone.trim())}
+            onClick={async () => {
+              setPlacingOrder(true)
+              try {
+                const fingerprint = JSON.stringify({
+                  items: sendable.map(([, line]) => ({ listingId: line.listingId, variantId: line.variantId ?? null, quantity: line.qty })),
+                  deliveryOptionId: selectedDeliveryOptionId,
+                  deliveryDistrict,
+                  deliveryArea,
+                  deliveryAddressLine,
+                  deliveryContactPhone,
+                })
+                const idempotencyKey = checkoutKey?.fingerprint === fingerprint ? checkoutKey.key : crypto.randomUUID()
+                setCheckoutKey({ fingerprint, key: idempotencyKey })
+                const response = await apiPost<{ orders: Array<{ orderNumber: string; total: number; currency: string }> }>('/api/orders', {
+                  items: sendable.map(([, line]) => ({
+                    listingId: line.listingId,
+                    ...(line.variantId ? { variantId: line.variantId } : {}),
+                    quantity: line.qty,
+                  })),
+                  idempotencyKey,
+                  ...(selectedDeliveryOptionId !== 'none' ? { deliveryOptions: { [shopId]: selectedDeliveryOptionId } } : {}),
+                  ...(deliveryNeedsAddress ? { deliveryAddress: {
+                    district: selectedDeliveryOption?.district || deliveryDistrict.trim(),
+                    area: deliveryArea.trim() || selectedDeliveryOption?.area || undefined,
+                    addressLine: deliveryAddressLine.trim(),
+                    contactPhone: deliveryContactPhone.trim() || undefined,
+                  } } : {}),
+                })
+                removeShop(shopId)
+                setCheckoutKey(null)
+                toast({
+                  title: 'Order sent to ' + shop.name,
+                  description: response.orders.map((order) => order.orderNumber).join(', ') + ' · The seller has 20 minutes to confirm availability.',
+                })
+                navigate({ name: 'orders' })
+              } catch (error) {
+                const message = error instanceof Error ? error.message : 'Could not place this order.'
+                if (/sign in|session|unauthor/i.test(message)) setAuthOpen(true)
+                else toast({ title: 'Could not place order', description: message, variant: 'destructive' })
+              } finally {
+                setPlacingOrder(false)
+              }
+            }}
+          >
+            {placingOrder ? 'Placing order…' : 'Place order · reserve stock'}
+          </Button>
+        ) : null}
+
         {sendable.length > 0 ? (
           <Button
             type="button"
@@ -442,7 +547,7 @@ function BasketShopSection({
 
         {sendable.length > 0 ? (
           <InAppEnquiryButton
-            listingId={sendable[0][0]}
+            listingId={sendable[0][1].listingId}
             shopName={shop.name}
             initialMessage={[
               `Hello ${shop.name}, I'd like to ask about these items:`,

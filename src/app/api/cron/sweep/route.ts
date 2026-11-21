@@ -7,6 +7,8 @@
 // public reads run the same sweep.)
 
 import { createHash, timingSafeEqual } from 'node:crypto'
+import { Prisma } from '@prisma/client'
+import { db } from '@/lib/db'
 import { headers } from 'next/headers'
 import { route, jsonOk, jsonError } from '@/lib/api'
 import { expireOverdueListings, notifyExpiringSoon } from '@/lib/listings'
@@ -33,10 +35,45 @@ export async function POST() {
       return jsonError(403, 'Invalid cron secret')
     }
 
+    const commerceExpiry = await db.$transaction(async (tx) => {
+      // UPDATE ... RETURNING is atomic and races safely with seller acceptance:
+      // the order row lock in /api/orders/[id] serializes both transitions.
+      const expiredOrders = await tx.$queryRaw<Array<{ id: string; buyerId: string | null; sellerId: string; orderNumber: string }>>(Prisma.sql`
+        UPDATE "CommerceOrder"
+        SET "status" = 'EXPIRED', "updatedAt" = NOW()
+        WHERE "status" = 'PENDING_SELLER' AND "expiresAt" IS NOT NULL AND "expiresAt" <= NOW()
+        RETURNING "id", "buyerId", "sellerId", "orderNumber"
+      `)
+      const ids = expiredOrders.map((order) => order.id)
+      if (ids.length) {
+        await tx.stockReservation.updateMany({
+          where: { orderId: { in: ids }, status: 'HELD' },
+          data: { status: 'EXPIRED', releasedAt: new Date() },
+        })
+        for (const order of expiredOrders) {
+          if (!order.buyerId) continue
+          await tx.notification.create({
+            data: {
+              userId: order.buyerId,
+              type: 'ORDER_EXPIRED',
+              category: 'SYSTEM',
+              priority: 'NORMAL',
+              title: 'Order reservation expired',
+              body: 'Order ' + order.orderNumber + ' was not confirmed in time. Any held stock is available again.',
+              actionUrl: '/#/orders',
+              actionLabel: 'View orders',
+              dedupeKey: 'order-expired:' + order.id,
+            },
+          })
+        }
+      }
+      return expiredOrders.length
+    })
+
     const expired = await expireOverdueListings()
     const expiring = await notifyExpiringSoon()
     // Daily price medians - same sweep, derived honestly from ACTIVE listings.
     const priceSnapshots = await recordPriceSnapshots()
-    return jsonOk({ expired, expiringNotified: expiring, priceSnapshots })
+    return jsonOk({ expired, commerceOrdersExpired: commerceExpiry, expiringNotified: expiring, priceSnapshots })
   })
 }

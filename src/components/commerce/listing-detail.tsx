@@ -283,11 +283,21 @@ export function ListingDetail({ id }: { id: string }) {
               OFFERs only: a REQUEST is someone offering to sell to YOU.
               The flash only plays when the basket really took the item -
               addToBasket reports back. */}
-          {listing.type === 'OFFER' && variants.length === 0 ? (
+          {listing.type === 'OFFER' && listing.status === 'ACTIVE' ? (
             <Button
               variant="secondary"
               className="press mt-3 h-10 w-full gap-1.5 text-[15px]"
-              onClick={() => flashAdded(addToBasket(listing))}
+              disabled={Boolean(selectedVariant && (selectedVariant.availabilityStatus === 'OUT_OF_STOCK' || (selectedVariant.trackInventory && (selectedVariant.stockQuantity ?? 0) <= 0)))}
+              onClick={() => flashAdded(addToBasket({
+                ...listing,
+                selectedVariant: selectedVariant ? {
+                  id: selectedVariant.id,
+                  label: selectedVariant.label,
+                  options: selectedVariant.options,
+                  sku: selectedVariant.sku,
+                  price: selectedVariant.price,
+                } : undefined,
+              }))}
             >
               {added ? (
                 <>

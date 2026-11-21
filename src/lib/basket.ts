@@ -34,6 +34,11 @@ export interface BasketShopInfo {
 }
 
 export interface BasketLineInfo {
+  listingId: string
+  variantId?: string
+  variantLabel?: string
+  variantOptions?: Record<string, string>
+  sku?: string | null
   title: string
   price: number | null
   currency: string
@@ -62,7 +67,14 @@ function parseStored(): StoredBasket {
     if (!raw) return EMPTY
     const parsed = JSON.parse(raw) as StoredBasket
     if (!parsed || typeof parsed !== 'object' || !parsed.shops || !parsed.lines) return EMPTY
-    const out: StoredBasket = { shops: parsed.shops, lines: parsed.lines }
+    const normalizedLines = Object.fromEntries(Object.entries(parsed.lines).map(([shopId, shopLines]) => [
+      shopId,
+      Object.fromEntries(Object.entries(shopLines).map(([key, line]) => [
+        key,
+        { ...line, listingId: line.listingId || key.split('::')[0] },
+      ])),
+    ]))
+    const out: StoredBasket = { shops: parsed.shops, lines: normalizedLines }
     if (parsed.doneShops && typeof parsed.doneShops === 'object' && !Array.isArray(parsed.doneShops)) {
       out.doneShops = parsed.doneShops
     }
@@ -143,6 +155,7 @@ export interface BasketAddListing {
   contactWhatsapp: string | null
   type: 'OFFER' | 'REQUEST'
   user?: { id: string; name: string; profile: { businessName: string; photoUrl?: string | null } | null } | null
+  selectedVariant?: { id: string; label: string; options: Record<string, string>; sku: string | null; price: number | null }
 }
 
 // Drop the done mark for shops whose list just changed - a sent list that
@@ -166,9 +179,11 @@ export function addToBasket(listing: BasketAddListing): boolean {
   if (listing.type !== 'OFFER' || !listing.user) return false
   const shopId = listing.user.id
   const shopLines = state.lines[shopId] ?? {}
-  if (!shopLines[listing.id] && Object.keys(shopLines).length >= MAX_LINES_PER_SHOP) return false
+  const variant = listing.selectedVariant
+  const lineId = variant ? listing.id + '::' + variant.id : listing.id
+  if (!shopLines[lineId] && Object.keys(shopLines).length >= MAX_LINES_PER_SHOP) return false
 
-  const existing = shopLines[listing.id]
+  const existing = shopLines[lineId]
   const next: StoredBasket = {
     shops: {
       ...state.shops,
@@ -183,9 +198,17 @@ export function addToBasket(listing: BasketAddListing): boolean {
       ...state.lines,
       [shopId]: {
         ...shopLines,
-        [listing.id]: existing
+        [lineId]: existing
           ? { ...existing, qty: Math.min(MAX_QTY, existing.qty + 1) }
-          : { title: listing.title, price: listing.price, currency: listing.currency, unit: listing.unit, qty: 1 },
+          : {
+              listingId: listing.id,
+              ...(variant ? { variantId: variant.id, variantLabel: variant.label, variantOptions: variant.options, sku: variant.sku } : {}),
+              title: listing.title + (variant ? ' · ' + variant.label : ''),
+              price: variant?.price ?? listing.price,
+              currency: listing.currency,
+              unit: listing.unit,
+              qty: 1,
+            },
       },
     },
   }
@@ -193,14 +216,14 @@ export function addToBasket(listing: BasketAddListing): boolean {
   return true
 }
 
-export function setLineQty(shopId: string, listingId: string, qty: number): void {
+export function setLineQty(shopId: string, lineId: string, qty: number): void {
   const shopLines = { ...(state.lines[shopId] ?? {}) }
   if (qty <= 0) {
-    delete shopLines[listingId]
+    delete shopLines[lineId]
   } else {
-    const line = shopLines[listingId]
+    const line = shopLines[lineId]
     if (!line) return
-    shopLines[listingId] = { ...line, qty: Math.min(MAX_QTY, qty) }
+    shopLines[lineId] = { ...line, qty: Math.min(MAX_QTY, qty) }
   }
   const lines = { ...state.lines }
   if (Object.keys(shopLines).length === 0) {
@@ -230,13 +253,13 @@ export function removeShop(shopId: string): void {
 // done mark because the seller had not seen the edited list, and the app
 // never marks a list done on the buyer's behalf. If the restored line
 // changes nothing for the seller, the buyer re-marks it in one tap.
-export function restoreLine(shopId: string, shop: BasketShopInfo, listingId: string, line: BasketLineInfo): void {
+export function restoreLine(shopId: string, shop: BasketShopInfo, lineId: string, line: BasketLineInfo): void {
   commit({
     ...state,
     shops: state.shops[shopId] ? state.shops : { ...state.shops, [shopId]: shop },
     lines: {
       ...state.lines,
-      [shopId]: { ...(state.lines[shopId] ?? {}), [listingId]: line },
+      [shopId]: { ...(state.lines[shopId] ?? {}), [lineId]: line },
     },
   })
 }

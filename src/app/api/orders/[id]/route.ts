@@ -1,0 +1,266 @@
+import { Prisma } from '@prisma/client'
+import { z } from 'zod'
+import { ApiError, jsonOk, parseBody, requireUser, route } from '@/lib/api'
+import { db } from '@/lib/db'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+type Context = { params: Promise<{ id: string }> }
+
+const actionSchema = z.object({
+  action: z.enum(['ACCEPT', 'REJECT', 'CANCEL', 'MARK_PAID', 'PROCESSING', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETE']),
+  paymentMethod: z.enum(['CASH', 'MTN_MOMO', 'AIRTEL_MONEY', 'OTHER']).optional(),
+  paymentReference: z.string().trim().max(120).optional(),
+  sellerNote: z.string().trim().max(1000).optional(),
+})
+
+export async function GET(_request: Request, context: Context) {
+  return route(async () => {
+    const user = await requireUser()
+    const { id } = await context.params
+    const order = await db.commerceOrder.findFirst({
+      where: { id, OR: [{ buyerId: user.id }, { sellerId: user.id }] },
+      include: {
+        items: true,
+        reservations: true,
+        seller: { select: { profile: { select: { businessName: true, phone: true, whatsapp: true, momoMerchantCode: true, momoNetwork: true, momoMerchantName: true } } } },
+        buyer: { select: { name: true } },
+      },
+    })
+    if (!order) throw new ApiError(404, 'Order not found')
+    const isBuyer = order.buyerId === user.id
+    return jsonOk({
+      order: {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        paymentMethod: order.paymentMethod,
+        paymentReference: order.paymentReference,
+        currency: order.currency,
+        subtotal: Number(order.subtotal),
+        deliveryFee: Number(order.deliveryFee),
+        total: Number(order.total),
+        deliveryMethod: order.deliveryMethod,
+        deliveryEstimate: order.deliveryEstimate,
+        deliveryAddress: order.deliveryAddress,
+        buyerNote: order.buyerNote,
+        sellerNote: order.sellerNote,
+        createdAt: order.createdAt.toISOString(),
+        acceptedAt: order.acceptedAt?.toISOString() ?? null,
+        paidAt: order.paidAt?.toISOString() ?? null,
+        completedAt: order.completedAt?.toISOString() ?? null,
+        role: isBuyer ? 'BUYER' : 'SELLER',
+        seller: isBuyer ? order.seller.profile : null,
+        buyerName: isBuyer ? null : (order.buyer?.name ?? order.buyerName),
+        items: order.items.map((item) => ({
+          id: item.id,
+          listingId: item.listingId,
+          variantId: item.variantId,
+          title: item.productTitle,
+          variantLabel: item.variantLabel,
+          variantOptions: item.variantOptions,
+          sku: item.sku,
+          photoUrl: item.photoUrl,
+          quantity: Number(item.quantity),
+          unitPrice: Number(item.unitPrice),
+          lineTotal: Number(item.lineTotal),
+        })),
+      },
+    })
+  })
+}
+
+export async function PATCH(request: Request, context: Context) {
+  return route(async () => {
+    const seller = await requireUser('Sign in to manage orders')
+    const { id } = await context.params
+    const body = await parseBody(request, actionSchema)
+
+    const result = await db.$transaction(async (tx) => {
+      // Serialize seller actions against the expiry sweep for this order.
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "CommerceOrder" WHERE "id" = ${id} FOR UPDATE`)
+      const order = await tx.commerceOrder.findFirst({
+        where: { id, OR: [{ sellerId: seller.id }, { buyerId: seller.id }] },
+        include: { reservations: true, items: true },
+      })
+      if (!order) throw new ApiError(404, 'Order not found')
+      const now = new Date()
+
+      if (body.action === 'CANCEL') {
+        if (order.buyerId !== seller.id) throw new ApiError(403, 'Only the buyer can cancel this order.')
+        if (order.status !== 'PENDING_SELLER') throw new ApiError(409, 'An order can only be cancelled by the buyer before the seller accepts it.')
+        await tx.stockReservation.updateMany({
+          where: { orderId: order.id, status: 'HELD' },
+          data: { status: 'RELEASED', releasedAt: now },
+        })
+        const cancelled = await tx.commerceOrder.update({
+          where: { id: order.id },
+          data: { status: 'CANCELLED', cancelledAt: now },
+        })
+        await tx.notification.create({ data: { userId: order.sellerId, type: 'ORDER_CANCELLED', category: 'SYSTEM', priority: 'NORMAL', title: 'Buyer cancelled an order', body: 'Order ' + order.orderNumber + ' was cancelled before acceptance. Reserved stock is available again.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-cancelled:' + order.id } })
+        return cancelled
+      }
+      if (order.sellerId !== seller.id) throw new ApiError(403, 'Only the seller can manage this order.')
+
+      if (body.action === 'REJECT') {
+        if (order.status !== 'PENDING_SELLER') throw new ApiError(409, 'Only an order awaiting seller confirmation can be rejected.')
+        await tx.stockReservation.updateMany({
+          where: { orderId: order.id, status: 'HELD' },
+          data: { status: 'RELEASED', releasedAt: now },
+        })
+        const rejected = await tx.commerceOrder.update({
+          where: { id: order.id },
+          data: { status: 'REJECTED', cancelledAt: now, sellerNote: body.sellerNote ?? null },
+        })
+        if (order.buyerId) await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_REJECTED', category: 'SYSTEM', priority: 'HIGH', title: 'Seller could not accept the order', body: 'Order ' + order.orderNumber + ' was declined. Any stock hold has been released.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-rejected:' + order.id } })
+        return rejected
+      }
+
+      if (body.action === 'ACCEPT') {
+        if (order.status !== 'PENDING_SELLER') throw new ApiError(409, 'This order has already been reviewed.')
+        const held = order.reservations.filter((reservation) => reservation.status === 'HELD')
+        if (held.some((reservation) => !reservation.businessProductId)) throw new ApiError(409, 'A reserved inventory record is no longer available. Review stock before accepting this order.')
+        if (held.some((reservation) => reservation.expiresAt <= now)) {
+          await tx.stockReservation.updateMany({
+            where: { orderId: order.id, status: 'HELD' },
+            data: { status: 'EXPIRED', releasedAt: now },
+          })
+          return tx.commerceOrder.update({ where: { id: order.id }, data: { status: 'EXPIRED' } })
+        }
+        const productIds = [...new Set(held.map((reservation) => reservation.businessProductId).filter((value): value is string => Boolean(value)))]
+        if (productIds.length) {
+          await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "BusinessProduct" WHERE "id" IN (${Prisma.join(productIds)}) ORDER BY "id" FOR UPDATE`)
+        }
+        for (const reservation of held) {
+          if (!reservation.businessProductId) continue
+          const movementKey = 'order-deduction:' + reservation.orderItemId
+          const existingMovement = await tx.stockMovement.findUnique({ where: { idempotencyKey: movementKey } })
+          if (!existingMovement) {
+            const changed = await tx.businessProduct.updateMany({
+              where: {
+                id: reservation.businessProductId,
+                userId: seller.id,
+                archived: false,
+                trackInventory: true,
+                stockOnHand: { gte: reservation.quantity },
+              },
+              data: { stockOnHand: { decrement: reservation.quantity } },
+            })
+            if (changed.count !== 1) throw new ApiError(409, 'Recorded stock changed before this order could be accepted. Review inventory and try again.')
+            await tx.stockMovement.create({
+              data: {
+                userId: seller.id,
+                productId: reservation.businessProductId,
+                orderId: order.id,
+                idempotencyKey: movementKey,
+                type: 'ORDER',
+                quantityDelta: reservation.quantity.neg(),
+                note: 'Stock deducted for confirmed Mudaala order ' + order.orderNumber,
+              },
+            })
+          }
+        }
+        await tx.stockReservation.updateMany({
+          where: { orderId: order.id, status: 'HELD' },
+          data: { status: 'COMMITTED', committedAt: now },
+        })
+        const accepted = await tx.commerceOrder.update({
+          where: { id: order.id },
+          data: { status: 'ACCEPTED', acceptedAt: now, sellerNote: body.sellerNote ?? null },
+        })
+        if (order.buyerId) await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_ACCEPTED', category: 'SYSTEM', priority: 'HIGH', title: 'Your order was accepted', body: 'The seller accepted order ' + order.orderNumber + ' and confirmed the tracked stock.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-accepted:' + order.id } })
+        return accepted
+      }
+
+      if (body.action === 'MARK_PAID') {
+        if (!['ACCEPTED', 'AWAITING_PAYMENT', 'PROCESSING', 'READY', 'OUT_FOR_DELIVERY'].includes(order.status)) {
+          throw new ApiError(409, 'The order must be accepted before payment can be recorded.')
+        }
+        if (order.paymentStatus === 'PAID') return order
+        const paid = await tx.commerceOrder.update({
+          where: { id: order.id },
+          data: {
+            paymentStatus: 'PAID',
+            paidAt: now,
+            paymentMethod: body.paymentMethod ?? 'OTHER',
+            paymentReference: body.paymentReference?.trim() || null,
+          },
+        })
+        const existingSale = await tx.sale.findUnique({ where: { commerceOrderId: order.id } })
+        if (!existingSale) {
+          const productIds = [...new Set(order.items.map((item) => item.businessProductId).filter((value): value is string => Boolean(value)))]
+          const products = productIds.length
+            ? await tx.businessProduct.findMany({ where: { id: { in: productIds }, userId: seller.id } })
+            : []
+          const productsById = new Map(products.map((product) => [product.id, product]))
+          const sale = await tx.sale.create({
+            data: {
+              userId: seller.id,
+              commerceOrderId: order.id,
+              idempotencyKey: 'mudaala-order:' + order.id,
+              channel: 'MUDAALA',
+              currency: order.currency,
+              soldAt: now,
+              notes: 'Paid Mudaala order ' + order.orderNumber,
+              items: {
+                create: order.items.map((item) => ({
+                  productId: item.businessProductId ?? null,
+                  listingId: item.listingId,
+                  variantId: item.variantId,
+                  productName: item.productTitle,
+                  unit: item.unit ?? 'piece',
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                  unitCost: item.businessProductId && productsById.get(item.businessProductId)?.costPrice
+                    ? productsById.get(item.businessProductId)!.costPrice
+                    : null,
+                  lineTotal: item.lineTotal,
+                })),
+              },
+            },
+          })
+          await tx.stockMovement.updateMany({
+            where: { orderId: order.id, saleId: null },
+            data: { saleId: sale.id },
+          })
+        }
+        if (order.buyerId) await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_PAYMENT_CONFIRMED', category: 'SYSTEM', priority: 'NORMAL', title: 'Payment confirmed by seller', body: 'The seller recorded payment for order ' + order.orderNumber + '.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-payment:' + order.id } })
+        return paid
+      }
+
+      const transitions: Record<string, { from: string[]; to: string }> = {
+        PROCESSING: { from: ['ACCEPTED'], to: 'PROCESSING' },
+        READY: { from: ['ACCEPTED', 'PROCESSING'], to: 'READY' },
+        OUT_FOR_DELIVERY: { from: ['READY'], to: 'OUT_FOR_DELIVERY' },
+        COMPLETE: { from: ['READY', 'OUT_FOR_DELIVERY'], to: 'COMPLETED' },
+      }
+      const transition = transitions[body.action]
+      if (body.action === 'COMPLETE' && order.paymentStatus !== 'PAID') throw new ApiError(409, 'Record the payment received before completing this order.')
+      if (!transition || !transition.from.includes(order.status)) {
+        throw new ApiError(409, 'That order status change is not allowed.')
+      }
+      const changed = await tx.commerceOrder.update({
+        where: { id: order.id },
+        data: {
+          status: transition.to,
+          ...(transition.to === 'COMPLETED' ? { completedAt: now } : {}),
+          ...(body.sellerNote !== undefined ? { sellerNote: body.sellerNote } : {}),
+        },
+      })
+      if (order.buyerId) await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_STATUS_UPDATED', category: 'SYSTEM', priority: 'NORMAL', title: 'Order status updated', body: 'Order ' + order.orderNumber + ' is now ' + transition.to.toLowerCase().replace(/_/g, ' ') + '.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-status:' + order.id + ':' + transition.to } })
+      return changed
+    }, { isolationLevel: 'Serializable' })
+
+    if (result.status === 'EXPIRED') throw new ApiError(409, 'The stock reservation expired. Ask the buyer to place the order again.')
+    return jsonOk({
+      order: {
+        id: result.id,
+        orderNumber: result.orderNumber,
+        status: result.status,
+        paymentStatus: result.paymentStatus,
+      },
+    })
+  })
+}
