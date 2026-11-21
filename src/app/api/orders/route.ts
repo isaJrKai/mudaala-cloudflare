@@ -90,11 +90,10 @@ export async function POST(request: Request) {
       },
     })
     if (listings.length !== listingIds.length) throw new ApiError(409, 'One or more products are no longer available.')
-    const listingById = new Map<string, (typeof listings)[number]>(listings.map((listing) => [listing.id, listing] as const))
     const bySeller = new Map<string, Array<{ item: CheckoutItem; listing: typeof listings[number]; variant: typeof listings[number]['variants'][number] | null; product: typeof listings[number]['businessProducts'][number] | null; price: number }>>()
 
     for (const item of items) {
-      const listing = listingById.get(item.listingId)!
+      const listing = listings.find((entry) => entry.id === item.listingId)!
       if (listing.userId === buyer.id) throw new ApiError(409, 'You cannot order products from your own shop.')
       if (!listing.user.profile || listing.user.profile.moderationStatus !== 'ACTIVE') throw new ApiError(409, 'This seller is not currently accepting orders.')
       const variant = item.variantId ? listing.variants.find((entry) => entry.id === item.variantId) ?? null : null
