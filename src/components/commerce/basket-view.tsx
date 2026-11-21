@@ -450,6 +450,7 @@ function BasketShopSection({
                   title: 'Order sent to ' + shop.name,
                   description: response.orders.map((order) => order.orderNumber).join(', ') + ' · The seller has 20 minutes to confirm availability.',
                 })
+                navigate({ name: 'orders' })
               } catch (error) {
                 const message = error instanceof Error ? error.message : 'Could not place this order.'
                 if (/sign in|session|unauthor/i.test(message)) setAuthOpen(true)
