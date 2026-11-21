@@ -106,8 +106,7 @@ export async function PATCH(request: Request, context: Context) {
             where: { orderId: order.id, status: 'HELD' },
             data: { status: 'EXPIRED', releasedAt: now },
           })
-          await tx.commerceOrder.update({ where: { id: order.id }, data: { status: 'EXPIRED' } })
-          throw new ApiError(409, 'The stock reservation expired. Ask the buyer to place the order again.')
+          return tx.commerceOrder.update({ where: { id: order.id }, data: { status: 'EXPIRED' } })
         }
         const productIds = [...new Set(held.map((reservation) => reservation.businessProductId).filter((value): value is string => Boolean(value)))]
         if (productIds.length) {
@@ -188,6 +187,7 @@ export async function PATCH(request: Request, context: Context) {
       })
     }, { isolationLevel: 'Serializable' })
 
+    if (result.status === 'EXPIRED') throw new ApiError(409, 'The stock reservation expired. Ask the buyer to place the order again.')
     return jsonOk({
       order: {
         id: result.id,
