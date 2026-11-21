@@ -24,7 +24,7 @@ type OrderSummary = {
   itemCount: number
   createdAt: string
 }
-type OrderDetail = OrderSummary & {
+type OrderDetail = Omit<OrderSummary, 'shopName' | 'itemCount'> & {
   paymentMethod: string | null
   paymentReference: string | null
   subtotal: number
@@ -144,7 +144,7 @@ export function OrdersView() {
             {sellerCanReview ? <div className="grid grid-cols-2 gap-2"><Button variant="outline" disabled={busy} onClick={() => void act('REJECT')}>Decline</Button><Button disabled={busy} onClick={() => void act('ACCEPT')}>Accept & deduct stock</Button></div> : null}
             {order.status === 'ACCEPTED' && order.paymentStatus !== 'PAID' ? <Button className="w-full" variant="outline" disabled={busy} onClick={() => void act('MARK_PAID')}>Confirm payment received</Button> : null}
             {order.status === 'ACCEPTED' ? <Button className="w-full" disabled={busy} onClick={() => void act('PROCESSING')}>Start preparing</Button> : null}
-            {order.status === 'PROCESSING' || order.status === 'ACCEPTED' ? <Button className="w-full" disabled={busy} onClick={() => void act('READY')}>Mark ready</Button> : null}
+            {order.status === 'PROCESSING' ? <Button className="w-full" disabled={busy} onClick={() => void act('READY')}>Mark ready</Button> : null}
             {order.status === 'READY' ? <Button className="w-full" disabled={busy} onClick={() => void act('OUT_FOR_DELIVERY')}>Dispatch order</Button> : null}
             {order.status === 'READY' || order.status === 'OUT_FOR_DELIVERY' ? <Button className="w-full" disabled={busy} onClick={() => void act('COMPLETE')}>Mark completed</Button> : null}
             <p className="text-xs text-muted-foreground">Accepting confirms the order and deducts tracked stock once. Record payment only after checking your own payment receipt.</p>
