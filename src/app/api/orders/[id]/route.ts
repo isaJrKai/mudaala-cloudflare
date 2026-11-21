@@ -53,7 +53,7 @@ export async function GET(_request: Request, context: Context) {
         completedAt: order.completedAt?.toISOString() ?? null,
         role: isBuyer ? 'BUYER' : 'SELLER',
         seller: isBuyer ? order.seller.profile : null,
-        buyerName: isBuyer ? null : order.buyer.name,
+        buyerName: isBuyer ? null : (order.buyer?.name ?? order.buyerName),
         items: order.items.map((item) => ({
           id: item.id,
           listingId: item.listingId,
@@ -98,7 +98,7 @@ export async function PATCH(request: Request, context: Context) {
           where: { id: order.id },
           data: { status: 'REJECTED', cancelledAt: now, sellerNote: body.sellerNote ?? null },
         })
-        await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_REJECTED', category: 'SYSTEM', priority: 'HIGH', title: 'Seller could not accept the order', body: 'Order ' + order.orderNumber + ' was declined. Any stock hold has been released.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-rejected:' + order.id } })
+        if (order.buyerId) await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_REJECTED', category: 'SYSTEM', priority: 'HIGH', title: 'Seller could not accept the order', body: 'Order ' + order.orderNumber + ' was declined. Any stock hold has been released.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-rejected:' + order.id } })
         return rejected
       }
 
@@ -153,7 +153,7 @@ export async function PATCH(request: Request, context: Context) {
           where: { id: order.id },
           data: { status: 'ACCEPTED', acceptedAt: now, sellerNote: body.sellerNote ?? null },
         })
-        await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_ACCEPTED', category: 'SYSTEM', priority: 'HIGH', title: 'Your order was accepted', body: 'The seller accepted order ' + order.orderNumber + ' and confirmed the tracked stock.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-accepted:' + order.id } })
+        if (order.buyerId) await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_ACCEPTED', category: 'SYSTEM', priority: 'HIGH', title: 'Your order was accepted', body: 'The seller accepted order ' + order.orderNumber + ' and confirmed the tracked stock.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-accepted:' + order.id } })
         return accepted
       }
 
@@ -209,7 +209,7 @@ export async function PATCH(request: Request, context: Context) {
             data: { saleId: sale.id },
           })
         }
-        await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_PAYMENT_CONFIRMED', category: 'SYSTEM', priority: 'NORMAL', title: 'Payment confirmed by seller', body: 'The seller recorded payment for order ' + order.orderNumber + '.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-payment:' + order.id } })
+        if (order.buyerId) await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_PAYMENT_CONFIRMED', category: 'SYSTEM', priority: 'NORMAL', title: 'Payment confirmed by seller', body: 'The seller recorded payment for order ' + order.orderNumber + '.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-payment:' + order.id } })
         return paid
       }
 
@@ -231,7 +231,7 @@ export async function PATCH(request: Request, context: Context) {
           ...(body.sellerNote !== undefined ? { sellerNote: body.sellerNote } : {}),
         },
       })
-      await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_STATUS_UPDATED', category: 'SYSTEM', priority: 'NORMAL', title: 'Order status updated', body: 'Order ' + order.orderNumber + ' is now ' + transition.to.toLowerCase().replace(/_/g, ' ') + '.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-status:' + order.id + ':' + transition.to } })
+      if (order.buyerId) await tx.notification.create({ data: { userId: order.buyerId, type: 'ORDER_STATUS_UPDATED', category: 'SYSTEM', priority: 'NORMAL', title: 'Order status updated', body: 'Order ' + order.orderNumber + ' is now ' + transition.to.toLowerCase().replace(/_/g, ' ') + '.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-status:' + order.id + ':' + transition.to } })
       return changed
     }, { isolationLevel: 'Serializable' })
 
