@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 type Context = { params: Promise<{ id: string }> }
 
 const actionSchema = z.object({
-  action: z.enum(['ACCEPT', 'REJECT', 'MARK_PAID', 'PROCESSING', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETE']),
+  action: z.enum(['ACCEPT', 'REJECT', 'CANCEL', 'MARK_PAID', 'PROCESSING', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETE']),
   paymentMethod: z.enum(['CASH', 'MTN_MOMO', 'AIRTEL_MONEY', 'OTHER']).optional(),
   paymentReference: z.string().trim().max(120).optional(),
   sellerNote: z.string().trim().max(1000).optional(),
@@ -82,11 +82,27 @@ export async function PATCH(request: Request, context: Context) {
       // Serialize seller actions against the expiry sweep for this order.
       await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "CommerceOrder" WHERE "id" = ${id} FOR UPDATE`)
       const order = await tx.commerceOrder.findFirst({
-        where: { id, sellerId: seller.id },
+        where: { id, OR: [{ sellerId: seller.id }, { buyerId: seller.id }] },
         include: { reservations: true, items: true },
       })
       if (!order) throw new ApiError(404, 'Order not found')
       const now = new Date()
+
+      if (body.action === 'CANCEL') {
+        if (order.buyerId !== seller.id) throw new ApiError(403, 'Only the buyer can cancel this order.')
+        if (order.status !== 'PENDING_SELLER') throw new ApiError(409, 'An order can only be cancelled by the buyer before the seller accepts it.')
+        await tx.stockReservation.updateMany({
+          where: { orderId: order.id, status: 'HELD' },
+          data: { status: 'RELEASED', releasedAt: now },
+        })
+        const cancelled = await tx.commerceOrder.update({
+          where: { id: order.id },
+          data: { status: 'CANCELLED', cancelledAt: now },
+        })
+        await tx.notification.create({ data: { userId: order.sellerId, type: 'ORDER_CANCELLED', category: 'SYSTEM', priority: 'NORMAL', title: 'Buyer cancelled an order', body: 'Order ' + order.orderNumber + ' was cancelled before acceptance. Reserved stock is available again.', actionUrl: '/#/orders', actionLabel: 'View order', dedupeKey: 'order-cancelled:' + order.id } })
+        return cancelled
+      }
+      if (order.sellerId !== seller.id) throw new ApiError(403, 'Only the seller can manage this order.')
 
       if (body.action === 'REJECT') {
         if (order.status !== 'PENDING_SELLER') throw new ApiError(409, 'Only an order awaiting seller confirmation can be rejected.')
