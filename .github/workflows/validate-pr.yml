@@ -461,7 +461,17 @@ jobs:
           # so this step exercises the actual additive production migration.
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."StockReservation", public."CommerceOrderItem", public."DeliveryOption", public."CommerceOrder" CASCADE;'
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."BusinessProduct" DROP COLUMN IF EXISTS "listingVariantId"; ALTER TABLE public."StockMovement" DROP COLUMN IF EXISTS "orderId", DROP COLUMN IF EXISTS "idempotencyKey"; ALTER TABLE public."Sale" DROP COLUMN IF EXISTS "commerceOrderId"; ALTER TABLE public."SaleItem" DROP COLUMN IF EXISTS "listingId", DROP COLUMN IF EXISTS "variantId"; ALTER TABLE public."SaleItem" ALTER COLUMN "productId" SET NOT NULL;'
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='mudaala_runtime') THEN CREATE ROLE mudaala_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; END IF; END \$\$;"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $roles$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='mudaala_runtime') THEN
+              CREATE ROLE mudaala_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN; END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
+          END
+          $roles$;
+          SQL
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261121130000_commerce_orders_inventory/migration.sql
 
           commerce_tables=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('CommerceOrder','CommerceOrderItem','StockReservation','DeliveryOption')")
