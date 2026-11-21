@@ -694,7 +694,7 @@ model StockReservation {
   orderItemId       String
   orderItem         CommerceOrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
   businessProductId String?
-  businessProduct   BusinessProduct? @relation(fields: [businessProductId], references: [id], onDelete: Restrict)
+  businessProduct   BusinessProduct? @relation(fields: [businessProductId], references: [id], onDelete: SetNull)
   variantId         String?
   variant           ListingVariant?  @relation(fields: [variantId], references: [id], onDelete: SetNull)
   quantity          Decimal          @db.Decimal(14, 3)
