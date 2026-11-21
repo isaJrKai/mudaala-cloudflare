@@ -163,7 +163,7 @@ export async function POST(request: Request) {
         }
       }
 
-      const createdOrders = []
+      const createdOrders: Array<{ id: string; orderNumber: string; status: string; total: Prisma.Decimal; currency: string }> = []
       for (const [sellerId, group] of bySeller) {
         let deliveryOption: { id: string; name: string; method: string; fee: Prisma.Decimal; minDays: number; maxDays: number; district: string | null; area: string | null } | null = null
         const selectedDeliveryOptionId = body.deliveryOptions?.[sellerId] ?? (bySeller.size === 1 ? body.deliveryOptionId : undefined)
