@@ -30,3 +30,6 @@ ALTER TABLE "ListingVariant"
 ALTER TABLE "Enquiry"
   ADD CONSTRAINT "Enquiry_variantId_fkey"
   FOREIGN KEY ("variantId") REFERENCES "ListingVariant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Variants are server-managed; deny direct Data API access without client policies.
+ALTER TABLE "ListingVariant" ENABLE ROW LEVEL SECURITY;
