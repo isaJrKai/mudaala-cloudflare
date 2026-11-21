@@ -90,7 +90,7 @@ export async function POST(request: Request) {
       },
     })
     if (listings.length !== listingIds.length) throw new ApiError(409, 'One or more products are no longer available.')
-    const listingById = new Map(listings.map((listing) => [listing.id, listing]))
+    const listingById = new Map<string, (typeof listings)[number]>(listings.map((listing) => [listing.id, listing] as const))
     const bySeller = new Map<string, Array<{ item: CheckoutItem; listing: typeof listings[number]; variant: typeof listings[number]['variants'][number] | null; product: typeof listings[number]['businessProducts'][number] | null; price: number }>>()
 
     for (const item of items) {
