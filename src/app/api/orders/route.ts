@@ -274,8 +274,13 @@ export async function POST(request: Request) {
       const previous = await db.commerceOrder.findMany({
         where: { buyerId: buyer.id, idempotencyKey: { in: expectedKeys } },
       })
-      if (previous.length !== expectedKeys.length) throw error
-      result = { orders: previous, replayed: true }
+      if (previous.length === expectedKeys.length) {
+        result = { orders: previous, replayed: true }
+      } else if (code === 'P2034') {
+        throw new ApiError(409, 'Inventory changed during checkout. Refresh the basket and try again.')
+      } else {
+        throw error
+      }
     }
 
     return jsonOk({
