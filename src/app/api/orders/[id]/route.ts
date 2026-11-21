@@ -236,6 +236,7 @@ export async function PATCH(request: Request, context: Context) {
         COMPLETE: { from: ['READY', 'OUT_FOR_DELIVERY'], to: 'COMPLETED' },
       }
       const transition = transitions[body.action]
+      if (body.action === 'COMPLETE' && order.paymentStatus !== 'PAID') throw new ApiError(409, 'Record the payment received before completing this order.')
       if (!transition || !transition.from.includes(order.status)) {
         throw new ApiError(409, 'That order status change is not allowed.')
       }
