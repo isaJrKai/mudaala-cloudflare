@@ -100,20 +100,19 @@ export function ShopTagsPanel({ shopName }: { shopName: string }) {
   const canLockInApp = typeof window !== 'undefined' && Boolean(ndefReader()?.makeReadOnly)
 
   return (
-    <section aria-label="Tap-to-shop tags" className="rounded-lg border bg-card p-4 sm:p-5">
-      <div className="flex items-start gap-2">
-        <Nfc className="mt-0.5 size-5 text-primary" aria-hidden />
-        <div>
-          <h2 className="text-base font-semibold">Tap-to-shop tags</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Stick an NFC tag on a door, notice board or table. One tap opens your shop, so you sell even when you are away. Buyers pay through your shop, never a number on the tag.
-          </p>
-        </div>
-      </div>
-
-      <ul className="mt-4 space-y-3">
+    <details className="mt-4 border-t border-border/70 pt-3">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-md py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+        <span className="min-w-0">
+          <span className="block font-semibold">Physical tags</span>
+          <span className="mt-0.5 block text-xs text-muted-foreground">{data.tags.length} of {data.max} tags · NFC and QR</span>
+        </span>
+        <span className="shrink-0 text-xs font-semibold text-primary">Manage</span>
+      </summary>
+      <div className="mt-3 space-y-3">
+      <p className="text-xs text-muted-foreground">Create tags for counters, entrances and other places customers can tap or scan.</p>
+      <ul className="space-y-2">
         {data.tags.map((tag) => (
-          <li key={tag.id} className="rounded-md border p-3">
+          <li key={tag.id} className="border-b border-border/60 py-2 last:border-0">
             <div className="flex items-start gap-3">
               <div data-tag-qr={tag.id} className="size-16 shrink-0 rounded border bg-white p-1">
                 <QRCode value={tag.qrUrl} size={56} role="img" aria-label={`QR code for ${tag.label}`} />
@@ -125,7 +124,7 @@ export function ShopTagsPanel({ shopName }: { shopName: string }) {
                 </p>
               </div>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-1.5">
               <Button size="sm" variant="outline" className="gap-1.5" disabled={busyId === tag.id} onClick={() => writeTag(tag)}><Nfc className="size-4" aria-hidden /> Write to tag</Button>
               {!tag.lockedAt ? <Button size="sm" variant="outline" disabled={busyId === tag.id} onClick={() => lockTag(tag)}>Lock tag</Button> : null}
               {!tag.lockedAt && !canLockInApp ? <Button size="sm" variant="ghost" onClick={() => patch.mutate({ id: tag.id, body: { locked: true } })}>I locked it</Button> : null}
@@ -140,7 +139,7 @@ export function ShopTagsPanel({ shopName }: { shopName: string }) {
       </ul>
 
       {data.tags.length < data.max ? (
-        <div className="mt-4 flex gap-2">
+        <div className="mt-3 flex gap-2">
           <Input value={label} maxLength={40} placeholder="Where will it go? e.g. Hostel A door" aria-label="Tag name" onChange={(e) => setLabel(e.target.value)} />
           <Button disabled={create.isPending || label.trim().length < 2} onClick={() => create.mutate()}>Add tag</Button>
         </div>
@@ -149,7 +148,7 @@ export function ShopTagsPanel({ shopName }: { shopName: string }) {
       )}
       {notice?.id === 'new' ? <p role="alert" className="mt-2 text-xs text-destructive">{notice.text}</p> : null}
 
-      <details className="mt-4 text-sm">
+      <details className="mt-2 text-xs">
         <summary className="cursor-pointer font-medium">How to set up a tag</summary>
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
           <li>Buy NTAG213 (or 215/216) stickers. Use "on-metal" ones if the spot is metal.</li>
@@ -159,6 +158,7 @@ export function ShopTagsPanel({ shopName }: { shopName: string }) {
           <li>Ask permission before placing tags on doors or boards you do not own.</li>
         </ol>
       </details>
-    </section>
+      </div>
+    </details>
   )
 }
