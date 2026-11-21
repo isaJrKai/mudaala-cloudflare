@@ -174,3 +174,11 @@ ALTER TABLE "SaleItem" ADD CONSTRAINT "SaleItem_listingId_fkey"
   FOREIGN KEY ("listingId") REFERENCES "Listing"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "SaleItem" ADD CONSTRAINT "SaleItem_variantId_fkey"
   FOREIGN KEY ("variantId") REFERENCES "ListingVariant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Keep buyer-side order snapshots when a shopper exercises account deletion.
+ALTER TABLE "CommerceOrder" ALTER COLUMN "buyerId" DROP NOT NULL;
+ALTER TABLE "CommerceOrder" ADD COLUMN "buyerName" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "CommerceOrder" ALTER COLUMN "buyerName" DROP DEFAULT;
+ALTER TABLE "CommerceOrder" DROP CONSTRAINT "CommerceOrder_buyerId_fkey";
+ALTER TABLE "CommerceOrder" ADD CONSTRAINT "CommerceOrder_buyerId_fkey"
+  FOREIGN KEY ("buyerId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
