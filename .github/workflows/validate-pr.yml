@@ -435,6 +435,25 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
 
+      - name: Apply product variants migration after Telegram commerce migration in disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          # db:push creates the current Prisma schema before migration tests.
+          # The older Telegram migration then recreates Enquiry, so reset only
+          # the variant objects and apply the real chronological migration here.
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'ALTER TABLE public."Enquiry" DROP COLUMN IF EXISTS "variantId", DROP COLUMN IF EXISTS "variantSnapshot";'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP TABLE IF EXISTS public."ListingVariant" CASCADE;'
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261121090000_product_variants/migration.sql
+          variant_table=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='ListingVariant'")
+          enquiry_columns=$(psql "$DATABASE_URL" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='Enquiry' AND column_name IN ('variantId','variantSnapshot')")
+          if [ "$variant_table" != "1" ] || [ "$enquiry_columns" != "2" ]; then
+            echo "Chronological product variants migration failed: table=$variant_table enquiry_columns=$enquiry_columns"
+            exit 1
+          fi
+          echo "Product variants migration passed after Telegram commerce migration."
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mudaala
+
       - name: Validate SQLite product collection migration and constraints
         run: |
           python3 - <<'PY'
