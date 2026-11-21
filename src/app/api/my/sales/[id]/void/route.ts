@@ -17,6 +17,7 @@ export async function POST(request: Request, context: Context) {
       })
       if (!sale) throw new ApiError(404, 'Sale not found')
       if (sale.status !== 'COMPLETED') throw new ApiError(409, 'This sale has already been voided')
+      if (sale.commerceOrderId) throw new ApiError(409, 'This sale belongs to a Mudaala order. Use the order return workflow instead; order returns are not yet available.')
 
       const movements = await tx.stockMovement.findMany({
         where: { userId: user.id, saleId: sale.id, type: 'SALE' },
